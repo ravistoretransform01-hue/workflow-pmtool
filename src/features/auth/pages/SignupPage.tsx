@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Button } from "@/shared/components/button";
 import { Input } from "@/shared/components/input";
 import { Label } from "@/shared/components/label";
 import {
@@ -10,16 +11,18 @@ import {
   CardTitle,
 } from "@/shared/components/card";
 import { BarChart3, Loader2 } from "lucide-react";
+import { useToast } from "@/app/hooks/use-toast";
 // import { useAuth } from "@/hooks/useAuth";
 // import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/shared/components/button";
 
-const LoginPage = () => {
+const SignupPage = () => {
   const navigate = useNavigate();
-  //   const { signIn, user, loading: authLoading } = useAuth();
-  //   const { toast } = useToast();
+  //   const { signUp, user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   //   useEffect(() => {
@@ -30,21 +33,47 @@ const LoginPage = () => {
 
   //   const handleSubmit = async (e: React.FormEvent) => {
   //     e.preventDefault();
+
+  //     if (password !== confirmPassword) {
+  //       toast({
+  //         title: "Passwords don't match",
+  //         description: "Please make sure your passwords match.",
+  //         variant: "destructive",
+  //       });
+  //       return;
+  //     }
+
+  //     if (password.length < 6) {
+  //       toast({
+  //         title: "Password too short",
+  //         description: "Password must be at least 6 characters long.",
+  //         variant: "destructive",
+  //       });
+  //       return;
+  //     }
+
   //     setIsSubmitting(true);
 
-  //     const { error } = await signIn(email, password);
+  //     const { error } = await signUp(email, password, name);
 
   //     if (error) {
+  //       let errorMessage = error.message;
+  //       if (error.message.includes("already registered")) {
+  //         errorMessage = "An account with this email already exists. Please sign in instead.";
+  //       }
+
   //       toast({
-  //         title: "Login failed",
-  //         description: error.message === "Invalid login credentials"
-  //           ? "Invalid email or password. Please try again."
-  //           : error.message,
+  //         title: "Sign up failed",
+  //         description: errorMessage,
   //         variant: "destructive",
   //       });
   //       setIsSubmitting(false);
   //     } else {
-  //       navigate("/dashboard");
+  //       toast({
+  //         title: "Account created!",
+  //         description: "You can now sign in with your credentials.",
+  //       });
+  //       navigate("/login");
   //     }
   //   };
 
@@ -55,10 +84,8 @@ const LoginPage = () => {
   //       </div>
   //     );
   //   }
-  
+
   const handleSubmit = async (e: React.FormEvent) => {};
-
-
   return (
     <div className="min-h-screen w-full bg-gradient-dark flex items-center justify-center p-4 animate-fade-in">
       <div className="w-full max-w-md space-y-8 animate-slide-up">
@@ -72,21 +99,36 @@ const LoginPage = () => {
               Project Manager
             </h1>
             <p className="text-muted-foreground text-lg">
-              Welcome back! Sign in to continue
+              Create your account to get started
             </p>
           </div>
         </div>
 
-        {/* Login Card */}
+        {/* Signup Card */}
         <Card className="shadow-card border-border bg-card">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-semibold">Sign In</CardTitle>
+            <CardTitle className="text-2xl font-semibold">
+              Create Account
+            </CardTitle>
             <CardDescription>
-              Enter your credentials to access your account
+              Enter your details to create your account
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  disabled={isSubmitting}
+                  className="h-12 bg-background border-border"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
                 <Input
@@ -113,6 +155,19 @@ const LoginPage = () => {
                   className="h-12 bg-background border-border"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  disabled={isSubmitting}
+                  className="h-12 bg-background border-border"
+                />
+              </div>
               <Button
                 type="submit"
                 className="w-full h-12 text-base font-medium shadow-lg"
@@ -121,22 +176,22 @@ const LoginPage = () => {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
+                    Creating account...
                   </>
                 ) : (
-                  "Sign In"
+                  "Create Account"
                 )}
               </Button>
             </form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
+                Already have an account?{" "}
                 <Link
-                  to="/signup"
+                  to="/login"
                   className="text-primary font-medium hover:underline"
                 >
-                  Create Account
+                  Sign In
                 </Link>
               </p>
             </div>
@@ -147,4 +202,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default SignupPage;

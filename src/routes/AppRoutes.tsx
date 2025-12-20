@@ -1,4 +1,5 @@
 import LoginPage from "@/features/auth/pages/LoginPage";
+import SignupPage from "@/features/auth/pages/SignupPage";
 import HomePage from "@/features/home/pages/HomePage";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
@@ -9,6 +10,7 @@ const AppRoutes = () => {
       <Routes>
         <Route path="/" element={<HomePage /> } />
         <Route path="/login" element={<LoginPage /> } />
+        <Route path="/signup" element={<SignupPage /> } />
       </Routes>
     </BrowserRouter>
   );
