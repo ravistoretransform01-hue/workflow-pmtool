@@ -1,4 +1,4 @@
-# Project Manager Application
+# Project Manager Application  
 
 A comprehensive project management application built with React, TypeScript, Tailwind CSS, and Supabase (via Lovable Cloud). This application provides task management, team collaboration, role-based access control, and AI-powered features.
 
