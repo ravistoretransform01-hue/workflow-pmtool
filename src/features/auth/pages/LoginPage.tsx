@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Input } from "@/shared/components/input";
+import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/label";
 import {
   Card,
@@ -12,7 +12,7 @@ import {
 import { BarChart3, Loader2 } from "lucide-react";
 // import { useAuth } from "@/hooks/useAuth";
 // import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/shared/components/button";
+import { Button } from "@/shared/components/ui/button";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -55,9 +55,11 @@ const LoginPage = () => {
   //       </div>
   //     );
   //   }
-  
-  const handleSubmit = async (e: React.FormEvent) => {};
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    // Navigate to home page
+    navigate("/home");
+  };
 
   return (
     <div className="min-h-screen w-full bg-gradient-dark flex items-center justify-center p-4 animate-fade-in">
