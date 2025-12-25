@@ -12,7 +12,7 @@ interface Workspace {
 export default function DynamicWorkspace() {
   const { workspaceId } = useParams();
   const navigate = useNavigate();
-  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [workspace] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

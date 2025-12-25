@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
-import { ChevronRight, ChevronDown, Search, Filter, Settings2, MoreHorizontal, X, Plus } from "lucide-react";
-import { useTestUser } from "@/contexts/TestUserContext";
+import { Filter, Settings2, Plus } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/shared/components/ui/tabs";
-import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Badge } from "@/shared/components/ui/badge";
 
 interface MyWorkItem {
@@ -17,13 +15,10 @@ interface MyWorkItem {
 }
 
 export default function MyWork() {
-  const { currentUser } = useTestUser();
-  const [items, setItems] = useState<MyWorkItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [items] = useState<MyWorkItem[]>([]);
 
   useEffect(() => {
     // TODO: Fetch my work items from REST API
-    setLoading(false);
   }, []);
 
   return (

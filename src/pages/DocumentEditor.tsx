@@ -14,7 +14,7 @@ interface Document {
 export default function DocumentEditor() {
   const { workspaceId, documentId } = useParams();
   const navigate = useNavigate();
-  const [document, setDocument] = useState<Document | null>(null);
+  const [document] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState("");
 

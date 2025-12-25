@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-import { useTestUser } from "@/contexts/TestUserContext";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Badge } from "@/shared/components/ui/badge";
 import { Card } from "@/shared/components/ui/card";
@@ -17,13 +15,10 @@ interface TeamMember {
 }
 
 export default function MyTeam() {
-  const { currentUser } = useTestUser();
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [members] = useState<TeamMember[]>([]);
 
   useEffect(() => {
     // TODO: Fetch team members from REST API
-    setLoading(false);
   }, []);
 
   return (

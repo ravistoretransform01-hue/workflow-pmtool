@@ -14,7 +14,7 @@ interface BoardDashboard {
 export default function BoardDashboardPage() {
   const { workspaceId, boardId } = useParams();
   const navigate = useNavigate();
-  const [dashboard, setDashboard] = useState<BoardDashboard | null>(null);
+  const [dashboard] = useState<BoardDashboard | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

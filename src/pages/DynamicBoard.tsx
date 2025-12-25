@@ -14,7 +14,7 @@ interface Board {
 export default function DynamicBoard() {
   const { workspaceId, boardId } = useParams();
   const navigate = useNavigate();
-  const [board, setBoard] = useState<Board | null>(null);
+  const [board] = useState<Board | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

@@ -3,7 +3,7 @@ import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/shared/components/ui/tabs";
 import { Badge } from "@/shared/components/ui/badge";
-import { Filter, Settings2, Search } from "lucide-react";
+import { Filter, Settings2 } from "lucide-react";
 
 interface AllItem {
   id: string;
@@ -16,12 +16,10 @@ interface AllItem {
 }
 
 export default function AllItems() {
-  const [items, setItems] = useState<AllItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [items] = useState<AllItem[]>([]);
 
   useEffect(() => {
     // TODO: Fetch all items from REST API
-    setLoading(false);
   }, []);
 
   return (

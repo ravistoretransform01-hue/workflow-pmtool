@@ -1,29 +1,8 @@
-import { useEffect, useState } from "react";
-import { Badge } from "@/shared/components/ui/badge";
-import { Input } from "@/shared/components/ui/input";
-import { ArrowLeft, Search } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-
-interface GroupData {
-  id: string;
-  name: string;
-  boardId: string;
-  boardName: string;
-  workspaceId: string;
-  timeSpentSeconds: number;
-  estimatedTimeSeconds: number;
-  memberCount: number;
-  status: "active" | "completed" | "on-hold";
-}
+import { useEffect } from "react";
 
 export default function Index() {
-  const navigate = useNavigate();
-  const [groups, setGroups] = useState<GroupData[]>([]);
-  const [loading, setLoading] = useState(false);
-
   useEffect(() => {
     // TODO: Fetch dashboard data from REST API
-    setLoading(false);
   }, []);
 
   return (

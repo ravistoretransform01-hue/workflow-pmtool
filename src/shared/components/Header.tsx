@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { SidebarTrigger, useSidebar } from "@/shared/components/ui/sidebar";
-import { Trash2, Settings, User, Users, LogOut, UserPlus, ChevronDown, FileText } from "lucide-react";
+import { Settings, User, LogOut, ChevronDown } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { useTestUser } from "@/contexts/TestUserContext";

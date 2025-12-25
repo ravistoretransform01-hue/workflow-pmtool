@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
-import { Badge } from "@/shared/components/ui/badge";
 import { Card } from "@/shared/components/ui/card";
 import { Plus } from "lucide-react";
 
@@ -15,12 +13,10 @@ interface Habit {
 }
 
 export default function MyHabits() {
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [habits] = useState<Habit[]>([]);
 
   useEffect(() => {
     // TODO: Fetch habits from REST API
-    setLoading(false);
   }, []);
 
   return (

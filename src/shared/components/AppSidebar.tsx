@@ -8,7 +8,7 @@ import {
   SidebarSeparator,
   SidebarFooter,
 } from "@/shared/components/ui/sidebar";
-import { BarChart3, Home, Users, FolderKanban, Settings, LogOut, CheckSquare, Briefcase, BookOpen } from "lucide-react";
+import { BarChart3, Home, Users, FolderKanban, Settings, LogOut, CheckSquare, Briefcase } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 export const AppSidebar = () => {
