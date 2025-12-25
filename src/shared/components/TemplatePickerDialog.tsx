@@ -8,7 +8,7 @@ import {
 import { Button } from "@/shared/components/ui/button";
 // import { supabase } from "@/integrations/supabase/client";
 import { FileText, Loader2, Trash2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+// import { useToast } from "@/hooks/use-toast";
 
 interface Template {
   id: string;
@@ -28,10 +28,12 @@ export function TemplatePickerDialog({
   onOpenChange,
   onSelectTemplate,
 }: TemplatePickerDialogProps) {
-  const [templates, setTemplates] = useState<Template[]>([]);
+  // const [templates, setTemplates] = useState<Template[]>([]);
+  const [templates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { toast } = useToast();
+  // const { toast } = useToast();
+
 
   useEffect(() => {
     if (open) {
@@ -52,8 +54,9 @@ export function TemplatePickerDialog({
     setLoading(false);
   };
 
-  const handleDelete = async (e: React.MouseEvent, templateId: string) => {
-    e.stopPropagation();
+  // const handleDelete = async (e: React.MouseEvent, templateId: string) => {
+  const handleDelete = async ( ) => {
+    // e.stopPropagation();
     // const { error } = await supabase
     //   .from('board_templates')
     //   .delete()
@@ -125,7 +128,8 @@ export function TemplatePickerDialog({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-muted-foreground hover:text-red-500 flex-shrink-0"
-                    onClick={(e) => handleDelete(e, template.id)}
+                    // onClick={(e) => handleDelete(e, template.id)}
+                    onClick={() => handleDelete()}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

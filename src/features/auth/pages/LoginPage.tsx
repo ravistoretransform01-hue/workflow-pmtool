@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/label";
@@ -20,7 +20,8 @@ const LoginPage = () => {
   //   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting] = useState(false);
 
   //   useEffect(() => {
   //     if (user && !authLoading) {
@@ -28,9 +29,9 @@ const LoginPage = () => {
   //     }
   //   }, [user, authLoading, navigate]);
 
-  //   const handleSubmit = async (e: React.FormEvent) => {
+    // const handleSubmit = async (e: React.FormEvent) => {
   //     e.preventDefault();
-  //     setIsSubmitting(true);
+      // setIsSubmitting(true);
 
   //     const { error } = await signIn(email, password);
 
@@ -56,7 +57,7 @@ const LoginPage = () => {
   //     );
   //   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async ( ) => {
     // Navigate to home page
     navigate("/home");
   };

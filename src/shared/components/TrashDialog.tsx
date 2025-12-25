@@ -1,11 +1,31 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, Trash2, Archive, MoreHorizontal, X, ChevronRight, Folder, RotateCcw, MessageSquare } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader } from "@/shared/components/ui/dialog";
+import {
+  Search,
+  Filter,
+  Trash2,
+  Archive,
+  MoreHorizontal,
+  X,
+  ChevronRight,
+  Folder,
+  RotateCcw,
+  MessageSquare,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+} from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/shared/components/ui/tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/shared/components/ui/tabs";
 // import { supabase } from "@/integrations/supabase/client";
 import { useTestUser } from "@/contexts/TestUserContext";
 import { format } from "date-fns";
@@ -46,17 +66,21 @@ interface TrashDialogProps {
 
 export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>({});
-  const [deletedItems, setDeletedItems] = useState<DeletedItem[]>([]);
-  const [archivedItems, setArchivedItems] = useState<DeletedItem[]>([]);
-  const [deletedUpdates, setDeletedUpdates] = useState<DeletedUpdate[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>(
+    {}
+  );
+  // const [deletedItems, setDeletedItems] = useState<DeletedItem[]>([]);
+  // const [archivedItems, setArchivedItems] = useState<DeletedItem[]>([]);
+  // const [deletedUpdates, setDeletedUpdates] = useState<DeletedUpdate[]>([]);
+  const [deletedItems] = useState<DeletedItem[]>([]);
+  const [archivedItems] = useState<DeletedItem[]>([]);
+  const [deletedUpdates] = useState<DeletedUpdate[]>([]);
   const { currentUser } = useTestUser();
 
   // Load deleted updates and items from database
   useEffect(() => {
     const loadDeletedData = async () => {
       // if (!open) return;
-
       // try {
       //   // Load deleted updates
       //   const { data: updatesData, error: updatesError } = await supabase
@@ -64,19 +88,15 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
       //     .select('*')
       //     .eq('deleted', true)
       //     .order('updated_at', { ascending: false });
-
       //   if (updatesError) throw updatesError;
       //   setDeletedUpdates(updatesData || []);
-
       //   // Load deleted items
       //   const { data: itemsData, error: itemsError } = await supabase
       //     .from('items')
       //     .select('*, groups(name, board_id, boards(name))')
       //     .eq('deleted', true)
       //     .order('updated_at', { ascending: false });
-
       //   if (itemsError) throw itemsError;
-
       //   // Format deleted items for display
       //   const formattedItems: DeletedItem[] = (itemsData || []).map((item: any) => ({
       //     id: item.id,
@@ -87,7 +107,6 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
       //     deletedDate: format(new Date(item.updated_at), 'MMM d, yyyy'),
       //     originalData: item,
       //   }));
-
       //   setDeletedItems(formattedItems);
       // } catch (error) {
       //   console.error('Error loading deleted data:', error);
@@ -100,80 +119,73 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
   const filteredItems = deletedItems.filter((item) => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
-    
+
     return (
       item.name.toLowerCase().includes(query) ||
       item.type.toLowerCase().includes(query) ||
-      item.deletedFrom.some(location => location.toLowerCase().includes(query))
+      item.deletedFrom.some((location) =>
+        location.toLowerCase().includes(query)
+      )
     );
   });
 
   const filteredArchivedItems = archivedItems.filter((item) => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
-    
+
     return (
       item.name.toLowerCase().includes(query) ||
       item.type.toLowerCase().includes(query) ||
-      item.deletedFrom.some(location => location.toLowerCase().includes(query))
+      item.deletedFrom.some((location) =>
+        location.toLowerCase().includes(query)
+      )
     );
   });
 
   const filteredUpdates = deletedUpdates.filter((update) => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
-    
+
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = update.text;
     const textContent = tempDiv.textContent || tempDiv.innerText || "";
-    
+
     return textContent.toLowerCase().includes(query);
   });
 
   const handleRestore = async () => {
     // const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id]);
     // if (selectedItemIds.length === 0) return;
-
     // try {
     //   // Check if any selected items are updates
     //   const updateIds = selectedItemIds.filter(id => deletedUpdates.some(u => u.id === id));
-      
     //   if (updateIds.length > 0) {
     //     // Restore updates
     //     const { error } = await supabase
     //       .from('updates')
     //       .update({ deleted: false })
     //       .in('id', updateIds);
-
     //     if (error) throw error;
-
     //     // Remove from local state
     //     setDeletedUpdates(prev => prev.filter(u => !updateIds.includes(u.id)));
     //   }
-
     //   // Check if any selected items are board items
     //   const itemIds = selectedItemIds.filter(id => deletedItems.some(i => i.id === id));
-      
     //   if (itemIds.length > 0) {
     //     // Restore items
     //     const { error } = await supabase
     //       .from('items')
     //       .update({ deleted: false })
     //       .in('id', itemIds);
-
     //     if (error) throw error;
-
     //     // Remove from local state
     //     setDeletedItems(prev => prev.filter(i => !itemIds.includes(i.id)));
     //   }
-
     //   // Remove archived items if any
     //   const remainingArchived = archivedItems.filter(item => !selectedItemIds.includes(item.id));
     //   setArchivedItems(remainingArchived);
     //   localStorage.setItem('archived-items', JSON.stringify(remainingArchived));
-    
     //   setSelectedItems({});
-    
     //   window.dispatchEvent(new CustomEvent('updates-restored'));
     // } catch (error) {
     //   console.error('Error restoring items:', error);
@@ -183,45 +195,35 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
   const handleDeletePermanently = async () => {
     // const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id]);
     // if (selectedItemIds.length === 0) return;
-
     // try {
     //   // Check if any selected items are updates
     //   const updateIds = selectedItemIds.filter(id => deletedUpdates.some(u => u.id === id));
-      
     //   if (updateIds.length > 0) {
     //     // Permanently delete updates
     //     const { error } = await supabase
     //       .from('updates')
     //       .delete()
     //       .in('id', updateIds);
-
     //     if (error) throw error;
-
     //     // Remove from local state
     //     setDeletedUpdates(prev => prev.filter(u => !updateIds.includes(u.id)));
     //   }
-
     //   // Check if any selected items are board items
     //   const itemIds = selectedItemIds.filter(id => deletedItems.some(i => i.id === id));
-      
     //   if (itemIds.length > 0) {
     //     // Permanently delete items
     //     const { error } = await supabase
     //       .from('items')
     //       .delete()
     //       .in('id', itemIds);
-
     //     if (error) throw error;
-
     //     // Remove from local state
     //     setDeletedItems(prev => prev.filter(i => !itemIds.includes(i.id)));
     //   }
-
     //   // Remove archived items permanently
     //   const remainingArchived = archivedItems.filter(item => !selectedItemIds.includes(item.id));
     //   setArchivedItems(remainingArchived);
     //   localStorage.setItem('archived-items', JSON.stringify(remainingArchived));
-    
     //   setSelectedItems({});
     // } catch (error) {
     //   console.error('Error deleting items permanently:', error);
@@ -237,10 +239,14 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
           <div>
             <h2 className="text-3xl font-bold mb-2">Trash</h2>
             <p className="text-sm text-muted-foreground">
-              This is your account trash for deleted workspaces, boards, docs, dashboards, items and columns.
+              This is your account trash for deleted workspaces, boards, docs,
+              dashboards, items and columns.
               <br />
-              After 30 days from the deletion date it will be deleted permanently and will no longer be accessible.{" "}
-              <a href="#" className="text-primary hover:underline">Learn more</a>
+              After 30 days from the deletion date it will be deleted
+              permanently and will no longer be accessible.{" "}
+              <a href="#" className="text-primary hover:underline">
+                Learn more
+              </a>
             </p>
           </div>
         </DialogHeader>
@@ -292,30 +298,54 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                     <th className="text-left p-4 font-medium text-sm text-muted-foreground w-12">
                       <Checkbox />
                     </th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground">Name</th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">Type</th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground">Deleted from</th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-48">Deleted by</th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">Date</th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-20">Action</th>
+                    <th className="text-left p-4 font-medium text-sm text-muted-foreground">
+                      Name
+                    </th>
+                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">
+                      Type
+                    </th>
+                    <th className="text-left p-4 font-medium text-sm text-muted-foreground">
+                      Deleted from
+                    </th>
+                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-48">
+                      Deleted by
+                    </th>
+                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">
+                      Date
+                    </th>
+                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-20">
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredItems.length === 0 && filteredUpdates.length === 0 ? (
+                  {filteredItems.length === 0 &&
+                  filteredUpdates.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                        {searchQuery ? `No items found matching "${searchQuery}"` : "No deleted items"}
+                      <td
+                        colSpan={7}
+                        className="p-8 text-center text-muted-foreground"
+                      >
+                        {searchQuery
+                          ? `No items found matching "${searchQuery}"`
+                          : "No deleted items"}
                       </td>
                     </tr>
                   ) : (
                     <>
                       {filteredItems.map((item) => (
-                        <tr key={item.id} className="border-b border-border hover:bg-hover/50">
+                        <tr
+                          key={item.id}
+                          className="border-b border-border hover:bg-hover/50"
+                        >
                           <td className="p-4">
                             <Checkbox
                               checked={selectedItems[item.id] || false}
                               onCheckedChange={(checked) =>
-                                setSelectedItems((prev) => ({ ...prev, [item.id]: checked as boolean }))
+                                setSelectedItems((prev) => ({
+                                  ...prev,
+                                  [item.id]: checked as boolean,
+                                }))
                               }
                             />
                           </td>
@@ -331,8 +361,13 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                           <td className="p-4">
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               {item.deletedFrom.map((location, idx) => (
-                                <div key={idx} className="flex items-center gap-1">
-                                  {idx > 0 && <ChevronRight className="h-3 w-3" />}
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-1"
+                                >
+                                  {idx > 0 && (
+                                    <ChevronRight className="h-3 w-3" />
+                                  )}
                                   <span>{location}</span>
                                 </div>
                               ))}
@@ -345,16 +380,24 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                                   {item.deletedBy.initials}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="text-sm">{item.deletedBy.name}</span>
+                              <span className="text-sm">
+                                {item.deletedBy.name}
+                              </span>
                             </div>
                           </td>
                           <td className="p-4">
-                            <span className="text-sm text-muted-foreground">{item.deletedDate}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {item.deletedDate}
+                            </span>
                           </td>
                           <td className="p-4">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                >
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -371,16 +414,26 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                       {filteredUpdates.map((update) => {
                         const tempDiv = document.createElement("div");
                         tempDiv.innerHTML = update.text;
-                        const textContent = tempDiv.textContent || tempDiv.innerText || "";
-                        const preview = textContent.length > 60 ? textContent.substring(0, 60) + "..." : textContent;
-                        
+                        const textContent =
+                          tempDiv.textContent || tempDiv.innerText || "";
+                        const preview =
+                          textContent.length > 60
+                            ? textContent.substring(0, 60) + "..."
+                            : textContent;
+
                         return (
-                          <tr key={update.id} className="border-b border-border hover:bg-hover/50">
+                          <tr
+                            key={update.id}
+                            className="border-b border-border hover:bg-hover/50"
+                          >
                             <td className="p-4">
                               <Checkbox
                                 checked={selectedItems[update.id] || false}
                                 onCheckedChange={(checked) =>
-                                  setSelectedItems((prev) => ({ ...prev, [update.id]: checked as boolean }))
+                                  setSelectedItems((prev) => ({
+                                    ...prev,
+                                    [update.id]: checked as boolean,
+                                  }))
                                 }
                               />
                             </td>
@@ -394,55 +447,76 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                               </div>
                             </td>
                             <td className="p-4">
-                              <span className="text-sm text-muted-foreground">Board item</span>
+                              <span className="text-sm text-muted-foreground">
+                                Board item
+                              </span>
                             </td>
                             <td className="p-4">
                               <div className="flex items-center gap-2">
                                 <Avatar className="h-6 w-6">
                                   <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                                    {currentUser.name.split(' ').map(n => n[0]).join('')}
+                                    {currentUser.name
+                                      .split(" ")
+                                      .map((n) => n[0])
+                                      .join("")}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="text-sm">{currentUser.name}</span>
+                                <span className="text-sm">
+                                  {currentUser.name}
+                                </span>
                               </div>
                             </td>
                             <td className="p-4">
                               <span className="text-sm text-muted-foreground">
-                                {format(new Date(update.updated_at), 'MMM d, yyyy')}
+                                {format(
+                                  new Date(update.updated_at),
+                                  "MMM d, yyyy"
+                                )}
                               </span>
                             </td>
                             <td className="p-4">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                  >
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={async () => {
-                                    try {
-                                      // const { error } = await supabase
-                                      //   .from('updates')
-                                      //   .update({ deleted: false })
-                                      //   .eq('id', update.id);
-                                      
-                                      // if (error) throw error;
-                                      
-                                      // setDeletedUpdates(prev => prev.filter(u => u.id !== update.id));
-                                      // setSelectedItems(prev => {
-                                      //   const updated = { ...prev };
-                                      //   delete updated[update.id];
-                                      //   return updated;
-                                      // });
-                                      window.dispatchEvent(new CustomEvent('updates-restored'));
-                                    } catch (error) {
-                                      console.error('Error restoring update:', error);
-                                    }
-                                  }}>
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      try {
+                                        // const { error } = await supabase
+                                        //   .from('updates')
+                                        //   .update({ deleted: false })
+                                        //   .eq('id', update.id);
+
+                                        // if (error) throw error;
+
+                                        // setDeletedUpdates(prev => prev.filter(u => u.id !== update.id));
+                                        // setSelectedItems(prev => {
+                                        //   const updated = { ...prev };
+                                        //   delete updated[update.id];
+                                        //   return updated;
+                                        // });
+                                        window.dispatchEvent(
+                                          new CustomEvent("updates-restored")
+                                        );
+                                      } catch (error) {
+                                        console.error(
+                                          "Error restoring update:",
+                                          error
+                                        );
+                                      }
+                                    }}
+                                  >
                                     <RotateCcw className="h-4 w-4 mr-2" />
                                     Restore
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     className="text-destructive"
                                     onClick={async () => {
                                       try {
@@ -450,9 +524,7 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                                         //   .from('updates')
                                         //   .delete()
                                         //   .eq('id', update.id);
-                                        
                                         // if (error) throw error;
-                                        
                                         // setDeletedUpdates(prev => prev.filter(u => u.id !== update.id));
                                         // setSelectedItems(prev => {
                                         //   const updated = { ...prev };
@@ -460,7 +532,10 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                                         //   return updated;
                                         // });
                                       } catch (error) {
-                                        console.error('Error deleting update:', error);
+                                        console.error(
+                                          "Error deleting update:",
+                                          error
+                                        );
                                       }
                                     }}
                                   >
@@ -486,8 +561,12 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                 <div className="flex-1 flex items-center justify-center py-12">
                   <div className="text-center">
                     <Archive className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-xl font-semibold mb-2">No archived items</h3>
-                    <p className="text-muted-foreground">Archived items will appear here</p>
+                    <h3 className="text-xl font-semibold mb-2">
+                      No archived items
+                    </h3>
+                    <p className="text-muted-foreground">
+                      Archived items will appear here
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -497,22 +576,40 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                       <th className="text-left p-4 font-medium text-sm text-muted-foreground w-12">
                         <Checkbox />
                       </th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground">Name</th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">Type</th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground">Archived from</th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-48">Archived by</th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">Date</th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-20">Action</th>
+                      <th className="text-left p-4 font-medium text-sm text-muted-foreground">
+                        Name
+                      </th>
+                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">
+                        Type
+                      </th>
+                      <th className="text-left p-4 font-medium text-sm text-muted-foreground">
+                        Archived from
+                      </th>
+                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-48">
+                        Archived by
+                      </th>
+                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">
+                        Date
+                      </th>
+                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-20">
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredArchivedItems.map((item) => (
-                      <tr key={item.id} className="border-b border-border hover:bg-hover/50">
+                      <tr
+                        key={item.id}
+                        className="border-b border-border hover:bg-hover/50"
+                      >
                         <td className="p-4">
                           <Checkbox
                             checked={selectedItems[item.id] || false}
                             onCheckedChange={(checked) =>
-                              setSelectedItems((prev) => ({ ...prev, [item.id]: checked as boolean }))
+                              setSelectedItems((prev) => ({
+                                ...prev,
+                                [item.id]: checked as boolean,
+                              }))
                             }
                           />
                         </td>
@@ -528,8 +625,13 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                         <td className="p-4">
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
                             {item.deletedFrom.map((location, idx) => (
-                              <div key={idx} className="flex items-center gap-1">
-                                {idx > 0 && <ChevronRight className="h-3 w-3" />}
+                              <div
+                                key={idx}
+                                className="flex items-center gap-1"
+                              >
+                                {idx > 0 && (
+                                  <ChevronRight className="h-3 w-3" />
+                                )}
                                 <span>{location}</span>
                               </div>
                             ))}
@@ -542,16 +644,24 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                                 {item.deletedBy.initials}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-sm">{item.deletedBy.name}</span>
+                            <span className="text-sm">
+                              {item.deletedBy.name}
+                            </span>
                           </div>
                         </td>
                         <td className="p-4">
-                          <span className="text-sm text-muted-foreground">{item.deletedDate}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {item.deletedDate}
+                          </span>
                         </td>
                         <td className="p-4">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -582,24 +692,24 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                 </div>
                 <span className="text-white font-medium">Items selected</span>
               </div>
-              
+
               <div className="flex items-center gap-4">
-                <button 
+                <button
                   onClick={handleRestore}
                   className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors"
                 >
                   <RotateCcw className="h-5 w-5" />
                   <span>Restore</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={handleDeletePermanently}
                   className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors"
                 >
                   <Trash2 className="h-5 w-5" />
                   <span>Delete Permanently</span>
                 </button>
-                
+
                 <button
                   onClick={() => setSelectedItems({})}
                   className="text-gray-400 hover:text-white transition-colors ml-4"

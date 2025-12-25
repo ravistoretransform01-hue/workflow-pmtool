@@ -37,7 +37,8 @@ import {
   SelectValue,
   SelectSeparator,
 } from "@/shared/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
+// import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Search, UserPlus, Trash2 } from "lucide-react";
 import { InviteDialog } from "@/shared/components/InviteDialog";

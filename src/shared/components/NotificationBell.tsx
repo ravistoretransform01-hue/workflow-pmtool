@@ -25,7 +25,8 @@ interface Notification {
 export function NotificationBell() {
   const { currentUser, testUsers } = useTestUser();
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  // const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications] = useState<Notification[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const navigate = useNavigate();
@@ -77,6 +78,9 @@ export function NotificationBell() {
   };
 
   const markAsRead = async (notificationId: string) => {
+    if(notificationId === null) return;
+
+
     // await supabase
     //   .from('notifications')
     //   .update({ read: true })

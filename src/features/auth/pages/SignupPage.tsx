@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+// import { useState, useEffect } from "react";
+// import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/label";
@@ -11,19 +13,20 @@ import {
   CardTitle,
 } from "@/shared/components/card";
 import { BarChart3, Loader2 } from "lucide-react";
-import { useToast } from "@/app/hooks/use-toast";
+// import { useToast } from "@/app/hooks/use-toast";
 // import { useAuth } from "@/hooks/useAuth";
 // import { useToast } from "@/hooks/use-toast";
 
 const SignupPage = () => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   //   const { signUp, user, loading: authLoading } = useAuth();
-  const { toast } = useToast();
+  // const { toast } = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting] = useState(false);
 
   //   useEffect(() => {
   //     if (user && !authLoading) {
@@ -85,7 +88,9 @@ const SignupPage = () => {
   //     );
   //   }
 
-  const handleSubmit = async (e: React.FormEvent) => {};
+  // const handleSubmit = async (e: React.FormEvent) => {};
+  const handleSubmit = async () => {};
+  
   return (
     <div className="min-h-screen w-full bg-gradient-dark flex items-center justify-center p-4 animate-fade-in">
       <div className="w-full max-w-md space-y-8 animate-slide-up">

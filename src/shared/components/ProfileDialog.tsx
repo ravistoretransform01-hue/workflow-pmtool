@@ -18,14 +18,15 @@ interface ProfileDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const avatarColors = [
-  "bg-gradient-to-br from-purple-500 to-pink-500",
-  "bg-gradient-to-br from-blue-500 to-cyan-500",
-  "bg-gradient-to-br from-green-500 to-emerald-500",
-  "bg-gradient-to-br from-orange-500 to-red-500",
-  "bg-gradient-to-br from-indigo-500 to-purple-500",
-  "bg-gradient-to-br from-pink-500 to-rose-500",
-];
+// const avatarColors = [
+//   "bg-gradient-to-br from-purple-500 to-pink-500",
+//   "bg-gradient-to-br from-blue-500 to-cyan-500",
+//   "bg-gradient-to-br from-green-500 to-emerald-500",
+//   "bg-gradient-to-br from-orange-500 to-red-500",
+//   "bg-gradient-to-br from-indigo-500 to-purple-500",
+//   "bg-gradient-to-br from-pink-500 to-rose-500",
+// ];
+ 
 
 export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   const { currentUser } = useTestUser();
