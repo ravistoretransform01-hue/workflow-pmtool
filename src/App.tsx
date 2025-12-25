@@ -12,7 +12,6 @@ import LoginPage from "@/features/auth/pages/LoginPage";
 import SignupPage from "@/features/auth/pages/SignupPage";
 import LandingPage from "@/features/landing/pages/LandingPage";
 import HomePage from "@/features/home/pages/HomePage";
-import Index from "@/pages/Index";
 import MyWork from "@/pages/MyWork";
 import MyTeam from "@/pages/MyTeam";
 import AllItems from "@/pages/AllItems";
