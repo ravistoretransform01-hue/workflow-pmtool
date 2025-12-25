@@ -1,47 +1,73 @@
+import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/shared/components/ui/tooltip";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SidebarProvider } from "@/shared/components/ui/sidebar";
 import { AppSidebar } from "@/shared/components/AppSidebar";
-// import { Header } from "@/shared/components/Header";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Header } from "@/shared/components/Header";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
+import { TestUserProvider } from "@/contexts/TestUserContext";
 
 // Pages
 import LoginPage from "@/features/auth/pages/LoginPage";
 import SignupPage from "@/features/auth/pages/SignupPage";
 import LandingPage from "@/features/landing/pages/LandingPage";
 import HomePage from "@/features/home/pages/HomePage";
-// import NotFound from "@/pages/NotFound";
+import Index from "@/pages/Index";
+import MyWork from "@/pages/MyWork";
+import MyTeam from "@/pages/MyTeam";
+import AllItems from "@/pages/AllItems";
+import MyHabits from "@/pages/MyHabits";
+import DynamicWorkspace from "@/pages/DynamicWorkspace";
+import DynamicBoard from "@/pages/DynamicBoard";
+import BoardDashboardPage from "@/pages/BoardDashboardPage";
+import DocumentEditor from "@/pages/DocumentEditor";
+import NotFound from "@/pages/NotFound";
 
 const App = () => (
   <TooltipProvider>
+    <Sonner />
     <BrowserRouter>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
+      <TestUserProvider>
+        <WorkspaceProvider>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
 
-        {/* Protected Routes with Layout */}
-        <Route
-          path="/*"
-          element={
-            <SidebarProvider defaultOpen={true}>
-              <div className="min-h-screen flex w-full">
-                <AppSidebar />
-                <div className="flex-1 flex flex-col">
-                  {/* <Header /> */}
-                  <main className="flex-1 overflow-auto">
-                    <Routes>
-                      <Route path="/home" element={<HomePage />} />
-                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                      {/* <Route path="*" element={<NotFound />} /> */}
-                    </Routes>
-                  </main>
-                </div>
-              </div>
-            </SidebarProvider>
-          }
-        />
-      </Routes>
+            {/* Protected Routes with Layout */}
+            <Route
+              path="/*"
+              element={
+                <SidebarProvider defaultOpen={true}>
+                  <div className="min-h-screen flex w-full">
+                    <AppSidebar />
+                    <div className="flex-1 flex flex-col">
+                      <Header />
+                      <main className="flex-1 overflow-auto">
+                        <Routes>
+                          <Route path="/home" element={<HomePage />} />
+                          <Route path="/" element={<Index />} />
+                          <Route path="/my-work" element={<MyWork />} />
+                          <Route path="/my-team" element={<MyTeam />} />
+                          <Route path="/all-items" element={<AllItems />} />
+                          <Route path="/my-habits" element={<MyHabits />} />
+                          <Route path="/workspace/:workspaceId" element={<DynamicWorkspace />} />
+                          <Route path="/workspace/:workspaceId/board/:boardId" element={<DynamicBoard />} />
+                          <Route path="/workspace/:workspaceId/board/:boardId/dashboard" element={<BoardDashboardPage />} />
+                          <Route path="/workspace/:workspaceId/doc/:documentId" element={<DocumentEditor />} />
+                          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </main>
+                    </div>
+                  </div>
+                </SidebarProvider>
+              }
+            />
+          </Routes>
+        </WorkspaceProvider>
+      </TestUserProvider>
     </BrowserRouter>
   </TooltipProvider>
 );

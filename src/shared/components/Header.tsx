@@ -2,12 +2,6 @@ import { useState } from "react";
 import { SidebarTrigger, useSidebar } from "@/shared/components/ui/sidebar";
 import { Trash2, Settings, User, Users, LogOut, UserPlus, ChevronDown, FileText } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { TrashDialog } from "@/shared/components/TrashDialog";
-import { UserManagementDialog } from "@/shared/components/UserManagementDialog";
-import { InviteDialog } from "@/shared/components/InviteDialog";
-import { ProfileDialog } from "@/shared/components/ProfileDialog";
-import { NotificationBell } from "@/shared/components/NotificationBell";
-import { TemplatePickerDialog } from "@/shared/components/TemplatePickerDialog";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { useTestUser } from "@/contexts/TestUserContext";
 import {
@@ -22,11 +16,6 @@ import {
 export function Header() {
   const { open } = useSidebar();
   const { currentUser, testUsers, switchUser } = useTestUser();
-  const [trashDialogOpen, setTrashDialogOpen] = useState(false);
-  const [userManagementOpen, setUserManagementOpen] = useState(false);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
-  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   
   return (
     <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6 sticky top-0 z-10">
@@ -47,84 +36,40 @@ export function Header() {
               <ChevronDown className="h-4 w-4 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Switch Test User</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Switch User</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {testUsers.map((user) => (
               <DropdownMenuItem
                 key={user.id}
                 onClick={() => switchUser(user.id)}
-                className="flex items-center gap-2"
+                className={currentUser.id === user.id ? "bg-accent" : ""}
               >
-                <Avatar className="h-6 w-6">
+                <Avatar className="h-6 w-6 mr-2">
                   <AvatarFallback style={{ backgroundColor: user.avatarColor }}>
                     {user.name[0]}
                   </AvatarFallback>
                 </Avatar>
                 <span>{user.name}</span>
-                {user.id === currentUser.id && <span className="ml-auto">✓</span>}
               </DropdownMenuItem>
             ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        
-        <NotificationBell />
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="hover:bg-hover"
-          onClick={() => setTrashDialogOpen(true)}
-        >
-          <Trash2 className="h-5 w-5" />
-        </Button>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="hover:bg-hover"
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => setProfileDialogOpen(true)}>
-              <User className="mr-2 h-4 w-4" />
-              <span>My profile</span>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled>
+              <User className="h-4 w-4 mr-2" />
+              <span>Profile</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setUserManagementOpen(true)}>
-              <Users className="mr-2 h-4 w-4" />
-              <span>Members</span>
+            <DropdownMenuItem disabled>
+              <Settings className="h-4 w-4 mr-2" />
+              <span>Settings</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setInviteDialogOpen(true)}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              <span>Invite</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTemplateDialogOpen(true)}>
-              <FileText className="mr-2 h-4 w-4" />
-              <span>Edit Templates</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <LogOut className="mr-2 h-4 w-4" />
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled>
+              <LogOut className="h-4 w-4 mr-2" />
               <span>Logout</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
-      <TrashDialog open={trashDialogOpen} onOpenChange={setTrashDialogOpen} />
-      <UserManagementDialog open={userManagementOpen} onOpenChange={setUserManagementOpen} />
-      <InviteDialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen} />
-      <ProfileDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
-      <TemplatePickerDialog 
-        open={templateDialogOpen} 
-        onOpenChange={setTemplateDialogOpen}
-        onSelectTemplate={() => setTemplateDialogOpen(false)}
-      />
     </header>
   );
 }
-
- 

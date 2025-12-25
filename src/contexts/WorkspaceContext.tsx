@@ -1,161 +1,542 @@
-// import {
-//   createContext,
-//   useContext,
-//   useState,
-//   useEffect,
-//   type ReactNode,
-// } from "react";
-// import { LayoutDashboard } from "lucide-react";
-// // import { supabase } from '@/integrations/supabase/client';
-// import { useTestUser } from "./TestUserContext";
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { LayoutDashboard } from 'lucide-react';
+import { useTestUser } from './TestUserContext';
 
-// export interface Board {
-//   id: string;
-//   name: string;
-//   url: string;
-//   icon: any;
-// }
 
-// export interface Folder {
-//   id: string;
-//   name: string;
-//   boards: Board[];
-// }
+export interface Board {
+  id: string;
+  name: string;
+  url: string;
+  icon: any;
+}
 
-// export interface Workspace {
-//   id: string;
-//   name: string;
-//   iconColor: string;
-//   privacy: "open" | "closed";
-//   boards: Board[]; // Boards at workspace level (not in folders)
-//   folders: Folder[];
-// }
+export interface Folder {
+  id: string;
+  name: string;
+  boards: Board[];
+}
 
-// export type DuplicateOption =
-//   | "structure"
-//   | "structure-items"
-//   | "structure-items-updates";
+export interface Workspace {
+  id: string;
+  name: string;
+  iconColor: string;
+  privacy: 'open' | 'closed';
+  boards: Board[];
+  folders: Folder[];
+}
 
-// interface WorkspaceContextType {
-//   workspaces: Workspace[];
-//   addWorkspace: (
-//     workspace: Omit<Workspace, "id" | "folders" | "boards">,
-//     members?: { test_user_id: string; role: string }[],
-//     rolePermissions?: Record<string, Record<string, boolean>>
-//   ) => Promise<string | null>;
-//   addBoard: (
-//     workspaceId: string,
-//     board: Omit<Board, "id" | "url">,
-//     folderId?: string,
-//     members?: Array<{ test_user_id: string; role: string }>
-//   ) => Promise<void>;
-//   addFolder: (workspaceId: string, folderName: string) => Promise<string>;
-//   updateFolderName: (
-//     workspaceId: string,
-//     folderId: string,
-//     newName: string
-//   ) => Promise<void>;
-//   updateBoardName: (
-//     workspaceId: string,
-//     boardId: string,
-//     newName: string
-//   ) => Promise<void>;
-//   updateWorkspaceName: (workspaceId: string, newName: string) => Promise<void>;
-//   deleteWorkspace: (workspaceId: string) => Promise<void>;
-//   deleteBoard: (workspaceId: string, boardId: string) => Promise<void>;
-//   deleteFolder: (workspaceId: string, folderId: string) => Promise<void>;
-//   moveBoard: (
-//     workspaceId: string,
-//     boardId: string,
-//     sourceFolderId: string | null,
-//     targetFolderId: string | null
-//   ) => Promise<void>;
-//   moveBoardToWorkspace: (
-//     sourceWorkspaceId: string,
-//     targetWorkspaceId: string,
-//     boardId: string,
-//     sourceFolderId: string | null
-//   ) => Promise<void>;
-//   getWorkspaceById: (id: string) => Workspace | undefined;
-//   reorderFolders: (workspaceId: string, newOrder: Folder[]) => void;
-//   reorderBoards: (
-//     workspaceId: string,
-//     folderId: string,
-//     newOrder: Board[]
-//   ) => void;
-//   duplicateBoard: (
-//     workspaceId: string,
-//     boardId: string,
-//     folderId: string | null,
-//     option: DuplicateOption
-//   ) => Promise<void>;
-// }
+export type DuplicateOption = "structure" | "structure-items" | "structure-items-updates";
 
-// const WorkspaceContext = createContext<WorkspaceContextType | undefined>(
-//   undefined
-// );
+interface WorkspaceContextType {
+  workspaces: Workspace[];
+  loading: boolean;
+  error: string | null;
+  addWorkspace: (workspace: Omit<Workspace, 'id' | 'folders' | 'boards'>, members?: { test_user_id: string; role: string }[], rolePermissions?: Record<string, Record<string, boolean>>) => Promise<string | null>;
+  addBoard: (workspaceId: string, board: Omit<Board, 'id' | 'url'>, folderId?: string, members?: Array<{ test_user_id: string; role: string }>) => Promise<void>;
+  addFolder: (workspaceId: string, folderName: string) => Promise<string>;
+  updateFolderName: (workspaceId: string, folderId: string, newName: string) => Promise<void>;
+  updateBoardName: (workspaceId: string, boardId: string, newName: string) => Promise<void>;
+  updateWorkspaceName: (workspaceId: string, newName: string) => Promise<void>;
+  deleteWorkspace: (workspaceId: string) => Promise<void>;
+  deleteBoard: (workspaceId: string, boardId: string) => Promise<void>;
+  deleteFolder: (workspaceId: string, folderId: string) => Promise<void>;
+  moveBoard: (workspaceId: string, boardId: string, sourceFolderId: string | null, targetFolderId: string | null) => Promise<void>;
+  moveBoardToWorkspace: (sourceWorkspaceId: string, targetWorkspaceId: string, boardId: string, sourceFolderId: string | null) => Promise<void>;
+  getWorkspaceById: (id: string) => Workspace | undefined;
+  reorderFolders: (workspaceId: string, newOrder: Folder[]) => void;
+  reorderBoards: (workspaceId: string, folderId: string, newOrder: Board[]) => void;
+  duplicateBoard: (workspaceId: string, boardId: string, folderId: string | null, option: DuplicateOption) => Promise<void>;
+}
 
-// const initialWorkspaces: Workspace[] = [
-//   {
-//     id: "client-one",
-//     name: "Client One",
-//     iconColor: "#3B82F6",
-//     privacy: "open",
-//     boards: [], // Workspace-level boards
-//     folders: [
-//       {
-//         id: "client-boards",
-//         name: "Client Boards",
-//         boards: [
-//           {
-//             id: "client-planning",
-//             name: "Client Planning",
-//             url: "/workspace/client-one/board/client-planning",
-//             icon: LayoutDashboard,
-//           },
-//           {
-//             id: "client-workload",
-//             name: "Client Workload",
-//             url: "/workspace/client-one/board/client-workload",
-//             icon: LayoutDashboard,
-//           },
-//         ],
-//       },
-//     ],
-//   },
-//   {
-//     id: "client-two",
-//     name: "Client Two",
-//     iconColor: "#10B981",
-//     privacy: "open",
-//     boards: [],
-//     folders: [],
-//   },
-// ];
+const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
-// export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
-//   const { currentUser } = useTestUser();
-//   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-//   const [loading, setLoading] = useState(true);
+const initialWorkspaces: Workspace[] = [
+  {
+    id: 'workspace-1',
+    name: 'Design Team',
+    iconColor: 'hsl(220, 90%, 60%)',
+    privacy: 'open',
+    boards: [
+      { id: 'board-1', name: 'UI Design', url: '/ui-design', icon: LayoutDashboard },
+      { id: 'board-2', name: 'UX Research', url: '/ux-research', icon: LayoutDashboard },
+    ],
+    folders: [],
+  },
+];
 
-//   // Load workspaces from Supabase for current test user
-//   useEffect(() => {
-//     loadWorkspaces();
-//   }, [currentUser.id]);
 
-//   const loadWorkspaces = async () => {
-//     setLoading(true);
-//     try {
-//       // Load workspaces created by the user
-//       const { data: ownedWorkspaces, error: wsError } = await supabase
-//         .from("workspaces")
-//         .select("*")
-//         .eq("test_user_id", currentUser.id);
 
-//       if (wsError) throw wsError;
+export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(initialWorkspaces);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { currentUser } = useTestUser();
 
-//       // Load workspaces where user is a member
-//       const { data: memberWorkspaces, error: memberError } = await supabase
+  // Fetch workspaces on mount
+  useEffect(() => {
+    const fetchWorkspaces = async () => {
+      setLoading(true);
+      try {
+        // TODO: Replace with actual REST API call
+        // const response = await axios.get('/api/workspaces', {
+        //   headers: { 'X-User-ID': currentUser.id }
+        // });
+        // setWorkspaces(response.data);
+        setWorkspaces(initialWorkspaces);
+        setError(null);
+      } catch (err) {
+        setError('Failed to fetch workspaces');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWorkspaces();
+  }, [currentUser.id]);
+
+  const addWorkspace = async (
+    workspace: Omit<Workspace, 'id' | 'folders' | 'boards'>,
+    _members?: { test_user_id: string; role: string }[],
+    _rolePermissions?: Record<string, Record<string, boolean>>
+  ): Promise<string | null> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // const response = await axios.post('/api/workspaces', {
+      //   ...workspace,
+      //   members,
+      //   rolePermissions
+      // }, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      const newId = `workspace-${Date.now()}`;
+      const newWorkspace: Workspace = {
+        id: newId,
+        ...workspace,
+        boards: [],
+        folders: [],
+      };
+      setWorkspaces([...workspaces, newWorkspace]);
+      return newId;
+    } catch (err) {
+      console.error('Failed to add workspace:', err);
+      return null;
+    }
+  };
+
+  const addBoard = async (
+    workspaceId: string,
+    board: Omit<Board, 'id' | 'url'>,
+    _folderId?: string,
+    _members?: Array<{ test_user_id: string; role: string }>
+  ): Promise<void> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // await axios.post(`/api/workspaces/${workspaceId}/boards`, {
+      //   ...board,
+      //   folderId,
+      //   members
+      // }, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      
+      setWorkspaces(workspaces.map(w => {
+        if (w.id === workspaceId) {
+          const newBoard: Board = {
+            id: `board-${Date.now()}`,
+            url: `/board-${Date.now()}`,
+            ...board,
+          };
+          return { ...w, boards: [...w.boards, newBoard] };
+        }
+        return w;
+      }));
+    } catch (err) {
+      console.error('Failed to add board:', err);
+    }
+  };
+
+  const addFolder = async (workspaceId: string, folderName: string): Promise<string> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // const response = await axios.post(`/api/workspaces/${workspaceId}/folders`, {
+      //   name: folderName
+      // }, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      
+      const newId = `folder-${Date.now()}`;
+      setWorkspaces(workspaces.map(w => {
+        if (w.id === workspaceId) {
+          return {
+            ...w,
+            folders: [...w.folders, { id: newId, name: folderName, boards: [] }],
+          };
+        }
+        return w;
+      }));
+      return newId;
+    } catch (err) {
+      console.error('Failed to add folder:', err);
+      throw err;
+    }
+  };
+
+  const updateFolderName = async (
+    workspaceId: string,
+    folderId: string,
+    newName: string
+  ): Promise<void> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // await axios.patch(`/api/workspaces/${workspaceId}/folders/${folderId}`, {
+      //   name: newName
+      // }, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      
+      setWorkspaces(workspaces.map(w => {
+        if (w.id === workspaceId) {
+          return {
+            ...w,
+            folders: w.folders.map(f =>
+              f.id === folderId ? { ...f, name: newName } : f
+            ),
+          };
+        }
+        return w;
+      }));
+    } catch (err) {
+      console.error('Failed to update folder name:', err);
+    }
+  };
+
+  const updateBoardName = async (
+    workspaceId: string,
+    boardId: string,
+    newName: string
+  ): Promise<void> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // await axios.patch(`/api/workspaces/${workspaceId}/boards/${boardId}`, {
+      //   name: newName
+      // }, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      
+      setWorkspaces(workspaces.map(w => {
+        if (w.id === workspaceId) {
+          return {
+            ...w,
+            boards: w.boards.map(b =>
+              b.id === boardId ? { ...b, name: newName } : b
+            ),
+          };
+        }
+        return w;
+      }));
+    } catch (err) {
+      console.error('Failed to update board name:', err);
+    }
+  };
+
+  const updateWorkspaceName = async (workspaceId: string, newName: string): Promise<void> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // await axios.patch(`/api/workspaces/${workspaceId}`, {
+      //   name: newName
+      // }, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      
+      setWorkspaces(workspaces.map(w =>
+        w.id === workspaceId ? { ...w, name: newName } : w
+      ));
+    } catch (err) {
+      console.error('Failed to update workspace name:', err);
+    }
+  };
+
+  const deleteWorkspace = async (workspaceId: string): Promise<void> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // await axios.delete(`/api/workspaces/${workspaceId}`, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      
+      setWorkspaces(workspaces.filter(w => w.id !== workspaceId));
+    } catch (err) {
+      console.error('Failed to delete workspace:', err);
+    }
+  };
+
+  const deleteBoard = async (workspaceId: string, boardId: string): Promise<void> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // await axios.delete(`/api/workspaces/${workspaceId}/boards/${boardId}`, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      
+      setWorkspaces(workspaces.map(w => {
+        if (w.id === workspaceId) {
+          return { ...w, boards: w.boards.filter(b => b.id !== boardId) };
+        }
+        return w;
+      }));
+    } catch (err) {
+      console.error('Failed to delete board:', err);
+    }
+  };
+
+  const deleteFolder = async (workspaceId: string, folderId: string): Promise<void> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // await axios.delete(`/api/workspaces/${workspaceId}/folders/${folderId}`, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      
+      setWorkspaces(workspaces.map(w => {
+        if (w.id === workspaceId) {
+          return {
+            ...w,
+            folders: w.folders.filter(f => f.id !== folderId),
+          };
+        }
+        return w;
+      }));
+    } catch (err) {
+      console.error('Failed to delete folder:', err);
+    }
+  };
+
+  const moveBoard = async (
+    workspaceId: string,
+    boardId: string,
+    sourceFolderId: string | null,
+    targetFolderId: string | null
+  ): Promise<void> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // await axios.patch(`/api/workspaces/${workspaceId}/boards/${boardId}/move`, {
+      //   sourceFolderId,
+      //   targetFolderId
+      // }, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      
+      // Local implementation
+      setWorkspaces(workspaces.map(w => {
+        if (w.id === workspaceId) {
+          const workspace = { ...w };
+          
+          // Find and remove board from source
+          let board: Board | null = null;
+          if (sourceFolderId) {
+            workspace.folders = workspace.folders.map(f => {
+              if (f.id === sourceFolderId) {
+                const foundBoard = f.boards.find(b => b.id === boardId);
+                if (foundBoard) board = foundBoard;
+                return { ...f, boards: f.boards.filter(b => b.id !== boardId) };
+              }
+              return f;
+            });
+          } else {
+            const foundBoard = workspace.boards.find(b => b.id === boardId);
+            if (foundBoard) board = foundBoard;
+            workspace.boards = workspace.boards.filter(b => b.id !== boardId);
+          }
+          
+          // Add board to target
+          if (board) {
+            if (targetFolderId) {
+              workspace.folders = workspace.folders.map(f => {
+                if (f.id === targetFolderId) {
+                  return { ...f, boards: [...f.boards, board!] };
+                }
+                return f;
+              });
+            } else {
+              workspace.boards = [...workspace.boards, board];
+            }
+          }
+          
+          return workspace;
+        }
+        return w;
+      }));
+    } catch (err) {
+      console.error('Failed to move board:', err);
+    }
+  };
+
+  const moveBoardToWorkspace = async (
+    sourceWorkspaceId: string,
+    targetWorkspaceId: string,
+    boardId: string,
+    sourceFolderId: string | null
+  ): Promise<void> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // await axios.patch(`/api/workspaces/${sourceWorkspaceId}/boards/${boardId}/move-workspace`, {
+      //   targetWorkspaceId,
+      //   sourceFolderId
+      // }, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      
+      // Local implementation
+      let movedBoard: Board | null = null;
+      
+      setWorkspaces(workspaces.map(w => {
+        if (w.id === sourceWorkspaceId) {
+          const workspace = { ...w };
+          if (sourceFolderId) {
+            workspace.folders = workspace.folders.map(f => {
+              if (f.id === sourceFolderId) {
+                const foundBoard = f.boards.find(b => b.id === boardId);
+                if (foundBoard) movedBoard = foundBoard;
+                return { ...f, boards: f.boards.filter(b => b.id !== boardId) };
+              }
+              return f;
+            });
+          } else {
+            const foundBoard = workspace.boards.find(b => b.id === boardId);
+            if (foundBoard) movedBoard = foundBoard;
+            workspace.boards = workspace.boards.filter(b => b.id !== boardId);
+          }
+          return workspace;
+        }
+        return w;
+      }));
+      
+      if (movedBoard) {
+        setWorkspaces(workspaces.map(w => {
+          if (w.id === targetWorkspaceId) {
+            return { ...w, boards: [...w.boards, movedBoard!] };
+          }
+          return w;
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to move board to workspace:', err);
+    }
+  };
+
+  const getWorkspaceById = (id: string): Workspace | undefined => {
+    return workspaces.find(w => w.id === id);
+  };
+
+  const reorderFolders = (workspaceId: string, newOrder: Folder[]): void => {
+    setWorkspaces(workspaces.map(w => {
+      if (w.id === workspaceId) {
+        return { ...w, folders: newOrder };
+      }
+      return w;
+    }));
+  };
+
+  const reorderBoards = (workspaceId: string, folderId: string, newOrder: Board[]): void => {
+    setWorkspaces(workspaces.map(w => {
+      if (w.id === workspaceId) {
+        return {
+          ...w,
+          folders: w.folders.map(f => {
+            if (f.id === folderId) {
+              return { ...f, boards: newOrder };
+            }
+            return f;
+          }),
+        };
+      }
+      return w;
+    }));
+  };
+
+  const duplicateBoard = async (
+    workspaceId: string,
+    boardId: string,
+    folderId: string | null,
+    _option: DuplicateOption
+  ): Promise<void> => {
+    try {
+      // TODO: Replace with actual REST API call
+      // await axios.post(`/api/workspaces/${workspaceId}/boards/${boardId}/duplicate`, {
+      //   folderId,
+      //   option
+      // }, {
+      //   headers: { 'X-User-ID': currentUser.id }
+      // });
+      
+      const workspace = getWorkspaceById(workspaceId);
+      if (!workspace) return;
+      
+      const sourceBoard = workspace.boards.find(b => b.id === boardId);
+      if (!sourceBoard) return;
+      
+      const duplicatedBoard: Board = {
+        ...sourceBoard,
+        id: `board-${Date.now()}`,
+        name: `${sourceBoard.name} (Copy)`,
+      };
+      
+      setWorkspaces(workspaces.map(w => {
+        if (w.id === workspaceId) {
+          if (folderId) {
+            return {
+              ...w,
+              folders: w.folders.map(f => {
+                if (f.id === folderId) {
+                  return { ...f, boards: [...f.boards, duplicatedBoard] };
+                }
+                return f;
+              }),
+            };
+          } else {
+            return { ...w, boards: [...w.boards, duplicatedBoard] };
+          }
+        }
+        return w;
+      }));
+    } catch (err) {
+      console.error('Failed to duplicate board:', err);
+    }
+  };
+
+  return (
+    <WorkspaceContext.Provider
+      value={{
+        workspaces,
+        loading,
+        error,
+        addWorkspace,
+        addBoard,
+        addFolder,
+        updateFolderName,
+        updateBoardName,
+        updateWorkspaceName,
+        deleteWorkspace,
+        deleteBoard,
+        deleteFolder,
+        moveBoard,
+        moveBoardToWorkspace,
+        getWorkspaceById,
+        reorderFolders,
+        reorderBoards,
+        duplicateBoard,
+      }}
+    >
+      {children}
+    </WorkspaceContext.Provider>
+  );
+}
+
+export function useWorkspace() {
+  const context = useContext(WorkspaceContext);
+  if (context === undefined) {
+    throw new Error('useWorkspace must be used within a WorkspaceProvider');
+  }
+  return context;
+}
 //         .from("workspace_members")
 //         .select("workspace_id")
 //         .eq("test_user_id", currentUser.id);

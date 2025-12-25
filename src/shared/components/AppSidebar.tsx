@@ -8,16 +8,18 @@ import {
   SidebarSeparator,
   SidebarFooter,
 } from "@/shared/components/ui/sidebar";
-import { BarChart3, Home, Users, FolderKanban, Settings, LogOut } from "lucide-react";
+import { BarChart3, Home, Users, FolderKanban, Settings, LogOut, CheckSquare, Briefcase, BookOpen } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 export const AppSidebar = () => {
   const navigate = useNavigate();
 
   const menuItems = [
-    { icon: Home, label: "Home", href: "/home" },
-    { icon: FolderKanban, label: "Projects", href: "/projects" },
-    { icon: Users, label: "Team", href: "/team" },
+    { icon: Home, label: "Dashboard", href: "/home" },
+    { icon: CheckSquare, label: "My Work", href: "/my-work" },
+    { icon: Users, label: "My Team", href: "/my-team" },
+    { icon: FolderKanban, label: "All Items", href: "/all-items" },
+    { icon: Briefcase, label: "My Habits", href: "/my-habits" },
   ];
 
   const handleLogout = () => {

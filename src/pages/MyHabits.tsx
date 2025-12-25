@@ -1,0 +1,79 @@
+import { useState, useEffect } from "react";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Badge } from "@/shared/components/ui/badge";
+import { Card } from "@/shared/components/ui/card";
+import { Plus } from "lucide-react";
+
+interface Habit {
+  id: string;
+  name: string;
+  frequency: string;
+  completionRate: number;
+  streak: number;
+  lastCompleted?: string;
+}
+
+export default function MyHabits() {
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // TODO: Fetch habits from REST API
+    setLoading(false);
+  }, []);
+
+  return (
+    <div className="min-h-screen p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold">My Habits</h1>
+          <Button size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Habit
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {habits.length === 0 ? (
+            <div className="col-span-full text-center py-8 text-muted-foreground">
+              <p>No habits created yet</p>
+            </div>
+          ) : (
+            habits.map((habit) => (
+              <Card key={habit.id} className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">{habit.name}</h3>
+                    <p className="text-sm text-muted-foreground">{habit.frequency}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Completion Rate</p>
+                      <div className="w-full bg-secondary h-2 rounded-full mt-1">
+                        <div
+                          className="h-full bg-green-500 rounded-full"
+                          style={{ width: `${habit.completionRate}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Streak: {habit.streak} days
+                      </span>
+                      {habit.lastCompleted && (
+                        <span className="text-muted-foreground">
+                          Last: {habit.lastCompleted}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
