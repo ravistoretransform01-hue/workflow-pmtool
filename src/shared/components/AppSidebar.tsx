@@ -7,8 +7,18 @@ import {
   SidebarMenuButton,
   SidebarSeparator,
   SidebarFooter,
+  SidebarTrigger,
 } from "@/shared/components/ui/sidebar";
-import { BarChart3, Home, Users, FolderKanban, Settings, LogOut, CheckSquare, Briefcase } from "lucide-react";
+import {
+  BarChart3,
+  Home,
+  Users,
+  FolderKanban,
+  Settings,
+  LogOut,
+  CheckSquare,
+  Briefcase,
+} from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 export const AppSidebar = () => {
@@ -29,12 +39,15 @@ export const AppSidebar = () => {
 
   return (
     <Sidebar>
-      <SidebarHeader>
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-            <BarChart3 className="h-5 w-5 text-primary" />
+      <SidebarHeader className="h-16 flex items-center justify-center">
+        <div className="flex items-center justify-between gap-2 w-full">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+              <BarChart3 className="h-5 w-5 text-primary" />
+            </div>
+            <h1 className="font-bold text-lg">PM Tool</h1>
           </div>
-          <h1 className="font-bold text-lg">PM Tool</h1>
+          <SidebarTrigger className="h-8 w-8" />
         </div>
       </SidebarHeader>
 
@@ -68,7 +81,10 @@ export const AppSidebar = () => {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleLogout} className="flex items-center gap-2">
+            <SidebarMenuButton
+              onClick={handleLogout}
+              className="flex items-center gap-2"
+            >
               <LogOut className="h-4 w-4" />
               <span>Logout</span>
             </SidebarMenuButton>

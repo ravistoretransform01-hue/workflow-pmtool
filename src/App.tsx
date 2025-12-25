@@ -47,7 +47,6 @@ const App = () => (
                       <main className="flex-1 overflow-auto">
                         <Routes>
                           <Route path="/home" element={<HomePage />} />
-                          <Route path="/" element={<Index />} />
                           <Route path="/my-work" element={<MyWork />} />
                           <Route path="/my-team" element={<MyTeam />} />
                           <Route path="/all-items" element={<AllItems />} />
