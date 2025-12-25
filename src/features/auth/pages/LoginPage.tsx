@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/label";
@@ -10,56 +10,60 @@ import {
   CardTitle,
 } from "@/shared/components/card";
 import { BarChart3, Loader2 } from "lucide-react";
-// import { useAuth } from "@/hooks/useAuth";
-// import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/shared/components/ui/button";
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  //   const { signIn, user, loading: authLoading } = useAuth();
-  //   const { toast } = useToast();
-  const [email, setEmail] = useState("");
+  const { login, loading, error, isAuthenticated, clearAuthError } = useAuth();
+  const { toast } = useToast();
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  // const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitting] = useState(false);
 
-  //   useEffect(() => {
-  //     if (user && !authLoading) {
-  //       navigate("/dashboard");
-  //     }
-  //   }, [user, authLoading, navigate]);
+  // Redirect to home if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/home");
+    }
+  }, [isAuthenticated, navigate]);
 
-    // const handleSubmit = async (e: React.FormEvent) => {
-  //     e.preventDefault();
-      // setIsSubmitting(true);
+  // Show error toast if login fails
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Login failed",
+        description: error,
+        variant: "destructive",
+      });
+      clearAuthError();
+    }
+  }, [error, toast, clearAuthError]);
 
-  //     const { error } = await signIn(email, password);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  //     if (error) {
-  //       toast({
-  //         title: "Login failed",
-  //         description: error.message === "Invalid login credentials"
-  //           ? "Invalid email or password. Please try again."
-  //           : error.message,
-  //         variant: "destructive",
-  //       });
-  //       setIsSubmitting(false);
-  //     } else {
-  //       navigate("/dashboard");
-  //     }
-  //   };
+    if (!username || !password) {
+      toast({
+        title: "Validation error",
+        description: "Please enter both username and password",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  //   if (authLoading) {
-  //     return (
-  //       <div className="min-h-screen w-full flex items-center justify-center bg-background">
-  //         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-  //       </div>
-  //     );
-  //   }
+    const result = await login({
+      username,
+      password,
+    });
 
-  const handleSubmit = async ( ) => {
-    // Navigate to home page
-    navigate("/home");
+    if (result.type === "auth/login/fulfilled") {
+      toast({
+        title: "Success",
+        description: "Login successful!",
+      });
+      navigate("/home");
+    }
   };
 
   return (
@@ -91,15 +95,15 @@ const LoginPage = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="username">Username or Email</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="username"
+                  type="text"
+                  placeholder="your@email.com"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   required
-                  disabled={isSubmitting}
+                  disabled={loading}
                   className="h-12 bg-background border-border"
                 />
               </div>
@@ -112,16 +116,16 @@ const LoginPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  disabled={isSubmitting}
+                  disabled={loading}
                   className="h-12 bg-background border-border"
                 />
               </div>
               <Button
                 type="submit"
                 className="w-full h-12 text-base font-medium shadow-lg"
-                disabled={isSubmitting}
+                disabled={loading}
               >
-                {isSubmitting ? (
+                {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Signing in...

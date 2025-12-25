@@ -1,0 +1,62 @@
+import api from "@/lib/axios";
+import type { LoginRequest, SignupRequest, AuthResponse } from "./types";
+
+const AUTH_ENDPOINTS = {
+  LOGIN: "/loginup",
+  SIGNUP: "/signup",
+  LOGOUT: "/logout",
+  REFRESH: "/refresh",
+  ME: "/me",
+};
+
+export const authApi = {
+  /**
+   * Login with username and password
+   * Uses query parameters as per API spec
+   */
+  login: async (credentials: LoginRequest): Promise<AuthResponse> => {
+    const response = await api.post<AuthResponse>(AUTH_ENDPOINTS.LOGIN, null, {
+      params: {
+        username: credentials.username,
+        password: credentials.password,
+      },
+    });
+    return response.data;
+  },
+
+  /**
+   * Sign up with email, password, and name
+   */
+  signup: async (data: SignupRequest): Promise<AuthResponse> => {
+    const response = await api.post<AuthResponse>(
+      AUTH_ENDPOINTS.SIGNUP,
+      data
+    );
+    return response.data;
+  },
+
+  /**
+   * Logout user
+   */
+  logout: async (): Promise<void> => {
+    await api.post(AUTH_ENDPOINTS.LOGOUT);
+  },
+
+  /**
+   * Refresh access token
+   */
+  refreshToken: async (refreshToken: string): Promise<AuthResponse> => {
+    const response = await api.post<AuthResponse>(AUTH_ENDPOINTS.REFRESH, {
+      refresh_token: refreshToken,
+    });
+    return response.data;
+  },
+
+  /**
+   * Get current user info
+   */
+  getCurrentUser: async (): Promise<AuthResponse> => {
+    const response = await api.get<AuthResponse>(AUTH_ENDPOINTS.ME);
+    return response.data;
+  },
+};
