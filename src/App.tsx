@@ -1,7 +1,7 @@
 import { TooltipProvider } from "@/shared/components/ui/tooltip";
 import { SidebarProvider } from "@/shared/components/ui/sidebar";
 import { AppSidebar } from "@/shared/components/AppSidebar";
-import { Header } from "@/shared/components/Header";
+// import { Header } from "@/shared/components/Header";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 // Pages
