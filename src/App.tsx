@@ -6,6 +6,7 @@ import { AppSidebar } from "@/shared/components/AppSidebar";
 import { Header } from "@/shared/components/Header";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { TestUserProvider } from "@/contexts/TestUserContext";
+import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 
 // Pages
 import LoginPage from "@/features/auth/pages/LoginPage";
@@ -38,29 +39,31 @@ const App = () => (
             <Route
               path="/*"
               element={
-                <SidebarProvider defaultOpen={true} className="flex">
-                  <div className="min-h-screen flex w-full">
-                    <AppSidebar />
-                    <div className="flex-1 flex flex-col">
-                      <Header />
-                      <main className="flex-1 overflow-auto">
-                        <Routes>
-                          <Route path="/home" element={<HomePage />} />
-                          <Route path="/my-work" element={<MyWork />} />
-                          <Route path="/my-team" element={<MyTeam />} />
-                          <Route path="/all-items" element={<AllItems />} />
-                          <Route path="/my-habits" element={<MyHabits />} />
-                          <Route path="/workspace/:workspaceId" element={<DynamicWorkspace />} />
-                          <Route path="/workspace/:workspaceId/board/:boardId" element={<DynamicBoard />} />
-                          <Route path="/workspace/:workspaceId/board/:boardId/dashboard" element={<BoardDashboardPage />} />
-                          <Route path="/workspace/:workspaceId/doc/:documentId" element={<DocumentEditor />} />
-                          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                          <Route path="*" element={<NotFound />} />
-                        </Routes>
-                      </main>
+                <ProtectedRoute>
+                  <SidebarProvider defaultOpen={true} className="flex">
+                    <div className="min-h-screen flex w-full">
+                      <AppSidebar />
+                      <div className="flex-1 flex flex-col">
+                        <Header />
+                        <main className="flex-1 overflow-auto">
+                          <Routes>
+                            <Route path="/home" element={<HomePage />} />
+                            <Route path="/my-work" element={<MyWork />} />
+                            <Route path="/my-team" element={<MyTeam />} />
+                            <Route path="/all-items" element={<AllItems />} />
+                            <Route path="/my-habits" element={<MyHabits />} />
+                            <Route path="/workspace/:workspaceId" element={<DynamicWorkspace />} />
+                            <Route path="/workspace/:workspaceId/board/:boardId" element={<DynamicBoard />} />
+                            <Route path="/workspace/:workspaceId/board/:boardId/dashboard" element={<BoardDashboardPage />} />
+                            <Route path="/workspace/:workspaceId/doc/:documentId" element={<DocumentEditor />} />
+                            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                            <Route path="*" element={<NotFound />} />
+                          </Routes>
+                        </main>
+                      </div>
                     </div>
-                  </div>
-                </SidebarProvider>
+                  </SidebarProvider>
+                </ProtectedRoute>
               }
             />
           </Routes>
