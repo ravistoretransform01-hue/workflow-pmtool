@@ -28,7 +28,8 @@ export const useAuth = () => {
   );
 
   const logout = useCallback(async () => {
-    await dispatch(logoutThunk());
+    const result = await dispatch(logoutThunk());
+    return result;
   }, [dispatch]);
 
   const clearAuthError = useCallback(() => {

@@ -38,7 +38,7 @@ const App = () => (
             <Route
               path="/*"
               element={
-                <SidebarProvider defaultOpen={true}>
+                <SidebarProvider defaultOpen={true} className="flex">
                   <div className="min-h-screen flex w-full">
                     <AppSidebar />
                     <div className="flex-1 flex flex-col">

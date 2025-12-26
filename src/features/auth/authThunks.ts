@@ -67,8 +67,12 @@ export const logoutThunk = createAsyncThunk<
 >("auth/logout", async (_, { rejectWithValue }) => {
   try {
     await authApi.logout();
+    return;
   } catch (error: any) {
-    return rejectWithValue(error.response?.data?.message || "Logout failed.");
+    // Even if logout API fails, we still want to clear local state
+    // So we don't reject, just return
+    console.error("Logout API error:", error);
+    return;
   }
 });
 
