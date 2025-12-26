@@ -1,4 +1,4 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 import { createBoardThunk, fetchBoardsThunk } from "./boardsThunks";
 import type { Board } from "./types";
 
