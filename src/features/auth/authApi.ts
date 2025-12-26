@@ -37,9 +37,12 @@ export const authApi = {
 
   /**
    * Logout user
+   * Note: No API endpoint for logout yet, just clears local state
    */
   logout: async (): Promise<void> => {
-    await api.post(AUTH_ENDPOINTS.LOGOUT);
+    // No API call needed for now
+    // Just return successfully
+    return Promise.resolve();
   },
 
   /**

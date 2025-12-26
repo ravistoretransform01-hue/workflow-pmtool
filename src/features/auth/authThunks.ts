@@ -13,9 +13,20 @@ export const loginThunk = createAsyncThunk<
     const response = await authApi.login(credentials);
     return response;
   } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.message || "Login failed. Please try again."
-    );
+    // Handle error response format
+    const errorData = error.response?.data;
+    let errorMessage = "Login failed. Please try again.";
+
+    if (errorData?.message) {
+      // If message is an array, get the first message's text
+      if (Array.isArray(errorData.message)) {
+        errorMessage = errorData.message[0]?.message || errorMessage;
+      } else if (typeof errorData.message === "string") {
+        errorMessage = errorData.message;
+      }
+    }
+
+    return rejectWithValue(errorMessage);
   }
 });
 
@@ -30,9 +41,20 @@ export const signupThunk = createAsyncThunk<
     const response = await authApi.signup(data);
     return response;
   } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.message || "Signup failed. Please try again."
-    );
+    // Handle error response format
+    const errorData = error.response?.data;
+    let errorMessage = "Signup failed. Please try again.";
+
+    if (errorData?.message) {
+      // If message is an array, get the first message's text
+      if (Array.isArray(errorData.message)) {
+        errorMessage = errorData.message[0]?.message || errorMessage;
+      } else if (typeof errorData.message === "string") {
+        errorMessage = errorData.message;
+      }
+    }
+
+    return rejectWithValue(errorMessage);
   }
 });
 
@@ -45,10 +67,12 @@ export const logoutThunk = createAsyncThunk<
 >("auth/logout", async (_, { rejectWithValue }) => {
   try {
     await authApi.logout();
+    return;
   } catch (error: any) {
-    return rejectWithValue(
-      error.response?.data?.message || "Logout failed."
-    );
+    // Even if logout API fails, we still want to clear local state
+    // So we don't reject, just return
+    console.error("Logout API error:", error);
+    return;
   }
 });
 
