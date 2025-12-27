@@ -33,6 +33,8 @@ const authSlice = createSlice({
       state.error = null;
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
+      localStorage.removeItem("user_id");
+      localStorage.removeItem("user_data");
     },
     // Set user
     setUser: (state, action: PayloadAction<User>) => {
@@ -54,6 +56,8 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         localStorage.setItem("access_token", action.payload.access_token);
         localStorage.setItem("refresh_token", action.payload.refresh_token);
+        localStorage.setItem("user_id", String(action.payload.user.user_id));
+        localStorage.setItem("user_data", JSON.stringify(action.payload.user));
         
         // Log token expiration info
         try {
@@ -109,6 +113,8 @@ const authSlice = createSlice({
         state.error = null;
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user_id");
+        localStorage.removeItem("user_data");
       })
       .addCase(logoutThunk.rejected, (state) => {
         state.loading = false;
@@ -119,6 +125,8 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user_id");
+        localStorage.removeItem("user_data");
       });
 
     // Refresh Token
@@ -136,6 +144,8 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user_id");
+        localStorage.removeItem("user_data");
       });
   },
 });

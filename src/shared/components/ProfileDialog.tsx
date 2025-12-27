@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Badge } from "@/shared/components/ui/badge";
 import { Mail, Phone, Smartphone, MapPin, Calendar } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { userApi } from "@/features/auth/userAPI";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { toast } from "sonner";
 
@@ -19,7 +20,7 @@ interface ProfileDialogProps {
 }
 
 export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
-  const { user, fetchUserMeta } = useAuth();
+  const { user } = useAuth();
   const [jobTitle, setJobTitle] = useState("");
   const [phone, setPhone] = useState("");
   const [mobilePhone, setMobilePhone] = useState("");
@@ -45,7 +46,9 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
     setIsLoading(true);
     try {
-      const userMeta = await fetchUserMeta(user.user_id);
+      // Always fetch fresh user meta data
+      const userMeta = await userApi.getUserMeta(user.user_id);
+      setJobTitle(userMeta.job_title || "");
       setPhone(userMeta.phone || "");
       setMobilePhone(userMeta.mobile_phone || "");
       setLocation(userMeta.location || "");
@@ -84,12 +87,13 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
     setIsSaving(true);
     try {
-      // TODO: Call API to update user profile
-      // const response = await userApi.updateUserMeta(user.user_id, {
-      //   phone,
-      //   mobile_phone: mobilePhone,
-      //   location,
-      // });
+      await userApi.updateUserMeta(user.user_id, {
+        email: displayEmail,
+        phone,
+        mobile_phone: mobilePhone,
+        location,
+        job_title: jobTitle,
+      });
       
       toast.success("Profile updated successfully");
     } catch (error) {

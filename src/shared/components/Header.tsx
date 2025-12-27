@@ -2,8 +2,6 @@ import { useState } from "react";
 import { SidebarTrigger } from "@/shared/components/ui/sidebar";
 import { Trash2, Settings, User, Users, LogOut, FileText } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-// import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
-// import { useTestUser } from "@/contexts/TestUserContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -21,7 +19,6 @@ import {
 } from "@/shared/components/ui/dropdown-menu";
 
 export function Header() {
-  // const { currentUser, testUsers, switchUser } = useTestUser();
   const { logout, loading } = useAuth();
   const navigate = useNavigate();
   const [trashDialogOpen, setTrashDialogOpen] = useState(false);
@@ -41,6 +38,10 @@ export function Header() {
       navigate("/login");
     }
   };
+
+  const handleOpenProfile = () => {
+    setProfileDialogOpen(true);
+  };
   
   return (
     <header className="h-16 border-b border-border flex items-center justify-between px-6 sticky top-0 z-10" style={{ backgroundColor: "hsl(222, 47%, 11%)" }}>
@@ -48,39 +49,6 @@ export function Header() {
        <SidebarTrigger /> 
       </div>
       <div className="flex items-center gap-2">
-        {/* <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 h-10">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback style={{ backgroundColor: currentUser.avatarColor }}>
-                  {currentUser.name[0]}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium">{currentUser.name}</span>
-              <ChevronDown className="h-4 w-4 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Switch User</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {testUsers.map((user) => (
-              <DropdownMenuItem
-                key={user.id}
-                onClick={() => switchUser(user.id)}
-                className="flex items-center gap-2"
-              >
-                <Avatar className="h-6 w-6">
-                  <AvatarFallback style={{ backgroundColor: user.avatarColor }}>
-                    {user.name[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <span>{user.name}</span>
-                {user.id === currentUser.id && <span className="ml-auto">✓</span>}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu> */}
-        
         <NotificationBell />
         
         <Button 
@@ -103,7 +71,7 @@ export function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => setProfileDialogOpen(true)}>
+            <DropdownMenuItem onClick={handleOpenProfile}>
               <User className="mr-2 h-4 w-4" />
               <span>My profile</span>
             </DropdownMenuItem>
@@ -111,10 +79,6 @@ export function Header() {
               <Users className="mr-2 h-4 w-4" />
               <span>Members</span>
             </DropdownMenuItem>
-            {/* <DropdownMenuItem onClick={() => setInviteDialogOpen(true)}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              <span>Invite</span>
-            </DropdownMenuItem> */}
             <DropdownMenuItem onClick={() => setTemplateDialogOpen(true)}>
               <FileText className="mr-2 h-4 w-4" />
               <span>Edit Templates</span>
