@@ -49,10 +49,11 @@ const authSlice = createSlice({
       .addCase(loginThunk.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.token = action.payload.access_token;
         state.refreshToken = null;
         state.isAuthenticated = true;
-        localStorage.setItem("access_token", action.payload.token);
+        localStorage.setItem("access_token", action.payload.access_token);
+        localStorage.setItem("access_token", action.payload.access_token);
       })
       .addCase(loginThunk.rejected, (state, action) => {
         state.loading = false;
@@ -69,10 +70,10 @@ const authSlice = createSlice({
       .addCase(signupThunk.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.token = action.payload.access_token;
         state.refreshToken = null;
         state.isAuthenticated = true;
-        localStorage.setItem("access_token", action.payload.token);
+        localStorage.setItem("access_token", action.payload.access_token);
       })
       .addCase(signupThunk.rejected, (state, action) => {
         state.loading = false;
@@ -109,9 +110,9 @@ const authSlice = createSlice({
     // Refresh Token
     builder
       .addCase(refreshTokenThunk.fulfilled, (state, action) => {
-        state.token = action.payload.token;
+        state.token = action.payload.access_token;
         state.user = action.payload.user;
-        localStorage.setItem("access_token", action.payload.token);
+        localStorage.setItem("access_token", action.payload.access_token);
       })
       .addCase(refreshTokenThunk.rejected, (state) => {
         // If refresh fails, logout user
