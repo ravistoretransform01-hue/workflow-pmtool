@@ -40,6 +40,11 @@ api.interceptors.request.use(
 // Response interceptor - Handle errors and token refresh
 api.interceptors.response.use(
   (response: AxiosResponse) => {
+    console.log("Response received:", {
+      url: response.config.url,
+      status: response.status,
+      data: response.data,
+    });
     return response;
   },
   (error: AxiosError) => {
