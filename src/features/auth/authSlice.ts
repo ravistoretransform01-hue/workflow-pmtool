@@ -50,10 +50,24 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload.user;
         state.token = action.payload.access_token;
-        state.refreshToken = null;
+        state.refreshToken = action.payload.refresh_token;
         state.isAuthenticated = true;
         localStorage.setItem("access_token", action.payload.access_token);
-        localStorage.setItem("access_token", action.payload.access_token);
+        localStorage.setItem("refresh_token", action.payload.refresh_token);
+        
+        // Log token expiration info
+        try {
+          const parts = action.payload.access_token.split('.');
+          const payload = JSON.parse(atob(parts[1]));
+          const exp = new Date(payload.exp * 1000);
+          const now = new Date();
+          const expiresIn = Math.round((exp.getTime() - now.getTime()) / 1000);
+          console.log("🔐 Login successful!");
+          console.log("⏰ Token expires in:", expiresIn + "s");
+          console.log("📅 Token expires at:", exp.toLocaleString());
+        } catch (e) {
+          console.log("Could not decode token expiration");
+        }
       })
       .addCase(loginThunk.rejected, (state, action) => {
         state.loading = false;

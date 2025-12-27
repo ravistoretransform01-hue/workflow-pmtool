@@ -1,8 +1,74 @@
 import axios, { AxiosError, type AxiosResponse } from "axios";
 
+// Debug flag - only log in development mode
+const DEBUG = import.meta.env.DEV === true;
+
+// Helper function to log only in debug mode
+const debugLog = (...args: any[]) => {
+  if (DEBUG) console.log(...args);
+};
+
+const debugWarn = (...args: any[]) => {
+  if (DEBUG) console.warn(...args);
+};
+
+const debugError = (...args: any[]) => {
+  if (DEBUG) console.error(...args);
+};
+
+// Helper function to decode JWT and check expiration
+const getTokenInfo = (token: string) => {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    
+    const payload = JSON.parse(atob(parts[1]));
+    const exp = payload.exp ? new Date(payload.exp * 1000) : null;
+    const now = new Date();
+    const isExpired = exp ? now > exp : false;
+    
+    return {
+      exp,
+      isExpired,
+      expiresIn: exp ? Math.round((exp.getTime() - now.getTime()) / 1000) + "s" : "unknown",
+    };
+  } catch (e) {
+    return null;
+  }
+};
+
+// Flag to prevent multiple refresh token requests
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value: any) => void;
+  reject: (reason?: any) => void;
+}> = [];
+
+// Track retry attempts to prevent infinite loops
+const retryAttempts = new Map<string, number>();
+const MAX_RETRIES = 5; // Only retry once per request
+
+const processQueue = (error: any, token: string | null = null) => {
+  debugLog(`[QUEUE] Processing ${failedQueue.length} queued requests...`);
+  failedQueue.forEach((prom, index) => {
+    debugLog(`[QUEUE] Processing request ${index + 1}/${failedQueue.length}`);
+    if (error) {
+      debugLog(`[QUEUE] Rejecting request ${index + 1} due to error`);
+      prom.reject(error);
+    } else {
+      debugLog(`[QUEUE] Resolving request ${index + 1} with new token`);
+      prom.resolve(token);
+    }
+  });
+
+  debugLog(`[QUEUE] All queued requests processed`);
+  isRefreshing = false;
+  failedQueue = [];
+};
+
 // Create axios instance with production-ready config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL  ,
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 30000, // 30 seconds
   headers: {
     "Content-Type": "application/json",
@@ -12,27 +78,31 @@ const api = axios.create({
 // Request interceptor - Add auth token
 api.interceptors.request.use(
   (config) => {
+    debugLog(`[REQUEST] Step 1: Preparing request to ${config.url}`);
     try {
       const token = localStorage.getItem("access_token");
+      debugLog(`[REQUEST] Step 2: Token found in localStorage: ${!!token}`);
+      
       if (token) {
+        const tokenInfo = getTokenInfo(token);
         config.headers.Authorization = `Bearer ${token}`;
-        console.log("Request with token:", {
-          url: config.url,
-          method: config.method,
-          baseURL: config.baseURL,
-          headers: config.headers,
-          data: config.data,
-        });
+        debugLog(`[REQUEST] Step 3: Token attached to Authorization header`);
+        debugLog(`[REQUEST] Step 4: Token expires in: ${tokenInfo?.expiresIn || "unknown"}`);
+        
+        if (tokenInfo?.isExpired) {
+          debugWarn(`[REQUEST] ⚠️ WARNING: Token is already expired!`);
+        }
       } else {
-        console.warn("No token found in localStorage");
+        debugWarn(`[REQUEST] ⚠️ No token found in localStorage`);
       }
     } catch (error) {
-      // localStorage might not be available or token doesn't exist
-      console.debug("Token not available:", error);
+      debugLog(`[REQUEST] Error accessing token:`, error);
     }
+    debugLog(`[REQUEST] Step 5: Request ready to send`);
     return config;
   },
   (error) => {
+    debugError(`[REQUEST] Error in request interceptor:`, error);
     return Promise.reject(error);
   }
 );
@@ -40,45 +110,182 @@ api.interceptors.request.use(
 // Response interceptor - Handle errors and token refresh
 api.interceptors.response.use(
   (response: AxiosResponse) => {
-    console.log("Response received:", {
-      url: response.config.url,
-      status: response.status,
-      data: response.data,
-    });
+    debugLog(`[RESPONSE] ✅ Success: ${response.config.url} - Status: ${response.status}`);
     return response;
   },
-  (error: AxiosError) => {
-    // Log full error details for debugging
-    console.error("API Error Details:", {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      message: error.message,
-      data: error.response?.data,
-      config: {
-        url: error.config?.url,
-        method: error.config?.method,
-        headers: error.config?.headers,
-      },
-    });
+  async (error: AxiosError) => {
+    debugLog(`\n[ERROR] ========== ERROR DETECTED ==========`);
+    const originalRequest = error.config as any;
+    const errorData = error.response?.data as any;
+    
+    // Create a unique key for this request
+    const requestKey = `${originalRequest.method}-${originalRequest.url}`;
+    const currentRetries = retryAttempts.get(requestKey) || 0;
+    
+    debugLog(`[ERROR] Step 1: Error Status: ${error.response?.status}`);
+    debugLog(`[ERROR] Step 2: Error Code: ${errorData?.code}`);
+    debugLog(`[ERROR] Step 3: Error Message: ${errorData?.message}`);
+    debugLog(`[ERROR] Step 4: Error URL: ${error.config?.url}`);
+    debugLog(`[ERROR] Step 5: Retry attempt ${currentRetries + 1}/${MAX_RETRIES}`);
 
-    // Handle 401 Unauthorized - Token expired
-    if (error.response?.status === 401) {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      // Redirect to login
-      window.location.href = "/login";
+    // Handle 403 Forbidden - Check if it's an expired token
+    if (error.response?.status === 403) {
+      debugLog(`[ERROR] Step 6: Status is 403 Forbidden`);
+      
+      if (errorData?.code === "jwt_auth_invalid_token" && errorData?.message === "Expired token") {
+        debugLog(`[ERROR] Step 7: ✅ Confirmed - Token is expired`);
+        
+        // Prevent infinite retry loops
+        if (currentRetries >= MAX_RETRIES) {
+          debugError(`[ERROR] ❌ Max retries (${MAX_RETRIES}) reached - Stopping refresh attempts`);
+          debugError(`[ERROR] This indicates the new token is also invalid or user has no permission`);
+          retryAttempts.delete(requestKey);
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          window.location.href = "/login";
+          return Promise.reject(new Error("Token refresh failed - max retries exceeded"));
+        }
+        
+        // Increment retry counter
+        retryAttempts.set(requestKey, currentRetries + 1);
+        
+        debugLog(`\n[REFRESH] ========== STARTING TOKEN REFRESH ==========`);
+
+        // Prevent multiple refresh requests
+        if (!isRefreshing) {
+          console.log(`[REFRESH] Step 1: Not currently refreshing - Starting refresh process`);
+          isRefreshing = true;
+
+          try {
+            debugLog(`[REFRESH] Step 2: Retrieving refresh_token from localStorage`);
+            const refreshToken = localStorage.getItem("refresh_token");
+            debugLog(`[REFRESH] Step 3: Refresh token found: ${!!refreshToken}`);
+
+            if (!refreshToken) {
+              debugError(`[REFRESH] ❌ Step 4: No refresh token available - Cannot refresh`);
+              debugLog(`[REFRESH] Step 5: Clearing all tokens from localStorage`);
+              localStorage.removeItem("access_token");
+              localStorage.removeItem("refresh_token");
+              debugLog(`[REFRESH] Step 6: Redirecting to login page`);
+              window.location.href = "/login";
+              return Promise.reject(error);
+            }
+
+            debugLog(`[REFRESH] Step 4: Refresh token available - Proceeding with refresh`);
+            debugLog(`[REFRESH] Step 5: Preparing POST request to /refresh endpoint`);
+            debugLog(`[REFRESH] Step 6: Sending refresh token to server...`);
+
+            // Make refresh token request using plain axios (not our api instance)
+            const response = await axios.post(
+              `${import.meta.env.VITE_API_URL}/refresh`,
+              {
+                refresh_token: refreshToken,
+              },
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+
+            console.log(`[REFRESH] ✅ Step 7: Refresh request successful - Status: ${response.status}`);
+            debugLog(`[REFRESH] Step 8: Extracting new tokens from response`);
+            const { access_token, refresh_token } = response.data;
+            debugLog(`[REFRESH] Step 9: New access_token received: ${!!access_token}`);
+            debugLog(`[REFRESH] Step 10: New refresh_token received: ${!!refresh_token}`);
+
+            // Update tokens in localStorage
+            debugLog(`[REFRESH] Step 11: Storing new access_token in localStorage`);
+            localStorage.setItem("access_token", access_token);
+            
+            if (refresh_token) {
+              debugLog(`[REFRESH] Step 12: Storing new refresh_token in localStorage`);
+              localStorage.setItem("refresh_token", refresh_token);
+            } else {
+              debugLog(`[REFRESH] Step 12: No new refresh_token in response - keeping old one`);
+            }
+
+            const tokenInfo = getTokenInfo(access_token);
+            debugLog(`[REFRESH] Step 13: New token expires in: ${tokenInfo?.expiresIn}`);
+
+            // Update the original request with new token
+            debugLog(`[REFRESH] Step 14: Updating original request with new token`);
+            originalRequest.headers.Authorization = `Bearer ${access_token}`;
+
+            // Process queued requests
+            debugLog(`[REFRESH] Step 15: Processing ${failedQueue.length} queued requests`);
+            processQueue(null, access_token);
+
+            // Retry the original request
+            debugLog(`[REFRESH] Step 16: Retrying original request with new token`);
+            console.log(`[REFRESH] ========== TOKEN REFRESH COMPLETE ==========\n`);
+            
+            // Clear retry counter on successful refresh
+            retryAttempts.delete(requestKey);
+            
+            return api(originalRequest);
+          } catch (refreshError: any) {
+            debugError(`[REFRESH] ❌ Step 7: Token refresh failed`);
+            debugError(`[REFRESH] Step 8: Error message: ${refreshError.message}`);
+            debugError(`[REFRESH] Step 9: Error status: ${refreshError.response?.status}`);
+
+            // Clear tokens and redirect to login
+            debugLog(`[REFRESH] Step 10: Clearing all tokens from localStorage`);
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            
+            debugLog(`[REFRESH] Step 11: Processing queued requests with error`);
+            processQueue(refreshError, null);
+            
+            debugLog(`[REFRESH] Step 12: Redirecting to login page`);
+            window.location.href = "/login";
+
+            return Promise.reject(refreshError);
+          }
+        } else {
+          // If already refreshing, queue the request
+          debugLog(`[REFRESH] Step 1: Already refreshing - Queueing this request`);
+          debugLog(`[REFRESH] Step 2: Current queue size: ${failedQueue.length}`);
+          
+          return new Promise((resolve, reject) => {
+            debugLog(`[REFRESH] Step 3: Adding request to queue`);
+            failedQueue.push({ resolve, reject });
+            debugLog(`[REFRESH] Step 4: Queue size now: ${failedQueue.length}`);
+          })
+            .then((token) => {
+              debugLog(`[REFRESH] Step 5: Queue resolved - Retrying with new token`);
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              return api(originalRequest);
+            })
+            .catch((err) => {
+              debugError(`[REFRESH] Step 5: Queue rejected - Error:`, err.message);
+              return Promise.reject(err);
+            });
+        }
+      } else {
+        debugLog(`[ERROR] Step 8: ❌ 403 Forbidden but NOT token expiration`);
+        debugLog(`[ERROR] Step 9: Error code: ${errorData?.code}`);
+        debugLog(`[ERROR] Step 10: Error message: ${errorData?.message}`);
+      }
     }
 
-    // Handle 403 Forbidden
-    if (error.response?.status === 403) {
-      console.error("Access forbidden:", error.response.data);
+    // Handle 401 Unauthorized
+    if (error.response?.status === 401) {
+      debugError(`[ERROR] Step 6: Status is 401 Unauthorized`);
+      debugLog(`[ERROR] Step 7: Clearing all tokens from localStorage`);
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      debugLog(`[ERROR] Step 8: Redirecting to login page`);
+      window.location.href = "/login";
     }
 
     // Handle 500 Server Error
     if (error.response?.status === 500) {
-      console.error("Server error:", error.response.data);
+      debugError(`[ERROR] Step 6: Status is 500 Server Error`);
+      debugError(`[ERROR] Step 7: Server error details:`, error.response.data);
     }
 
+    debugLog(`[ERROR] ========== ERROR HANDLING COMPLETE ==========\n`);
     return Promise.reject(error);
   }
 );
