@@ -50,7 +50,7 @@ export default function DynamicWorkspace() {
                     className="p-4 border rounded-lg hover:bg-accent cursor-pointer"
                     onClick={() =>
                       navigate(
-                        `/workspace/${workspaceId}/board/${board.id}`
+                        `/board/${board.id}`
                       )
                     }
                   >

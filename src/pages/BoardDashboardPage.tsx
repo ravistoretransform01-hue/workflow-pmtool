@@ -28,7 +28,7 @@ export default function BoardDashboardPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate(`/workspace/${workspaceId}/board/${boardId}`)}
+          onClick={() => navigate(`/board/${boardId}`)}
           className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />

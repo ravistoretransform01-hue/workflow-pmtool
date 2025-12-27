@@ -129,8 +129,8 @@ export const AppSidebar = () => {
     setAddMenuOpen(false);
   };
 
-  const handleOpenBoardInNewTab = (boardId: string, workspaceId: string) => {
-    window.open(`/workspace/${workspaceId}/board/${boardId}`, "_blank");
+  const handleOpenBoardInNewTab = (boardId: string) => {
+    window.open(`/board/${boardId}`, "_blank");
   };
 
   const handleRenameBoard = (boardId: string, currentName: string) => {
@@ -326,7 +326,7 @@ export const AppSidebar = () => {
                   <SidebarMenuItem key={board.id} className="p-0">
                     <div className="flex items-center gap-1 w-full group px-2 py-1.5 rounded-md hover:bg-hover">
                       <button
-                        onClick={() => navigate(`/workspace/${board.workspace_id}/board/${board.id}`)}
+                        onClick={() => navigate(`/board/${board.id}`)}
                         className="flex items-center gap-2 flex-1 text-left min-w-0"
                         title={board.name}
                       >
@@ -344,7 +344,7 @@ export const AppSidebar = () => {
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem
                             onClick={() =>
-                              handleOpenBoardInNewTab(board.id, board.workspace_id)
+                              handleOpenBoardInNewTab(board.id)
                             }
                           >
                             <ExternalLink className="h-4 w-4 mr-2" />
@@ -496,7 +496,7 @@ export const AppSidebar = () => {
                   <button
                     key={board.id}
                     onClick={() => {
-                      navigate(`/workspace/${board.workspace_id}/board/${board.id}`);
+                      navigate(`/board/${board.id}`);
                       setBoardSearchOpen(false);
                       setBoardSearchQuery("");
                     }}
