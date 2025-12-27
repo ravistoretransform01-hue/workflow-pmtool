@@ -2,8 +2,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { useCallback } from "react";
 import type { RootState, AppDispatch } from "@/app/store";
 import { loginThunk, signupThunk, logoutThunk } from "@/features/auth/authThunks";
-import { clearError } from "@/features/auth/authSlice";
+import { clearError, setUser } from "@/features/auth/authSlice";
 import type { LoginRequest, SignupRequest } from "@/features/auth/types";
+import { userApi } from "@/features/auth/userAPI";
 
 export const useAuth = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -36,6 +37,32 @@ export const useAuth = () => {
     dispatch(clearError());
   }, [dispatch]);
 
+  const fetchUserMeta = useCallback(
+    async (userId: number) => {
+      try {
+        const userMeta = await userApi.getUserMeta(userId);
+        
+        // Update user with meta data
+        if (user) {
+          const updatedUser = {
+            ...user,
+            email: userMeta.email,
+            phone: userMeta.phone,
+            mobile_phone: userMeta.mobile_phone,
+            location: userMeta.location,
+          };
+          dispatch(setUser(updatedUser));
+        }
+        
+        return userMeta;
+      } catch (error) {
+        console.error("Failed to fetch user meta:", error);
+        throw error;
+      }
+    },
+    [dispatch, user]
+  );
+
   return {
     user,
     token,
@@ -46,5 +73,6 @@ export const useAuth = () => {
     signup,
     logout,
     clearAuthError,
+    fetchUserMeta,
   };
 };

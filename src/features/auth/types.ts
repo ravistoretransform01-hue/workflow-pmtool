@@ -18,6 +18,10 @@ export interface User {
   role: string[];
   avatar?: string;
   createdAt?: string;
+  // User meta fields from API
+  phone?: string;
+  mobile_phone?: string;
+  location?: string;
 }
 
 export interface AuthResponse {
