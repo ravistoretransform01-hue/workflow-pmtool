@@ -2,8 +2,8 @@ import { useState } from "react";
 import { SidebarTrigger } from "@/shared/components/ui/sidebar";
 import { Trash2, Settings, User, Users, LogOut, UserPlus, ChevronDown, FileText } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
-import { useTestUser } from "@/contexts/TestUserContext";
+// import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
+// import { useTestUser } from "@/contexts/TestUserContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -18,12 +18,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
 } from "@/shared/components/ui/dropdown-menu";
 
 export function Header() {
-  const { currentUser, testUsers, switchUser } = useTestUser();
+  // const { currentUser, testUsers, switchUser } = useTestUser();
   const { logout, loading } = useAuth();
   const navigate = useNavigate();
   const [trashDialogOpen, setTrashDialogOpen] = useState(false);
@@ -50,7 +48,7 @@ export function Header() {
        <SidebarTrigger /> 
       </div>
       <div className="flex items-center gap-2">
-        <DropdownMenu>
+        {/* <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 h-10">
               <Avatar className="h-8 w-8">
@@ -81,7 +79,7 @@ export function Header() {
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu> */}
         
         <NotificationBell />
         
@@ -113,10 +111,10 @@ export function Header() {
               <Users className="mr-2 h-4 w-4" />
               <span>Members</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setInviteDialogOpen(true)}>
+            {/* <DropdownMenuItem onClick={() => setInviteDialogOpen(true)}>
               <UserPlus className="mr-2 h-4 w-4" />
               <span>Invite</span>
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
             <DropdownMenuItem onClick={() => setTemplateDialogOpen(true)}>
               <FileText className="mr-2 h-4 w-4" />
               <span>Edit Templates</span>
