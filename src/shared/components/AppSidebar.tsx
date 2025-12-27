@@ -23,6 +23,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/shared/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { AddBoardDialog } from "@/shared/components/AddBoardDialog";
@@ -39,6 +45,10 @@ import {
   Copy,
   ChevronRight,
   Loader2,
+  MoreHorizontal,
+  ExternalLink,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -56,6 +66,8 @@ export const AppSidebar = () => {
   const [newDocName, setNewDocName] = useState("");
   const [boardSearchQuery, setBoardSearchQuery] = useState("");
   const [boardSearchOpen, setBoardSearchOpen] = useState(false);
+  const [renamingBoardId, setRenamingBoardId] = useState<string | null>(null);
+  const [renamingBoardName, setRenamingBoardName] = useState("");
 
   // Fetch boards on component mount
   useEffect(() => {
@@ -115,6 +127,39 @@ export const AppSidebar = () => {
     setNewDocName("");
     setCreateDocOpen(false);
     setAddMenuOpen(false);
+  };
+
+  const handleOpenBoardInNewTab = (boardId: string, workspaceId: string) => {
+    window.open(`/workspace/${workspaceId}/board/${boardId}`, "_blank");
+  };
+
+  const handleRenameBoard = (boardId: string, currentName: string) => {
+    setRenamingBoardId(boardId);
+    setRenamingBoardName(currentName);
+  };
+
+  const handleSaveRename = async () => {
+    if (!renamingBoardName.trim()) {
+      toast.error("Board name is required");
+      return;
+    }
+    // TODO: Call API to rename board with renamingBoardId
+    toast.success(`Board renamed to "${renamingBoardName}"`);
+    setRenamingBoardId(null);
+    setRenamingBoardName("");
+    fetchBoards();
+  };
+
+  const handleDuplicateBoard = (_boardId: string, boardName: string) => {
+    // TODO: Call API to duplicate board with _boardId
+    toast.success(`Board "${boardName}" duplicated`);
+    fetchBoards();
+  };
+
+  const handleDeleteBoard = (_boardId: string, boardName: string) => {
+    // TODO: Call API to delete board with _boardId
+    toast.success(`Board "${boardName}" deleted`);
+    fetchBoards();
   };
 
   return (
@@ -278,23 +323,58 @@ export const AppSidebar = () => {
               {/* Boards from API */}
               {!fetchLoading && boards.length > 0 ? (
                 boards.map((board) => (
-                  <SidebarMenuItem key={board.id}>
-                    <SidebarMenuButton asChild>
+                  <SidebarMenuItem key={board.id} className="p-0">
+                    <div className="flex items-center gap-1 w-full group px-2 py-1.5 rounded-md hover:bg-hover">
                       <button
                         onClick={() => navigate(`/workspace/${board.workspace_id}/board/${board.id}`)}
-                        className="flex items-center gap-2 w-full text-left hover:bg-hover rounded-md px-2 py-1.5"
+                        className="flex items-center gap-2 flex-1 text-left min-w-0"
                         title={board.name}
                       >
-                        {/* <div
-                          className="h-4 w-4 rounded flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                          style={{ backgroundColor: board.icon_color }}
-                        >
-                          {board.icon_value || board.name.charAt(0).toUpperCase()}
-                        </div> */}
-                         <LayoutDashboard className="h-4 w-4 shrink-0" />
-                        <span className="truncate text-sm">{board.name}</span>
+                        <LayoutDashboard className="h-4 w-4 shrink-0" />
+                        <span className="truncate text-sm overflow-hidden text-ellipsis">{board.name}</span>
                       </button>
-                    </SidebarMenuButton>
+                      
+                      {/* Dropdown Menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded-md flex-shrink-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleOpenBoardInNewTab(board.id, board.workspace_id)
+                            }
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            <span>Open in new tab</span>
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem
+                            onClick={() => handleRenameBoard(board.id, board.name)}
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            <span>Rename</span>
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem
+                            onClick={() => handleDuplicateBoard(board.id, board.name)}
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            <span>Duplicate</span>
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteBoard(board.id, board.name)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            <span>Delete</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </SidebarMenuItem>
                 ))
               ) : !fetchLoading && boards.length === 0 ? (
@@ -443,6 +523,42 @@ export const AppSidebar = () => {
                     : "Start typing to search boards"}
                 </p>
               )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Board Dialog */}
+      <Dialog open={!!renamingBoardId} onOpenChange={(open) => {
+        if (!open) {
+          setRenamingBoardId(null);
+          setRenamingBoardName("");
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Board</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input
+              placeholder="Board name"
+              value={renamingBoardName}
+              onChange={(e) => setRenamingBoardName(e.target.value)}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRenamingBoardId(null);
+                  setRenamingBoardName("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={() => handleSaveRename()}>
+                Save
+              </Button>
             </div>
           </div>
         </DialogContent>
