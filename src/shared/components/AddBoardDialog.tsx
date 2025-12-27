@@ -65,12 +65,12 @@ interface BoardMember {
 }
 
 const PRESET_COLORS = [
-  "#16a249ff", // green
-  "#3c83f6ff", // blue
-  "#a855f7ff", // purple
-  "#dc2828ff", // red
-  "#facc14ff", // yellow
-  "#ff8400ff", // orange
+  "#16a249", // green
+  "#3c83f6", // blue
+  "#a855f7", // purple
+  "#dc2828", // red
+  "#facc14", // yellow
+  "#ff8400", // orange
 ];
 
 export function AddBoardDialog({
