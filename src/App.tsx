@@ -42,8 +42,8 @@ const App = () => (
                 <Route path="my-habits" element={<MyHabits />} />
 
                 <Route path="workspace/:workspaceId" element={<DynamicWorkspace />} />
-                <Route path="workspace/:workspaceId/board/:boardId" element={<DynamicBoard />} />
-                <Route path="workspace/:workspaceId/board/:boardId/dashboard" element={<BoardDashboardPage />} />
+                <Route path="board/:boardId" element={<DynamicBoard />} />
+                <Route path="board/:boardId/dashboard" element={<BoardDashboardPage />} />
                 <Route path="workspace/:workspaceId/doc/:documentId" element={<DocumentEditor />} />
 
                 <Route path="*" element={<NotFound />} />

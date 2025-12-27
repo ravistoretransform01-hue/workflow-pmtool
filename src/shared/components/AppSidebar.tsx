@@ -53,6 +53,7 @@ import {
 import { NavLink, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useBoards } from "@/hooks/useBoards";
+import { boardsApi } from "@/features/boards/boardsApi";
 
 export const AppSidebar = () => {
   const navigate = useNavigate();
@@ -68,6 +69,9 @@ export const AppSidebar = () => {
   const [boardSearchOpen, setBoardSearchOpen] = useState(false);
   const [renamingBoardId, setRenamingBoardId] = useState<string | null>(null);
   const [renamingBoardName, setRenamingBoardName] = useState("");
+  const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null);
+  const [deletingBoardName, setDeletingBoardName] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch boards on component mount
   useEffect(() => {
@@ -129,8 +133,8 @@ export const AppSidebar = () => {
     setAddMenuOpen(false);
   };
 
-  const handleOpenBoardInNewTab = (boardId: string, workspaceId: string) => {
-    window.open(`/workspace/${workspaceId}/board/${boardId}`, "_blank");
+  const handleOpenBoardInNewTab = (boardId: string) => {
+    window.open(`/board/${boardId}`, "_blank");
   };
 
   const handleRenameBoard = (boardId: string, currentName: string) => {
@@ -156,10 +160,27 @@ export const AppSidebar = () => {
     fetchBoards();
   };
 
-  const handleDeleteBoard = (_boardId: string, boardName: string) => {
-    // TODO: Call API to delete board with _boardId
-    toast.success(`Board "${boardName}" deleted`);
-    fetchBoards();
+  const handleDeleteBoard = (boardId: string, boardName: string) => {
+    setDeletingBoardId(boardId);
+    setDeletingBoardName(boardName);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingBoardId) return;
+
+    setIsDeleting(true);
+    try {
+      await boardsApi.deleteBoard(deletingBoardId);
+      toast.success(`Board "${deletingBoardName}" deleted successfully`);
+      setDeletingBoardId(null);
+      setDeletingBoardName("");
+      fetchBoards();
+    } catch (error: any) {
+      console.error("Delete board error:", error);
+      toast.error(error.response?.data?.message || "Failed to delete board");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -326,7 +347,7 @@ export const AppSidebar = () => {
                   <SidebarMenuItem key={board.id} className="p-0">
                     <div className="flex items-center gap-1 w-full group px-2 py-1.5 rounded-md hover:bg-hover">
                       <button
-                        onClick={() => navigate(`/workspace/${board.workspace_id}/board/${board.id}`)}
+                        onClick={() => navigate(`/board/${board.id}`)}
                         className="flex items-center gap-2 flex-1 text-left min-w-0"
                         title={board.name}
                       >
@@ -344,7 +365,7 @@ export const AppSidebar = () => {
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem
                             onClick={() =>
-                              handleOpenBoardInNewTab(board.id, board.workspace_id)
+                              handleOpenBoardInNewTab(board.id)
                             }
                           >
                             <ExternalLink className="h-4 w-4 mr-2" />
@@ -370,7 +391,7 @@ export const AppSidebar = () => {
                             className="text-destructive focus:text-destructive"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
-                            <span>Delete</span>
+                            <span>Delete Project</span>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -496,7 +517,7 @@ export const AppSidebar = () => {
                   <button
                     key={board.id}
                     onClick={() => {
-                      navigate(`/workspace/${board.workspace_id}/board/${board.id}`);
+                      navigate(`/board/${board.id}`);
                       setBoardSearchOpen(false);
                       setBoardSearchQuery("");
                     }}
@@ -558,6 +579,44 @@ export const AppSidebar = () => {
               </Button>
               <Button onClick={() => handleSaveRename()}>
                 Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Board Confirmation Dialog */}
+      <Dialog open={!!deletingBoardId} onOpenChange={(open) => {
+        if (!open) {
+          setDeletingBoardId(null);
+          setDeletingBoardName("");
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Board</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete <strong>{deletingBoardName}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeletingBoardId(null);
+                  setDeletingBoardName("");
+                }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
               </Button>
             </div>
           </div>

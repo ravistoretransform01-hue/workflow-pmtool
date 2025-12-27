@@ -12,7 +12,7 @@ interface BoardDashboard {
 }
 
 export default function BoardDashboardPage() {
-  const { workspaceId, boardId } = useParams();
+  const { boardId } = useParams();
   const navigate = useNavigate();
   const [dashboard] = useState<BoardDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,7 +28,7 @@ export default function BoardDashboardPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate(`/workspace/${workspaceId}/board/${boardId}`)}
+          onClick={() => navigate(`/board/${boardId}`)}
           className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
