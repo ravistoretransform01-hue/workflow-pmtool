@@ -285,12 +285,13 @@ export const AppSidebar = () => {
                         className="flex items-center gap-2 w-full text-left hover:bg-hover rounded-md px-2 py-1.5"
                         title={board.name}
                       >
-                        <div
+                        {/* <div
                           className="h-4 w-4 rounded flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                           style={{ backgroundColor: board.icon_color }}
                         >
                           {board.icon_value || board.name.charAt(0).toUpperCase()}
-                        </div>
+                        </div> */}
+                         <LayoutDashboard className="h-4 w-4 shrink-0" />
                         <span className="truncate text-sm">{board.name}</span>
                       </button>
                     </SidebarMenuButton>
