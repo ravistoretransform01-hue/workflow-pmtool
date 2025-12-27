@@ -43,7 +43,7 @@ export function Header() {
   };
   
   return (
-    <header className="h-16 border-b border-border  flex items-center justify-between px-6 sticky top-0 z-10">
+    <header className="h-16 border-b border-border flex items-center justify-between px-6 sticky top-0 z-10" style={{ backgroundColor: "hsl(222, 47%, 11%)" }}>
       <div className="flex items-center gap-4">
        <SidebarTrigger /> 
       </div>
