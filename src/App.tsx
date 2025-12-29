@@ -1,7 +1,6 @@
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/shared/components/ui/tooltip";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { TestUserProvider } from "@/contexts/TestUserContext";
 import { ProtectedRoute,  ProtectedLayout} from "@/shared/components/ProtectedRoute";
 
@@ -25,7 +24,7 @@ const App = () => (
     <Sonner />
     <BrowserRouter>
       <TestUserProvider>
-        <WorkspaceProvider>
+        {/* <WorkspaceProvider> */}
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
@@ -50,7 +49,7 @@ const App = () => (
               </Route>
             </Route>
           </Routes>
-        </WorkspaceProvider>
+        {/* </WorkspaceProvider> */}
       </TestUserProvider>
     </BrowserRouter>
   </TooltipProvider>
