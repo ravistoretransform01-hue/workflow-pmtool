@@ -85,7 +85,18 @@ export const boardsApi = {
    * Get board by ID
    */
   getBoardById: async (id: string): Promise<Board> => {
-    const response = await api.get<Board>(BOARD_ENDPOINTS.GET_BY_ID(id));
+    const response = await api.get<any>(BOARD_ENDPOINTS.GET_BY_ID(id));
+    
+    // Handle the API response format: { code, status, data: { board_data } }
+    if (response.data && response.data.data) {
+      return response.data.data;
+    }
+    
+    // Fallback if response is the board object directly
+    if (response.data && response.data.id) {
+      return response.data;
+    }
+    
     return response.data;
   },
 
