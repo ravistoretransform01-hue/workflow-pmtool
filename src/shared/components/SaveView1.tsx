@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, Check } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { toast } from 'sonner';
@@ -43,7 +43,6 @@ export interface SaveView1State {
 interface SaveView1Props {
   storageKey: string;
   getCurrentState: () => SaveView1State;
-  onLoadState?: (state: SaveView1State) => void;
   className?: string;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'icon';
@@ -53,7 +52,6 @@ interface SaveView1Props {
 export function SaveView1({
   storageKey,
   getCurrentState,
-  onLoadState,
   className = '',
   variant = 'outline',
   size = 'default',
