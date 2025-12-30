@@ -4,7 +4,6 @@ import { Loader2 } from "lucide-react";
 import { boardsApi } from "@/features/boards/boardsApi";
 import type { Board } from "@/features/boards/types";
 import { WorkloadBoard } from "@/shared/components/WorkloadBoard";
-import NotFound from "./NotFound";
 
 const DynamicBoard = () => {
   const { boardId } = useParams<{ boardId: string }>();
@@ -44,7 +43,15 @@ const DynamicBoard = () => {
   }
 
   if (error || !board) {
-    return <NotFound />;
+    return (
+      <WorkloadBoard
+        boardName={"Board Name"}
+        boardId={boardId!}
+        workspaceId={'00'}
+        workspaceName="Workspace"
+      />
+    );
+    // return <NotFound />;
   }
 
   return (
