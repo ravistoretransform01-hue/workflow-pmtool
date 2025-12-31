@@ -1,12 +1,17 @@
 import api from "@/lib/axios";
-import type { CreateBoardRequest, Board, CreateBoardResponse, GetBoardsResponse } from "./types";
+import type {
+  CreateBoardRequest,
+  Board,
+  CreateBoardResponse,
+  GetBoardsResponse,
+} from "./types";
 
 const BOARD_ENDPOINTS = {
   CREATE: "/boards",
   GET_ALL: "/boards",
   GET_BY_ID: (id: string) => `/boards/${id}`,
   UPDATE: (id: string) => `/boards/${id}`,
-  DELETE: (id: string) => `/boards/${id}`,
+  DELETE: `/boards`,
 };
 
 export const boardsApi = {
@@ -15,11 +20,17 @@ export const boardsApi = {
    */
   getBoards: async (): Promise<Board[]> => {
     try {
-      const response = await api.get<GetBoardsResponse>(BOARD_ENDPOINTS.GET_ALL);
+      const response = await api.get<GetBoardsResponse>(
+        BOARD_ENDPOINTS.GET_ALL
+      );
       console.log("Get boards response:", response);
 
       // Handle the API response format
-      if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      if (
+        response.data &&
+        response.data.data &&
+        Array.isArray(response.data.data)
+      ) {
         return response.data.data;
       }
 
@@ -86,17 +97,17 @@ export const boardsApi = {
    */
   getBoardById: async (id: string): Promise<Board> => {
     const response = await api.get<any>(BOARD_ENDPOINTS.GET_BY_ID(id));
-    
+
     // Handle the API response format: { code, status, data: { board_data } }
     if (response.data && response.data.data) {
       return response.data.data;
     }
-    
+
     // Fallback if response is the board object directly
     if (response.data && response.data.id) {
       return response.data;
     }
-    
+
     return response.data;
   },
 
@@ -114,7 +125,17 @@ export const boardsApi = {
   /**
    * Delete board
    */
-  deleteBoard: async (id: string): Promise<void> => {
-    await api.delete(BOARD_ENDPOINTS.DELETE(id));
+  // deleteBoard: async (id: string): Promise<void> => {
+  //   await api.delete(BOARD_ENDPOINTS.DELETE(id));
+  // },
+  deleteBoard: async (id: string | number): Promise<void> => {
+    try {
+      await api.delete(BOARD_ENDPOINTS.DELETE, {
+        data: { id: id },
+      });
+    } catch (error) {
+      console.error("Delete board API error:", error);
+      throw error;
+    }
   },
 };

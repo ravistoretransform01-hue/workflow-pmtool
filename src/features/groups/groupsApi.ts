@@ -135,9 +135,7 @@ export const groupsApi = {
   deleteGroup: async (id: string | number): Promise<void> => {
     try {
       await api.delete(GROUP_ENDPOINTS.DELETE, {
-        data: {
-          id: id,
-        },
+        data: { id: id },
       });
     } catch (error) {
       console.error("Delete group API error:", error);
