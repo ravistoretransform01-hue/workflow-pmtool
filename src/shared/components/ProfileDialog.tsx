@@ -39,15 +39,10 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   }, [open]);
 
   const loadUserMeta = async () => {
-    if (!user?.user_id) {
-      console.warn("User ID not available");
-      return;
-    }
-
     setIsLoading(true);
     try {
       // Always fetch fresh user meta data
-      const userMeta = await userApi.getUserMeta(user.user_id);
+      const userMeta = await userApi.getUserMeta();
       setJobTitle(userMeta.job_title || "");
       setPhone(userMeta.phone || "");
       setMobilePhone(userMeta.mobile_phone || "");
@@ -55,7 +50,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
       setRetryCount(0); // Reset retry count on success
     } catch (error) {
       console.error("Failed to fetch user meta:", error);
-      
+
       // Retry logic
       if (retryCount < MAX_RETRIES) {
         setRetryCount(retryCount + 1);
@@ -87,14 +82,14 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
     setIsSaving(true);
     try {
-      await userApi.updateUserMeta(user.user_id, {
+      await userApi.updateUserMeta({
         email: displayEmail,
         phone,
         mobile_phone: mobilePhone,
         location,
         job_title: jobTitle,
       });
-      
+
       toast.success("Profile updated successfully");
     } catch (error) {
       console.error("Failed to update profile:", error);
@@ -131,10 +126,8 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                   </div>
 
                   <div className="flex-1 space-y-4">
-                    <div className="text-3xl font-semibold">
-                      {displayName}
-                    </div>
-                  
+                    <div className="text-3xl font-semibold">{displayName}</div>
+
                     <Input
                       value={jobTitle}
                       onChange={(e) => setJobTitle(e.target.value)}
@@ -148,8 +141,8 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
                     <div className="space-y-3 pt-4">
                       <h3 className="font-semibold">Your work schedules:</h3>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="gap-2"
                         onClick={() => setScheduleDialogOpen(true)}
                       >
@@ -233,7 +226,10 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
         </DialogContent>
       </Dialog>
 
-      <ScheduleDialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen} />
+      <ScheduleDialog
+        open={scheduleDialogOpen}
+        onOpenChange={setScheduleDialogOpen}
+      />
     </>
   );
 }

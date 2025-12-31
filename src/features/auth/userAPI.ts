@@ -24,19 +24,23 @@ export interface UpdateUserMetaRequest {
   job_title?: string;
 }
 
+// const USER_ENDPOINTS = {
+//   GET_USER_META: (userId: number) => `/usermeta?user_id=${userId}`,
+//   UPDATE_USER_META: (userId: number) => `/usermeta?user_id=${userId}`,
+// };
 const USER_ENDPOINTS = {
-  GET_USER_META: (userId: number) => `/usermeta?user_id=${userId}`,
-  UPDATE_USER_META: (userId: number) => `/usermeta?user_id=${userId}`,
+  GET_USER_META: `/usermeta/me`,
+  UPDATE_USER_META: `/usermeta`,
 };
 
 export const userApi = {
   /**
    * Get user details/metadata
    */
-  getUserMeta: async (userId: number): Promise<UserMetaData> => {
+  getUserMeta: async (): Promise<UserMetaData> => {
     try {
       const response = await api.get<UserMetaResponse>(
-        USER_ENDPOINTS.GET_USER_META(userId)
+        USER_ENDPOINTS.GET_USER_META
       );
 
       if (response.data && response.data.data && response.data.data.meta) {
@@ -54,12 +58,12 @@ export const userApi = {
    * Update user details/metadata
    */
   updateUserMeta: async (
-    userId: number,
+    // userId: number,
     data: UpdateUserMetaRequest
   ): Promise<UserMetaData> => {
     try {
       const response = await api.put<UserMetaResponse>(
-        USER_ENDPOINTS.UPDATE_USER_META(userId),
+        USER_ENDPOINTS.UPDATE_USER_META,
         data
       );
 

@@ -79,7 +79,7 @@ export function AddBoardDialog({
   onAddBoard,
   templateId,
   workspaceId = 1,
-  organizationId = 1,
+  organizationId,
 }: AddBoardDialogProps) {
   const { testUsers, currentUser } = useTestUser();
   const { createBoard, loading } = useBoards();
@@ -468,6 +468,19 @@ export function AddBoardDialog({
       toast({
         title: "Validation error",
         description: "Board name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (
+      organizationId === null ||
+      organizationId === undefined ||
+      organizationId === -1
+    ) {
+      toast({
+        title: "Something went wrong",
+        description: "Organization not found",
         variant: "destructive",
       });
       return;

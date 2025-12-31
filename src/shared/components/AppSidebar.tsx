@@ -54,6 +54,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useBoards } from "@/hooks/useBoards";
 import { boardsApi } from "@/features/boards/boardsApi";
+import { getOrganizationId } from "@/lib/utils";
 
 export const AppSidebar = () => {
   const navigate = useNavigate();
@@ -352,9 +353,11 @@ export const AppSidebar = () => {
                         title={board.name}
                       >
                         <LayoutDashboard className="h-4 w-4 shrink-0" />
-                        <span className="truncate text-sm overflow-hidden text-ellipsis">{board.name}</span>
+                        <span className="truncate text-sm overflow-hidden text-ellipsis">
+                          {board.name}
+                        </span>
                       </button>
-                      
+
                       {/* Dropdown Menu */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -364,30 +367,34 @@ export const AppSidebar = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem
-                            onClick={() =>
-                              handleOpenBoardInNewTab(board.id)
-                            }
+                            onClick={() => handleOpenBoardInNewTab(board.id)}
                           >
                             <ExternalLink className="h-4 w-4 mr-2" />
                             <span>Open in new tab</span>
                           </DropdownMenuItem>
-                          
+
                           <DropdownMenuItem
-                            onClick={() => handleRenameBoard(board.id, board.name)}
+                            onClick={() =>
+                              handleRenameBoard(board.id, board.name)
+                            }
                           >
                             <Pencil className="h-4 w-4 mr-2" />
                             <span>Rename</span>
                           </DropdownMenuItem>
-                          
+
                           <DropdownMenuItem
-                            onClick={() => handleDuplicateBoard(board.id, board.name)}
+                            onClick={() =>
+                              handleDuplicateBoard(board.id, board.name)
+                            }
                           >
                             <Copy className="h-4 w-4 mr-2" />
                             <span>Duplicate</span>
                           </DropdownMenuItem>
-                          
+
                           <DropdownMenuItem
-                            onClick={() => handleDeleteBoard(board.id, board.name)}
+                            onClick={() =>
+                              handleDeleteBoard(board.id, board.name)
+                            }
                             className="text-destructive focus:text-destructive"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -445,6 +452,7 @@ export const AppSidebar = () => {
         }}
         onAddBoard={handleAddBoard}
         // templateId={selectedTemplateId}
+        organizationId={getOrganizationId() || -1}
       />
 
       {/* Add Board Dialog */}
@@ -530,7 +538,9 @@ export const AppSidebar = () => {
                       {board.icon_value || board.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="font-medium block truncate">{board.name}</span>
+                      <span className="font-medium block truncate">
+                        {board.name}
+                      </span>
                       <span className="text-xs text-muted-foreground">
                         Workspace {board.workspace_id}
                       </span>
@@ -550,12 +560,15 @@ export const AppSidebar = () => {
       </Dialog>
 
       {/* Rename Board Dialog */}
-      <Dialog open={!!renamingBoardId} onOpenChange={(open) => {
-        if (!open) {
-          setRenamingBoardId(null);
-          setRenamingBoardName("");
-        }
-      }}>
+      <Dialog
+        open={!!renamingBoardId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRenamingBoardId(null);
+            setRenamingBoardName("");
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rename Board</DialogTitle>
@@ -577,28 +590,31 @@ export const AppSidebar = () => {
               >
                 Cancel
               </Button>
-              <Button onClick={() => handleSaveRename()}>
-                Save
-              </Button>
+              <Button onClick={() => handleSaveRename()}>Save</Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Delete Board Confirmation Dialog */}
-      <Dialog open={!!deletingBoardId} onOpenChange={(open) => {
-        if (!open) {
-          setDeletingBoardId(null);
-          setDeletingBoardName("");
-        }
-      }}>
+      <Dialog
+        open={!!deletingBoardId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingBoardId(null);
+            setDeletingBoardName("");
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Board</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <p className="text-sm text-muted-foreground">
-              Are you sure you want to delete <strong>{deletingBoardName}</strong>? This action cannot be undone.
+              Are you sure you want to delete{" "}
+              <strong>{deletingBoardName}</strong>? This action cannot be
+              undone.
             </p>
             <div className="flex justify-end gap-2">
               <Button

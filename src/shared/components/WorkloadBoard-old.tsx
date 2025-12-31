@@ -1076,6 +1076,7 @@ export function WorkloadBoard({
                                       <th className="p-4 w-12 text-center border-r border-border">
                                         <input type="checkbox" className="rounded" />
                                       </th>
+
                                       <TableHeaderCell title="Item" width="300px" />
                                       <TableHeaderCell title="Status" width="160px" />
                                       <TableHeaderCell title="Priority" width="160px" />
