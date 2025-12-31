@@ -38,9 +38,9 @@ export const useAuth = () => {
   }, [dispatch]);
 
   const fetchUserMeta = useCallback(
-    async (userId: number) => {
+    async () => {
       try {
-        const userMeta = await userApi.getUserMeta(userId);
+        const userMeta = await userApi.getUserMeta();
         
         // Update user with meta data
         if (user) {
