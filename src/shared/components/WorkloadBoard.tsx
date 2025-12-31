@@ -72,6 +72,7 @@ import { GifPicker } from "./GifPicker";
 import { FileUploadDropdown } from "./FileUploadDropdown";
 import { EmojiPicker } from "./EmojiPicker";
 import { TableHeaderCell } from "./ui/tableHeadCell";
+import { getOrganizationId } from "@/lib/utils";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -440,19 +441,16 @@ export function WorkloadBoard({
     setIsCreatingGroup(true);
     try {
       const boardIdNum = parseInt(boardId, 10);
-      const organizationIdStr = localStorage.getItem("organization_id");
-      const organizationIdNum = organizationIdStr
-        ? parseInt(organizationIdStr, 10)
-        : null;
+      const organizationIdNum = getOrganizationId();
 
-      if (!organizationIdNum) {
+      if (organizationIdNum === null) {
         toast.error("Organization not found");
         return;
       }
       const payload = {
         board_id: boardIdNum,
         workspace_id: parseInt(workspaceId, 10),
-        organization_id: organizationIdNum, // This should come from context/props
+        organization_id: organizationIdNum,
         name: newGroupNameInput.trim(),
         color: newGroupColorInput, // Use selected color
       };
@@ -1066,21 +1064,42 @@ export function WorkloadBoard({
                                     className="w-full"
                                     style={{ tableLayout: "auto" }}
                                   >
-                                <thead className="border-b border-border bg-muted/30">
-                                    <tr className="text-sm text-muted-foreground">
-                                      {/* Checkbox */}
-                                      <th className="p-4 w-12 text-center border-r border-border">
-                                        <input type="checkbox" className="rounded" />
-                                      </th>
-                                      <TableHeaderCell title="Item" width="300px" />
-                                      <TableHeaderCell title="Status" width="160px" />
-                                      <TableHeaderCell title="Priority" width="160px" />
-                                      <TableHeaderCell title="Date" width="160px" />
-                                      <TableHeaderCell title="Person" width="128px" />
-                                      <TableHeaderCell title="Time Spent" width="128px" showRightBorder={false} />
-                                    </tr>
-                                  </thead>
-
+                                    <thead className="border-b border-border bg-muted/30">
+                                      <tr className="text-sm text-muted-foreground">
+                                        {/* Checkbox */}
+                                        <th className="p-4 w-12 text-center border-r border-border">
+                                          <input
+                                            type="checkbox"
+                                            className="rounded"
+                                          />
+                                        </th>
+                                        <TableHeaderCell
+                                          title="Item"
+                                          width="300px"
+                                        />
+                                        <TableHeaderCell
+                                          title="Status"
+                                          width="160px"
+                                        />
+                                        <TableHeaderCell
+                                          title="Priority"
+                                          width="160px"
+                                        />
+                                        <TableHeaderCell
+                                          title="Date"
+                                          width="160px"
+                                        />
+                                        <TableHeaderCell
+                                          title="Person"
+                                          width="128px"
+                                        />
+                                        <TableHeaderCell
+                                          title="Time Spent"
+                                          width="128px"
+                                          showRightBorder={false}
+                                        />
+                                      </tr>
+                                    </thead>
 
                                     <tbody className="divide-y divide-border">
                                       {group.tasks.length === 0 ? (
