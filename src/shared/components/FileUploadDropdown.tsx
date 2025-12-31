@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/shared/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/components/ui/dropdown-menu";
+// import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/components/ui/dropdown-menu";
 import { Paperclip, Loader2 } from "lucide-react";
 // import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -9,7 +9,8 @@ interface FileUploadDropdownProps {
   onFileSelect?: (fileInfo: { name: string; size: number; type: string; url: string }) => void;
 }
 
-export function FileUploadDropdown({ onFileSelect }: FileUploadDropdownProps) {
+// export function FileUploadDropdown({ onFileSelect }: FileUploadDropdownProps) {
+export function FileUploadDropdown({}: FileUploadDropdownProps) {
   const [uploading, setUploading] = useState(false);
 
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

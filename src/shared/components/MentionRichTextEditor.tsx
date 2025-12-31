@@ -32,13 +32,13 @@ interface Team {
   icon: string;
 }
 
-const mockPeople: Person[] = [
-  { id: "1", name: "Kyle Newton", initials: "KN" },
-  { id: "2", name: "Tari Newton", initials: "TN" },
-  { id: "3", name: "Blake Newton", initials: "BN" },
-  { id: "4", name: "Brooklyn Newton", initials: "BN" },
-  { id: "5", name: "Lea Serfaty", initials: "LS" },
-];
+// const mockPeople: Person[] = [
+//   { id: "1", name: "Kyle Newton", initials: "KN" },
+//   { id: "2", name: "Tari Newton", initials: "TN" },
+//   { id: "3", name: "Blake Newton", initials: "BN" },
+//   { id: "4", name: "Brooklyn Newton", initials: "BN" },
+//   { id: "5", name: "Lea Serfaty", initials: "LS" },
+// ];
 
 const mockTeams: Team[] = [
   { id: "board", name: "Everyone on this board", icon: "👥" },
@@ -55,7 +55,6 @@ export const MentionRichTextEditor = forwardRef<MentionRichTextEditorRef, Mentio
   const [colorPickerPosition, setColorPickerPosition] = useState({ top: 0, left: 0 });
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearchQuery, setMentionSearchQuery] = useState("");
-  const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
   const isUpdatingRef = useRef(false);
   const colorButtonRef = useRef<HTMLButtonElement>(null);
     
@@ -84,11 +83,6 @@ export const MentionRichTextEditor = forwardRef<MentionRichTextEditorRef, Mentio
           }
           
           setMentionSearchQuery("");
-          const rect = editorRef.current.getBoundingClientRect();
-          setMentionPosition({
-            top: rect.bottom + window.scrollY,
-            left: rect.left + window.scrollX,
-          });
           setShowMentionDropdown(true);
         }
       }
@@ -108,7 +102,7 @@ export const MentionRichTextEditor = forwardRef<MentionRichTextEditorRef, Mentio
     editorRef.current?.focus();
   };
 
-  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
+  const handleInput = () => {
     if (editorRef.current) {
       isUpdatingRef.current = true;
       const content = editorRef.current.innerHTML;
@@ -126,13 +120,6 @@ export const MentionRichTextEditor = forwardRef<MentionRichTextEditorRef, Mentio
           // Show dropdown if @ was just typed or if typing after @
           if (textAfterAt.length === 0 || /^[a-zA-Z\s]*$/.test(textAfterAt)) {
             setMentionSearchQuery(textAfterAt);
-            
-            // Calculate position for dropdown
-            const rect = editorRef.current.getBoundingClientRect();
-            setMentionPosition({
-              top: rect.bottom + window.scrollY,
-              left: rect.left + window.scrollX,
-            });
             setShowMentionDropdown(true);
           } else {
             setShowMentionDropdown(false);
@@ -323,7 +310,7 @@ export const MentionRichTextEditor = forwardRef<MentionRichTextEditorRef, Mentio
     editorRef.current?.focus();
   };
 
-  const createChecklistItem = (insertAfter?: HTMLElement) => {
+  const createChecklistItem = () => {
     const checklistItem = document.createElement("div");
     checklistItem.className = "flex items-center gap-2 my-1 group";
     checklistItem.contentEditable = "false";
@@ -359,7 +346,7 @@ export const MentionRichTextEditor = forwardRef<MentionRichTextEditorRef, Mentio
     textSpan.onkeydown = (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        const newItem = createChecklistItem(checklistItem);
+        const newItem = createChecklistItem();
         checklistItem.parentNode?.insertBefore(newItem, checklistItem.nextSibling);
         const newTextSpan = newItem.querySelector('span[contenteditable="true"]');
         if (newTextSpan) {

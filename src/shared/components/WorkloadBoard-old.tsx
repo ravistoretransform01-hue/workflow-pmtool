@@ -19,7 +19,7 @@ import {
   RefreshCcw,
   Activity,
   Trash2,
-  GripVertical,
+  // GripVertical,
 } from "lucide-react";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
@@ -52,11 +52,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/components/ui/popover";
+// import { Popover, PopoverContent, PopoverTrigger} from "@/shared/components/ui/popover";
 import {
   DndContext,
   closestCenter,
