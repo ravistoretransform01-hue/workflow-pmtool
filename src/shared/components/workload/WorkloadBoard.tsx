@@ -404,16 +404,16 @@ export function WorkloadBoard({
   );
   const [newItemName, setNewItemName] = useState("");
   const [isCreatingItem, setIsCreatingItem] = useState(false);
+  const [isCreatingSubitem, setIsCreatingSubitem] = useState(false);
   const [addingSubitemToTask, setAddingSubitemToTask] = useState<string | null>(
     null
   );
   const [newSubitemName, setNewSubitemName] = useState("");
-  const [isCreatingSubitem, setIsCreatingSubitem] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>(
     {}
   );
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, ] = useState<Task | null>(null);
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
     Array<{ name: string; size: number; type: string; url: string }>
@@ -669,6 +669,8 @@ export function WorkloadBoard({
       return;
     }
 
+    console.log(isCreatingItem);
+
     setIsCreatingItem(true);
     try {
       // Create new task object
@@ -705,23 +707,25 @@ export function WorkloadBoard({
     }
   };
 
-  const handleNewItemKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
-    groupId: string
-  ) => {
-    if (e.key === "Enter") {
-      addNewItem(groupId);
-    } else if (e.key === "Escape") {
-      setAddingItemToGroup(null);
-      setNewItemName("");
-    }
-  };
+  // const handleNewItemKeyDown = (
+  //   e: React.KeyboardEvent<HTMLInputElement>,
+  //   groupId: string
+  // ) => {
+  //   if (e.key === "Enter") {
+  //     addNewItem(groupId);
+  //   } else if (e.key === "Escape") {
+  //     setAddingItemToGroup(null);
+  //     setNewItemName("");
+  //   }
+  // };
 
   const addSubitem = async (groupId: string, taskId: string) => {
     if (!newSubitemName.trim()) {
       setAddingSubitemToTask(null);
       return;
     }
+
+    console.log(isCreatingSubitem);
 
     setIsCreatingSubitem(true);
     try {
@@ -768,18 +772,18 @@ export function WorkloadBoard({
     }
   };
 
-  const handleNewSubitemKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
-    groupId: string,
-    taskId: string
-  ) => {
-    if (e.key === "Enter") {
-      addSubitem(groupId, taskId);
-    } else if (e.key === "Escape") {
-      setAddingSubitemToTask(null);
-      setNewSubitemName("");
-    }
-  };
+  // const handleNewSubitemKeyDown = (
+  //   e: React.KeyboardEvent<HTMLInputElement>,
+  //   groupId: string,
+  //   taskId: string
+  // ) => {
+  //   if (e.key === "Enter") {
+  //     addSubitem(groupId, taskId);
+  //   } else if (e.key === "Escape") {
+  //     setAddingSubitemToTask(null);
+  //     setNewSubitemName("");
+  //   }
+  // };
 
   // const toggleTask = (taskId: string) => {
   //   setExpandedTasks({
@@ -804,10 +808,10 @@ export function WorkloadBoard({
     setExpandedGroups(allExpanded);
   };
 
-  const openCommentsPanel = (task: Task) => {
-    setSelectedTask(task);
-    setCommentsPanelOpen(true);
-  };
+  // const openCommentsPanel = (task: Task) => {
+  //   setSelectedTask(task);
+  //   setCommentsPanelOpen(true);
+  // };
 
   const getFilteredGroups = () => {
     const query = mainTableSearchQuery.trim().toLowerCase();
