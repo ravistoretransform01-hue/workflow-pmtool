@@ -19,6 +19,9 @@ import {
   RefreshCcw,
   Activity,
   Trash2,
+  Trash,
+  Lock,
+  GripVertical,
   // GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -74,7 +77,6 @@ import { FileUploadDropdown } from "../FileUploadDropdown";
 import { EmojiPicker } from "../EmojiPicker";
 import { getOrganizationId } from "@/lib/utils";
 import { getWorkloadColumns } from "./WorkloadColumns";
- 
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -184,7 +186,36 @@ interface SortableGroupProps {
   children: (dragListeners: any, dragAttributes: any) => React.ReactNode;
 }
 
-const SortableGroup = ({ group, children }: SortableGroupProps) => {
+// const SortableGroup = ({ group, children }: SortableGroupProps) => {
+//   const {
+//     attributes,
+//     listeners,
+//     setNodeRef,
+//     transform,
+//     transition,
+//     isDragging,
+//   } = useSortable({ id: group.id });
+
+//   const style = {
+//     transform: transform ? `translate3d(0, ${transform.y}px, 0)` : undefined,
+//     transition,
+//     opacity: isDragging ? 0.5 : 1,
+//   };
+
+//   return (
+//     <div
+//       ref={setNodeRef}
+//       style={style}
+//       className="mb-6"
+//       role="group"
+//       aria-label={`Group: ${group.name}`}
+//     >
+//       {children(listeners, attributes)}
+//     </div>
+//   );
+// };
+
+const SortableGroupCard = ({ group, children }: SortableGroupProps) => {
   const {
     attributes,
     listeners,
@@ -201,7 +232,13 @@ const SortableGroup = ({ group, children }: SortableGroupProps) => {
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="mb-6 flex items-start gap-2">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="mb-6"
+      role="group"
+      aria-label={`Group: ${group.name}`}
+    >
       {children(listeners, attributes)}
     </div>
   );
@@ -246,6 +283,92 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     </button>
   );
 }
+
+// =======================
+// Sortable Column Header
+// =======================
+interface SortableColumnHeaderProps {
+  column: any;
+}
+const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
+  const {
+    setNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: column.id,
+    disabled: column.fixed,
+  });
+
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, 0, 0)` : undefined,
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <th
+      ref={setNodeRef}
+      style={{ ...style, width: column.width }}
+      className="p-4 font-medium border-r border-border last:border-r-0 bg-muted/30"
+      {...attributes}
+    >
+      <div
+        {...(!column.fixed ? listeners : {})}
+        className={`group flex items-center justify-between ${
+          column.fixed
+            ? "cursor-default opacity-80"
+            : "cursor-grab active:cursor-grabbing"
+        }`}
+      >
+        <GripVertical
+          className="h-4 w-4
+                  opacity-0
+                  group-hover:opacity-100
+                  transition-opacity
+                  duration-150
+                  cursor-grab active:cursor-grabbing"
+        />
+
+        <span className="flex-1 text-center">{column.label}</span>
+
+        {/* More menu icon – hover only */}
+        {
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <MoreHorizontal
+                className="
+                  h-4 w-4
+                  opacity-0
+                  group-hover:opacity-100
+                  transition-opacity
+                  duration-150
+                  cursor-pointer
+                "
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {/* <DropdownMenuItem onClick={() => onLock(column.id)}> */}
+              <DropdownMenuItem onClick={() => {}}>
+                <Lock className="mr-2 h-4 w-4" />
+                Lock column
+              </DropdownMenuItem>
+
+              {/* <DropdownMenuItem onClick={() => onDelete(column.id)}> */}
+              <DropdownMenuItem onClick={() => {}}>
+                <Trash className="mr-2 h-4 w-4 text-destructive" />
+                Delete column
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      </div>
+    </th>
+  );
+};
 
 export function WorkloadBoard({
   boardName,
@@ -758,10 +881,35 @@ export function WorkloadBoard({
     }));
   };
 
-  const workloadColumns = getWorkloadColumns({
-    expandedTasks,
-    toggleTask,
-  });
+  const handleColumnDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = workloadColumns.findIndex((c) => c.id === active.id);
+    const newIndex = workloadColumns.findIndex((c) => c.id === over.id);
+
+    const newWorkloadColumns = arrayMove(workloadColumns, oldIndex, newIndex);
+    setWorkloadColumns(newWorkloadColumns);
+
+    // Optional: persist
+    localStorage.setItem(
+      `workload-columns-${boardId}`,
+      JSON.stringify(newWorkloadColumns.map((c) => c.id))
+    );
+  };
+
+  // const workloadColumns = getWorkloadColumns({
+  //   expandedTasks,
+  //   toggleTask,
+  // });
+
+  const [workloadColumns, setWorkloadColumns] = useState(() =>
+    getWorkloadColumns({
+      expandedTasks,
+      toggleTask,
+    })
+  );
 
   const totalColumns = workloadColumns.length + 1;
   // NEW : End
@@ -942,7 +1090,7 @@ export function WorkloadBoard({
                       </div>
                     ) : (
                       getFilteredGroups().map((group) => (
-                        <SortableGroup key={group.id} group={group}>
+                        <SortableGroupCard key={group.id} group={group}>
                           {(dragListeners, dragAttributes) => (
                             <div
                               className="bg-card border border-border overflow-hidden flex-1 border-l-4"
@@ -1083,7 +1231,7 @@ export function WorkloadBoard({
                                     style={{ tableLayout: "auto" }}
                                   >
                                     {/* Table head */}
-                                    <thead className="border-b border-border bg-muted/30">
+                                    {/* <thead className="border-b border-border bg-muted/30">
                                       <tr className="text-sm text-muted-foreground">
                                         <th className="p-4 w-12 border-r border-border text-center">
                                           <input type="checkbox" />
@@ -1104,7 +1252,33 @@ export function WorkloadBoard({
                                           </th>
                                         ))}
                                       </tr>
-                                    </thead>
+                                    </thead> */}
+
+                                    <DndContext
+                                      sensors={sensors}
+                                      collisionDetection={closestCenter}
+                                      onDragEnd={handleColumnDragEnd}
+                                    >
+                                      <SortableContext
+                                        items={workloadColumns.map((c) => c.id)}
+                                        strategy={horizontalListSortingStrategy}
+                                      >
+                                        <thead className="border-b border-border bg-muted/30">
+                                          <tr className="text-sm text-muted-foreground">
+                                            <th className="p-4 w-12 border-r border-border text-center">
+                                              <input type="checkbox" />
+                                            </th>
+
+                                            {workloadColumns.map((col) => (
+                                              <SortableColumnHeader
+                                                key={col.id}
+                                                column={col}
+                                              />
+                                            ))}
+                                          </tr>
+                                        </thead>
+                                      </SortableContext>
+                                    </DndContext>
 
                                     {/* Table Body */}
                                     <tbody>
@@ -1171,74 +1345,76 @@ export function WorkloadBoard({
                                                 colSpan={totalColumns}
                                                 className="p-4 border-t border-border"
                                               >
-                                              {addingSubitemToTask ===
-                                              task.id  ? (
-                                                <div className="flex items-center gap-2 pl-8">
-                                                  <span className="text-muted-foreground">
-                                                    └
-                                                  </span>
-                                                  <Input
-                                                    className="h-8 flex-1"
-                                                    autoFocus
-                                                    placeholder="Enter subitem name"
-                                                    value={newSubitemName}
-                                                    onChange={(e) =>
-                                                      setNewSubitemName(
-                                                        e.target.value
-                                                      )
-                                                    }
-                                                    onKeyDown={(e) => {
-                                                      if (
-                                                        e.key === "Enter" &&
-                                                        newSubitemName.trim()
-                                                      ) {
-                                                        addSubitem(
-                                                          group.id,
-                                                          task.id
-                                                        );
+                                                {addingSubitemToTask ===
+                                                task.id ? (
+                                                  <div className="flex items-center gap-2 pl-8">
+                                                    <span className="text-muted-foreground">
+                                                      └
+                                                    </span>
+                                                    <Input
+                                                      className="h-8 flex-1"
+                                                      autoFocus
+                                                      placeholder="Enter subitem name"
+                                                      value={newSubitemName}
+                                                      onChange={(e) =>
+                                                        setNewSubitemName(
+                                                          e.target.value
+                                                        )
                                                       }
-                                                      if (e.key === "Escape") {
+                                                      onKeyDown={(e) => {
+                                                        if (
+                                                          e.key === "Enter" &&
+                                                          newSubitemName.trim()
+                                                        ) {
+                                                          addSubitem(
+                                                            group.id,
+                                                            task.id
+                                                          );
+                                                        }
+                                                        if (
+                                                          e.key === "Escape"
+                                                        ) {
+                                                          setAddingSubitemToTask(
+                                                            null
+                                                          );
+                                                          setNewSubitemName("");
+                                                        }
+                                                      }}
+                                                      onBlur={() => {
                                                         setAddingSubitemToTask(
                                                           null
                                                         );
                                                         setNewSubitemName("");
-                                                      }
-                                                    }}
-                                                    onBlur={() => {
-                                                      setAddingSubitemToTask(
-                                                        null
+                                                      }}
+                                                    />
+                                                  </div>
+                                                ) : (
+                                                  <button
+                                                    onClick={() => {
+                                                      setExpandedTasks(
+                                                        (prev) => ({
+                                                          ...prev,
+                                                          [task.id]: true,
+                                                        })
                                                       );
-                                                      setNewSubitemName("");
+                                                      setAddingSubitemToTask(
+                                                        task.id
+                                                      );
                                                     }}
-                                                  />
-                                                </div>
-                                              ) : (
-                                                <button
-                                                  onClick={() => {
-                                                    setExpandedTasks(
-                                                      (prev) => ({
-                                                        ...prev,
-                                                        [task.id]: true,
-                                                      })
-                                                    );
-                                                    setAddingSubitemToTask(
-                                                      task.id
-                                                    );
-                                                  }}
-                                                  className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 pl-8"
-                                                >
-                                                  <span className="text-muted-foreground">
-                                                    {"└"}
-                                                    {/* ├ */}
-                                                  </span>
-                                                  <span className="text-lg">
-                                                    +
-                                                  </span>{" "}
-                                                  Add subitem
-                                                </button>
-                                              )}
-                                            </td>
-                                          </tr>
+                                                    className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 pl-8"
+                                                  >
+                                                    <span className="text-muted-foreground">
+                                                      {"└"}
+                                                      {/* ├ */}
+                                                    </span>
+                                                    <span className="text-lg">
+                                                      +
+                                                    </span>{" "}
+                                                    Add subitem
+                                                  </button>
+                                                )}
+                                              </td>
+                                            </tr>
                                           )}
                                         </React.Fragment>
                                       ))}
@@ -1298,7 +1474,7 @@ export function WorkloadBoard({
                               )}
                             </div>
                           )}
-                        </SortableGroup>
+                        </SortableGroupCard>
                       ))
                     )}
                   </div>

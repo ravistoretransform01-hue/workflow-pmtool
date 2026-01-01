@@ -5,6 +5,7 @@ interface Column {
   label: string;
   width: string;
   align: "left" | "center";
+  fixed?: boolean;
   render: (task: any, isSubitem?: boolean) => React.ReactNode;
 }
 
@@ -20,6 +21,7 @@ export const getWorkloadColumns = ({
     label: "Item",
     width: "300px",
     align: "left",
+    fixed: true,
     render: (task: any, isSubitem?: boolean) => {
       if (isSubitem) {
         return (
