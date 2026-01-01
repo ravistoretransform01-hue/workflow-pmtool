@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { boardsApi } from "@/features/boards/boardsApi";
 import type { Board } from "@/features/boards/types";
-import { WorkloadBoard } from "@/shared/components/WorkloadBoard";
+import { WorkloadBoard } from "@/shared/components/workload/WorkloadBoard";
 
 const DynamicBoard = () => {
   const { boardId } = useParams<{ boardId: string }>();

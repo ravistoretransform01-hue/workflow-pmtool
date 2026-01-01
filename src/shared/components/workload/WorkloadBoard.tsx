@@ -1,3 +1,4 @@
+import React from "react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,14 +14,17 @@ import {
   MoreHorizontal,
   Maximize2,
   Minimize2,
-  MessageCirclePlus,
   AtSign,
   Home,
   RefreshCcw,
   Activity,
   Trash2,
+  Trash,
+  Lock,
+  GripVertical,
   // GripVertical,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
@@ -68,11 +72,11 @@ import {
   horizontalListSortingStrategy,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { GifPicker } from "./GifPicker";
-import { FileUploadDropdown } from "./FileUploadDropdown";
-import { EmojiPicker } from "./EmojiPicker";
-import { TableHeaderCell } from "./ui/tableHeadCell";
+import { GifPicker } from "../GifPicker";
+import { FileUploadDropdown } from "../FileUploadDropdown";
+import { EmojiPicker } from "../EmojiPicker";
 import { getOrganizationId } from "@/lib/utils";
+import { getWorkloadColumns } from "./WorkloadColumns";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -182,7 +186,36 @@ interface SortableGroupProps {
   children: (dragListeners: any, dragAttributes: any) => React.ReactNode;
 }
 
-const SortableGroup = ({ group, children }: SortableGroupProps) => {
+// const SortableGroup = ({ group, children }: SortableGroupProps) => {
+//   const {
+//     attributes,
+//     listeners,
+//     setNodeRef,
+//     transform,
+//     transition,
+//     isDragging,
+//   } = useSortable({ id: group.id });
+
+//   const style = {
+//     transform: transform ? `translate3d(0, ${transform.y}px, 0)` : undefined,
+//     transition,
+//     opacity: isDragging ? 0.5 : 1,
+//   };
+
+//   return (
+//     <div
+//       ref={setNodeRef}
+//       style={style}
+//       className="mb-6"
+//       role="group"
+//       aria-label={`Group: ${group.name}`}
+//     >
+//       {children(listeners, attributes)}
+//     </div>
+//   );
+// };
+
+const SortableGroupCard = ({ group, children }: SortableGroupProps) => {
   const {
     attributes,
     listeners,
@@ -199,7 +232,13 @@ const SortableGroup = ({ group, children }: SortableGroupProps) => {
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="mb-6 flex items-start gap-2">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="mb-6"
+      role="group"
+      aria-label={`Group: ${group.name}`}
+    >
       {children(listeners, attributes)}
     </div>
   );
@@ -244,6 +283,92 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     </button>
   );
 }
+
+// =======================
+// Sortable Column Header
+// =======================
+interface SortableColumnHeaderProps {
+  column: any;
+}
+const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
+  const {
+    setNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: column.id,
+    disabled: column.fixed,
+  });
+
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, 0, 0)` : undefined,
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <th
+      ref={setNodeRef}
+      style={{ ...style, width: column.width }}
+      className="p-4 font-medium border-r border-border last:border-r-0 bg-muted/30"
+      {...attributes}
+    >
+      <div
+        {...(!column.fixed ? listeners : {})}
+        className={`group flex items-center justify-between ${
+          column.fixed
+            ? "cursor-default opacity-80"
+            : "cursor-grab active:cursor-grabbing"
+        }`}
+      >
+        <GripVertical
+          className="h-4 w-4
+                  opacity-0
+                  group-hover:opacity-100
+                  transition-opacity
+                  duration-150
+                  cursor-grab active:cursor-grabbing"
+        />
+
+        <span className="flex-1 text-center">{column.label}</span>
+
+        {/* More menu icon – hover only */}
+        {
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <MoreHorizontal
+                className="
+                  h-4 w-4
+                  opacity-0
+                  group-hover:opacity-100
+                  transition-opacity
+                  duration-150
+                  cursor-pointer
+                "
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {/* <DropdownMenuItem onClick={() => onLock(column.id)}> */}
+              <DropdownMenuItem onClick={() => {}}>
+                <Lock className="mr-2 h-4 w-4" />
+                Lock column
+              </DropdownMenuItem>
+
+              {/* <DropdownMenuItem onClick={() => onDelete(column.id)}> */}
+              <DropdownMenuItem onClick={() => {}}>
+                <Trash className="mr-2 h-4 w-4 text-destructive" />
+                Delete column
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      </div>
+    </th>
+  );
+};
 
 export function WorkloadBoard({
   boardName,
@@ -656,12 +781,12 @@ export function WorkloadBoard({
     }
   };
 
-  const toggleTask = (taskId: string) => {
-    setExpandedTasks({
-      ...expandedTasks,
-      [taskId]: !expandedTasks[taskId],
-    });
-  };
+  // const toggleTask = (taskId: string) => {
+  //   setExpandedTasks({
+  //     ...expandedTasks,
+  //     [taskId]: !expandedTasks[taskId],
+  //   });
+  // };
 
   const collapseAllGroups = () => {
     const allCollapsed: Record<string, boolean> = {};
@@ -747,6 +872,47 @@ export function WorkloadBoard({
       toast.error("Failed to save update");
     }
   };
+
+  // NEW : Start
+  const toggleTask = (taskId: string) => {
+    setExpandedTasks((prev) => ({
+      ...prev,
+      [taskId]: !prev[taskId],
+    }));
+  };
+
+  const handleColumnDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = workloadColumns.findIndex((c) => c.id === active.id);
+    const newIndex = workloadColumns.findIndex((c) => c.id === over.id);
+
+    const newWorkloadColumns = arrayMove(workloadColumns, oldIndex, newIndex);
+    setWorkloadColumns(newWorkloadColumns);
+
+    // Optional: persist
+    localStorage.setItem(
+      `workload-columns-${boardId}`,
+      JSON.stringify(newWorkloadColumns.map((c) => c.id))
+    );
+  };
+
+  // const workloadColumns = getWorkloadColumns({
+  //   expandedTasks,
+  //   toggleTask,
+  // });
+
+  const [workloadColumns, setWorkloadColumns] = useState(() =>
+    getWorkloadColumns({
+      expandedTasks,
+      toggleTask,
+    })
+  );
+
+  const totalColumns = workloadColumns.length + 1;
+  // NEW : End
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -924,7 +1090,7 @@ export function WorkloadBoard({
                       </div>
                     ) : (
                       getFilteredGroups().map((group) => (
-                        <SortableGroup key={group.id} group={group}>
+                        <SortableGroupCard key={group.id} group={group}>
                           {(dragListeners, dragAttributes) => (
                             <div
                               className="bg-card border border-border overflow-hidden flex-1 border-l-4"
@@ -1064,363 +1230,251 @@ export function WorkloadBoard({
                                     className="w-full"
                                     style={{ tableLayout: "auto" }}
                                   >
-                                    <thead className="border-b border-border bg-muted/30">
+                                    {/* Table head */}
+                                    {/* <thead className="border-b border-border bg-muted/30">
                                       <tr className="text-sm text-muted-foreground">
-                                        {/* Checkbox */}
-                                        <th className="p-4 w-12 text-center border-r border-border">
-                                          <input
-                                            type="checkbox"
-                                            className="rounded"
-                                          />
+                                        <th className="p-4 w-12 border-r border-border text-center">
+                                          <input type="checkbox" />
                                         </th>
-                                        <TableHeaderCell
-                                          title="Item"
-                                          width="300px"
-                                        />
-                                        <TableHeaderCell
-                                          title="Status"
-                                          width="160px"
-                                        />
-                                        <TableHeaderCell
-                                          title="Priority"
-                                          width="160px"
-                                        />
-                                        <TableHeaderCell
-                                          title="Date"
-                                          width="160px"
-                                        />
-                                        <TableHeaderCell
-                                          title="Person"
-                                          width="128px"
-                                        />
-                                        <TableHeaderCell
-                                          title="Time Spent"
-                                          width="128px"
-                                          showRightBorder={false}
-                                        />
+
+                                        {workloadColumns.map((col) => (
+                                          <th
+                                            key={col.id}
+                                            className="p-4 font-medium border-r border-border last:border-r-0"
+                                            style={{ width: col.width }}
+                                          >
+                                            <div className="flex items-center justify-between">
+                                              <span className="flex-1 text-center">
+                                                {col.label}
+                                              </span>
+                                              <MoreHorizontal className="h-4 w-4 cursor-pointer" />
+                                            </div>
+                                          </th>
+                                        ))}
                                       </tr>
-                                    </thead>
+                                    </thead> */}
 
-                                    <tbody className="divide-y divide-border">
-                                      {group.tasks.length === 0 ? (
-                                        <tr>
-                                          <td className="p-4 text-center border-r border-border">
-                                            {/* <input
-                                              type="checkbox"
-                                              className="rounded"
-                                              disabled
-                                            /> */}
-                                          </td>
-                                          <td colSpan={6} className="p-4">
-                                            {addingItemToGroup === group.id ? (
-                                              <Input
-                                                value={newItemName}
-                                                onChange={(e) =>
-                                                  setNewItemName(e.target.value)
-                                                }
-                                                onBlur={() =>
-                                                  addNewItem(group.id)
-                                                }
-                                                onKeyDown={(e) =>
-                                                  handleNewItemKeyDown(
-                                                    e,
-                                                    group.id
-                                                  )
-                                                }
-                                                placeholder="Enter item name..."
-                                                className="h-8"
-                                                autoFocus
-                                                disabled={isCreatingItem}
+                                    <DndContext
+                                      sensors={sensors}
+                                      collisionDetection={closestCenter}
+                                      onDragEnd={handleColumnDragEnd}
+                                    >
+                                      <SortableContext
+                                        items={workloadColumns.map((c) => c.id)}
+                                        strategy={horizontalListSortingStrategy}
+                                      >
+                                        <thead className="border-b border-border bg-muted/30">
+                                          <tr className="text-sm text-muted-foreground">
+                                            <th className="p-4 w-12 border-r border-border text-center">
+                                              <input type="checkbox" />
+                                            </th>
+
+                                            {workloadColumns.map((col) => (
+                                              <SortableColumnHeader
+                                                key={col.id}
+                                                column={col}
                                               />
-                                            ) : (
-                                              <button
-                                                onClick={() =>
-                                                  setAddingItemToGroup(group.id)
-                                                }
-                                                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                                              >
-                                                + Add item
-                                              </button>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      ) : (
-                                        <>
-                                          {group.tasks.map((task) => (
-                                            <>
-                                              <tr
-                                                key={task.id}
-                                                className="hover:bg-hover transition-colors group/item"
-                                              >
-                                                <td className="p-4 text-center border-r border-border">
-                                                  <input
-                                                    type="checkbox"
-                                                    className="rounded"
-                                                  />
-                                                </td>
-
-                                                <td className="p-4 border-r border-border">
-                                                  <div className="flex items-center justify-between">
-                                                    {/* LEFT SIDE */}
-                                                    <div className="flex items-center gap-3">
-                                                      <button
-                                                        onClick={() =>
-                                                          toggleTask(task.id)
-                                                        }
-                                                        className="opacity-0 group-hover/item:opacity-100 transition-opacity"
-                                                      >
-                                                        {expandedTasks[
-                                                          task.id
-                                                        ] ? (
-                                                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                                        ) : (
-                                                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                                        )}
-                                                      </button>
-
-                                                      <span className="font-medium text-foreground cursor-pointer">
-                                                        {task.name}
-                                                      </span>
-                                                    </div>
-
-                                                    {/* RIGHT SIDE */}
-                                                    <button
-                                                      onClick={() =>
-                                                        openCommentsPanel(task)
-                                                      }
-                                                      className="opacity-0 group-hover/item:opacity-100 transition-opacity ml-2"
-                                                      title="Open comments"
-                                                    >
-                                                      <MessageCirclePlus className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                                    </button>
-                                                    {/* <MessageCirclePlus className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground" /> */}
-                                                  </div>
-                                                </td>
-
-                                                <td className="p-4 text-center border-r border-border">
-                                                  <span className="px-2 py-1 bg-blue-500 text-white text-xs rounded">
-                                                    {task.status.length > 0
-                                                      ? task.status[0]
-                                                      : "To Do"}
-                                                  </span>
-                                                </td>
-                                                <td className="p-4 text-center border-r border-border">
-                                                  <span className="px-2 py-1 bg-orange-500 text-white text-xs rounded">
-                                                    {task.priority || "High"}
-                                                  </span>
-                                                </td>
-                                                <td className="p-4 text-center border-r border-border">
-                                                  <span className="text-sm text-muted-foreground">
-                                                    {task.estimatedDate || "-"}
-                                                  </span>
-                                                </td>
-                                                <td className="p-4 text-center border-r border-border">
-                                                  <Avatar className="w-6 h-6">
-                                                    <AvatarFallback className="bg-blue-500 text-xs">
-                                                      {task.person.length > 0
-                                                        ? task.person[0].charAt(
-                                                            0
-                                                          )
-                                                        : "U"}
-                                                    </AvatarFallback>
-                                                  </Avatar>
-                                                </td>
-                                                <td className="p-4 text-center">
-                                                  <span className="text-sm text-muted-foreground">
-                                                    {task.timeSpent || "0m"}
-                                                  </span>
-                                                </td>
-                                              </tr>
-                                              {/* Render subitems - only if task is expanded */}
-                                              {expandedTasks[task.id] &&
-                                                task.subitems &&
-                                                task.subitems.length > 0 &&
-                                                task.subitems.map(
-                                                  (subitem: Task) => (
-                                                    <tr
-                                                      key={subitem.id}
-                                                      className="hover:bg-hover transition-colors group/item bg-muted/30"
-                                                    >
-                                                      <td className="p-4 text-center border-r border-border">
-                                                        <input
-                                                          type="checkbox"
-                                                          className="rounded"
-                                                        />
-                                                      </td>
-                                                      <td className="p-4 border-r border-border pl-12">
-                                                        <div className="flex items-center gap-3">
-                                                          <span className="text-muted-foreground">
-                                                            └
-                                                          </span>
-                                                          <span className="font-medium text-foreground cursor-pointer text-sm">
-                                                            {subitem.name}
-                                                          </span>
-                                                        </div>
-                                                      </td>
-                                                      <td className="p-4 text-center border-r border-border">
-                                                        <span className="px-2 py-1 bg-blue-500 text-white text-xs rounded">
-                                                          {subitem.status
-                                                            .length > 0
-                                                            ? subitem.status[0]
-                                                            : "To Do"}
-                                                        </span>
-                                                      </td>
-                                                      <td className="p-4 text-center border-r border-border">
-                                                        <span className="px-2 py-1 bg-orange-500 text-white text-xs rounded">
-                                                          {subitem.priority ||
-                                                            "High"}
-                                                        </span>
-                                                      </td>
-                                                      <td className="p-4 text-center border-r border-border">
-                                                        <span className="text-sm text-muted-foreground">
-                                                          {subitem.estimatedDate ||
-                                                            "-"}
-                                                        </span>
-                                                      </td>
-                                                      <td className="p-4 text-center border-r border-border">
-                                                        <Avatar className="w-6 h-6">
-                                                          <AvatarFallback className="bg-blue-500 text-xs">
-                                                            {subitem.person
-                                                              .length > 0
-                                                              ? subitem.person[0].charAt(
-                                                                  0
-                                                                )
-                                                              : "U"}
-                                                          </AvatarFallback>
-                                                        </Avatar>
-                                                      </td>
-                                                      <td className="p-4 text-center">
-                                                        <span className="text-sm text-muted-foreground">
-                                                          {subitem.timeSpent ||
-                                                            "0m"}
-                                                        </span>
-                                                      </td>
-                                                    </tr>
-                                                  )
-                                                )}
-                                              {/* Add Subitem Row - only if task is expanded */}
-                                              {expandedTasks[task.id] && (
-                                                <tr className="hover:bg-hover transition-colors bg-muted/20">
-                                                  <td className="p-4 text-center border-r border-border">
-                                                    {/* <input
-                                                      type="checkbox"
-                                                      className="rounded"
-                                                      disabled
-                                                    /> */}
-                                                  </td>
-                                                  <td
-                                                    colSpan={6}
-                                                    className="p-4 pl-12"
-                                                  >
-                                                    {addingSubitemToTask ===
-                                                    task.id ? (
-                                                      <div className="flex items-center gap-2">
-                                                        <span className="text-muted-foreground text-sm">
-                                                          └
-                                                        </span>
-                                                        <Input
-                                                          value={newSubitemName}
-                                                          onChange={(e) =>
-                                                            setNewSubitemName(
-                                                              e.target.value
-                                                            )
-                                                          }
-                                                          onBlur={() =>
-                                                            addSubitem(
-                                                              group.id,
-                                                              task.id
-                                                            )
-                                                          }
-                                                          onKeyDown={(e) =>
-                                                            handleNewSubitemKeyDown(
-                                                              e,
-                                                              group.id,
-                                                              task.id
-                                                            )
-                                                          }
-                                                          placeholder="Enter subitem name..."
-                                                          className="h-8 text-sm flex-1"
-                                                          autoFocus
-                                                          disabled={
-                                                            isCreatingSubitem
-                                                          }
-                                                        />
-                                                      </div>
-                                                    ) : (
-                                                      <button
-                                                        onClick={() =>
-                                                          setAddingSubitemToTask(
-                                                            task.id
-                                                          )
-                                                        }
-                                                        className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-                                                      >
-                                                        <span>└</span>
-                                                        <span>
-                                                          + Add subitem
-                                                        </span>
-                                                      </button>
-                                                    )}
-                                                  </td>
-                                                </tr>
-                                              )}
-                                            </>
-                                          ))}
-                                          <tr>
-                                            <td className="p-4 text-center border-r border-border">
-                                              {/* <input
-                                                type="checkbox"
-                                                className="rounded"
-                                                disabled
-                                              /> */}
-                                            </td>
-                                            <td colSpan={6} className="p-4">
-                                              {addingItemToGroup ===
-                                              group.id ? (
-                                                <Input
-                                                  value={newItemName}
-                                                  onChange={(e) =>
-                                                    setNewItemName(
-                                                      e.target.value
-                                                    )
-                                                  }
-                                                  onBlur={() =>
-                                                    addNewItem(group.id)
-                                                  }
-                                                  onKeyDown={(e) =>
-                                                    handleNewItemKeyDown(
-                                                      e,
-                                                      group.id
-                                                    )
-                                                  }
-                                                  placeholder="Enter item name..."
-                                                  className="h-8"
-                                                  autoFocus
-                                                  disabled={isCreatingItem}
-                                                />
-                                              ) : (
-                                                <button
-                                                  onClick={() =>
-                                                    setAddingItemToGroup(
-                                                      group.id
-                                                    )
-                                                  }
-                                                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                                                >
-                                                  + Add item
-                                                </button>
-                                              )}
-                                            </td>
+                                            ))}
                                           </tr>
-                                        </>
-                                      )}
+                                        </thead>
+                                      </SortableContext>
+                                    </DndContext>
+
+                                    {/* Table Body */}
+                                    <tbody>
+                                      {group.tasks.map((task) => (
+                                        <React.Fragment key={task.id}>
+                                          {/* ================= TASK ROW ================= */}
+                                          <tr className="border-t border-b border-border hover:bg-muted/40">
+                                            <td className="p-4 text-center border-r border-border">
+                                              <input type="checkbox" />
+                                            </td>
+
+                                            {workloadColumns.map((col) => (
+                                              <td
+                                                key={col.id}
+                                                className={cn(
+                                                  "p-4 border-r border-border last:border-r-0",
+                                                  col.align === "center" &&
+                                                    "text-center",
+                                                  col.align === "left" &&
+                                                    "text-left"
+                                                )}
+                                                style={{ width: col.width }}
+                                              >
+                                                {col.render(task)}
+                                              </td>
+                                            ))}
+                                          </tr>
+
+                                          {/* ================= SUBITEM ROWS ================= */}
+                                          {expandedTasks[task.id] &&
+                                            task.subitems?.map((subtask) => (
+                                              <tr
+                                                key={subtask.id}
+                                                className="  hover:bg-muted/30 border-b border-border"
+                                              >
+                                                <td className="p-4 text-center border-r border-border">
+                                                  <input type="checkbox" />
+                                                </td>
+
+                                                {workloadColumns.map((col) => (
+                                                  <td
+                                                    key={col.id}
+                                                    className={cn(
+                                                      "p-4 border-r border-border last:border-r-0",
+                                                      col.align === "center" &&
+                                                        "text-center",
+                                                      col.align === "left" &&
+                                                        "text-left"
+                                                    )}
+                                                  >
+                                                    {col.render(subtask, true)}
+                                                  </td>
+                                                ))}
+                                              </tr>
+                                            ))}
+
+                                          {/* ================= ADD SUBITEM ================= */}
+                                          {expandedTasks[task.id] && (
+                                            <tr>
+                                              <td className="p-4 text-center border-r border-border">
+                                                {/* Empty Cell */}
+                                              </td>
+                                              <td
+                                                colSpan={totalColumns}
+                                                className="p-4 border-t border-border"
+                                              >
+                                                {addingSubitemToTask ===
+                                                task.id ? (
+                                                  <div className="flex items-center gap-2 pl-8">
+                                                    <span className="text-muted-foreground">
+                                                      └
+                                                    </span>
+                                                    <Input
+                                                      className="h-8 flex-1"
+                                                      autoFocus
+                                                      placeholder="Enter subitem name"
+                                                      value={newSubitemName}
+                                                      onChange={(e) =>
+                                                        setNewSubitemName(
+                                                          e.target.value
+                                                        )
+                                                      }
+                                                      onKeyDown={(e) => {
+                                                        if (
+                                                          e.key === "Enter" &&
+                                                          newSubitemName.trim()
+                                                        ) {
+                                                          addSubitem(
+                                                            group.id,
+                                                            task.id
+                                                          );
+                                                        }
+                                                        if (
+                                                          e.key === "Escape"
+                                                        ) {
+                                                          setAddingSubitemToTask(
+                                                            null
+                                                          );
+                                                          setNewSubitemName("");
+                                                        }
+                                                      }}
+                                                      onBlur={() => {
+                                                        setAddingSubitemToTask(
+                                                          null
+                                                        );
+                                                        setNewSubitemName("");
+                                                      }}
+                                                    />
+                                                  </div>
+                                                ) : (
+                                                  <button
+                                                    onClick={() => {
+                                                      setExpandedTasks(
+                                                        (prev) => ({
+                                                          ...prev,
+                                                          [task.id]: true,
+                                                        })
+                                                      );
+                                                      setAddingSubitemToTask(
+                                                        task.id
+                                                      );
+                                                    }}
+                                                    className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 pl-8"
+                                                  >
+                                                    <span className="text-muted-foreground">
+                                                      {"└"}
+                                                      {/* ├ */}
+                                                    </span>
+                                                    <span className="text-lg">
+                                                      +
+                                                    </span>{" "}
+                                                    Add subitem
+                                                  </button>
+                                                )}
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </React.Fragment>
+                                      ))}
+
+                                      {/* ================= ADD ITEM ROW ================= */}
+                                      <tr>
+                                        <td className="p-4 text-center border-r border-border">
+                                          {/* Empty Cell */}
+                                        </td>
+                                        <td
+                                          colSpan={totalColumns}
+                                          className="p-4 border-t border-border"
+                                        >
+                                          {addingItemToGroup === group.id ? (
+                                            <Input
+                                              className="h-8 max-w"
+                                              autoFocus
+                                              placeholder="Enter item name..."
+                                              value={newItemName}
+                                              onChange={(e) =>
+                                                setNewItemName(e.target.value)
+                                              }
+                                              onKeyDown={(e) => {
+                                                if (
+                                                  e.key === "Enter" &&
+                                                  newItemName.trim()
+                                                ) {
+                                                  addNewItem(group.id);
+                                                }
+                                                if (e.key === "Escape") {
+                                                  setAddingItemToGroup(null);
+                                                  setNewItemName("");
+                                                }
+                                              }}
+                                              onBlur={() => {
+                                                setAddingItemToGroup(null);
+                                                setNewItemName("");
+                                              }}
+                                            />
+                                          ) : (
+                                            <button
+                                              onClick={() => {
+                                                setAddingItemToGroup(group.id);
+                                              }}
+                                              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 "
+                                            >
+                                              <span className="text-md">
+                                                + Add Item
+                                              </span>{" "}
+                                            </button>
+                                          )}
+                                        </td>
+                                      </tr>
                                     </tbody>
                                   </table>
                                 </div>
                               )}
                             </div>
                           )}
-                        </SortableGroup>
+                        </SortableGroupCard>
                       ))
                     )}
                   </div>
