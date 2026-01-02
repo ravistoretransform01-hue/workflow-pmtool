@@ -46,6 +46,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/shared/components/ui/dropdown-menu";
 import {
   Sheet,
@@ -342,35 +345,53 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
         <span className="flex-1 text-center">{column.label}</span>
 
         {/* More menu icon – hover only */}
-        {
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <MoreHorizontal
-                className="
-                  h-4 w-4
-                  opacity-0
-                  group-hover:opacity-100
-                  transition-opacity
-                  duration-150
-                  cursor-pointer
-                "
-              />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {/* <DropdownMenuItem onClick={() => onLock(column.id)}> */}
-              <DropdownMenuItem onClick={() => {}}>
-                <Lock className="mr-2 h-4 w-4" />
-                Lock column
-              </DropdownMenuItem>
-
-              {/* <DropdownMenuItem onClick={() => onDelete(column.id)}> */}
-              <DropdownMenuItem onClick={() => {}}>
-                <Trash className="mr-2 h-4 w-4 text-destructive" />
-                Delete column
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        }
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="
+              h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity
+              "
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onClick={() => {}}>
+              <Filter className="h-4 w-4 mr-2" />
+              <span>Filter</span>
+            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                <span>Sort</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={() => {}}>
+                  Sort ascending
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {}}>
+                  Sort descending
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuItem onClick={() => {}}>
+              <Minimize2 className="h-4 w-4 mr-2" />
+              <span>Collapse</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => {}}>
+              <Lock className="h-4 w-4 mr-2" />
+              <span>Lock column</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {}}>
+              <Trash className="h-4 w-4 mr-2 text-destructive" />
+              <span>Delete column</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </th>
   );
