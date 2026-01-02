@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
+import { tasksApi } from "@/features/tasks/tasksApi";
+import type { CreateTaskRequest } from "@/features/tasks/types";
 import {
   LayoutDashboard,
   Filter,
@@ -22,6 +24,7 @@ import {
   Trash,
   Lock,
   GripVertical,
+  Pencil,
   // GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,6 +46,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/shared/components/ui/dropdown-menu";
 import {
   Sheet,
@@ -77,6 +83,7 @@ import { FileUploadDropdown } from "../FileUploadDropdown";
 import { EmojiPicker } from "../EmojiPicker";
 import { getOrganizationId } from "@/lib/utils";
 import { getWorkloadColumns } from "./WorkloadColumns";
+import type { TaskResponse } from "@/features/tasks/types";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -92,14 +99,16 @@ interface TaskGroup {
   tasks: Task[];
 }
 
-interface Task {
+export interface Task {
   id: string;
   name: string;
-  status: string[];
-  priority: string;
-  estimatedDate: string;
-  person: string[];
-  timeSpent: string;
+  description?: string;
+  status?: string;
+  priority?: string;
+  estimatedDate?: string;
+  person?: string;
+  timeSpent?: string;
+  group_id?: string;
   subitems?: Task[];
 }
 
@@ -336,35 +345,53 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
         <span className="flex-1 text-center">{column.label}</span>
 
         {/* More menu icon – hover only */}
-        {
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <MoreHorizontal
-                className="
-                  h-4 w-4
-                  opacity-0
-                  group-hover:opacity-100
-                  transition-opacity
-                  duration-150
-                  cursor-pointer
-                "
-              />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {/* <DropdownMenuItem onClick={() => onLock(column.id)}> */}
-              <DropdownMenuItem onClick={() => {}}>
-                <Lock className="mr-2 h-4 w-4" />
-                Lock column
-              </DropdownMenuItem>
-
-              {/* <DropdownMenuItem onClick={() => onDelete(column.id)}> */}
-              <DropdownMenuItem onClick={() => {}}>
-                <Trash className="mr-2 h-4 w-4 text-destructive" />
-                Delete column
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        }
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="
+              h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity
+              "
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onClick={() => {}}>
+              <Filter className="h-4 w-4 mr-2" />
+              <span>Filter</span>
+            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                <span>Sort</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={() => {}}>
+                  Sort ascending
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {}}>
+                  Sort descending
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuItem onClick={() => {}}>
+              <Minimize2 className="h-4 w-4 mr-2" />
+              <span>Collapse</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => {}}>
+              <Lock className="h-4 w-4 mr-2" />
+              <span>Lock column</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {}}>
+              <Trash className="h-4 w-4 mr-2 text-destructive" />
+              <span>Delete column</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </th>
   );
@@ -390,6 +417,10 @@ export function WorkloadBoard({
   const [groupColors, setGroupColors] = useState<Record<string, string>>({});
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupNameInput, setNewGroupNameInput] = useState("");
+  const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
+  const [editGroupNameInput, setEditGroupNameInput] = useState("");
+  const [editGroupColorInput, setEditGroupColorInput] = useState("#3b82f6");
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [newGroupColorInput, setNewGroupColorInput] = useState("#3b82f6");
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<string | null>(
     null
@@ -403,8 +434,6 @@ export function WorkloadBoard({
     null
   );
   const [newItemName, setNewItemName] = useState("");
-  const [isCreatingItem, setIsCreatingItem] = useState(false);
-  const [isCreatingSubitem, setIsCreatingSubitem] = useState(false);
   const [addingSubitemToTask, setAddingSubitemToTask] = useState<string | null>(
     null
   );
@@ -412,8 +441,12 @@ export function WorkloadBoard({
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>(
     {}
   );
+  const [checkedTasks, setCheckedTasks] = useState<Record<string, boolean>>({});
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
-  const [selectedTask, ] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editTaskName, setEditTaskName] = useState("");
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
     Array<{ name: string; size: number; type: string; url: string }>
@@ -437,50 +470,171 @@ export function WorkloadBoard({
 
   // Fetch groups from API on component mount
   useEffect(() => {
-    const loadGroups = async () => {
+    const loadGroupsAndTasks = async () => {
       setIsLoadingGroups(true);
-      try {
-        const boardIdNum = parseInt(boardId, 10);
-        const fetchedGroups = await groupsApi.getGroupsByBoard(boardIdNum);
 
-        // Transform API response to TaskGroup format
-        const transformedGroups: TaskGroup[] = fetchedGroups.map(
-          (group: any) => ({
-            id: String(group.id),
-            name: group.name,
-            color: group.color || "#3b82f6",
-            tasks: group.tasks || [],
-          })
+      try {
+        const boardIdNum = Number(boardId);
+
+        const [groupsRes, tasksRes] = await Promise.all([
+          groupsApi.getGroupsByBoard(boardIdNum),
+          tasksApi.getTasksByBoardId(boardIdNum),
+        ]);
+
+        console.log("Fetched Groups:", groupsRes);
+        console.log("Fetched Tasks:", tasksRes);
+
+        // 1️⃣ Split parent & subtasks
+        const parentTasks: TaskResponse[] = tasksRes.filter(
+          (t) => !t.parent_id
         );
 
-        setGroups(transformedGroups);
+        const subtasks: TaskResponse[] = tasksRes.filter((t) => t.parent_id);
 
-        // Initialize groupNames, groupColors, and expandedGroups from fetched data
-        const names: Record<string, string> = {};
-        const colors: Record<string, string> = {};
-        const expanded: Record<string, boolean> = {};
+        // 2️⃣ Normalize tasks into UI Task model
+        const tasksWithSubtasks: Task[] = parentTasks.map((task) => ({
+          id: String(task.id),
+          name: task.name,
+          description: task.description,
+          status: task.status_label,
+          priority: task.priority_label,
+          estimatedDate: task.due_date,
+          person: task.assignee?.name,
+          group_id: String(task.group_id),
+          timeSpent: task.time_spent_hours ? `${task.time_spent_hours}h` : "0h",
 
-        transformedGroups.forEach((group) => {
-          names[group.id] = group.name;
-          colors[group.id] = group.color;
-          expanded[group.id] = true;
-        });
+          subitems: subtasks
+            .filter((st) => String(st.parent_id) === String(task.id))
+            .map((st) => ({
+              id: String(st.id),
+              name: st.name,
+              description: st.description,
+              status: st.status_label,
+              priority: st.priority_label,
+              estimatedDate: st.due_date,
+              person: st.assignee?.name,
+              timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
+              subitems: [],
+            })),
+        }));
 
-        setGroupNames(names);
-        setGroupColors(colors);
-        setExpandedGroups(expanded);
-      } catch (error) {
-        console.error("Failed to load groups:", error);
-        toast.error("Failed to load groups");
-        // Set empty groups on error
-        setGroups([]);
+        console.log("Tasks with Subtasks:", tasksWithSubtasks);
+
+        // 3️⃣ Attach tasks to groups
+        const groupedData: TaskGroup[] = groupsRes.map((group) => ({
+          id: String(group.id),
+          name: group.name,
+          color: group.color ?? "#3b82f6",
+          tasks: tasksWithSubtasks.filter(
+            (task) => String(task.group_id) === String(group.id)
+          ),
+        }));
+
+        console.log("Final Groups with Tasks:", groupedData);
+
+        setGroups(groupedData);
+
+        // expand all groups by default
+        setExpandedGroups(
+          Object.fromEntries(groupedData.map((g: any) => [g.id, true]))
+        );
+      } catch (err) {
+        toast.error("Failed to load board data");
+        console.error(err);
       } finally {
         setIsLoadingGroups(false);
       }
     };
 
-    loadGroups();
+    loadGroupsAndTasks();
   }, [boardId]);
+
+  // useEffect(() => {
+  //   const loadGroupsAndTasks = async () => {
+  //     setIsLoadingGroups(true);
+  //     try {
+  //       const boardIdNum = parseInt(boardId, 10);
+  //       const fetchedGroups = await groupsApi.getGroupsByBoard(boardIdNum);
+
+  //       // Fetch tasks for the board
+  //       const fetchedTasks = await tasksApi.getTasksByBoardId(boardIdNum);
+
+  //       // Transform API response to TaskGroup format
+  //       const transformedGroups: TaskGroup[] = fetchedGroups.map(
+  //         (group: any) => {
+  //           // Filter tasks that belong to this group and have no parent (top-level items)
+  //           const groupTasks = fetchedTasks.filter(
+  //             (task: any) =>
+  //               String(task.group_id) === String(group.id) &&
+  //               !task.parent_id
+  //           );
+
+  //           // Transform tasks to match Task interface
+  //           const transformedTasks: Task[] = groupTasks.map((task: any) => {
+  //             // Find subitems for this task
+  //             const subitems = fetchedTasks.filter(
+  //               (t: any) => String(t.parent_id) === String(task.id)
+  //             );
+
+  //             return {
+  //               id: String(task.id),
+  //               name: task.name,
+  //               status: [task.status_label],
+  //               priority: task.priority_label,
+  //               estimatedDate: task.due_date || "-",
+  //               person: task.assignee ? [task.assignee.name] : [],
+  //               timeSpent: `${task.time_spent_hours}h`,
+  //               subitems: subitems.map((subitem: any) => ({
+  //                 id: String(subitem.id),
+  //                 name: subitem.name,
+  //                 status: [subitem.status_label],
+  //                 priority: subitem.priority_label,
+  //                 estimatedDate: subitem.due_date || "-",
+  //                 person: subitem.assignee ? [subitem.assignee.name] : [],
+  //                 timeSpent: `${subitem.time_spent_hours}h`,
+  //               })),
+  //             };
+  //           });
+
+  //           return {
+  //             id: String(group.id),
+  //             name: group.name,
+  //             color: group.color || "#3b82f6",
+  //             tasks: transformedTasks,
+  //           };
+  //         }
+  //       );
+
+  //       setGroups(transformedGroups);
+
+  //       console.log(transformedGroups);
+
+  //       // Initialize groupNames, groupColors, and expandedGroups from fetched data
+  //       const names: Record<string, string> = {};
+  //       const colors: Record<string, string> = {};
+  //       const expanded: Record<string, boolean> = {};
+
+  //       transformedGroups.forEach((group) => {
+  //         names[group.id] = group.name;
+  //         colors[group.id] = group.color;
+  //         expanded[group.id] = true;
+  //       });
+
+  //       setGroupNames(names);
+  //       setGroupColors(colors);
+  //       setExpandedGroups(expanded);
+  //     } catch (error) {
+  //       console.error("Failed to load groups and tasks:", error);
+  //       toast.error("Failed to load groups and tasks");
+  //       // Set empty groups on error
+  //       setGroups([]);
+  //     } finally {
+  //       setIsLoadingGroups(false);
+  //     }
+  //   };
+
+  //   loadGroupsAndTasks();
+  // }, [boardId]);
 
   const handleBoardNameDoubleClick = () => {
     setEditingBoardName(true);
@@ -587,7 +741,18 @@ export function WorkloadBoard({
         id: String(newGroup.id),
         name: newGroup.name,
         color: newGroup.color || newGroupColorInput,
-        tasks: newGroup.tasks || [],
+        tasks: (newGroup.tasks || []).map((task: any) => ({
+          id: String(task.id),
+          name: task.name,
+          description: task.description,
+          status: task.status_label,
+          priority: task.priority_label,
+          estimatedDate: task.due_date || "-",
+          person: task.assignee ? task.assignee.name : "",
+          timeSpent: `${task.time_spent_hours}h`,
+          group_id: String(task.group_id),
+          subitems: [],
+        })),
       };
 
       setGroups([...groups, transformedGroup]);
@@ -606,6 +771,53 @@ export function WorkloadBoard({
       toast.error("Failed to create group");
     } finally {
       setIsCreatingGroup(false);
+    }
+  };
+
+  const editGroup = async (groupId: string) => {
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) return;
+
+    setEditingGroupId(groupId);
+    setEditGroupNameInput(groupNames[groupId] || group.name);
+    setEditGroupColorInput(groupColors[groupId] || group.color);
+    setEditGroupDialogOpen(true);
+  };
+
+  const handleUpdateGroup = async () => {
+    if (!editingGroupId || !editGroupNameInput.trim()) {
+      return;
+    }
+
+    try {
+      const payload = {
+        name: editGroupNameInput.trim(),
+        color: editGroupColorInput,
+      };
+
+      // Call API to update group
+      await groupsApi.updateGroup(editingGroupId, payload);
+
+      // Update local state
+      setGroupNames({
+        ...groupNames,
+        [editingGroupId]: editGroupNameInput.trim(),
+      });
+      setGroupColors({
+        ...groupColors,
+        [editingGroupId]: editGroupColorInput,
+      });
+
+      // Close dialog and reset
+      setEditGroupDialogOpen(false);
+      setEditingGroupId(null);
+      setEditGroupNameInput("");
+      setEditGroupColorInput("#3b82f6");
+
+      toast.success("Group updated successfully");
+    } catch (error) {
+      console.error("Failed to update group:", error);
+      toast.error("Failed to update group");
     }
   };
 
@@ -669,19 +881,38 @@ export function WorkloadBoard({
       return;
     }
 
-    console.log(isCreatingItem);
-
-    setIsCreatingItem(true);
     try {
-      // Create new task object
-      const newTask: Task = {
-        id: `task-${Date.now()}`,
+      const boardIdNum = parseInt(boardId, 10);
+      const organizationIdNum = getOrganizationId();
+
+      if (organizationIdNum === null) {
+        toast.error("Organization not found");
+        return;
+      }
+
+      // Call API to create task
+      const payload: CreateTaskRequest = {
+        group_id: parseInt(groupId, 10),
+        organization_id: organizationIdNum,
         name: newItemName.trim(),
-        status: [],
-        priority: "Medium",
-        estimatedDate: "-",
-        person: [],
-        timeSpent: "0m",
+        board_id: boardIdNum,
+        parent_id: null,
+      };
+
+      const newTaskResponse = await tasksApi.createTask(payload);
+
+      // Transform API response to Task format
+      const newTask: Task = {
+        id: String(newTaskResponse.id),
+        name: newTaskResponse.name,
+        description: newTaskResponse.description,
+        status: newTaskResponse.status_label,
+        priority: newTaskResponse.priority_label,
+        estimatedDate: newTaskResponse.due_date || "-",
+        person: newTaskResponse.assignee?.name,
+        timeSpent: `${newTaskResponse.time_spent_hours}h`,
+        group_id: String(newTaskResponse.group_id),
+        subitems: [],
       };
 
       // Update groups with new task
@@ -702,8 +933,6 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to add item:", error);
       toast.error("Failed to add item");
-    } finally {
-      setIsCreatingItem(false);
     }
   };
 
@@ -725,19 +954,37 @@ export function WorkloadBoard({
       return;
     }
 
-    console.log(isCreatingSubitem);
-
-    setIsCreatingSubitem(true);
     try {
-      // Create new subitem object
-      const newSubitem: Task = {
-        id: `subitem-${Date.now()}`,
+      const boardIdNum = parseInt(boardId, 10);
+      const organizationIdNum = getOrganizationId();
+
+      if (organizationIdNum === null) {
+        toast.error("Organization not found");
+        return;
+      }
+
+      // Call API to create subitem (task with parent_id)
+      const payload: CreateTaskRequest = {
+        group_id: parseInt(groupId, 10),
+        organization_id: organizationIdNum,
         name: newSubitemName.trim(),
-        status: [],
-        priority: "Medium",
-        estimatedDate: "-",
-        person: [],
-        timeSpent: "0m",
+        board_id: boardIdNum,
+        parent_id: parseInt(taskId, 10),
+      };
+
+      const newSubitemResponse = await tasksApi.createTask(payload);
+
+      // Transform API response to Task format
+      const newSubitem: Task = {
+        id: String(newSubitemResponse.id),
+        name: newSubitemResponse.name,
+        description: newSubitemResponse.description,
+        status: newSubitemResponse.status_label,
+        priority: newSubitemResponse.priority_label,
+        estimatedDate: newSubitemResponse.due_date || "-",
+        person: newSubitemResponse.assignee?.name,
+        timeSpent: `${newSubitemResponse.time_spent_hours}h`,
+        group_id: String(newSubitemResponse.group_id),
         subitems: [],
       };
 
@@ -767,8 +1014,6 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to add subitem:", error);
       toast.error("Failed to add subitem");
-    } finally {
-      setIsCreatingSubitem(false);
     }
   };
 
@@ -808,11 +1053,135 @@ export function WorkloadBoard({
     setExpandedGroups(allExpanded);
   };
 
+  const openCommentsPanel = (task: Task) => {
+    setSelectedTask(task);
+    setCommentsPanelOpen(true);
+  };
+
+  const openEditTaskDialog = (task: Task) => {
+    setEditingTask(task);
+    setEditTaskName(task.name);
+    setEditTaskDialogOpen(true);
+  };
+
+  const handleUpdateTask = async () => {
+    if (!editingTask || !editTaskName.trim()) {
+      return;
+    }
+
+    try {
+      // Update task via API (if needed)
+      // For now, just update local state
+      const updatedGroups = groups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => {
+          if (task.id === editingTask.id) {
+            return {
+              ...task,
+              name: editTaskName.trim(),
+            };
+          }
+          // Also update in subitems
+          return {
+            ...task,
+            subitems: task.subitems?.map((subitem) => {
+              if (subitem.id === editingTask.id) {
+                return {
+                  ...subitem,
+                  name: editTaskName.trim(),
+                };
+              }
+              return subitem;
+            }),
+          };
+        }),
+      }));
+
+      setGroups(updatedGroups);
+      setEditTaskDialogOpen(false);
+      setEditingTask(null);
+      setEditTaskName("");
+      toast.success("Task updated successfully");
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      toast.error("Failed to update task");
+    }
+  };
+
+  const handleTaskCheckChange = (taskId: string, checked: boolean) => {
+    const updatedChecked: Record<string, boolean> = {
+      [taskId]: checked,
+    };
+
+    // Find the task and auto-select/deselect all its subitems
+    getFilteredGroups().forEach((group) => {
+      group.tasks.forEach((task) => {
+        if (task.id === taskId && task.subitems) {
+          task.subitems.forEach((subitem) => {
+            updatedChecked[subitem.id] = checked;
+          });
+        }
+      });
+    });
+
+    setCheckedTasks((prev) => ({
+      ...prev,
+      ...updatedChecked,
+    }));
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    const allTaskIds: Record<string, boolean> = {};
+    getFilteredGroups().forEach((group) => {
+      group.tasks.forEach((task) => {
+        allTaskIds[task.id] = checked;
+        // Also select/deselect all subitems
+        if (task.subitems) {
+          task.subitems.forEach((subitem) => {
+            allTaskIds[subitem.id] = checked;
+          });
+        }
+      });
+    });
+    setCheckedTasks(allTaskIds);
+  };
+
+  const deleteCheckedTasks = async () => {
+    const checkedTaskIds = Object.entries(checkedTasks)
+      .filter(([, checked]) => checked)
+      .map(([id]) => id);
+
+    if (checkedTaskIds.length === 0) return;
+
+    try {
+      // Delete tasks via API
+      for (const taskId of checkedTaskIds) {
+        await tasksApi.deleteTask(taskId);
+      }
+
+      // Update local state
+      const updatedGroups = groups.map((group) => ({
+        ...group,
+        tasks: group.tasks.filter((task) => !checkedTaskIds.includes(task.id)),
+      }));
+
+      setGroups(updatedGroups);
+      setCheckedTasks({});
+      toast.success(`${checkedTaskIds.length} task(s) deleted successfully`);
+    } catch (error) {
+      console.error("Failed to delete tasks:", error);
+      toast.error("Failed to delete tasks");
+    }
+  };
+
   // const openCommentsPanel = (task: Task) => {
   //   setSelectedTask(task);
   //   setCommentsPanelOpen(true);
   // };
 
+  {
+    /* This is list of groups that are shown to screen */
+  }
   const getFilteredGroups = () => {
     const query = mainTableSearchQuery.trim().toLowerCase();
 
@@ -912,6 +1281,8 @@ export function WorkloadBoard({
     getWorkloadColumns({
       expandedTasks,
       toggleTask,
+      onOpenComments: openCommentsPanel,
+      onEditTask: openEditTaskDialog,
     })
   );
 
@@ -1099,8 +1470,7 @@ export function WorkloadBoard({
                             <div
                               className="bg-card border border-border overflow-hidden flex-1 border-l-4"
                               style={{
-                                borderLeftColor:
-                                  groupColors[group.id] || "#3b82f6",
+                                borderLeftColor: group.color || "#3b82f6",
                               }}
                               {...dragAttributes}
                               {...dragListeners}
@@ -1176,16 +1546,14 @@ export function WorkloadBoard({
                                     <ChevronDown
                                       className="h-5 w-5 text-primary"
                                       style={{
-                                        color:
-                                          groupColors[group.id] || "#3b82f6",
+                                        color: group.color || "#3b82f6",
                                       }}
                                     />
                                   ) : (
                                     <ChevronRight
                                       className="h-5 w-5 text-muted-foreground"
                                       style={{
-                                        color:
-                                          groupColors[group.id] || "#3b82f6",
+                                        color: group.color || "#3b82f6",
                                       }}
                                     />
                                   )}
@@ -1194,11 +1562,21 @@ export function WorkloadBoard({
                                 <span
                                   className="font-semibold text-lg text-primary"
                                   style={{
-                                    color: groupColors[group.id] || "#3b82f6",
+                                    color: group.color || "#3b82f6",
                                   }}
                                 >
                                   {groupNames[group.id] || group.name}
                                 </span>
+                                <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => editGroup(group.id)}
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </div>
 
                                 {/* Group Progress Bar - Time Spent vs Estimated Time */}
                                 {(() => {
@@ -1270,7 +1648,17 @@ export function WorkloadBoard({
                                         <thead className="border-b border-border bg-muted/30">
                                           <tr className="text-sm text-muted-foreground">
                                             <th className="p-4 w-12 border-r border-border text-center">
-                                              <input type="checkbox" />
+                                              <input
+                                                type="checkbox"
+                                                checked={Object.values(
+                                                  checkedTasks
+                                                ).some((checked) => checked)}
+                                                onChange={(e) =>
+                                                  handleSelectAll(
+                                                    e.target.checked
+                                                  )
+                                                }
+                                              />
                                             </th>
 
                                             {workloadColumns.map((col) => (
@@ -1291,7 +1679,18 @@ export function WorkloadBoard({
                                           {/* ================= TASK ROW ================= */}
                                           <tr className="border-t border-b border-border hover:bg-muted/40">
                                             <td className="p-4 text-center border-r border-border">
-                                              <input type="checkbox" />
+                                              <input
+                                                type="checkbox"
+                                                checked={
+                                                  checkedTasks[task.id] || false
+                                                }
+                                                onChange={(e) =>
+                                                  handleTaskCheckChange(
+                                                    task.id,
+                                                    e.target.checked
+                                                  )
+                                                }
+                                              />
                                             </td>
 
                                             {workloadColumns.map((col) => (
@@ -1319,7 +1718,20 @@ export function WorkloadBoard({
                                                 className="  hover:bg-muted/30 border-b border-border"
                                               >
                                                 <td className="p-4 text-center border-r border-border">
-                                                  <input type="checkbox" />
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={
+                                                      checkedTasks[
+                                                        subtask.id
+                                                      ] || false
+                                                    }
+                                                    onChange={(e) =>
+                                                      handleTaskCheckChange(
+                                                        subtask.id,
+                                                        e.target.checked
+                                                      )
+                                                    }
+                                                  />
                                                 </td>
 
                                                 {workloadColumns.map((col) => (
@@ -1586,6 +1998,70 @@ export function WorkloadBoard({
         </DialogContent>
       </Dialog>
 
+      {/* Edit Group Dialog */}
+      <Dialog open={editGroupDialogOpen} onOpenChange={setEditGroupDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Group</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-3">
+              <label className="text-sm font-medium">Color</label>
+              <div className="flex gap-2">
+                {PRESET_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
+                      editGroupColorInput === color
+                        ? "border-foreground scale-110"
+                        : "border-transparent hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setEditGroupColorInput(color)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="edit-group-name" className="text-sm font-medium">
+                Group Name
+              </label>
+              <Input
+                id="edit-group-name"
+                placeholder="Enter group name..."
+                value={editGroupNameInput}
+                onChange={(e) => setEditGroupNameInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleUpdateGroup();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditGroupDialogOpen(false);
+                setEditingGroupId(null);
+                setEditGroupNameInput("");
+                setEditGroupColorInput("#3b82f6");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateGroup}
+              disabled={!editGroupNameInput.trim()}
+            >
+              Update Group
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Group Confirmation Dialog */}
       <Dialog
         open={deleteGroupDialogOpen}
@@ -1626,6 +2102,49 @@ export function WorkloadBoard({
               disabled={isDeletingGroup}
             >
               {isDeletingGroup ? "Deleting..." : "Delete Group"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={editTaskDialogOpen} onOpenChange={setEditTaskDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label htmlFor="edit-task-name" className="text-sm font-medium">
+                Task Name
+              </label>
+              <Input
+                id="edit-task-name"
+                placeholder="Enter task name..."
+                value={editTaskName}
+                onChange={(e) => setEditTaskName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleUpdateTask();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditTaskDialogOpen(false);
+                setEditingTask(null);
+                setEditTaskName("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateTask} disabled={!editTaskName.trim()}>
+              Update Task
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1768,6 +2287,44 @@ export function WorkloadBoard({
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Bulk Actions Toolbar */}
+      {Object.values(checkedTasks).some((checked) => checked) && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50 py-4 px-6">
+          <div className="max-w-[1400px] mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              <div className="flex items-center gap-2">
+                <div className="bg-primary rounded-full w-8 h-8 flex items-center justify-center text-white font-semibold text-sm">
+                  {
+                    Object.values(checkedTasks).filter((checked) => checked)
+                      .length
+                  }
+                </div>
+                <span className="text-foreground font-medium">
+                  Items selected
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <button
+                  className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={deleteCheckedTasks}
+                >
+                  <Trash2 className="h-5 w-5" />
+                  <span className="text-xs">Delete</span>
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setCheckedTasks({})}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* */}
     </div>

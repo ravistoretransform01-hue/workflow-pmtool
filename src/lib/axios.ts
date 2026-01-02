@@ -1,7 +1,7 @@
 import axios, { AxiosError, type AxiosResponse } from "axios";
 
 // Debug flag - only log in development mode
-const DEBUG = import.meta.env.DEV === true;
+const DEBUG = true;
 
 // Helper function to log only in debug mode
 const debugLog = (...args: any[]) => {
@@ -87,6 +87,7 @@ api.interceptors.request.use(
         const tokenInfo = getTokenInfo(token);
         config.headers.Authorization = `Bearer ${token}`;
         debugLog(`[REQUEST] Step 3: Token attached to Authorization header`);
+        debugLog(`[REQUEST] Step 3.1: Token : `, token);
         debugLog(`[REQUEST] Step 4: Token expires in: ${tokenInfo?.expiresIn || "unknown"}`);
         
         if (tokenInfo?.isExpired) {
