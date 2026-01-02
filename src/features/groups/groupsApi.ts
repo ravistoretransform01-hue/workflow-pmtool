@@ -10,7 +10,7 @@ const GROUP_ENDPOINTS = {
   GET_BY_BOARD: (boardId: number) => `/groups?board_id=${boardId}`,
   CREATE: "/groups",
   GET_BY_ID: (id: string | number) => `/groups/${id}`,
-  UPDATE: (id: string | number) => `/groups/${id}`,
+  UPDATE: `/groups`,
   // DELETE: (id: string | number) => `/groups/${id}`,
   DELETE: "/groups",
 };
@@ -102,7 +102,10 @@ export const groupsApi = {
     data: UpdateGroupRequest
   ): Promise<Group> => {
     try {
-      const response = await api.put<any>(GROUP_ENDPOINTS.UPDATE(id), data);
+      const response = await api.put<any>(GROUP_ENDPOINTS.UPDATE, {
+        id: id,
+        ...data,
+      });
 
       // Handle the API response format
       if (response.data && response.data.data) {
