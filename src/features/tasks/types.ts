@@ -42,9 +42,11 @@ export interface TaskResponse {
 
 export interface CreateTaskRequest {
   group_id: number;
-  organization_id: number;
-  workspace_id: number;
+  organization_id: number; 
   name: string;
+  board_id: number;
+  parent_id: number | null;
+  // optional fields
   description?: string;
   status_id?: number;
   task_priority_id?: number;
@@ -53,8 +55,6 @@ export interface CreateTaskRequest {
   estimated_date_to?: string;
   assigned_to?: number;
   is_private?: number;
-  parent_id?: number | null;
-  board_id?: number | null;
 }
 
 export interface UpdateTaskRequest {

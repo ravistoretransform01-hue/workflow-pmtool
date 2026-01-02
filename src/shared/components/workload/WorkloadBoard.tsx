@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
+import type { CreateTaskRequest } from "@/features/tasks/types";
 import {
   LayoutDashboard,
   Filter,
@@ -94,18 +95,6 @@ interface TaskGroup {
   color: string;
   tasks: Task[];
 }
-
-// interface Task {
-//   id: string;
-//   name: string;
-//   status: string[];
-//   priority: string;
-
-//   estimatedDate: string;
-//   person: string[];
-//   timeSpent: string;
-//   subitems?: Task[];
-// }
 
 export interface Task {
   id: string;
@@ -424,8 +413,6 @@ export function WorkloadBoard({
     null
   );
   const [newItemName, setNewItemName] = useState("");
-  const [isCreatingItem, setIsCreatingItem] = useState(false);
-  const [isCreatingSubitem, setIsCreatingSubitem] = useState(false);
   const [addingSubitemToTask, setAddingSubitemToTask] = useState<string | null>(
     null
   );
@@ -869,19 +856,38 @@ export function WorkloadBoard({
       return;
     }
 
-    console.log(isCreatingItem);
-
-    setIsCreatingItem(true);
     try {
-      // Create new task object
-      const newTask: Task = {
-        id: `task-${Date.now()}`,
+      const boardIdNum = parseInt(boardId, 10);
+      const organizationIdNum = getOrganizationId();
+
+      if (organizationIdNum === null) {
+        toast.error("Organization not found");
+        return;
+      }
+
+      // Call API to create task
+      const payload: CreateTaskRequest = {
+        group_id: parseInt(groupId, 10),
+        organization_id: organizationIdNum,
         name: newItemName.trim(),
-        status: "",
-        priority: "Medium",
-        estimatedDate: "-",
-        person: "",
-        timeSpent: "0m",
+        board_id: boardIdNum,
+        parent_id: null,
+      };
+
+      const newTaskResponse = await tasksApi.createTask(payload);
+
+      // Transform API response to Task format
+      const newTask: Task = {
+        id: String(newTaskResponse.id),
+        name: newTaskResponse.name,
+        description: newTaskResponse.description,
+        status: newTaskResponse.status_label,
+        priority: newTaskResponse.priority_label,
+        estimatedDate: newTaskResponse.due_date || "-",
+        person: newTaskResponse.assignee?.name,
+        timeSpent: `${newTaskResponse.time_spent_hours}h`,
+        group_id: String(newTaskResponse.group_id),
+        subitems: [],
       };
 
       // Update groups with new task
@@ -902,8 +908,6 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to add item:", error);
       toast.error("Failed to add item");
-    } finally {
-      setIsCreatingItem(false);
     }
   };
 
@@ -925,19 +929,37 @@ export function WorkloadBoard({
       return;
     }
 
-    console.log(isCreatingSubitem);
-
-    setIsCreatingSubitem(true);
     try {
-      // Create new subitem object
-      const newSubitem: Task = {
-        id: `subitem-${Date.now()}`,
+      const boardIdNum = parseInt(boardId, 10);
+      const organizationIdNum = getOrganizationId();
+
+      if (organizationIdNum === null) {
+        toast.error("Organization not found");
+        return;
+      }
+
+      // Call API to create subitem (task with parent_id)
+      const payload: CreateTaskRequest = {
+        group_id: parseInt(groupId, 10),
+        organization_id: organizationIdNum,
         name: newSubitemName.trim(),
-        status: "",
-        priority: "Medium",
-        estimatedDate: "-",
-        person: "",
-        timeSpent: "0m",
+        board_id: boardIdNum,
+        parent_id: parseInt(taskId, 10),
+      };
+
+      const newSubitemResponse = await tasksApi.createTask(payload);
+
+      // Transform API response to Task format
+      const newSubitem: Task = {
+        id: String(newSubitemResponse.id),
+        name: newSubitemResponse.name,
+        description: newSubitemResponse.description,
+        status: newSubitemResponse.status_label,
+        priority: newSubitemResponse.priority_label,
+        estimatedDate: newSubitemResponse.due_date || "-",
+        person: newSubitemResponse.assignee?.name,
+        timeSpent: `${newSubitemResponse.time_spent_hours}h`,
+        group_id: String(newSubitemResponse.group_id),
         subitems: [],
       };
 
@@ -967,8 +989,6 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to add subitem:", error);
       toast.error("Failed to add subitem");
-    } finally {
-      setIsCreatingSubitem(false);
     }
   };
 
