@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
+import { tasksApi } from "@/features/tasks/tasksApi";
 import {
   LayoutDashboard,
   Filter,
@@ -22,6 +23,7 @@ import {
   Trash,
   Lock,
   GripVertical,
+  Pencil,
   // GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -77,6 +79,7 @@ import { FileUploadDropdown } from "../FileUploadDropdown";
 import { EmojiPicker } from "../EmojiPicker";
 import { getOrganizationId } from "@/lib/utils";
 import { getWorkloadColumns } from "./WorkloadColumns";
+import type { TaskResponse } from "@/features/tasks/types";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -92,14 +95,28 @@ interface TaskGroup {
   tasks: Task[];
 }
 
-interface Task {
+// interface Task {
+//   id: string;
+//   name: string;
+//   status: string[];
+//   priority: string;
+
+//   estimatedDate: string;
+//   person: string[];
+//   timeSpent: string;
+//   subitems?: Task[];
+// }
+
+export interface Task {
   id: string;
   name: string;
-  status: string[];
-  priority: string;
-  estimatedDate: string;
-  person: string[];
-  timeSpent: string;
+  description?: string;
+  status?: string;
+  priority?: string;
+  estimatedDate?: string;
+  person?: string;
+  timeSpent?: string;
+  group_id?: string;
   subitems?: Task[];
 }
 
@@ -390,6 +407,10 @@ export function WorkloadBoard({
   const [groupColors, setGroupColors] = useState<Record<string, string>>({});
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupNameInput, setNewGroupNameInput] = useState("");
+  const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
+  const [editGroupNameInput, setEditGroupNameInput] = useState("");
+  const [editGroupColorInput, setEditGroupColorInput] = useState("#3b82f6");
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [newGroupColorInput, setNewGroupColorInput] = useState("#3b82f6");
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<string | null>(
     null
@@ -413,7 +434,7 @@ export function WorkloadBoard({
     {}
   );
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
-  const [selectedTask, ] = useState<Task | null>(null);
+  const [selectedTask] = useState<Task | null>(null);
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
     Array<{ name: string; size: number; type: string; url: string }>
@@ -437,50 +458,171 @@ export function WorkloadBoard({
 
   // Fetch groups from API on component mount
   useEffect(() => {
-    const loadGroups = async () => {
+    const loadGroupsAndTasks = async () => {
       setIsLoadingGroups(true);
-      try {
-        const boardIdNum = parseInt(boardId, 10);
-        const fetchedGroups = await groupsApi.getGroupsByBoard(boardIdNum);
 
-        // Transform API response to TaskGroup format
-        const transformedGroups: TaskGroup[] = fetchedGroups.map(
-          (group: any) => ({
-            id: String(group.id),
-            name: group.name,
-            color: group.color || "#3b82f6",
-            tasks: group.tasks || [],
-          })
+      try {
+        const boardIdNum = Number(boardId);
+
+        const [groupsRes, tasksRes] = await Promise.all([
+          groupsApi.getGroupsByBoard(boardIdNum),
+          tasksApi.getTasksByBoardId(boardIdNum),
+        ]);
+
+        console.log("Fetched Groups:", groupsRes);
+        console.log("Fetched Tasks:", tasksRes);
+
+        // 1️⃣ Split parent & subtasks
+        const parentTasks: TaskResponse[] = tasksRes.filter(
+          (t) => !t.parent_id
         );
 
-        setGroups(transformedGroups);
+        const subtasks: TaskResponse[] = tasksRes.filter((t) => t.parent_id);
 
-        // Initialize groupNames, groupColors, and expandedGroups from fetched data
-        const names: Record<string, string> = {};
-        const colors: Record<string, string> = {};
-        const expanded: Record<string, boolean> = {};
+        // 2️⃣ Normalize tasks into UI Task model
+        const tasksWithSubtasks: Task[] = parentTasks.map((task) => ({
+          id: String(task.id),
+          name: task.name,
+          description: task.description,
+          status: task.status_label,
+          priority: task.priority_label,
+          estimatedDate: task.due_date,
+          person: task.assignee?.name,
+          group_id: String(task.group_id),
+          timeSpent: task.time_spent_hours ? `${task.time_spent_hours}h` : "0h",
 
-        transformedGroups.forEach((group) => {
-          names[group.id] = group.name;
-          colors[group.id] = group.color;
-          expanded[group.id] = true;
-        });
+          subitems: subtasks
+            .filter((st) => String(st.parent_id) === String(task.id))
+            .map((st) => ({
+              id: String(st.id),
+              name: st.name,
+              description: st.description,
+              status: st.status_label,
+              priority: st.priority_label,
+              estimatedDate: st.due_date,
+              person: st.assignee?.name,
+              timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
+              subitems: [],
+            })),
+        }));
 
-        setGroupNames(names);
-        setGroupColors(colors);
-        setExpandedGroups(expanded);
-      } catch (error) {
-        console.error("Failed to load groups:", error);
-        toast.error("Failed to load groups");
-        // Set empty groups on error
-        setGroups([]);
+        console.log("Tasks with Subtasks:", tasksWithSubtasks);
+
+        // 3️⃣ Attach tasks to groups
+        const groupedData: TaskGroup[] = groupsRes.map((group) => ({
+          id: String(group.id),
+          name: group.name,
+          color: group.color ?? "#3b82f6",
+          tasks: tasksWithSubtasks.filter(
+            (task) => String(task.group_id) === String(group.id)
+          ),
+        }));
+
+        console.log("Final Groups with Tasks:", groupedData);
+
+        setGroups(groupedData);
+
+        // expand all groups by default
+        setExpandedGroups(
+          Object.fromEntries(groupedData.map((g: any) => [g.id, true]))
+        );
+      } catch (err) {
+        toast.error("Failed to load board data");
+        console.error(err);
       } finally {
         setIsLoadingGroups(false);
       }
     };
 
-    loadGroups();
+    loadGroupsAndTasks();
   }, [boardId]);
+
+  // useEffect(() => {
+  //   const loadGroupsAndTasks = async () => {
+  //     setIsLoadingGroups(true);
+  //     try {
+  //       const boardIdNum = parseInt(boardId, 10);
+  //       const fetchedGroups = await groupsApi.getGroupsByBoard(boardIdNum);
+
+  //       // Fetch tasks for the board
+  //       const fetchedTasks = await tasksApi.getTasksByBoardId(boardIdNum);
+
+  //       // Transform API response to TaskGroup format
+  //       const transformedGroups: TaskGroup[] = fetchedGroups.map(
+  //         (group: any) => {
+  //           // Filter tasks that belong to this group and have no parent (top-level items)
+  //           const groupTasks = fetchedTasks.filter(
+  //             (task: any) =>
+  //               String(task.group_id) === String(group.id) &&
+  //               !task.parent_id
+  //           );
+
+  //           // Transform tasks to match Task interface
+  //           const transformedTasks: Task[] = groupTasks.map((task: any) => {
+  //             // Find subitems for this task
+  //             const subitems = fetchedTasks.filter(
+  //               (t: any) => String(t.parent_id) === String(task.id)
+  //             );
+
+  //             return {
+  //               id: String(task.id),
+  //               name: task.name,
+  //               status: [task.status_label],
+  //               priority: task.priority_label,
+  //               estimatedDate: task.due_date || "-",
+  //               person: task.assignee ? [task.assignee.name] : [],
+  //               timeSpent: `${task.time_spent_hours}h`,
+  //               subitems: subitems.map((subitem: any) => ({
+  //                 id: String(subitem.id),
+  //                 name: subitem.name,
+  //                 status: [subitem.status_label],
+  //                 priority: subitem.priority_label,
+  //                 estimatedDate: subitem.due_date || "-",
+  //                 person: subitem.assignee ? [subitem.assignee.name] : [],
+  //                 timeSpent: `${subitem.time_spent_hours}h`,
+  //               })),
+  //             };
+  //           });
+
+  //           return {
+  //             id: String(group.id),
+  //             name: group.name,
+  //             color: group.color || "#3b82f6",
+  //             tasks: transformedTasks,
+  //           };
+  //         }
+  //       );
+
+  //       setGroups(transformedGroups);
+
+  //       console.log(transformedGroups);
+
+  //       // Initialize groupNames, groupColors, and expandedGroups from fetched data
+  //       const names: Record<string, string> = {};
+  //       const colors: Record<string, string> = {};
+  //       const expanded: Record<string, boolean> = {};
+
+  //       transformedGroups.forEach((group) => {
+  //         names[group.id] = group.name;
+  //         colors[group.id] = group.color;
+  //         expanded[group.id] = true;
+  //       });
+
+  //       setGroupNames(names);
+  //       setGroupColors(colors);
+  //       setExpandedGroups(expanded);
+  //     } catch (error) {
+  //       console.error("Failed to load groups and tasks:", error);
+  //       toast.error("Failed to load groups and tasks");
+  //       // Set empty groups on error
+  //       setGroups([]);
+  //     } finally {
+  //       setIsLoadingGroups(false);
+  //     }
+  //   };
+
+  //   loadGroupsAndTasks();
+  // }, [boardId]);
 
   const handleBoardNameDoubleClick = () => {
     setEditingBoardName(true);
@@ -587,7 +729,18 @@ export function WorkloadBoard({
         id: String(newGroup.id),
         name: newGroup.name,
         color: newGroup.color || newGroupColorInput,
-        tasks: newGroup.tasks || [],
+        tasks: (newGroup.tasks || []).map((task: any) => ({
+          id: String(task.id),
+          name: task.name,
+          description: task.description,
+          status: task.status_label,
+          priority: task.priority_label,
+          estimatedDate: task.due_date || "-",
+          person: task.assignee ? task.assignee.name : "",
+          timeSpent: `${task.time_spent_hours}h`,
+          group_id: String(task.group_id),
+          subitems: [],
+        })),
       };
 
       setGroups([...groups, transformedGroup]);
@@ -606,6 +759,53 @@ export function WorkloadBoard({
       toast.error("Failed to create group");
     } finally {
       setIsCreatingGroup(false);
+    }
+  };
+
+  const editGroup = async (groupId: string) => {
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) return;
+
+    setEditingGroupId(groupId);
+    setEditGroupNameInput(groupNames[groupId] || group.name);
+    setEditGroupColorInput(groupColors[groupId] || group.color);
+    setEditGroupDialogOpen(true);
+  };
+
+  const handleUpdateGroup = async () => {
+    if (!editingGroupId || !editGroupNameInput.trim()) {
+      return;
+    }
+
+    try {
+      const payload = {
+        name: editGroupNameInput.trim(),
+        color: editGroupColorInput,
+      };
+
+      // Call API to update group
+      await groupsApi.updateGroup(editingGroupId, payload);
+
+      // Update local state
+      setGroupNames({
+        ...groupNames,
+        [editingGroupId]: editGroupNameInput.trim(),
+      });
+      setGroupColors({
+        ...groupColors,
+        [editingGroupId]: editGroupColorInput,
+      });
+
+      // Close dialog and reset
+      setEditGroupDialogOpen(false);
+      setEditingGroupId(null);
+      setEditGroupNameInput("");
+      setEditGroupColorInput("#3b82f6");
+
+      toast.success("Group updated successfully");
+    } catch (error) {
+      console.error("Failed to update group:", error);
+      toast.error("Failed to update group");
     }
   };
 
@@ -677,10 +877,10 @@ export function WorkloadBoard({
       const newTask: Task = {
         id: `task-${Date.now()}`,
         name: newItemName.trim(),
-        status: [],
+        status: "",
         priority: "Medium",
         estimatedDate: "-",
-        person: [],
+        person: "",
         timeSpent: "0m",
       };
 
@@ -733,10 +933,10 @@ export function WorkloadBoard({
       const newSubitem: Task = {
         id: `subitem-${Date.now()}`,
         name: newSubitemName.trim(),
-        status: [],
+        status: "",
         priority: "Medium",
         estimatedDate: "-",
-        person: [],
+        person: "",
         timeSpent: "0m",
         subitems: [],
       };
@@ -813,6 +1013,9 @@ export function WorkloadBoard({
   //   setCommentsPanelOpen(true);
   // };
 
+  {
+    /* This is list of groups that are shown to screen */
+  }
   const getFilteredGroups = () => {
     const query = mainTableSearchQuery.trim().toLowerCase();
 
@@ -1099,8 +1302,7 @@ export function WorkloadBoard({
                             <div
                               className="bg-card border border-border overflow-hidden flex-1 border-l-4"
                               style={{
-                                borderLeftColor:
-                                  groupColors[group.id] || "#3b82f6",
+                                borderLeftColor: group.color || "#3b82f6",
                               }}
                               {...dragAttributes}
                               {...dragListeners}
@@ -1176,16 +1378,14 @@ export function WorkloadBoard({
                                     <ChevronDown
                                       className="h-5 w-5 text-primary"
                                       style={{
-                                        color:
-                                          groupColors[group.id] || "#3b82f6",
+                                        color: group.color || "#3b82f6",
                                       }}
                                     />
                                   ) : (
                                     <ChevronRight
                                       className="h-5 w-5 text-muted-foreground"
                                       style={{
-                                        color:
-                                          groupColors[group.id] || "#3b82f6",
+                                        color: group.color || "#3b82f6",
                                       }}
                                     />
                                   )}
@@ -1194,11 +1394,20 @@ export function WorkloadBoard({
                                 <span
                                   className="font-semibold text-lg text-primary"
                                   style={{
-                                    color: groupColors[group.id] || "#3b82f6",
+                                    color: group.color || "#3b82f6",
                                   }}
                                 >
                                   {groupNames[group.id] || group.name}
                                 </span>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => editGroup(group.id)}
+                                  className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
 
                                 {/* Group Progress Bar - Time Spent vs Estimated Time */}
                                 {(() => {
@@ -1581,6 +1790,70 @@ export function WorkloadBoard({
               disabled={!newGroupNameInput.trim() || isCreatingGroup}
             >
               {isCreatingGroup ? "Creating..." : "Create Group"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Group Dialog */}
+      <Dialog open={editGroupDialogOpen} onOpenChange={setEditGroupDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Group</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-3">
+              <label className="text-sm font-medium">Color</label>
+              <div className="flex gap-2">
+                {PRESET_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
+                      editGroupColorInput === color
+                        ? "border-foreground scale-110"
+                        : "border-transparent hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setEditGroupColorInput(color)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="edit-group-name" className="text-sm font-medium">
+                Group Name
+              </label>
+              <Input
+                id="edit-group-name"
+                placeholder="Enter group name..."
+                value={editGroupNameInput}
+                onChange={(e) => setEditGroupNameInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleUpdateGroup();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditGroupDialogOpen(false);
+                setEditingGroupId(null);
+                setEditGroupNameInput("");
+                setEditGroupColorInput("#3b82f6");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateGroup}
+              disabled={!editGroupNameInput.trim()}
+            >
+              Update Group
             </Button>
           </DialogFooter>
         </DialogContent>

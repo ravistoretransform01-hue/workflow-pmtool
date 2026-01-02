@@ -75,7 +75,8 @@ export const getWorkloadColumns = ({
     label: "Person",
     width: "128px",
     align: "center",
-    render: (task: any) => task.person?.join(", ") ?? "-",
+    render: (task: any) => task.person ?? "-",
+    //  render: (task: any) => task.person?.join(", ") ?? "-"
   },
   {
     id: "time",
