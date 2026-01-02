@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, MessageCirclePlus, MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronRight, MessageCirclePlus, Pencil } from "lucide-react";
 
 interface Column {
   id: string;
@@ -13,10 +13,12 @@ export const getWorkloadColumns = ({
   expandedTasks,
   toggleTask,
   onOpenComments,
+  onEditTask,
 }: {
   expandedTasks: Record<string, boolean>;
   toggleTask: (taskId: string) => void;
   onOpenComments?: (task: any) => void;
+  onEditTask?: (task: any) => void;
 }): Column[] => [
   {
     id: "item",
@@ -32,12 +34,20 @@ export const getWorkloadColumns = ({
               <span className="text-muted-foreground"> {"├"}</span>
               <span className="font-medium text-foreground">{task.name}</span>
             </div>
-            <button
-              onClick={() => onOpenComments?.(task)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded"
-            >
-              <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-            </button>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => onEditTask?.(task)}
+                className="p-1 hover:bg-muted rounded"
+              >
+                <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+              </button>
+              <button
+                onClick={() => onOpenComments?.(task)}
+                className="p-1 hover:bg-muted rounded"
+              >
+                <MessageCirclePlus className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+              </button>
+            </div>
           </div>
         );
       }
@@ -57,12 +67,20 @@ export const getWorkloadColumns = ({
             }
             {task.name}
           </button>
-          <button
-            onClick={() => onOpenComments?.(task)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded"
-          >
-            <MessageCirclePlus className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-          </button>
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => onEditTask?.(task)}
+              className="p-1 hover:bg-muted rounded"
+            >
+              <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+            </button>
+            <button
+              onClick={() => onOpenComments?.(task)}
+              className="p-1 hover:bg-muted rounded"
+            >
+              <MessageCirclePlus className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+            </button>
+          </div>
         </div>
       );
     },

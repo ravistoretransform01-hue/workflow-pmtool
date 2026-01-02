@@ -1,5 +1,5 @@
 import axios from "@/lib/axios";
-import type { TaskResponse, CreateTaskRequest } from "./types";
+import type { TaskResponse, CreateTaskRequest, UpdateTaskRequest } from "./types";
 
 const TASKS_ENDPOINTS = {
   GET_ALL_TASKS: `/tasks`,
@@ -67,16 +67,17 @@ export const tasksApi = {
   //   }
   // },
 
-  // /**
-  //  * Delete a task
-  //  */
-  // deleteTask: async (taskId: string): Promise<void> => {
-  //   try {
-  //     const payload: DeleteTaskRequest = { id: taskId };
-  //     await axios.delete(API_BASE_URL, { data: payload });
-  //   } catch (error) {
-  //     console.error("Failed to delete task:", error);
-  //     throw error;
-  //   }
-  // },
+  /**
+   * Delete a task
+   */
+  deleteTask: async (taskId: string): Promise<void> => {
+    try {
+      await axios.delete(TASKS_ENDPOINTS.DELETE_TASK, {
+        data: { id: taskId },
+      });
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      throw error;
+    }
+  },
 };

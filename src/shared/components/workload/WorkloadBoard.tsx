@@ -420,8 +420,12 @@ export function WorkloadBoard({
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>(
     {}
   );
+  const [checkedTasks, setCheckedTasks] = useState<Record<string, boolean>>({});
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editTaskName, setEditTaskName] = useState("");
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
     Array<{ name: string; size: number; type: string; url: string }>
@@ -1033,6 +1037,122 @@ export function WorkloadBoard({
     setCommentsPanelOpen(true);
   };
 
+  const openEditTaskDialog = (task: Task) => {
+    setEditingTask(task);
+    setEditTaskName(task.name);
+    setEditTaskDialogOpen(true);
+  };
+
+  const handleUpdateTask = async () => {
+    if (!editingTask || !editTaskName.trim()) {
+      return;
+    }
+
+    try {
+      // Update task via API (if needed)
+      // For now, just update local state
+      const updatedGroups = groups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => {
+          if (task.id === editingTask.id) {
+            return {
+              ...task,
+              name: editTaskName.trim(),
+            };
+          }
+          // Also update in subitems
+          return {
+            ...task,
+            subitems: task.subitems?.map((subitem) => {
+              if (subitem.id === editingTask.id) {
+                return {
+                  ...subitem,
+                  name: editTaskName.trim(),
+                };
+              }
+              return subitem;
+            }),
+          };
+        }),
+      }));
+
+      setGroups(updatedGroups);
+      setEditTaskDialogOpen(false);
+      setEditingTask(null);
+      setEditTaskName("");
+      toast.success("Task updated successfully");
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      toast.error("Failed to update task");
+    }
+  };
+
+  const handleTaskCheckChange = (taskId: string, checked: boolean) => {
+    const updatedChecked: Record<string, boolean> = {
+      [taskId]: checked,
+    };
+
+    // Find the task and auto-select/deselect all its subitems
+    getFilteredGroups().forEach((group) => {
+      group.tasks.forEach((task) => {
+        if (task.id === taskId && task.subitems) {
+          task.subitems.forEach((subitem) => {
+            updatedChecked[subitem.id] = checked;
+          });
+        }
+      });
+    });
+
+    setCheckedTasks((prev) => ({
+      ...prev,
+      ...updatedChecked,
+    }));
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    const allTaskIds: Record<string, boolean> = {};
+    getFilteredGroups().forEach((group) => {
+      group.tasks.forEach((task) => {
+        allTaskIds[task.id] = checked;
+        // Also select/deselect all subitems
+        if (task.subitems) {
+          task.subitems.forEach((subitem) => {
+            allTaskIds[subitem.id] = checked;
+          });
+        }
+      });
+    });
+    setCheckedTasks(allTaskIds);
+  };
+
+  const deleteCheckedTasks = async () => {
+    const checkedTaskIds = Object.entries(checkedTasks)
+      .filter(([, checked]) => checked)
+      .map(([id]) => id);
+
+    if (checkedTaskIds.length === 0) return;
+
+    try {
+      // Delete tasks via API
+      for (const taskId of checkedTaskIds) {
+        await tasksApi.deleteTask(taskId);
+      }
+
+      // Update local state
+      const updatedGroups = groups.map((group) => ({
+        ...group,
+        tasks: group.tasks.filter((task) => !checkedTaskIds.includes(task.id)),
+      }));
+
+      setGroups(updatedGroups);
+      setCheckedTasks({});
+      toast.success(`${checkedTaskIds.length} task(s) deleted successfully`);
+    } catch (error) {
+      console.error("Failed to delete tasks:", error);
+      toast.error("Failed to delete tasks");
+    }
+  };
+
   // const openCommentsPanel = (task: Task) => {
   //   setSelectedTask(task);
   //   setCommentsPanelOpen(true);
@@ -1141,6 +1261,7 @@ export function WorkloadBoard({
       expandedTasks,
       toggleTask,
       onOpenComments: openCommentsPanel,
+      onEditTask: openEditTaskDialog,
     })
   );
 
@@ -1425,15 +1546,16 @@ export function WorkloadBoard({
                                 >
                                   {groupNames[group.id] || group.name}
                                 </span>
-
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => editGroup(group.id)}
-                                  className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => editGroup(group.id)}
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </div>
 
                                 {/* Group Progress Bar - Time Spent vs Estimated Time */}
                                 {(() => {
@@ -1505,7 +1627,17 @@ export function WorkloadBoard({
                                         <thead className="border-b border-border bg-muted/30">
                                           <tr className="text-sm text-muted-foreground">
                                             <th className="p-4 w-12 border-r border-border text-center">
-                                              <input type="checkbox" />
+                                              <input
+                                                type="checkbox"
+                                                checked={Object.values(
+                                                  checkedTasks
+                                                ).some((checked) => checked)}
+                                                onChange={(e) =>
+                                                  handleSelectAll(
+                                                    e.target.checked
+                                                  )
+                                                }
+                                              />
                                             </th>
 
                                             {workloadColumns.map((col) => (
@@ -1526,7 +1658,18 @@ export function WorkloadBoard({
                                           {/* ================= TASK ROW ================= */}
                                           <tr className="border-t border-b border-border hover:bg-muted/40">
                                             <td className="p-4 text-center border-r border-border">
-                                              <input type="checkbox" />
+                                              <input
+                                                type="checkbox"
+                                                checked={
+                                                  checkedTasks[task.id] || false
+                                                }
+                                                onChange={(e) =>
+                                                  handleTaskCheckChange(
+                                                    task.id,
+                                                    e.target.checked
+                                                  )
+                                                }
+                                              />
                                             </td>
 
                                             {workloadColumns.map((col) => (
@@ -1554,7 +1697,20 @@ export function WorkloadBoard({
                                                 className="  hover:bg-muted/30 border-b border-border"
                                               >
                                                 <td className="p-4 text-center border-r border-border">
-                                                  <input type="checkbox" />
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={
+                                                      checkedTasks[
+                                                        subtask.id
+                                                      ] || false
+                                                    }
+                                                    onChange={(e) =>
+                                                      handleTaskCheckChange(
+                                                        subtask.id,
+                                                        e.target.checked
+                                                      )
+                                                    }
+                                                  />
                                                 </td>
 
                                                 {workloadColumns.map((col) => (
@@ -1930,6 +2086,49 @@ export function WorkloadBoard({
         </DialogContent>
       </Dialog>
 
+      {/* Edit Task Dialog */}
+      <Dialog open={editTaskDialogOpen} onOpenChange={setEditTaskDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label htmlFor="edit-task-name" className="text-sm font-medium">
+                Task Name
+              </label>
+              <Input
+                id="edit-task-name"
+                placeholder="Enter task name..."
+                value={editTaskName}
+                onChange={(e) => setEditTaskName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleUpdateTask();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditTaskDialogOpen(false);
+                setEditingTask(null);
+                setEditTaskName("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateTask} disabled={!editTaskName.trim()}>
+              Update Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ALL SHEETS WILL GO HERE */}
       {/* Comments Panel Sheet */}
       <Sheet
@@ -2067,6 +2266,44 @@ export function WorkloadBoard({
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Bulk Actions Toolbar */}
+      {Object.values(checkedTasks).some((checked) => checked) && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50 py-4 px-6">
+          <div className="max-w-[1400px] mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              <div className="flex items-center gap-2">
+                <div className="bg-primary rounded-full w-8 h-8 flex items-center justify-center text-white font-semibold text-sm">
+                  {
+                    Object.values(checkedTasks).filter((checked) => checked)
+                      .length
+                  }
+                </div>
+                <span className="text-foreground font-medium">
+                  Items selected
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <button
+                  className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={deleteCheckedTasks}
+                >
+                  <Trash2 className="h-5 w-5" />
+                  <span className="text-xs">Delete</span>
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setCheckedTasks({})}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* */}
     </div>
