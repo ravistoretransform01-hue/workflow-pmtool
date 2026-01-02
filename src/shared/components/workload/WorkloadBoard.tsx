@@ -421,7 +421,7 @@ export function WorkloadBoard({
     {}
   );
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
-  const [selectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
     Array<{ name: string; size: number; type: string; url: string }>
@@ -1028,6 +1028,11 @@ export function WorkloadBoard({
     setExpandedGroups(allExpanded);
   };
 
+  const openCommentsPanel = (task: Task) => {
+    setSelectedTask(task);
+    setCommentsPanelOpen(true);
+  };
+
   // const openCommentsPanel = (task: Task) => {
   //   setSelectedTask(task);
   //   setCommentsPanelOpen(true);
@@ -1135,6 +1140,7 @@ export function WorkloadBoard({
     getWorkloadColumns({
       expandedTasks,
       toggleTask,
+      onOpenComments: openCommentsPanel,
     })
   );
 
