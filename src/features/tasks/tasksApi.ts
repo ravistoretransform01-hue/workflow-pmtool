@@ -1,5 +1,5 @@
 import axios from "@/lib/axios";
-import type { TaskResponse, CreateTaskRequest, UpdateTaskRequest } from "./types";
+import type { TaskResponse, CreateTaskRequest } from "./types";
 
 const TASKS_ENDPOINTS = {
   GET_ALL_TASKS: `/tasks`,
