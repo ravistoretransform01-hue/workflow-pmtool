@@ -10,8 +10,8 @@ const BOARD_ENDPOINTS = {
   CREATE: "/boards",
   GET_ALL: "/boards",
   GET_BY_ID: (id: string) => `/boards/${id}`,
-  UPDATE: (id: string) => `/boards/${id}`,
-  DELETE: `/boards`,
+  UPDATE: "/boards",
+  DELETE: "/boards",
 };
 
 export const boardsApi = {
@@ -23,7 +23,6 @@ export const boardsApi = {
       const response = await api.get<GetBoardsResponse>(
         BOARD_ENDPOINTS.GET_ALL
       );
-      console.log("Get boards response:", response);
 
       // Handle the API response format
       if (
@@ -118,7 +117,10 @@ export const boardsApi = {
     id: string,
     data: Partial<CreateBoardRequest>
   ): Promise<Board> => {
-    const response = await api.put<Board>(BOARD_ENDPOINTS.UPDATE(id), data);
+    const response = await api.put<Board>(BOARD_ENDPOINTS.UPDATE, {
+      id,
+      ...data,
+    });
     return response.data;
   },
 

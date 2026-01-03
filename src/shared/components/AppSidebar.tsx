@@ -148,11 +148,23 @@ export const AppSidebar = () => {
       toast.error("Board name is required");
       return;
     }
-    // TODO: Call API to rename board with renamingBoardId
-    toast.success(`Board renamed to "${renamingBoardName}"`);
-    setRenamingBoardId(null);
-    setRenamingBoardName("");
-    fetchBoards();
+
+    try {
+      // Call API to rename board
+      await boardsApi.updateBoard(renamingBoardId!, {
+        name: renamingBoardName.trim(),
+      });
+
+      toast.success(`Board renamed to "${renamingBoardName}"`);
+      setRenamingBoardId(null);
+      setRenamingBoardName("");
+      
+      // Refresh boards list to reflect the change in UI
+      fetchBoards();
+    } catch (error) {
+      console.error("Rename board error:", error);
+      toast.error("Failed to rename board");
+    }
   };
 
   const handleDuplicateBoard = (_boardId: string, boardName: string) => {
