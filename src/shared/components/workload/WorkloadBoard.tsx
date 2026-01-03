@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
-import type { CreateTaskRequest } from "@/features/tasks/types";
+import type { CreateTaskRequest, UpdateTaskRequest } from "@/features/tasks/types";
 import {
   LayoutDashboard,
   Filter,
@@ -359,10 +359,6 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onClick={() => {}}>
-              <Filter className="h-4 w-4 mr-2" />
-              <span>Filter</span>
-            </DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <ArrowUpDown className="h-4 w-4 mr-2" />
@@ -381,6 +377,10 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
               <Minimize2 className="h-4 w-4 mr-2" />
               <span>Collapse</span>
             </DropdownMenuItem>
+            {/* <DropdownMenuItem onClick={() => {}}>
+              <Filter className="h-4 w-4 mr-2" />
+              <span>Filter</span>
+            </DropdownMenuItem> */}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => {}}>
               <Lock className="h-4 w-4 mr-2" />
@@ -388,7 +388,7 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => {}}>
               <Trash className="h-4 w-4 mr-2 text-destructive" />
-              <span>Delete column</span>
+              <span>Delete</span> {/* delete column */}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -1091,15 +1091,31 @@ export function WorkloadBoard({
     }
 
     try {
-      // Update task via API (if needed)
-      // For now, just update local state
+      const boardIdNum = parseInt(boardId, 10);
+
+      // Call API to update task
+      const payload: UpdateTaskRequest = {
+        id: editingTask.id,
+        board_id: boardIdNum,
+        name: editTaskName.trim(),
+      };
+
+      const updatedTaskResponse = await tasksApi.updateTask(payload);
+
+      // Update local state with API response
       const updatedGroups = groups.map((group) => ({
         ...group,
         tasks: group.tasks.map((task) => {
           if (task.id === editingTask.id) {
             return {
               ...task,
-              name: editTaskName.trim(),
+              name: updatedTaskResponse.name,
+              description: updatedTaskResponse.description,
+              status: updatedTaskResponse.status_label,
+              priority: updatedTaskResponse.priority_label,
+              estimatedDate: updatedTaskResponse.due_date || "-",
+              person: updatedTaskResponse.assignee?.name,
+              timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
             };
           }
           // Also update in subitems
@@ -1109,7 +1125,13 @@ export function WorkloadBoard({
               if (subitem.id === editingTask.id) {
                 return {
                   ...subitem,
-                  name: editTaskName.trim(),
+                  name: updatedTaskResponse.name,
+                  description: updatedTaskResponse.description,
+                  status: updatedTaskResponse.status_label,
+                  priority: updatedTaskResponse.priority_label,
+                  estimatedDate: updatedTaskResponse.due_date || "-",
+                  person: updatedTaskResponse.assignee?.name,
+                  timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
                 };
               }
               return subitem;

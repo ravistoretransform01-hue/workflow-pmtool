@@ -73,6 +73,22 @@ export const tasksApi = {
   // },
 
   /**
+   * Update an existing task
+   */
+  updateTask: async (payload: UpdateTaskRequest): Promise<TaskResponse> => {
+    try {
+      const response = await axios.put<{ data: TaskResponse }>(
+        TASKS_ENDPOINTS.UPDATE_TASK,
+        payload
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Delete a task
    */
   deleteTask: async (taskId: string): Promise<void> => {
