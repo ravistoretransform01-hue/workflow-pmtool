@@ -30,7 +30,7 @@ export interface UpdateUserMetaRequest {
 // };
 const USER_ENDPOINTS = {
   GET_USER_META: `/usermeta/me`,
-  UPDATE_USER_META: `/usermeta`,
+  UPDATE_USER_META: `/usermeta/me`,
 };
 
 export const userApi = {

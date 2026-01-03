@@ -1,5 +1,5 @@
 import axios from "@/lib/axios";
-import type { TaskResponse, CreateTaskRequest } from "./types";
+import type { TaskResponse, CreateTaskRequest, UpdateTaskRequest } from "./types";
 
 const TASKS_ENDPOINTS = {
   GET_ALL_TASKS: `/tasks`,
@@ -14,7 +14,9 @@ export const tasksApi = {
   /**
    * Get all tasks for a board or group
    */
-  getTasksByBoardId: async (boardId: string | number): Promise<TaskResponse[]> => {
+  getTasksByBoardId: async (
+    boardId: string | number
+  ): Promise<TaskResponse[]> => {
     try {
       const response = await axios.get<{ data: TaskResponse[] }>(
         TASKS_ENDPOINTS.GET_ALL_TASKS_BY_BOARDID(boardId)
@@ -46,7 +48,10 @@ export const tasksApi = {
   //  */
   createTask: async (payload: CreateTaskRequest): Promise<TaskResponse> => {
     try {
-      const response = await axios.post<{ data: TaskResponse }>(TASKS_ENDPOINTS.CREATE_TASK, payload);
+      const response = await axios.post<{ data: TaskResponse }>(
+        TASKS_ENDPOINTS.CREATE_TASK,
+        payload
+      );
       return response.data.data;
     } catch (error) {
       console.error("Failed to create task:", error);

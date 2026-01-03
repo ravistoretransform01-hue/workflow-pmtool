@@ -520,8 +520,14 @@ export function WorkloadBoard({
 
         console.log("Tasks with Subtasks:", tasksWithSubtasks);
 
-        // 3️⃣ Attach tasks to groups
-        const groupedData: TaskGroup[] = groupsRes.map((group) => ({
+        // 3️⃣ Attach tasks to groups - Sort groups by position
+        const sortedGroups = groupsRes.sort(
+          (a: any, b: any) => Number(a.position) - Number(b.position)
+        );
+
+        // console.log("Sorted Groups:", sortedGroups);
+
+        const groupedData: TaskGroup[] = sortedGroups.map((group) => ({
           id: String(group.id),
           name: group.name,
           color: group.color ?? "#3b82f6",
@@ -796,17 +802,32 @@ export function WorkloadBoard({
       };
 
       // Call API to update group
-      await groupsApi.updateGroup(editingGroupId, payload);
+      const res = await groupsApi.updateGroup(editingGroupId, payload);
 
-      // Update local state
+      // Update local state with API response
       setGroupNames({
         ...groupNames,
-        [editingGroupId]: editGroupNameInput.trim(),
+        [editingGroupId]: res.name,
       });
+
       setGroupColors({
         ...groupColors,
-        [editingGroupId]: editGroupColorInput,
+        [editingGroupId]: res.color,
       });
+
+      // Also update the groups array
+      const updatedGroups = groups.map((group) => {
+        if (group.id === editingGroupId) {
+          return {
+            ...group,
+            name: res.name,
+            color: res.color,
+          };
+        }
+        return group;
+      });
+
+      setGroups(updatedGroups);
 
       // Close dialog and reset
       setEditGroupDialogOpen(false);

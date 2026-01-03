@@ -507,19 +507,19 @@ export function AddBoardDialog({
       });
 
       if (result.type === "boards/createBoard/fulfilled") {
-        toast({
-          title: "Success",
-          description: "Board created successfully!",
-        });
-
+        
         // Call the parent callback with board details
         const membersWithCreator = [
           { test_user_id: currentUser.id, role: "owner" },
           ...members,
         ];
         onAddBoard(boardName, iconColor, membersWithCreator, templateId);
-
+        
         onOpenChange(false);
+        toast({
+          title: "Success",
+          description: "Board created successfully!",
+        });
         // Reset form
         setBoardName("New Board");
         setIconColor(PRESET_COLORS[0]);
