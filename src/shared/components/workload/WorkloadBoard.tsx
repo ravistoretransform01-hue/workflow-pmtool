@@ -1823,14 +1823,14 @@ export function WorkloadBoard({
                 </div>
               </div>
 
-              <Button variant="ghost" size="sm">
+              {/* <Button variant="ghost" size="sm">
                 <Filter className="h-4 w-4 mr-2" />
                 Filter
               </Button>
               <Button variant="ghost" size="sm">
                 <ArrowUpDown className="h-4 w-4 mr-2" />
                 Sort
-              </Button>
+              </Button> */}
 
               {/* Column Visibility Dropdown */}
               <DropdownMenu>
