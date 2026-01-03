@@ -1173,22 +1173,6 @@ export function WorkloadBoard({
     }));
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    const allTaskIds: Record<string, boolean> = {};
-    getFilteredGroups().forEach((group) => {
-      group.tasks.forEach((task) => {
-        allTaskIds[task.id] = checked;
-        // Also select/deselect all subitems
-        if (task.subitems) {
-          task.subitems.forEach((subitem) => {
-            allTaskIds[subitem.id] = checked;
-          });
-        }
-      });
-    });
-    setCheckedTasks(allTaskIds);
-  };
-
   const deleteCheckedTasks = async () => {
     const checkedTaskIds = Object.entries(checkedTasks)
       .filter(([, checked]) => checked)
@@ -1693,14 +1677,38 @@ export function WorkloadBoard({
                                             <th className="p-4 w-12 border-r border-border text-center">
                                               <input
                                                 type="checkbox"
-                                                checked={Object.values(
-                                                  checkedTasks
-                                                ).some((checked) => checked)}
-                                                onChange={(e) =>
-                                                  handleSelectAll(
-                                                    e.target.checked
+                                                checked={
+                                                  group.tasks.length > 0 &&
+                                                  group.tasks.every(
+                                                    (task) =>
+                                                      checkedTasks[task.id] ||
+                                                      false
                                                   )
                                                 }
+                                                onChange={(e) => {
+                                                  const updatedChecked: Record<
+                                                    string,
+                                                    boolean
+                                                  > = {};
+                                                  group.tasks.forEach((task) => {
+                                                    updatedChecked[task.id] =
+                                                      e.target.checked;
+                                                    // Also select/deselect subitems
+                                                    if (task.subitems) {
+                                                      task.subitems.forEach(
+                                                        (subitem) => {
+                                                          updatedChecked[
+                                                            subitem.id
+                                                          ] = e.target.checked;
+                                                        }
+                                                      );
+                                                    }
+                                                  });
+                                                  setCheckedTasks((prev) => ({
+                                                    ...prev,
+                                                    ...updatedChecked,
+                                                  }));
+                                                }}
                                               />
                                             </th>
 
