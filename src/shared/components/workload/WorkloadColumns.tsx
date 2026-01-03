@@ -1,4 +1,11 @@
 import { ChevronDown, ChevronRight, MessageCirclePlus, Pencil } from "lucide-react";
+import type { Status, Priority } from "@/features/cms/types";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/shared/components/ui/popover";
+import { Button } from "@/shared/components/ui/button";
 
 interface Column {
   id: string;
@@ -14,12 +21,29 @@ export const getWorkloadColumns = ({
   toggleTask,
   onOpenComments,
   onEditTask,
+  statuses = [],
+  priorities = [],
+  onStatusChange,
+  onPriorityChange,
+  openPopoverId,
+  setOpenPopoverId,
 }: {
   expandedTasks: Record<string, boolean>;
   toggleTask: (taskId: string) => void;
   onOpenComments?: (task: any) => void;
   onEditTask?: (task: any) => void;
-}): Column[] => [
+  statuses?: Status[];
+  priorities?: Priority[];
+  onStatusChange?: (taskId: string, statusId: string) => void;
+  onPriorityChange?: (taskId: string, priorityId: string) => void;
+  openPopoverId?: string | null;
+  setOpenPopoverId?: (id: string | null) => void;
+}): Column[] => {
+  // Create lookup maps for statuses and priorities
+  const statusMap = new Map(statuses.map((s) => [s.id, s]));
+  const priorityMap = new Map(priorities.map((p) => [p.id, p]));
+
+  return [
   {
     id: "item",
     label: "Item",
@@ -90,14 +114,90 @@ export const getWorkloadColumns = ({
     label: "Status",
     width: "160px",
     align: "center",
-    render: (task: any) => task.status ?? "-",
+    render: (task: any) => {
+      const statusObj = statusMap.get(task.status_id);
+      const popoverId = `status-${task.id}`;
+      return (
+        <Popover open={openPopoverId === popoverId} onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-3 text-xs font-medium"
+              style={{
+                backgroundColor: statusObj?.color_code || "#e5e7eb",
+                color: "white",
+                border: "none",
+              }}
+            >
+              {statusObj?.name || "No Status"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg" align="center">
+            <div className="space-y-1">
+              {statuses.map((status) => (
+                <button
+                  key={status.id}
+                  onClick={() => onStatusChange?.(task.id, status.id)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-accent transition-colors text-sm font-medium"
+                >
+                  <div
+                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: status.color_code }}
+                  />
+                  <span>{status.name}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      );
+    },
   },
   {
     id: "priority",
     label: "Priority",
     width: "160px",
     align: "center",
-    render: (task: any) => task.priority ?? "-",
+    render: (task: any) => {
+      const priorityObj = priorityMap.get(task.priority_id);
+      const popoverId = `priority-${task.id}`;
+      return (
+        <Popover open={openPopoverId === popoverId} onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-3 text-xs font-medium"
+              style={{
+                backgroundColor: priorityObj?.color_code || "#e5e7eb",
+                color: "white",
+                border: "none",
+              }}
+            >
+              {priorityObj?.name || "No Priority"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg" align="center">
+            <div className="space-y-1">
+              {priorities.map((priority) => (
+                <button
+                  key={priority.id}
+                  onClick={() => onPriorityChange?.(task.id, priority.id)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-accent transition-colors text-sm font-medium"
+                >
+                  <div
+                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: priority.color_code }}
+                  />
+                  <span>{priority.name}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      );
+    },
   },
   {
     id: "date",
@@ -121,4 +221,5 @@ export const getWorkloadColumns = ({
     align: "center",
     render: (task: any) => task.timeSpent ?? "-",
   },
-];
+  ];
+};

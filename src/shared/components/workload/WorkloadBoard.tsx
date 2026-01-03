@@ -4,7 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
-import type { CreateTaskRequest, UpdateTaskRequest } from "@/features/tasks/types";
+import { getCMSData } from "@/features/cms/cmsStorage";
+import type {
+  CreateTaskRequest,
+  UpdateTaskRequest,
+} from "@/features/tasks/types";
+import type { Status, Priority } from "@/features/cms/types";
 import {
   LayoutDashboard,
   Filter,
@@ -104,7 +109,9 @@ export interface Task {
   name: string;
   description?: string;
   status?: string;
+  status_id?: string;
   priority?: string;
+  priority_id?: string;
   estimatedDate?: string;
   person?: string;
   timeSpent?: string;
@@ -415,11 +422,18 @@ export function WorkloadBoard({
   );
   const [groupNames, setGroupNames] = useState<Record<string, string>>({});
   const [groupColors, setGroupColors] = useState<Record<string, string>>({});
+  const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
+  const [groupLabelColors, setGroupLabelColors] = useState<
+    Record<string, string>
+  >({});
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupNameInput, setNewGroupNameInput] = useState("");
   const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
   const [editGroupNameInput, setEditGroupNameInput] = useState("");
   const [editGroupColorInput, setEditGroupColorInput] = useState("#3b82f6");
+  const [editGroupLabelInput, setEditGroupLabelInput] = useState("");
+  const [editGroupLabelColorInput, setEditGroupLabelColorInput] =
+    useState("#3b82f6");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [newGroupColorInput, setNewGroupColorInput] = useState("#3b82f6");
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<string | null>(
@@ -451,6 +465,12 @@ export function WorkloadBoard({
   const [updateFiles, setUpdateFiles] = useState<
     Array<{ name: string; size: number; type: string; url: string }>
   >([]);
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+
+  // CMS Data states
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [priorities, setPriorities] = useState<Priority[]>([]);
+  const [isLoadingCMS, setIsLoadingCMS] = useState(false);
 
   // Load saved tab order from localStorage
   const [viewTabs, setViewTabs] = useState(() => {
@@ -497,7 +517,9 @@ export function WorkloadBoard({
           name: task.name,
           description: task.description,
           status: task.status_label,
+          status_id: String(task.status_id),
           priority: task.priority_label,
+          priority_id: String(task.task_priority_id),
           estimatedDate: task.due_date,
           person: task.assignee?.name,
           group_id: String(task.group_id),
@@ -510,10 +532,13 @@ export function WorkloadBoard({
               name: st.name,
               description: st.description,
               status: st.status_label,
+              status_id: String(st.status_id),
               priority: st.priority_label,
+              priority_id: String(st.task_priority_id),
               estimatedDate: st.due_date,
               person: st.assignee?.name,
               timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
+              group_id: String(task.group_id), // ✅ ADD THIS
               subitems: [],
             })),
         }));
@@ -553,6 +578,42 @@ export function WorkloadBoard({
     };
 
     loadGroupsAndTasks();
+  }, [boardId]);
+
+  // Fetch CMS data (statuses and priorities) on component mount
+  useEffect(() => {
+    const loadCMSData = async () => {
+      setIsLoadingCMS(true);
+
+      try {
+        const boardIdNum = Number(boardId);
+        const organizationIdNum = getOrganizationId();
+        const userId = 2; // TODO: Get from auth context
+
+        if (organizationIdNum === null) {
+          console.warn("Organization not found, skipping CMS data load");
+          return;
+        }
+
+        const cmsData = await getCMSData({
+          organization_id: organizationIdNum,
+          board_id: boardIdNum,
+          user_id: userId,
+        });
+
+        console.log("Fetched CMS Data:", cmsData);
+
+        setStatuses(cmsData.statuses);
+        setPriorities(cmsData.priority);
+      } catch (err) {
+        console.error("Failed to load CMS data:", err);
+        // Don't show toast error as CMS data is optional
+      } finally {
+        setIsLoadingCMS(false);
+      }
+    };
+
+    loadCMSData();
   }, [boardId]);
 
   // useEffect(() => {
@@ -787,6 +848,8 @@ export function WorkloadBoard({
     setEditingGroupId(groupId);
     setEditGroupNameInput(groupNames[groupId] || group.name);
     setEditGroupColorInput(groupColors[groupId] || group.color);
+    // setEditGroupLabelInput(groupLabels[groupId] || "");
+    // setEditGroupLabelColorInput(groupLabelColors[groupId] || "#3b82f6");
     setEditGroupDialogOpen(true);
   };
 
@@ -799,6 +862,7 @@ export function WorkloadBoard({
       const payload = {
         name: editGroupNameInput.trim(),
         color: editGroupColorInput,
+        // label: editGroupLabelInput.trim() || null,
       };
 
       // Call API to update group
@@ -814,6 +878,26 @@ export function WorkloadBoard({
         ...groupColors,
         [editingGroupId]: res.color,
       });
+
+      // Update label state
+      // if (editGroupLabelInput.trim()) {
+      //   setGroupLabels({
+      //     ...groupLabels,
+      //     [editingGroupId]: editGroupLabelInput.trim(),
+      //   });
+      //   setGroupLabelColors({
+      //     ...groupLabelColors,
+      //     [editingGroupId]: editGroupLabelColorInput,
+      //   });
+      // } else {
+      //   const updatedLabels = { ...groupLabels };
+      //   delete updatedLabels[editingGroupId];
+      //   setGroupLabels(updatedLabels);
+
+      //   const updatedLabelColors = { ...groupLabelColors };
+      //   delete updatedLabelColors[editingGroupId];
+      //   setGroupLabelColors(updatedLabelColors);
+      // }
 
       // Also update the groups array
       const updatedGroups = groups.map((group) => {
@@ -834,6 +918,8 @@ export function WorkloadBoard({
       setEditingGroupId(null);
       setEditGroupNameInput("");
       setEditGroupColorInput("#3b82f6");
+      // setEditGroupLabelInput("");
+      // setEditGroupLabelColorInput("#3b82f6");
 
       toast.success("Group updated successfully");
     } catch (error) {
@@ -918,6 +1004,10 @@ export function WorkloadBoard({
         name: newItemName.trim(),
         board_id: boardIdNum,
         parent_id: null,
+        status_id:
+          statuses.length > 0 ? parseInt(statuses[0].id, 10) : undefined,
+        task_priority_id:
+          priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
       };
 
       const newTaskResponse = await tasksApi.createTask(payload);
@@ -928,7 +1018,9 @@ export function WorkloadBoard({
         name: newTaskResponse.name,
         description: newTaskResponse.description,
         status: newTaskResponse.status_label,
+        status_id: String(newTaskResponse.status_id),
         priority: newTaskResponse.priority_label,
+        priority_id: String(newTaskResponse.task_priority_id),
         estimatedDate: newTaskResponse.due_date || "-",
         person: newTaskResponse.assignee?.name,
         timeSpent: `${newTaskResponse.time_spent_hours}h`,
@@ -991,6 +1083,10 @@ export function WorkloadBoard({
         name: newSubitemName.trim(),
         board_id: boardIdNum,
         parent_id: parseInt(taskId, 10),
+        status_id:
+          statuses.length > 0 ? parseInt(statuses[0].id, 10) : undefined,
+        task_priority_id:
+          priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
       };
 
       const newSubitemResponse = await tasksApi.createTask(payload);
@@ -1001,7 +1097,9 @@ export function WorkloadBoard({
         name: newSubitemResponse.name,
         description: newSubitemResponse.description,
         status: newSubitemResponse.status_label,
+        status_id: String(newSubitemResponse.status_id),
         priority: newSubitemResponse.priority_label,
+        priority_id: String(newSubitemResponse.task_priority_id),
         estimatedDate: newSubitemResponse.due_date || "-",
         person: newSubitemResponse.assignee?.name,
         timeSpent: `${newSubitemResponse.time_spent_hours}h`,
@@ -1148,6 +1246,175 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to update task:", error);
       toast.error("Failed to update task");
+    }
+  };
+
+  // const handleStatusChange = async (taskId: string, statusId: string) => {
+  //   try {
+  //     const boardIdNum = parseInt(boardId, 10);
+
+  //     // Call API to update task status
+  //     const payload: UpdateTaskRequest = {
+  //       id: taskId,
+  //       board_id: boardIdNum,
+  //       status_id: parseInt(statusId, 10),
+  //     };
+
+  //     const updatedTaskResponse = await tasksApi.updateTask(payload);
+
+  //     // Update local state with API response - simpler approach
+  //     const updatedGroups = groups.map((group) => {
+  //       const updatedTasks = group.tasks.map((task) => {
+  //         // Update parent task if it matches
+  //         if (task.id === taskId) {
+  //           return {
+  //             ...task,
+  //             status: updatedTaskResponse.status_label,
+  //             status_id: String(updatedTaskResponse.status_id),
+  //           };
+  //         }
+
+  //         // Update subitem if it matches
+  //         if (task.subitems && task.subitems.length > 0) {
+  //           const updatedSubitems = task.subitems.map((subitem) => {
+  //             if (subitem.id === taskId) {
+  //               return {
+  //                 ...subitem,
+  //                 status: updatedTaskResponse.status_label,
+  //                 status_id: String(updatedTaskResponse.status_id),
+  //               };
+  //             }
+  //             return subitem;
+  //           });
+  //           return {
+  //             ...task,
+  //             subitems: updatedSubitems,
+  //           };
+  //         }
+
+  //         return task;
+  //       });
+
+  //       return {
+  //         ...group,
+  //         tasks: updatedTasks,
+  //       };
+  //     });
+
+  //     setGroups(updatedGroups);
+  //     toast.success("Status updated successfully");
+  //   } catch (error) {
+  //     console.error("Failed to update status:", error);
+  //     toast.error("Failed to update status");
+  //   }
+  // };
+  const handleStatusChange = async (taskId: string, statusId: string) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        status_id: Number(statusId),
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                status: updated.status_label,
+                status_id: String(updated.status_id),
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        status: updated.status_label,
+                        status_id: String(updated.status_id),
+                      }
+                    : sub
+                ),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      // Close popover after update
+      setOpenPopoverId(null);
+      toast.success("Status updated successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update status");
+    }
+  };
+
+  const handlePriorityChange = async (taskId: string, priorityId: string) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        task_priority_id: Number(priorityId),
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                priority: updated.priority_label,
+                priority_id: String(updated.task_priority_id),
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        priority: updated.priority_label,
+                        priority_id: String(updated.task_priority_id),
+                      }
+                    : sub
+                ),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      // Close popover after update
+      setOpenPopoverId(null);
+      toast.success("Priority updated successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update priority");
     }
   };
 
@@ -1310,8 +1577,32 @@ export function WorkloadBoard({
       toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
+      statuses,
+      priorities,
+      onStatusChange: handleStatusChange,
+      onPriorityChange: handlePriorityChange,
+      openPopoverId,
+      setOpenPopoverId,
     })
   );
+
+  // Update workloadColumns when CMS data changes
+  useEffect(() => {
+    setWorkloadColumns(
+      getWorkloadColumns({
+        expandedTasks,
+        toggleTask,
+        onOpenComments: openCommentsPanel,
+        onEditTask: openEditTaskDialog,
+        statuses,
+        priorities,
+        onStatusChange: handleStatusChange,
+        onPriorityChange: handlePriorityChange,
+        openPopoverId,
+        setOpenPopoverId,
+      })
+    );
+  }, [statuses, priorities, openPopoverId]);
 
   const totalColumns = workloadColumns.length + 1;
   // NEW : End
@@ -1594,6 +1885,19 @@ export function WorkloadBoard({
                                 >
                                   {groupNames[group.id] || group.name}
                                 </span>
+
+                                {/* Label Chip - POSTPONED */}
+                                {/* {groupLabels[group.id] && (
+                                  <div
+                                    className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
+                                    style={{
+                                      backgroundColor:
+                                        groupLabelColors[group.id] || "#3b82f6",
+                                    }}
+                                  >
+                                    {groupLabels[group.id]}
+                                  </div>
+                                )} */}
                                 <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
                                   <Button
                                     variant="ghost"
@@ -1690,20 +1994,23 @@ export function WorkloadBoard({
                                                     string,
                                                     boolean
                                                   > = {};
-                                                  group.tasks.forEach((task) => {
-                                                    updatedChecked[task.id] =
-                                                      e.target.checked;
-                                                    // Also select/deselect subitems
-                                                    if (task.subitems) {
-                                                      task.subitems.forEach(
-                                                        (subitem) => {
-                                                          updatedChecked[
-                                                            subitem.id
-                                                          ] = e.target.checked;
-                                                        }
-                                                      );
+                                                  group.tasks.forEach(
+                                                    (task) => {
+                                                      updatedChecked[task.id] =
+                                                        e.target.checked;
+                                                      // Also select/deselect subitems
+                                                      if (task.subitems) {
+                                                        task.subitems.forEach(
+                                                          (subitem) => {
+                                                            updatedChecked[
+                                                              subitem.id
+                                                            ] =
+                                                              e.target.checked;
+                                                          }
+                                                        );
+                                                      }
                                                     }
-                                                  });
+                                                  );
                                                   setCheckedTasks((prev) => ({
                                                     ...prev,
                                                     ...updatedChecked,
@@ -2090,6 +2397,35 @@ export function WorkloadBoard({
                 autoFocus
               />
             </div>
+            {/* Label Input - POSTPONED */}
+            {/* <div className="grid gap-2">
+              <label htmlFor="edit-group-label" className="text-sm font-medium">
+                Label (Optional)
+              </label>
+              <Input
+                id="edit-group-label"
+                placeholder="Enter label text..."
+                value={editGroupLabelInput}
+                onChange={(e) => setEditGroupLabelInput(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-3">
+              <label className="text-sm font-medium">Label Color</label>
+              <div className="flex gap-2">
+                {PRESET_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
+                      editGroupLabelColorInput === color
+                        ? "border-foreground scale-110"
+                        : "border-transparent hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setEditGroupLabelColorInput(color)}
+                  />
+                ))}
+              </div>
+            </div> */}
           </div>
           <DialogFooter>
             <Button
@@ -2099,6 +2435,8 @@ export function WorkloadBoard({
                 setEditingGroupId(null);
                 setEditGroupNameInput("");
                 setEditGroupColorInput("#3b82f6");
+                // setEditGroupLabelInput("");
+                // setEditGroupLabelColorInput("#3b82f6");
               }}
             >
               Cancel
