@@ -429,18 +429,11 @@ export function WorkloadBoard({
   );
   const [groupNames, setGroupNames] = useState<Record<string, string>>({});
   const [groupColors, setGroupColors] = useState<Record<string, string>>({});
-  const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
-  const [groupLabelColors, setGroupLabelColors] = useState<
-    Record<string, string>
-  >({});
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupNameInput, setNewGroupNameInput] = useState("");
   const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
   const [editGroupNameInput, setEditGroupNameInput] = useState("");
   const [editGroupColorInput, setEditGroupColorInput] = useState("#3b82f6");
-  const [editGroupLabelInput, setEditGroupLabelInput] = useState("");
-  const [editGroupLabelColorInput, setEditGroupLabelColorInput] =
-    useState("#3b82f6");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [newGroupColorInput, setNewGroupColorInput] = useState("#3b82f6");
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<string | null>(
@@ -478,7 +471,6 @@ export function WorkloadBoard({
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [members, setMembers] = useState<any[]>([]);
-  const [isLoadingCMS, setIsLoadingCMS] = useState(false);
 
   // Column visibility state - load from localStorage
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
@@ -610,8 +602,6 @@ export function WorkloadBoard({
   // Fetch CMS data (statuses, priorities, and members) on component mount
   useEffect(() => {
     const loadCMSData = async () => {
-      setIsLoadingCMS(true);
-
       try {
         const boardIdNum = Number(boardId);
         const organizationIdNum = getOrganizationId();
@@ -636,8 +626,6 @@ export function WorkloadBoard({
       } catch (err) {
         console.error("Failed to load CMS data:", err);
         // Don't show toast error as CMS data is optional
-      } finally {
-        setIsLoadingCMS(false);
       }
     };
 
