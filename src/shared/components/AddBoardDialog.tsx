@@ -48,12 +48,13 @@ import { useBoards } from "@/hooks/useBoards";
 interface AddBoardDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddBoard: (
+  onAddBoard?: (
     name: string,
     iconColor: string,
     members: BoardMember[],
     templateId?: string | null
   ) => void;
+  onBoardCreated?: () => void;
   templateId?: string | null;
   workspaceId?: number;
   organizationId?: number;
@@ -77,6 +78,7 @@ export function AddBoardDialog({
   open,
   onOpenChange,
   onAddBoard,
+  onBoardCreated,
   templateId,
   workspaceId = 1,
   organizationId,
@@ -513,7 +515,10 @@ export function AddBoardDialog({
           { test_user_id: currentUser.id, role: "owner" },
           ...members,
         ];
-        onAddBoard(boardName, iconColor, membersWithCreator, templateId);
+        onAddBoard?.(boardName, iconColor, membersWithCreator, templateId);
+        
+        // Call the board created callback to refresh the board list
+        onBoardCreated?.();
         
         onOpenChange(false);
         toast({

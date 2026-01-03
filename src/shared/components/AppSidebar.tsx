@@ -463,6 +463,7 @@ export const AppSidebar = () => {
           // }
         }}
         onAddBoard={handleAddBoard}
+        onBoardCreated={fetchBoards}
         // templateId={selectedTemplateId}
         organizationId={getOrganizationId() || -1}
       />
