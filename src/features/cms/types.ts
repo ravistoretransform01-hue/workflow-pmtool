@@ -12,10 +12,16 @@ export interface Priority {
   priority_order: string;
 }
 
+export interface Member {
+  user_id: string;
+  name: string;
+}
+
 export interface CMSResponse {
   status: boolean;
   statuses: Status[];
   priority: Priority[];
+  members: Member[];
 }
 
 export interface CMSRequest {
@@ -27,5 +33,6 @@ export interface CMSRequest {
 export interface CMSData {
   statuses: Status[];
   priority: Priority[];
+  members: Member[];
   timestamp: number;
 }

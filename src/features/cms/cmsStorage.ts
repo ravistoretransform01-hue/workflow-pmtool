@@ -1,5 +1,5 @@
 import { cmsApi } from "./cmsApi";
-import type { CMSRequest, CMSData, Status, Priority } from "./types";
+import type { CMSRequest, CMSData, Status, Priority, Member } from "./types";
 
 const STORAGE_KEY = "cms_data";
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
@@ -7,7 +7,7 @@ const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 /**
  * Get CMS data from localStorage or fetch from API if not available
  * @param payload - Request payload with organization_id, board_id, user_id
- * @returns CMSData with statuses and priorities
+ * @returns CMSData with statuses, priorities, and members
  */
 export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
   try {
@@ -27,6 +27,7 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
     const cmsData: CMSData = {
       statuses: apiResponse.statuses,
       priority: apiResponse.priority,
+      members: apiResponse.members || [],
       timestamp: Date.now(),
     };
 
@@ -68,6 +69,16 @@ export async function getPriorities(payload: CMSRequest): Promise<Priority[]> {
 }
 
 /**
+ * Get members from localStorage or fetch if not available
+ * @param payload - Request payload
+ * @returns Array of Member objects
+ */
+export async function getMembers(payload: CMSRequest): Promise<Member[]> {
+  const cmsData = await getCMSData(payload);
+  return cmsData.members;
+}
+
+/**
  * Get a specific status by ID
  * @param payload - Request payload
  * @param statusId - Status ID to find
@@ -93,6 +104,20 @@ export async function getPriorityById(
 ): Promise<Priority | undefined> {
   const priorities = await getPriorities(payload);
   return priorities.find((p) => p.id === priorityId);
+}
+
+/**
+ * Get a specific member by ID
+ * @param payload - Request payload
+ * @param memberId - Member ID to find
+ * @returns Member object or undefined
+ */
+export async function getMemberById(
+  payload: CMSRequest,
+  memberId: string
+): Promise<Member | undefined> {
+  const members = await getMembers(payload);
+  return members.find((m) => m.user_id === memberId);
 }
 
 /**

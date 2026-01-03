@@ -114,6 +114,7 @@ export interface Task {
   priority_id?: string;
   estimatedDate?: string;
   person?: string;
+  assigned_to_id?: string;
   timeSpent?: string;
   group_id?: string;
   subitems?: Task[];
@@ -134,6 +135,12 @@ const DEFAULT_TABS = [
   "Updates",
   "Dashboard",
 ];
+
+// Default visible columns - all columns visible by default
+const DEFAULT_VISIBLE_COLUMNS = ["item", "status", "priority", "description", "person", "time"];
+
+// All available columns (for the dropdown menu)
+const ALL_AVAILABLE_COLUMNS = ["item", "status", "priority", "description", "date", "person", "time"];
 
 const PRESET_COLORS = [
   "#16a249", // green
@@ -470,7 +477,27 @@ export function WorkloadBoard({
   // CMS Data states
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [priorities, setPriorities] = useState<Priority[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
   const [isLoadingCMS, setIsLoadingCMS] = useState(false);
+
+  // Column visibility state - load from localStorage
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
+    () => {
+      const saved = localStorage.getItem(`board-visible-columns-${boardId}`);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return Object.fromEntries(
+            DEFAULT_VISIBLE_COLUMNS.map((col) => [col, true])
+          );
+        }
+      }
+      return Object.fromEntries(
+        DEFAULT_VISIBLE_COLUMNS.map((col) => [col, true])
+      );
+    }
+  );
 
   // Load saved tab order from localStorage
   const [viewTabs, setViewTabs] = useState(() => {
@@ -580,7 +607,7 @@ export function WorkloadBoard({
     loadGroupsAndTasks();
   }, [boardId]);
 
-  // Fetch CMS data (statuses and priorities) on component mount
+  // Fetch CMS data (statuses, priorities, and members) on component mount
   useEffect(() => {
     const loadCMSData = async () => {
       setIsLoadingCMS(true);
@@ -605,6 +632,7 @@ export function WorkloadBoard({
 
         setStatuses(cmsData.statuses);
         setPriorities(cmsData.priority);
+        setMembers(cmsData.members || []);
       } catch (err) {
         console.error("Failed to load CMS data:", err);
         // Don't show toast error as CMS data is optional
@@ -1196,6 +1224,7 @@ export function WorkloadBoard({
         id: editingTask.id,
         board_id: boardIdNum,
         name: editTaskName.trim(),
+        description: editingTask.description,
       };
 
       const updatedTaskResponse = await tasksApi.updateTask(payload);
@@ -1418,6 +1447,61 @@ export function WorkloadBoard({
     }
   };
 
+  const handlePersonChange = async (taskId: string, memberId: string) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        assigned_to: Number(memberId),
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                person: updated.assignee?.name,
+                assigned_to_id: String(updated.assigned_to),
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        person: updated.assignee?.name,
+                        assigned_to_id: String(updated.assigned_to),
+                      }
+                    : sub
+                ),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      // Close popover after update
+      setOpenPopoverId(null);
+      toast.success("Person assigned successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to assign person");
+    }
+  };
+
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
     const updatedChecked: Record<string, boolean> = {
       [taskId]: checked,
@@ -1548,6 +1632,17 @@ export function WorkloadBoard({
     }));
   };
 
+  const toggleColumnVisibility = (columnId: string) => {
+    setVisibleColumns((prev) => {
+      const updated = { ...prev, [columnId]: !prev[columnId] };
+      localStorage.setItem(
+        `board-visible-columns-${boardId}`,
+        JSON.stringify(updated)
+      );
+      return updated;
+    });
+  };
+
   const handleColumnDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -1571,38 +1666,46 @@ export function WorkloadBoard({
   //   toggleTask,
   // });
 
-  const [workloadColumns, setWorkloadColumns] = useState(() =>
-    getWorkloadColumns({
+  const [workloadColumns, setWorkloadColumns] = useState(() => {
+    const allColumns = getWorkloadColumns({
       expandedTasks,
       toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
       statuses,
       priorities,
+      members,
       onStatusChange: handleStatusChange,
       onPriorityChange: handlePriorityChange,
+      onPersonChange: handlePersonChange,
       openPopoverId,
       setOpenPopoverId,
-    })
-  );
+    });
+    // Filter columns based on visibility - only show if explicitly set to true
+    return allColumns.filter((col) => visibleColumns[col.id] === true);
+  });
 
   // Update workloadColumns when CMS data changes
   useEffect(() => {
+    const allColumns = getWorkloadColumns({
+      expandedTasks,
+      toggleTask,
+      onOpenComments: openCommentsPanel,
+      onEditTask: openEditTaskDialog,
+      statuses,
+      priorities,
+      members,
+      onStatusChange: handleStatusChange,
+      onPriorityChange: handlePriorityChange,
+      onPersonChange: handlePersonChange,
+      openPopoverId,
+      setOpenPopoverId,
+    });
+    // Filter columns based on visibility - only show if explicitly set to true
     setWorkloadColumns(
-      getWorkloadColumns({
-        expandedTasks,
-        toggleTask,
-        onOpenComments: openCommentsPanel,
-        onEditTask: openEditTaskDialog,
-        statuses,
-        priorities,
-        onStatusChange: handleStatusChange,
-        onPriorityChange: handlePriorityChange,
-        openPopoverId,
-        setOpenPopoverId,
-      })
+      allColumns.filter((col) => visibleColumns[col.id] === true)
     );
-  }, [statuses, priorities, openPopoverId]);
+  }, [statuses, priorities, members, openPopoverId, visibleColumns]);
 
   const totalColumns = workloadColumns.length + 1;
   // NEW : End
@@ -1740,10 +1843,50 @@ export function WorkloadBoard({
                 <ArrowUpDown className="h-4 w-4 mr-2" />
                 Sort
               </Button>
-              <Button variant="ghost" size="sm">
-                <EyeOff className="h-4 w-4 mr-2" />
-                Hide
-              </Button>
+
+              {/* Column Visibility Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <EyeOff className="h-4 w-4 mr-2" />
+                    Columns
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
+                    Show/Hide Columns
+                  </div>
+                  <DropdownMenuSeparator />
+                  {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                    const columnLabel =
+                      {
+                        item: "Item",
+                        status: "Status",
+                        priority: "Priority",
+                        description: "Description",
+                        date: "Date",
+                        person: "Person",
+                        time: "Time Spent",
+                      }[columnId] || columnId;
+
+                    return (
+                      <DropdownMenuItem
+                        key={columnId}
+                        onClick={() => toggleColumnVisibility(columnId)}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns[columnId] === true}
+                          onChange={() => {}}
+                          className="cursor-pointer"
+                        />
+                        <span>{columnLabel}</span>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Task Groups */}
@@ -2518,6 +2661,29 @@ export function WorkloadBoard({
                   }
                 }}
                 autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <label
+                htmlFor="edit-task-description"
+                className="text-sm font-medium"
+              >
+                Description
+              </label>
+              <textarea
+                id="edit-task-description"
+                placeholder="Enter task description..."
+                value={editingTask?.description || ""}
+                onChange={(e) => {
+                  if (editingTask) {
+                    setEditingTask({
+                      ...editingTask,
+                      description: e.target.value,
+                    });
+                  }
+                }}
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                rows={4}
               />
             </div>
           </div>
