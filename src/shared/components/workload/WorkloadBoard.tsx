@@ -4,7 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
-import type { CreateTaskRequest } from "@/features/tasks/types";
+import { getCMSData } from "@/features/cms/cmsStorage";
+import type {
+  CreateTaskRequest,
+  UpdateTaskRequest,
+} from "@/features/tasks/types";
+import type { Status, Priority } from "@/features/cms/types";
 import {
   LayoutDashboard,
   Filter,
@@ -104,9 +109,12 @@ export interface Task {
   name: string;
   description?: string;
   status?: string;
+  status_id?: string;
   priority?: string;
+  priority_id?: string;
   estimatedDate?: string;
   person?: string;
+  assigned_to_id?: string;
   timeSpent?: string;
   group_id?: string;
   subitems?: Task[];
@@ -127,6 +135,12 @@ const DEFAULT_TABS = [
   "Updates",
   "Dashboard",
 ];
+
+// Default visible columns - all columns visible by default
+const DEFAULT_VISIBLE_COLUMNS = ["item", "status", "priority", "description", "person", "time"];
+
+// All available columns (for the dropdown menu)
+const ALL_AVAILABLE_COLUMNS = ["item", "status", "priority", "description", "date", "person", "time"];
 
 const PRESET_COLORS = [
   "#16a249", // green
@@ -359,10 +373,6 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onClick={() => {}}>
-              <Filter className="h-4 w-4 mr-2" />
-              <span>Filter</span>
-            </DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <ArrowUpDown className="h-4 w-4 mr-2" />
@@ -381,6 +391,10 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
               <Minimize2 className="h-4 w-4 mr-2" />
               <span>Collapse</span>
             </DropdownMenuItem>
+            {/* <DropdownMenuItem onClick={() => {}}>
+              <Filter className="h-4 w-4 mr-2" />
+              <span>Filter</span>
+            </DropdownMenuItem> */}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => {}}>
               <Lock className="h-4 w-4 mr-2" />
@@ -388,7 +402,7 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => {}}>
               <Trash className="h-4 w-4 mr-2 text-destructive" />
-              <span>Delete column</span>
+              <span>Delete</span> {/* delete column */}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -451,6 +465,31 @@ export function WorkloadBoard({
   const [updateFiles, setUpdateFiles] = useState<
     Array<{ name: string; size: number; type: string; url: string }>
   >([]);
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+
+  // CMS Data states
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [priorities, setPriorities] = useState<Priority[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
+
+  // Column visibility state - load from localStorage
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
+    () => {
+      const saved = localStorage.getItem(`board-visible-columns-${boardId}`);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return Object.fromEntries(
+            DEFAULT_VISIBLE_COLUMNS.map((col) => [col, true])
+          );
+        }
+      }
+      return Object.fromEntries(
+        DEFAULT_VISIBLE_COLUMNS.map((col) => [col, true])
+      );
+    }
+  );
 
   // Load saved tab order from localStorage
   const [viewTabs, setViewTabs] = useState(() => {
@@ -497,7 +536,9 @@ export function WorkloadBoard({
           name: task.name,
           description: task.description,
           status: task.status_label,
+          status_id: String(task.status_id),
           priority: task.priority_label,
+          priority_id: String(task.task_priority_id),
           estimatedDate: task.due_date,
           person: task.assignee?.name,
           group_id: String(task.group_id),
@@ -510,18 +551,27 @@ export function WorkloadBoard({
               name: st.name,
               description: st.description,
               status: st.status_label,
+              status_id: String(st.status_id),
               priority: st.priority_label,
+              priority_id: String(st.task_priority_id),
               estimatedDate: st.due_date,
               person: st.assignee?.name,
               timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
+              group_id: String(task.group_id), // ✅ ADD THIS
               subitems: [],
             })),
         }));
 
         console.log("Tasks with Subtasks:", tasksWithSubtasks);
 
-        // 3️⃣ Attach tasks to groups
-        const groupedData: TaskGroup[] = groupsRes.map((group) => ({
+        // 3️⃣ Attach tasks to groups - Sort groups by position
+        const sortedGroups = groupsRes.sort(
+          (a: any, b: any) => Number(a.position) - Number(b.position)
+        );
+
+        // console.log("Sorted Groups:", sortedGroups);
+
+        const groupedData: TaskGroup[] = sortedGroups.map((group) => ({
           id: String(group.id),
           name: group.name,
           color: group.color ?? "#3b82f6",
@@ -547,6 +597,39 @@ export function WorkloadBoard({
     };
 
     loadGroupsAndTasks();
+  }, [boardId]);
+
+  // Fetch CMS data (statuses, priorities, and members) on component mount
+  useEffect(() => {
+    const loadCMSData = async () => {
+      try {
+        const boardIdNum = Number(boardId);
+        const organizationIdNum = getOrganizationId();
+        const userId = 2; // TODO: Get from auth context
+
+        if (organizationIdNum === null) {
+          console.warn("Organization not found, skipping CMS data load");
+          return;
+        }
+
+        const cmsData = await getCMSData({
+          organization_id: organizationIdNum,
+          board_id: boardIdNum,
+          user_id: userId,
+        });
+
+        console.log("Fetched CMS Data:", cmsData);
+
+        setStatuses(cmsData.statuses);
+        setPriorities(cmsData.priority);
+        setMembers(cmsData.members || []);
+      } catch (err) {
+        console.error("Failed to load CMS data:", err);
+        // Don't show toast error as CMS data is optional
+      }
+    };
+
+    loadCMSData();
   }, [boardId]);
 
   // useEffect(() => {
@@ -781,6 +864,8 @@ export function WorkloadBoard({
     setEditingGroupId(groupId);
     setEditGroupNameInput(groupNames[groupId] || group.name);
     setEditGroupColorInput(groupColors[groupId] || group.color);
+    // setEditGroupLabelInput(groupLabels[groupId] || "");
+    // setEditGroupLabelColorInput(groupLabelColors[groupId] || "#3b82f6");
     setEditGroupDialogOpen(true);
   };
 
@@ -793,26 +878,64 @@ export function WorkloadBoard({
       const payload = {
         name: editGroupNameInput.trim(),
         color: editGroupColorInput,
+        // label: editGroupLabelInput.trim() || null,
       };
 
       // Call API to update group
-      await groupsApi.updateGroup(editingGroupId, payload);
+      const res = await groupsApi.updateGroup(editingGroupId, payload);
 
-      // Update local state
+      // Update local state with API response
       setGroupNames({
         ...groupNames,
-        [editingGroupId]: editGroupNameInput.trim(),
+        [editingGroupId]: res.name,
       });
+
       setGroupColors({
         ...groupColors,
-        [editingGroupId]: editGroupColorInput,
+        [editingGroupId]: res.color,
       });
+
+      // Update label state
+      // if (editGroupLabelInput.trim()) {
+      //   setGroupLabels({
+      //     ...groupLabels,
+      //     [editingGroupId]: editGroupLabelInput.trim(),
+      //   });
+      //   setGroupLabelColors({
+      //     ...groupLabelColors,
+      //     [editingGroupId]: editGroupLabelColorInput,
+      //   });
+      // } else {
+      //   const updatedLabels = { ...groupLabels };
+      //   delete updatedLabels[editingGroupId];
+      //   setGroupLabels(updatedLabels);
+
+      //   const updatedLabelColors = { ...groupLabelColors };
+      //   delete updatedLabelColors[editingGroupId];
+      //   setGroupLabelColors(updatedLabelColors);
+      // }
+
+      // Also update the groups array
+      const updatedGroups = groups.map((group) => {
+        if (group.id === editingGroupId) {
+          return {
+            ...group,
+            name: res.name,
+            color: res.color,
+          };
+        }
+        return group;
+      });
+
+      setGroups(updatedGroups);
 
       // Close dialog and reset
       setEditGroupDialogOpen(false);
       setEditingGroupId(null);
       setEditGroupNameInput("");
       setEditGroupColorInput("#3b82f6");
+      // setEditGroupLabelInput("");
+      // setEditGroupLabelColorInput("#3b82f6");
 
       toast.success("Group updated successfully");
     } catch (error) {
@@ -897,6 +1020,10 @@ export function WorkloadBoard({
         name: newItemName.trim(),
         board_id: boardIdNum,
         parent_id: null,
+        status_id:
+          statuses.length > 0 ? parseInt(statuses[0].id, 10) : undefined,
+        task_priority_id:
+          priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
       };
 
       const newTaskResponse = await tasksApi.createTask(payload);
@@ -907,7 +1034,9 @@ export function WorkloadBoard({
         name: newTaskResponse.name,
         description: newTaskResponse.description,
         status: newTaskResponse.status_label,
+        status_id: String(newTaskResponse.status_id),
         priority: newTaskResponse.priority_label,
+        priority_id: String(newTaskResponse.task_priority_id),
         estimatedDate: newTaskResponse.due_date || "-",
         person: newTaskResponse.assignee?.name,
         timeSpent: `${newTaskResponse.time_spent_hours}h`,
@@ -970,6 +1099,10 @@ export function WorkloadBoard({
         name: newSubitemName.trim(),
         board_id: boardIdNum,
         parent_id: parseInt(taskId, 10),
+        status_id:
+          statuses.length > 0 ? parseInt(statuses[0].id, 10) : undefined,
+        task_priority_id:
+          priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
       };
 
       const newSubitemResponse = await tasksApi.createTask(payload);
@@ -980,7 +1113,9 @@ export function WorkloadBoard({
         name: newSubitemResponse.name,
         description: newSubitemResponse.description,
         status: newSubitemResponse.status_label,
+        status_id: String(newSubitemResponse.status_id),
         priority: newSubitemResponse.priority_label,
+        priority_id: String(newSubitemResponse.task_priority_id),
         estimatedDate: newSubitemResponse.due_date || "-",
         person: newSubitemResponse.assignee?.name,
         timeSpent: `${newSubitemResponse.time_spent_hours}h`,
@@ -1070,15 +1205,32 @@ export function WorkloadBoard({
     }
 
     try {
-      // Update task via API (if needed)
-      // For now, just update local state
+      const boardIdNum = parseInt(boardId, 10);
+
+      // Call API to update task
+      const payload: UpdateTaskRequest = {
+        id: editingTask.id,
+        board_id: boardIdNum,
+        name: editTaskName.trim(),
+        description: editingTask.description,
+      };
+
+      const updatedTaskResponse = await tasksApi.updateTask(payload);
+
+      // Update local state with API response
       const updatedGroups = groups.map((group) => ({
         ...group,
         tasks: group.tasks.map((task) => {
           if (task.id === editingTask.id) {
             return {
               ...task,
-              name: editTaskName.trim(),
+              name: updatedTaskResponse.name,
+              description: updatedTaskResponse.description,
+              status: updatedTaskResponse.status_label,
+              priority: updatedTaskResponse.priority_label,
+              estimatedDate: updatedTaskResponse.due_date || "-",
+              person: updatedTaskResponse.assignee?.name,
+              timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
             };
           }
           // Also update in subitems
@@ -1088,7 +1240,13 @@ export function WorkloadBoard({
               if (subitem.id === editingTask.id) {
                 return {
                   ...subitem,
-                  name: editTaskName.trim(),
+                  name: updatedTaskResponse.name,
+                  description: updatedTaskResponse.description,
+                  status: updatedTaskResponse.status_label,
+                  priority: updatedTaskResponse.priority_label,
+                  estimatedDate: updatedTaskResponse.due_date || "-",
+                  person: updatedTaskResponse.assignee?.name,
+                  timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
                 };
               }
               return subitem;
@@ -1105,6 +1263,230 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to update task:", error);
       toast.error("Failed to update task");
+    }
+  };
+
+  // const handleStatusChange = async (taskId: string, statusId: string) => {
+  //   try {
+  //     const boardIdNum = parseInt(boardId, 10);
+
+  //     // Call API to update task status
+  //     const payload: UpdateTaskRequest = {
+  //       id: taskId,
+  //       board_id: boardIdNum,
+  //       status_id: parseInt(statusId, 10),
+  //     };
+
+  //     const updatedTaskResponse = await tasksApi.updateTask(payload);
+
+  //     // Update local state with API response - simpler approach
+  //     const updatedGroups = groups.map((group) => {
+  //       const updatedTasks = group.tasks.map((task) => {
+  //         // Update parent task if it matches
+  //         if (task.id === taskId) {
+  //           return {
+  //             ...task,
+  //             status: updatedTaskResponse.status_label,
+  //             status_id: String(updatedTaskResponse.status_id),
+  //           };
+  //         }
+
+  //         // Update subitem if it matches
+  //         if (task.subitems && task.subitems.length > 0) {
+  //           const updatedSubitems = task.subitems.map((subitem) => {
+  //             if (subitem.id === taskId) {
+  //               return {
+  //                 ...subitem,
+  //                 status: updatedTaskResponse.status_label,
+  //                 status_id: String(updatedTaskResponse.status_id),
+  //               };
+  //             }
+  //             return subitem;
+  //           });
+  //           return {
+  //             ...task,
+  //             subitems: updatedSubitems,
+  //           };
+  //         }
+
+  //         return task;
+  //       });
+
+  //       return {
+  //         ...group,
+  //         tasks: updatedTasks,
+  //       };
+  //     });
+
+  //     setGroups(updatedGroups);
+  //     toast.success("Status updated successfully");
+  //   } catch (error) {
+  //     console.error("Failed to update status:", error);
+  //     toast.error("Failed to update status");
+  //   }
+  // };
+  const handleStatusChange = async (taskId: string, statusId: string) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        status_id: Number(statusId),
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                status: updated.status_label,
+                status_id: String(updated.status_id),
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        status: updated.status_label,
+                        status_id: String(updated.status_id),
+                      }
+                    : sub
+                ),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      // Close popover after update
+      setOpenPopoverId(null);
+      toast.success("Status updated successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update status");
+    }
+  };
+
+  const handlePriorityChange = async (taskId: string, priorityId: string) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        task_priority_id: Number(priorityId),
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                priority: updated.priority_label,
+                priority_id: String(updated.task_priority_id),
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        priority: updated.priority_label,
+                        priority_id: String(updated.task_priority_id),
+                      }
+                    : sub
+                ),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      // Close popover after update
+      setOpenPopoverId(null);
+      toast.success("Priority updated successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update priority");
+    }
+  };
+
+  const handlePersonChange = async (taskId: string, memberId: string) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        assigned_to: Number(memberId),
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                person: updated.assignee?.name,
+                assigned_to_id: String(updated.assigned_to),
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        person: updated.assignee?.name,
+                        assigned_to_id: String(updated.assigned_to),
+                      }
+                    : sub
+                ),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      // Close popover after update
+      setOpenPopoverId(null);
+      toast.success("Person assigned successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to assign person");
     }
   };
 
@@ -1128,22 +1510,6 @@ export function WorkloadBoard({
       ...prev,
       ...updatedChecked,
     }));
-  };
-
-  const handleSelectAll = (checked: boolean) => {
-    const allTaskIds: Record<string, boolean> = {};
-    getFilteredGroups().forEach((group) => {
-      group.tasks.forEach((task) => {
-        allTaskIds[task.id] = checked;
-        // Also select/deselect all subitems
-        if (task.subitems) {
-          task.subitems.forEach((subitem) => {
-            allTaskIds[subitem.id] = checked;
-          });
-        }
-      });
-    });
-    setCheckedTasks(allTaskIds);
   };
 
   const deleteCheckedTasks = async () => {
@@ -1254,6 +1620,17 @@ export function WorkloadBoard({
     }));
   };
 
+  const toggleColumnVisibility = (columnId: string) => {
+    setVisibleColumns((prev) => {
+      const updated = { ...prev, [columnId]: !prev[columnId] };
+      localStorage.setItem(
+        `board-visible-columns-${boardId}`,
+        JSON.stringify(updated)
+      );
+      return updated;
+    });
+  };
+
   const handleColumnDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -1277,14 +1654,46 @@ export function WorkloadBoard({
   //   toggleTask,
   // });
 
-  const [workloadColumns, setWorkloadColumns] = useState(() =>
-    getWorkloadColumns({
+  const [workloadColumns, setWorkloadColumns] = useState(() => {
+    const allColumns = getWorkloadColumns({
       expandedTasks,
       toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
-    })
-  );
+      statuses,
+      priorities,
+      members,
+      onStatusChange: handleStatusChange,
+      onPriorityChange: handlePriorityChange,
+      onPersonChange: handlePersonChange,
+      openPopoverId,
+      setOpenPopoverId,
+    });
+    // Filter columns based on visibility - only show if explicitly set to true
+    return allColumns.filter((col) => visibleColumns[col.id] === true);
+  });
+
+  // Update workloadColumns when CMS data changes
+  useEffect(() => {
+    const allColumns = getWorkloadColumns({
+      expandedTasks,
+      toggleTask,
+      onOpenComments: openCommentsPanel,
+      onEditTask: openEditTaskDialog,
+      statuses,
+      priorities,
+      members,
+      onStatusChange: handleStatusChange,
+      onPriorityChange: handlePriorityChange,
+      onPersonChange: handlePersonChange,
+      openPopoverId,
+      setOpenPopoverId,
+    });
+    // Filter columns based on visibility - only show if explicitly set to true
+    setWorkloadColumns(
+      allColumns.filter((col) => visibleColumns[col.id] === true)
+    );
+  }, [statuses, priorities, members, openPopoverId, visibleColumns]);
 
   const totalColumns = workloadColumns.length + 1;
   // NEW : End
@@ -1422,10 +1831,50 @@ export function WorkloadBoard({
                 <ArrowUpDown className="h-4 w-4 mr-2" />
                 Sort
               </Button>
-              <Button variant="ghost" size="sm">
-                <EyeOff className="h-4 w-4 mr-2" />
-                Hide
-              </Button>
+
+              {/* Column Visibility Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <EyeOff className="h-4 w-4 mr-2" />
+                    Columns
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
+                    Show/Hide Columns
+                  </div>
+                  <DropdownMenuSeparator />
+                  {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                    const columnLabel =
+                      {
+                        item: "Item",
+                        status: "Status",
+                        priority: "Priority",
+                        description: "Description",
+                        date: "Date",
+                        person: "Person",
+                        time: "Time Spent",
+                      }[columnId] || columnId;
+
+                    return (
+                      <DropdownMenuItem
+                        key={columnId}
+                        onClick={() => toggleColumnVisibility(columnId)}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns[columnId] === true}
+                          onChange={() => {}}
+                          className="cursor-pointer"
+                        />
+                        <span>{columnLabel}</span>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Task Groups */}
@@ -1567,6 +2016,19 @@ export function WorkloadBoard({
                                 >
                                   {groupNames[group.id] || group.name}
                                 </span>
+
+                                {/* Label Chip - POSTPONED */}
+                                {/* {groupLabels[group.id] && (
+                                  <div
+                                    className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
+                                    style={{
+                                      backgroundColor:
+                                        groupLabelColors[group.id] || "#3b82f6",
+                                    }}
+                                  >
+                                    {groupLabels[group.id]}
+                                  </div>
+                                )} */}
                                 <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
                                   <Button
                                     variant="ghost"
@@ -1650,14 +2112,41 @@ export function WorkloadBoard({
                                             <th className="p-4 w-12 border-r border-border text-center">
                                               <input
                                                 type="checkbox"
-                                                checked={Object.values(
-                                                  checkedTasks
-                                                ).some((checked) => checked)}
-                                                onChange={(e) =>
-                                                  handleSelectAll(
-                                                    e.target.checked
+                                                checked={
+                                                  group.tasks.length > 0 &&
+                                                  group.tasks.every(
+                                                    (task) =>
+                                                      checkedTasks[task.id] ||
+                                                      false
                                                   )
                                                 }
+                                                onChange={(e) => {
+                                                  const updatedChecked: Record<
+                                                    string,
+                                                    boolean
+                                                  > = {};
+                                                  group.tasks.forEach(
+                                                    (task) => {
+                                                      updatedChecked[task.id] =
+                                                        e.target.checked;
+                                                      // Also select/deselect subitems
+                                                      if (task.subitems) {
+                                                        task.subitems.forEach(
+                                                          (subitem) => {
+                                                            updatedChecked[
+                                                              subitem.id
+                                                            ] =
+                                                              e.target.checked;
+                                                          }
+                                                        );
+                                                      }
+                                                    }
+                                                  );
+                                                  setCheckedTasks((prev) => ({
+                                                    ...prev,
+                                                    ...updatedChecked,
+                                                  }));
+                                                }}
                                               />
                                             </th>
 
@@ -2039,6 +2528,35 @@ export function WorkloadBoard({
                 autoFocus
               />
             </div>
+            {/* Label Input - POSTPONED */}
+            {/* <div className="grid gap-2">
+              <label htmlFor="edit-group-label" className="text-sm font-medium">
+                Label (Optional)
+              </label>
+              <Input
+                id="edit-group-label"
+                placeholder="Enter label text..."
+                value={editGroupLabelInput}
+                onChange={(e) => setEditGroupLabelInput(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-3">
+              <label className="text-sm font-medium">Label Color</label>
+              <div className="flex gap-2">
+                {PRESET_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
+                      editGroupLabelColorInput === color
+                        ? "border-foreground scale-110"
+                        : "border-transparent hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setEditGroupLabelColorInput(color)}
+                  />
+                ))}
+              </div>
+            </div> */}
           </div>
           <DialogFooter>
             <Button
@@ -2048,6 +2566,8 @@ export function WorkloadBoard({
                 setEditingGroupId(null);
                 setEditGroupNameInput("");
                 setEditGroupColorInput("#3b82f6");
+                // setEditGroupLabelInput("");
+                // setEditGroupLabelColorInput("#3b82f6");
               }}
             >
               Cancel
@@ -2129,6 +2649,29 @@ export function WorkloadBoard({
                   }
                 }}
                 autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <label
+                htmlFor="edit-task-description"
+                className="text-sm font-medium"
+              >
+                Description
+              </label>
+              <textarea
+                id="edit-task-description"
+                placeholder="Enter task description..."
+                value={editingTask?.description || ""}
+                onChange={(e) => {
+                  if (editingTask) {
+                    setEditingTask({
+                      ...editingTask,
+                      description: e.target.value,
+                    });
+                  }
+                }}
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                rows={4}
               />
             </div>
           </div>

@@ -59,6 +59,7 @@ export interface CreateTaskRequest {
 
 export interface UpdateTaskRequest {
   id: string;
+  board_id: number;
   name?: string;
   description?: string;
   status_id?: number;
