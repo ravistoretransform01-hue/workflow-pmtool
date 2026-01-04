@@ -494,12 +494,22 @@ export function WorkloadBoard({
   );
   const [groupNames, setGroupNames] = useState<Record<string, string>>({});
   const [groupColors, setGroupColors] = useState<Record<string, string>>({});
+
+  // Optional: group label text and label background color (persisted per board)
+  // Labels are stored server-side via the groups API; keep in-memory state and seed from API on load
+  const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
+  const [groupLabelColors, setGroupLabelColors] = useState<Record<string, string>>({});
+
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupNameInput, setNewGroupNameInput] = useState("");
   const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
   const [editGroupNameInput, setEditGroupNameInput] = useState("");
   const [editGroupColorInput, setEditGroupColorInput] = useState("#3b82f6");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+
+  // Edit dialog optional label fields
+  const [editGroupLabelInput, setEditGroupLabelInput] = useState<string>("");
+  const [editGroupLabelColorInput, setEditGroupLabelColorInput] = useState<string>("#3b82f6");
   const [newGroupColorInput, setNewGroupColorInput] = useState("#3b82f6");
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<string | null>(
     null
@@ -653,10 +663,20 @@ export function WorkloadBoard({
 
         setGroups(groupedData);
 
-        // expand all groups by default
-        setExpandedGroups(
-          Object.fromEntries(groupedData.map((g: any) => [g.id, true]))
-        );
+      // Seed label state from API response (server-side labels)
+      const seedLabels: Record<string, string> = {};
+      const seedLabelColors: Record<string, string> = {};
+      groupsRes.forEach((g: any) => {
+        if (g.label) seedLabels[String(g.id)] = g.label;
+        if (g.label_color) seedLabelColors[String(g.id)] = g.label_color;
+      });
+      setGroupLabels(seedLabels);
+      setGroupLabelColors(seedLabelColors);
+
+      // expand all groups by default
+      setExpandedGroups(
+        Object.fromEntries(groupedData.map((g: any) => [g.id, true]))
+      );
       } catch (err) {
         toast.error("Failed to load board data");
         console.error(err);
@@ -914,6 +934,14 @@ export function WorkloadBoard({
       setGroups([...groups, transformedGroup]);
       setGroupNames({ ...groupNames, [String(newGroup.id)]: newGroup.name });
       setGroupColors({ ...groupColors, [String(newGroup.id)]: newGroup.color });
+      // Seed any server-provided label info
+      if (newGroup.label) {
+        setGroupLabels({ ...groupLabels, [String(newGroup.id)]: newGroup.label });
+      }
+      if (newGroup.label_color) {
+        setGroupLabelColors({ ...groupLabelColors, [String(newGroup.id)]: newGroup.label_color });
+      }
+
       setExpandedGroups({ ...expandedGroups, [String(newGroup.id)]: true });
 
       // Close dialog and reset input
@@ -937,8 +965,13 @@ export function WorkloadBoard({
     setEditingGroupId(groupId);
     setEditGroupNameInput(groupNames[groupId] || group.name);
     setEditGroupColorInput(groupColors[groupId] || group.color);
-    // setEditGroupLabelInput(groupLabels[groupId] || "");
-    // setEditGroupLabelColorInput(groupLabelColors[groupId] || "#3b82f6");
+    // Prefer in-memory label state; fallback to server-provided group label
+    setEditGroupLabelInput(
+      groupLabels[groupId] ?? (group as any).label ?? ""
+    );
+    setEditGroupLabelColorInput(
+      groupLabelColors[groupId] ?? (group as any).label_color ?? "#3b82f6"
+    );
     setEditGroupDialogOpen(true);
   };
 
@@ -951,7 +984,9 @@ export function WorkloadBoard({
       const payload = {
         name: editGroupNameInput.trim(),
         color: editGroupColorInput,
-        // label: editGroupLabelInput.trim() || null,
+        // use label fields so the server owns label persistence
+        label: editGroupLabelInput.trim() || null,
+        label_color: editGroupLabelColorInput || null,
       };
 
       // Call API to update group
@@ -969,24 +1004,28 @@ export function WorkloadBoard({
       });
 
       // Update label state
-      // if (editGroupLabelInput.trim()) {
-      //   setGroupLabels({
-      //     ...groupLabels,
-      //     [editingGroupId]: editGroupLabelInput.trim(),
-      //   });
-      //   setGroupLabelColors({
-      //     ...groupLabelColors,
-      //     [editingGroupId]: editGroupLabelColorInput,
-      //   });
-      // } else {
-      //   const updatedLabels = { ...groupLabels };
-      //   delete updatedLabels[editingGroupId];
-      //   setGroupLabels(updatedLabels);
+      // Update label state from API response (don't persist client-side)
+      if (res && typeof res.label !== "undefined" && res.label !== null) {
+        const labelVal = res.label as string;
+        setGroupLabels((prev) => ({ ...prev, [editingGroupId]: labelVal }));
+      } else {
+        setGroupLabels((prev) => {
+          const copy = { ...prev };
+          delete copy[editingGroupId];
+          return copy;
+        });
+      }
 
-      //   const updatedLabelColors = { ...groupLabelColors };
-      //   delete updatedLabelColors[editingGroupId];
-      //   setGroupLabelColors(updatedLabelColors);
-      // }
+      if (res && typeof res.label_color !== "undefined" && res.label_color !== null) {
+        const labelColorVal = res.label_color as string;
+        setGroupLabelColors((prev) => ({ ...prev, [editingGroupId]: labelColorVal }));
+      } else {
+        setGroupLabelColors((prev) => {
+          const copy = { ...prev };
+          delete copy[editingGroupId];
+          return copy;
+        });
+      }
 
       // Also update the groups array
       const updatedGroups = groups.map((group) => {
@@ -995,6 +1034,8 @@ export function WorkloadBoard({
             ...group,
             name: res.name,
             color: res.color,
+            label: res.label,
+            label_color: res.label_color,
           };
         }
         return group;
@@ -1007,8 +1048,8 @@ export function WorkloadBoard({
       setEditingGroupId(null);
       setEditGroupNameInput("");
       setEditGroupColorInput("#3b82f6");
-      // setEditGroupLabelInput("");
-      // setEditGroupLabelColorInput("#3b82f6");
+      setEditGroupLabelInput("");
+      setEditGroupLabelColorInput("#3b82f6");
 
       toast.success("Group updated successfully");
     } catch (error) {
@@ -1056,6 +1097,19 @@ export function WorkloadBoard({
       const updatedExpandedGroups = { ...expandedGroups };
       delete updatedExpandedGroups[groupToDelete];
       setExpandedGroups(updatedExpandedGroups);
+
+      // Remove any label metadata for the deleted group
+      const updatedGroupLabels = { ...groupLabels };
+      if (updatedGroupLabels[groupToDelete]) {
+        delete updatedGroupLabels[groupToDelete];
+        setGroupLabels(updatedGroupLabels);
+      }
+
+      const updatedGroupLabelColors = { ...groupLabelColors };
+      if (updatedGroupLabelColors[groupToDelete]) {
+        delete updatedGroupLabelColors[groupToDelete];
+        setGroupLabelColors(updatedGroupLabelColors);
+      }
 
       // Close dialog and reset
       setDeleteGroupDialogOpen(false);
@@ -2299,8 +2353,8 @@ export function WorkloadBoard({
                                   {groupNames[group.id] || group.name}
                                 </span>
 
-                                {/* Label Chip - POSTPONED */}
-                                {/* {groupLabels[group.id] && (
+                                {/* Label Chip (optional) */}
+                                {groupLabels[group.id] && (
                                   <div
                                     className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
                                     style={{
@@ -2310,7 +2364,7 @@ export function WorkloadBoard({
                                   >
                                     {groupLabels[group.id]}
                                   </div>
-                                )} */}
+                                )}
                                 <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
                                   <Button
                                     variant="ghost"
@@ -2839,7 +2893,7 @@ export function WorkloadBoard({
               />
             </div>
             {/* Label Input - POSTPONED */}
-            {/* <div className="grid gap-2">
+            <div className="grid gap-2">
               <label htmlFor="edit-group-label" className="text-sm font-medium">
                 Label (Optional)
               </label>
@@ -2850,7 +2904,7 @@ export function WorkloadBoard({
                 onChange={(e) => setEditGroupLabelInput(e.target.value)}
               />
             </div>
-            <div className="grid gap-3">
+            {/* <div className="grid gap-3">
               <label className="text-sm font-medium">Label Color</label>
               <div className="flex gap-2">
                 {PRESET_COLORS.map((color) => (
@@ -2866,7 +2920,7 @@ export function WorkloadBoard({
                   />
                 ))}
               </div>
-            </div> */}
+            </div>  */}
           </div>
           <DialogFooter>
             <Button
@@ -2876,8 +2930,8 @@ export function WorkloadBoard({
                 setEditingGroupId(null);
                 setEditGroupNameInput("");
                 setEditGroupColorInput("#3b82f6");
-                // setEditGroupLabelInput("");
-                // setEditGroupLabelColorInput("#3b82f6");
+                setEditGroupLabelInput("");
+                setEditGroupLabelColorInput("#3b82f6");
               }}
             >
               Cancel
