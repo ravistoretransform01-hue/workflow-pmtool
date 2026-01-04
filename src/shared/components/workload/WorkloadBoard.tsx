@@ -1,5 +1,5 @@
 import React from "react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 // Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
 // const _loadedGroupsForBoard = new Set<string>();
@@ -485,6 +485,21 @@ export function WorkloadBoard({
   const navigate = useNavigate();
   const [editingBoardName, setEditingBoardName] = useState(false);
   const [boardNameValue, setBoardNameValue] = useState(boardName);
+
+  // Compute user initials from localStorage `user_data` for avatar fallback
+  const userInitials = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("user_data");
+      if (!raw) return "U";
+      const parsed = JSON.parse(raw) as any;
+      const name = (parsed?.name as string) || (parsed?.username as string) || "";
+      const trimmed = name.trim();
+      if (!trimmed) return "U";
+      return trimmed.charAt(0).toUpperCase();
+    } catch {
+      return "U";
+    }
+  }, []);
   const [activeTab, setActiveTab] = useState("Main Table");
   // Main Table FilterRow states
   const [mainTableSearchQuery, setMainTableSearchQuery] = useState("");
@@ -2050,6 +2065,15 @@ export function WorkloadBoard({
           opacity: 1;
           transform: scale(1.2);
         }
+
+        /* Hide horizontal scrollbar but keep scrolling intact */
+        .no-scrollbar-x {
+          -ms-overflow-style: none; /* IE and Edge */
+          scrollbar-width: none; /* Firefox */
+        }
+        .no-scrollbar-x::-webkit-scrollbar {
+          display: none; /* Chrome, Safari and Opera */
+        }
       `}</style>
 
       {/* Top Header */}
@@ -2081,7 +2105,7 @@ export function WorkloadBoard({
               <div className="flex items-center -space-x-2">
                 <Avatar className="w-8 h-8 border-2 border-background">
                   <AvatarFallback className="bg-blue-500">
-                    <span className="text-white text-xs font-semibold">U</span>
+                    <span className="text-white text-xs font-semibold">{userInitials}</span>
                   </AvatarFallback>
                 </Avatar>
               </div>
@@ -2146,7 +2170,7 @@ export function WorkloadBoard({
               <div className="flex items-center gap-3 flex-1">
                 {/* Search */}
                 <div className="relative max-w-xs">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
                   <Input
                     placeholder="Search items..."
                     value={mainTableSearchQuery}
@@ -2405,7 +2429,7 @@ export function WorkloadBoard({
 
                               {/* Task Table */}
                               {expandedGroups[group.id] && (
-                                <div className="overflow-x-auto">
+                                <div className="overflow-x-auto no-scrollbar-x">
                                   <table
                                     className="w-full"
                                     style={{ tableLayout: "auto" }}
