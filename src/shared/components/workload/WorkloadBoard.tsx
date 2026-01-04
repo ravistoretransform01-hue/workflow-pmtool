@@ -34,6 +34,7 @@ import {
   Lock,
   GripVertical,
   Pencil,
+  ArrowRightLeft,
   // GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -331,8 +332,10 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
 // =======================
 interface SortableColumnHeaderProps {
   column: any;
+  onToggleCollapse?: () => void;
+  onStartResize?: (columnId: string, e: React.PointerEvent) => void;
 }
-const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
+const SortableColumnHeader = ({ column, onToggleCollapse, onStartResize }: SortableColumnHeaderProps) => {
   const {
     setNodeRef,
     attributes,
@@ -360,12 +363,26 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
     >
       <div
         {...(!column.fixed ? listeners : {})}
-        className={`group flex items-center justify-between ${
+        className={`relative group flex items-center justify-between ${
           column.fixed
             ? "cursor-default opacity-80"
             : "cursor-grab active:cursor-grabbing"
         }`}
       >
+        {/* Resizer handle (right edge) */}
+        {!column.fixed && !column.collapsed && (
+          <div
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onStartResize?.(column.id, e);
+            }}
+            role="separator"
+            aria-orientation="vertical"
+            className="absolute right-0 top-0 h-12 w-4 -mr-6 cursor-col-resize z-40"
+            title={`Resize ${column.label}`}
+          />
+        )}
         <GripVertical
           className="h-4 w-4
                   opacity-0
@@ -375,56 +392,85 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
                   cursor-grab active:cursor-grabbing"
         />
 
-        <span className="flex-1 text-center">{column.label}</span>
-
-        {/* More menu icon – hover only */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        {column.collapsed ? (
+          <div className="flex items-center justify-center w-full">
             <Button
               variant="ghost"
               size="sm"
-              className="
-              h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity
-              "
-              onClick={(e) => e.stopPropagation()}
+              className="h-6 w-6 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCollapse?.();
+              }}
+              aria-label={`Expand ${column.label}`}
+              title={`Expand ${column.label}`}
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <ArrowRightLeft className="h-4 w-4" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                <span>Sort</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
+          </div>
+        ) : (
+          <>
+            <span className="flex-1 text-center">{column.label}</span>
+
+            {/* More menu icon – hover only */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="
+                  h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity
+                  "
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                    <span>Sort</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => {}}>
+                      Sort ascending
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {}}>
+                      Sort descending
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem onClick={() => onToggleCollapse?.()} disabled={column.fixed}>
+                  {column.collapsed ? (
+                    <>
+                      <Maximize2 className="h-4 w-4 mr-2" />
+                      <span>Expand</span>
+                    </>
+                  ) : (
+                    <>
+                      <Minimize2 className="h-4 w-4 mr-2" />
+                      <span>Collapse</span>
+                    </>
+                  )}
+                </DropdownMenuItem>
+                {/* <DropdownMenuItem onClick={() => {}}>
+                  <Filter className="h-4 w-4 mr-2" />
+                  <span>Filter</span>
+                </DropdownMenuItem> */}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => {}}>
-                  Sort ascending
+                  <Lock className="h-4 w-4 mr-2" />
+                  <span>Lock column</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {}}>
-                  Sort descending
+                  <Trash className="h-4 w-4 mr-2 text-destructive" />
+                  <span>Delete</span> {/* delete column */}
                 </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuItem onClick={() => {}}>
-              <Minimize2 className="h-4 w-4 mr-2" />
-              <span>Collapse</span>
-            </DropdownMenuItem>
-            {/* <DropdownMenuItem onClick={() => {}}>
-              <Filter className="h-4 w-4 mr-2" />
-              <span>Filter</span>
-            </DropdownMenuItem> */}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => {}}>
-              <Lock className="h-4 w-4 mr-2" />
-              <span>Lock column</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => {}}>
-              <Trash className="h-4 w-4 mr-2 text-destructive" />
-              <span>Delete</span> {/* delete column */}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
       </div>
     </th>
   );
@@ -1700,10 +1746,179 @@ export function WorkloadBoard({
     );
   };
 
+  const toggleCollapseColumn = (columnId: string) => {
+    setCollapsedColumns((prev) => {
+      const willBeCollapsed = !prev[columnId];
+      const updated = { ...prev, [columnId]: willBeCollapsed };
+
+      try {
+        localStorage.setItem(
+          `board-collapsed-columns-${boardId}`,
+          JSON.stringify(updated)
+        );
+      } catch {}
+
+      // Update columnWidths and prevColumnWidths synchronously so the UI reflects the collapsed width immediately.
+      const currentWidth = columnWidths[columnId];
+      const updatedColumnWidths = { ...columnWidths };
+      const updatedPrevWidths = { ...prevColumnWidths };
+
+      if (willBeCollapsed) {
+        // Save current width (if any) so we can restore it when expanded
+        if (typeof currentWidth !== "undefined" && currentWidth !== COLLAPSED_WIDTH) {
+          updatedPrevWidths[columnId] = currentWidth;
+        } else if (!currentWidth) {
+          // If no explicit saved width, try to read from current workloadColumns fallback width
+          const existingCol = workloadColumns.find((c) => c.id === columnId);
+          if (existingCol && existingCol.width && existingCol.width !== COLLAPSED_WIDTH) {
+            updatedPrevWidths[columnId] = existingCol.width as string;
+          }
+        }
+
+        // Force column to collapsed width
+        updatedColumnWidths[columnId] = COLLAPSED_WIDTH;
+      } else {
+        // Expanding: restore previous width if we have it, otherwise remove the custom width so it falls back to default
+        if (updatedPrevWidths[columnId]) {
+          updatedColumnWidths[columnId] = updatedPrevWidths[columnId];
+          delete updatedPrevWidths[columnId];
+        } else {
+          // Remove the explicit width so the column uses its default
+          delete updatedColumnWidths[columnId];
+        }
+      }
+
+      try {
+        localStorage.setItem(
+          `board-column-widths-${boardId}`,
+          JSON.stringify(updatedColumnWidths)
+        );
+      } catch {}
+
+      try {
+        localStorage.setItem(
+          `board-prev-column-widths-${boardId}`,
+          JSON.stringify(updatedPrevWidths)
+        );
+      } catch {}
+
+      setPrevColumnWidths(updatedPrevWidths);
+      setColumnWidths(updatedColumnWidths);
+
+      // Recompute columns with new collapsed state and widths
+      const allColumns = getWorkloadColumns({
+        expandedTasks,
+        toggleTask,
+        onOpenComments: openCommentsPanel,
+        onEditTask: openEditTaskDialog,
+        statuses,
+        priorities,
+        members,
+        onStatusChange: handleStatusChange,
+        onPriorityChange: handlePriorityChange,
+        onPersonChange: handlePersonChange,
+        openPopoverId,
+        setOpenPopoverId,
+      });
+
+      const newCols = allColumns
+        .map((col) => ({
+          ...col,
+          collapsed: !!updated[col.id],
+          width: updatedColumnWidths[col.id] ?? (updated[col.id] ? COLLAPSED_WIDTH : col.width),
+        }))
+        .filter((col) => visibleColumns[col.id] === true);
+
+      setWorkloadColumns(newCols as any);
+
+      return updated;
+    });
+  };
+
+  const startColumnResize = (columnId: string, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = (e as any).clientX as number;
+
+    // Find initial width
+    const currentCol = workloadColumns.find((c) => c.id === columnId);
+    const startWidthStr = columnWidths[columnId] ?? (currentCol?.width ?? "150px");
+    const startWidth = parseInt(String(startWidthStr).replace(/px$/, "")) || 150;
+
+    const onPointerMove = (ev: PointerEvent) => {
+      const delta = (ev as PointerEvent).clientX - startX;
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, Math.round(startWidth + delta));
+
+      // Apply new width immediately and persist
+      setColumnWidths((prev) => {
+        const updated = { ...prev, [columnId]: `${newWidth}px` };
+        try {
+          localStorage.setItem(
+            `board-column-widths-${boardId}`,
+            JSON.stringify(updated)
+          );
+        } catch {}
+
+        return updated;
+      });
+
+      setWorkloadColumns((prevCols) =>
+        prevCols.map((col) =>
+          col.id === columnId ? { ...col, width: `${newWidth}px` } : col
+        )
+      );
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+
+    // capture pointer to the element if available
+    try {
+      (e.target as Element).setPointerCapture?.((e as any).pointerId);
+    } catch {}
+  };
+
   // const workloadColumns = getWorkloadColumns({
   //   expandedTasks,
   //   toggleTask,
   // });
+
+  // Collapsed columns state (persisted per board)
+  const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(`board-collapsed-columns-${boardId}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const COLLAPSED_WIDTH = "32px";
+  const MIN_COLUMN_WIDTH = 24;
+
+  const [columnWidths, setColumnWidths] = useState<Record<string, string>>(() => {
+    try {
+      const raw = localStorage.getItem(`board-column-widths-${boardId}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Keep a backup of column widths that were present before collapsing a column so we can restore them on expand
+  const [prevColumnWidths, setPrevColumnWidths] = useState<Record<string, string>>(() => {
+    try {
+      const raw = localStorage.getItem(`board-prev-column-widths-${boardId}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
 
   const [workloadColumns, setWorkloadColumns] = useState(() => {
     const allColumns = getWorkloadColumns({
@@ -1720,8 +1935,15 @@ export function WorkloadBoard({
       openPopoverId,
       setOpenPopoverId,
     });
-    // Filter columns based on visibility - only show if explicitly set to true
-    return allColumns.filter((col) => visibleColumns[col.id] === true);
+
+    // Apply collapsed state and persisted widths and filter visibility
+    return allColumns
+      .map((col) => ({
+        ...col,
+        collapsed: !!collapsedColumns[col.id],
+        width: columnWidths[col.id] ?? (collapsedColumns[col.id] ? COLLAPSED_WIDTH : col.width),
+      }))
+      .filter((col) => visibleColumns[col.id] === true);
   });
 
   // Update workloadColumns when CMS data changes
@@ -1740,11 +1962,17 @@ export function WorkloadBoard({
       openPopoverId,
       setOpenPopoverId,
     });
-    // Filter columns based on visibility - only show if explicitly set to true
+    // Apply collapsed state and filter columns based on visibility and saved widths
     setWorkloadColumns(
-      allColumns.filter((col) => visibleColumns[col.id] === true)
+      allColumns
+        .map((col) => ({
+          ...col,
+          collapsed: !!collapsedColumns[col.id],
+          width: columnWidths[col.id] ?? (collapsedColumns[col.id] ? COLLAPSED_WIDTH : col.width),
+        }))
+        .filter((col) => visibleColumns[col.id] === true)
     );
-  }, [statuses, priorities, members, openPopoverId, visibleColumns]);
+  }, [statuses, priorities, members, openPopoverId, visibleColumns, collapsedColumns, columnWidths]);
 
   const totalColumns = workloadColumns.length + 1;
   // NEW : End
@@ -2208,6 +2436,8 @@ export function WorkloadBoard({
                                               <SortableColumnHeader
                                                 key={col.id}
                                                 column={col}
+                                                onToggleCollapse={() => toggleCollapseColumn(col.id)}
+                                                onStartResize={startColumnResize}
                                               />
                                             ))}
                                           </tr>
@@ -2248,7 +2478,20 @@ export function WorkloadBoard({
                                                 )}
                                                 style={{ width: col.width }}
                                               >
-                                                {col.render(task)}
+                                                {col.collapsed ? (
+                                                  <div className="flex items-center justify-center">
+                                                    <button
+                                                      className="h-6 w-6 rounded-sm   flex items-center justify-center"
+                                                      onClick={() => toggleCollapseColumn(col.id)}
+                                                      aria-label={`Expand ${col.label}`}
+                                                      title={`Expand ${col.label}`}
+                                                    >
+                                                      <MoreHorizontal className="h-3 w-3" />
+                                                    </button>
+                                                  </div>
+                                                ) : (
+                                                  col.render(task)
+                                                )}
                                               </td>
                                             ))}
                                           </tr>
@@ -2288,7 +2531,20 @@ export function WorkloadBoard({
                                                         "text-left"
                                                     )}
                                                   >
-                                                    {col.render(subtask, true)}
+                                                    {col.collapsed ? (
+                                                      <div className="flex items-center justify-center">
+                                                        <button
+                                                          className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
+                                                          onClick={() => toggleCollapseColumn(col.id)}
+                                                          aria-label={`Expand ${col.label}`}
+                                                          title={`Expand ${col.label}`}
+                                                        >
+                                                          <ChevronRight className="h-3 w-3" />
+                                                        </button>
+                                                      </div>
+                                                    ) : (
+                                                      col.render(subtask, true)
+                                                    )}
                                                   </td>
                                                 ))}
                                               </tr>

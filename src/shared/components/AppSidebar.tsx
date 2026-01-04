@@ -64,7 +64,7 @@ export const AppSidebar = () => {
   const [createDocOpen, setCreateDocOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [hoveredSubmenu, setHoveredSubmenu] = useState<string | null>(null);
-  const [newBoardName, setNewBoardName] = useState("");
+  const [, setNewBoardName] = useState("");
   const [newDocName, setNewDocName] = useState("");
   const [boardSearchQuery, setBoardSearchQuery] = useState("");
   const [boardSearchOpen, setBoardSearchOpen] = useState(false);
@@ -158,7 +158,7 @@ export const AppSidebar = () => {
       toast.success(`Board renamed to "${renamingBoardName}"`);
       setRenamingBoardId(null);
       setRenamingBoardName("");
-      
+
       // Refresh boards list to reflect the change in UI
       fetchBoards();
     } catch (error) {
