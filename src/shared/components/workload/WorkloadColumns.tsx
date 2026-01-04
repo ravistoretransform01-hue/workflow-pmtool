@@ -43,6 +43,7 @@ export const getWorkloadColumns = ({
   onStatusChange,
   onPriorityChange,
   onPersonChange,
+  onRatingChange,
   openPopoverId,
   setOpenPopoverId,
 }: {
@@ -56,6 +57,7 @@ export const getWorkloadColumns = ({
   onStatusChange?: (taskId: string, statusId: string) => void;
   onPriorityChange?: (taskId: string, priorityId: string) => void;
   onPersonChange?: (taskId: string, memberId: string) => void;
+  onRatingChange?: (taskId: string, rating: number) => void;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
 }): Column[] => {
@@ -258,6 +260,76 @@ export const getWorkloadColumns = ({
               </div>
             )}
           </button>
+        );
+      },
+    },
+    {
+      id: "rating",
+      label: "Rating",
+      width: "140px",
+      align: "center",
+      render: (task: any) => {
+        const rating = Number(task.rating) || 0;
+        const popoverId = `rating-${task.id}`;
+
+        return (
+          <Popover
+            open={openPopoverId === popoverId}
+            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+          >
+            <PopoverTrigger asChild>
+              <button
+                className="h-8 px-3 flex items-center gap-1"
+                aria-label={`Rating ${rating}`}
+              >
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <svg
+                    key={i}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-4 w-4 ${i <= rating ? "text-yellow-400" : "text-muted-foreground"}`}
+                  >
+                    <path
+                      d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                ))}
+              </button>
+            </PopoverTrigger>
+
+            <PopoverContent
+              className="w-60 p-3 bg-card border border-border shadow-lg rounded-lg"
+              align="center"
+            >
+              <div className="flex gap-2 justify-center">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setOpenPopoverId?.(null);
+                      onRatingChange?.(task.id, i);
+                    }}
+                    className="p-1"
+                    aria-label={`Set rating ${i}`}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`h-6 w-6 ${i <= rating ? "text-yellow-400" : "text-muted-foreground"}`}
+                    >
+                      <path
+                        d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         );
       },
     },

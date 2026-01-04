@@ -121,6 +121,7 @@ export interface Task {
   person?: string;
   assigned_to_id?: string;
   timeSpent?: string;
+  rating?: number;
   group_id?: string;
   subitems?: Task[];
 }
@@ -147,6 +148,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "status",
   "priority",
   "description",
+  "rating",
   "person",
   "time",
 ];
@@ -157,6 +159,7 @@ const ALL_AVAILABLE_COLUMNS = [
   "status",
   "priority",
   "description",
+  "rating",
   "date",
   "person",
   "time",
@@ -635,6 +638,7 @@ export function WorkloadBoard({
           priority_id: String(task.task_priority_id),
           estimatedDate: task.due_date,
           person: task.assignee?.name,
+          rating: typeof task.rating !== 'undefined' ? Number(task.rating) : undefined,
           group_id: String(task.group_id),
           timeSpent: task.time_spent_hours ? `${task.time_spent_hours}h` : "0h",
 
@@ -650,10 +654,12 @@ export function WorkloadBoard({
               priority_id: String(st.task_priority_id),
               estimatedDate: st.due_date,
               person: st.assignee?.name,
+              rating: typeof st.rating !== 'undefined' ? Number(st.rating) : undefined,
               timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
               group_id: String(task.group_id), // ✅ ADD THIS
               subitems: [],
             })),
+
         }));
 
         console.log("Tasks with Subtasks:", tasksWithSubtasks);
@@ -1396,6 +1402,7 @@ export function WorkloadBoard({
               priority: updatedTaskResponse.priority_label,
               estimatedDate: updatedTaskResponse.due_date || "-",
               person: updatedTaskResponse.assignee?.name,
+              rating: typeof updatedTaskResponse.rating !== 'undefined' ? Number(updatedTaskResponse.rating) : task.rating,
               timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
             };
           }
@@ -1412,6 +1419,7 @@ export function WorkloadBoard({
                   priority: updatedTaskResponse.priority_label,
                   estimatedDate: updatedTaskResponse.due_date || "-",
                   person: updatedTaskResponse.assignee?.name,
+                  rating: typeof updatedTaskResponse.rating !== 'undefined' ? Number(updatedTaskResponse.rating) : subitem.rating,
                   timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
                 };
               }
@@ -1598,6 +1606,59 @@ export function WorkloadBoard({
     } catch (err) {
       console.error(err);
       toast.error("Failed to update priority");
+    }
+  };
+
+  const handleRatingChange = async (taskId: string, rating: number) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        rating: Number(rating),
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                rating: updated.rating ?? Number(rating),
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        rating: updated.rating ?? Number(rating),
+                      }
+                    : sub
+                ),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      // Close popover after update
+      setOpenPopoverId(null);
+      toast.success("Rating updated successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update rating");
     }
   };
 
@@ -2001,6 +2062,7 @@ export function WorkloadBoard({
       onStatusChange: handleStatusChange,
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
+      onRatingChange: handleRatingChange,
       openPopoverId,
       setOpenPopoverId,
     });
@@ -2028,6 +2090,7 @@ export function WorkloadBoard({
       onStatusChange: handleStatusChange,
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
+      onRatingChange: handleRatingChange,
       openPopoverId,
       setOpenPopoverId,
     });
@@ -2212,6 +2275,7 @@ export function WorkloadBoard({
                           status: "Status",
                           priority: "Priority",
                           description: "Description",
+                          rating: "Rating",
                           date: "Date",
                           person: "Person",
                           time: "Time Spent",

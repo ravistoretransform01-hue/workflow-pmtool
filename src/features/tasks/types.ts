@@ -38,6 +38,8 @@ export interface TaskResponse {
   subtasks_count: string;
   time_spent_hours: number;
   is_overdue: boolean;
+  // optional rating field (1-5)
+  rating?: number;
 }
 
 export interface CreateTaskRequest {
@@ -70,6 +72,8 @@ export interface UpdateTaskRequest {
   assigned_to?: number;
   is_private?: number;
   member?: string;
+  // optional rating update
+  rating?: number;
   
 }
 
