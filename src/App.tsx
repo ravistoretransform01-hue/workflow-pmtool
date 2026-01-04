@@ -1,5 +1,6 @@
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/shared/components/ui/tooltip";
+import ToasterFromUseToast from "@/shared/components/ToasterFromUseToast";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TestUserProvider } from "@/contexts/TestUserContext";
 import { ProtectedRoute,  ProtectedLayout} from "@/shared/components/ProtectedRoute";
@@ -22,6 +23,7 @@ import NotFound from "@/pages/NotFound";
 const App = () => (
   <TooltipProvider>
     <Sonner />
+    <ToasterFromUseToast />
     <BrowserRouter>
       <TestUserProvider>
         {/* <WorkspaceProvider> */}

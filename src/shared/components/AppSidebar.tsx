@@ -64,7 +64,7 @@ export const AppSidebar = () => {
   const [createDocOpen, setCreateDocOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [hoveredSubmenu, setHoveredSubmenu] = useState<string | null>(null);
-  const [newBoardName, setNewBoardName] = useState("");
+  const [, setNewBoardName] = useState("");
   const [newDocName, setNewDocName] = useState("");
   const [boardSearchQuery, setBoardSearchQuery] = useState("");
   const [boardSearchOpen, setBoardSearchOpen] = useState(false);
@@ -111,11 +111,11 @@ export const AppSidebar = () => {
   );
 
   const handleAddBoard = () => {
-    if (!newBoardName.trim()) {
-      toast.error("Board name is required");
-      return;
-    }
-    toast.success(`Board "${newBoardName}" created`);
+    // if (!newBoardName.trim()) {
+    //   toast.error("Board name is required");
+    //   return;
+    // }
+    // toast.success(`Board "${newBoardName}" created`);
     setNewBoardName("");
     setAddBoardOpen(false);
     setAddMenuOpen(false);
@@ -158,7 +158,7 @@ export const AppSidebar = () => {
       toast.success(`Board renamed to "${renamingBoardName}"`);
       setRenamingBoardId(null);
       setRenamingBoardName("");
-      
+
       // Refresh boards list to reflect the change in UI
       fetchBoards();
     } catch (error) {
@@ -522,7 +522,7 @@ export const AppSidebar = () => {
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
               <Input
                 placeholder="Search boards..."
                 value={boardSearchQuery}

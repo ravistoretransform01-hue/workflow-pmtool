@@ -5,6 +5,8 @@ export interface Group {
   board_id: number;
   workspace_id: number;
   organization_id: number;
+  label?: string | null;
+  label_color?: string | null;
   tasks?: Task[];
   created_at?: string;
   updated_at?: string;
@@ -31,6 +33,8 @@ export interface CreateGroupRequest {
 export interface UpdateGroupRequest {
   name?: string;
   color?: string;
+  label?: string | null;
+  label_color?: string | null;
 }
 
 export interface GetGroupsResponse {

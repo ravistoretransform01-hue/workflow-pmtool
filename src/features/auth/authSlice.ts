@@ -6,6 +6,7 @@ import {
   logoutThunk,
   refreshTokenThunk,
 } from "./authThunks";
+import { clearCMSCache } from "../cms/cmsStorage";
 
 const initialState: AuthState = {
   user: null,
@@ -35,6 +36,8 @@ const authSlice = createSlice({
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("user_id");
       localStorage.removeItem("user_data");
+      clearCMSCache();
+      localStorage.clear();
     },
     // Set user
     setUser: (state, action: PayloadAction<User>) => {
@@ -61,7 +64,7 @@ const authSlice = createSlice({
         
         // Log token expiration info
         try {
-          const parts = action.payload.access_token.split('.');
+          const parts = action.payload.access_token.split(".");
           const payload = JSON.parse(atob(parts[1]));
           const exp = new Date(payload.exp * 1000);
           const now = new Date();
@@ -115,6 +118,9 @@ const authSlice = createSlice({
         localStorage.removeItem("refresh_token");
         localStorage.removeItem("user_id");
         localStorage.removeItem("user_data");
+        // Ensure CMS cache is cleared on async logout
+        clearCMSCache();
+        localStorage.clear();
       })
       .addCase(logoutThunk.rejected, (state) => {
         state.loading = false;

@@ -3,6 +3,7 @@ import {
   ChevronRight,
   MessageCirclePlus,
   Pencil,
+  User,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
 import {
@@ -11,6 +12,16 @@ import {
   PopoverTrigger,
 } from "@/shared/components/ui/popover";
 import { Button } from "@/shared/components/ui/button";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+
+function stringToHslColor(str: string, s = 70, l = 55): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h} ${s}% ${l}%)`;
+}
 
 interface Column {
   id: string;
@@ -32,19 +43,21 @@ export const getWorkloadColumns = ({
   onStatusChange,
   onPriorityChange,
   onPersonChange,
+  onRatingChange,
   openPopoverId,
   setOpenPopoverId,
 }: {
   expandedTasks: Record<string, boolean>;
   toggleTask: (taskId: string) => void;
   onOpenComments?: (task: any) => void;
-  onEditTask?: (task: any) => void;
+  onEditTask?: (task: any, focus?: "name" | "description") => void;
   statuses?: Status[];
   priorities?: Priority[];
   members?: any[];
   onStatusChange?: (taskId: string, statusId: string) => void;
   onPriorityChange?: (taskId: string, priorityId: string) => void;
   onPersonChange?: (taskId: string, memberId: string) => void;
+  onRatingChange?: (taskId: string, rating: number) => void;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
 }): Column[] => {
@@ -69,7 +82,7 @@ export const getWorkloadColumns = ({
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => onEditTask?.(task)}
+                  onClick={() => onEditTask?.(task, "name")}
                   className="p-1 hover:bg-muted rounded"
                 >
                   <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -102,7 +115,7 @@ export const getWorkloadColumns = ({
             </button>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
-                onClick={() => onEditTask?.(task)}
+                onClick={() => onEditTask?.(task, "name")}
                 className="p-1 hover:bg-muted rounded"
               >
                 <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -231,7 +244,7 @@ export const getWorkloadColumns = ({
 
         return (
           <button
-            onClick={() => onEditTask?.(task)}
+            onClick={() => onEditTask?.(task, "description")}
             className="w-full text-left group"
             title={description}
           >
@@ -251,6 +264,76 @@ export const getWorkloadColumns = ({
       },
     },
     {
+      id: "rating",
+      label: "Rating",
+      width: "140px",
+      align: "center",
+      render: (task: any) => {
+        const rating = Number(task.rating) || 0;
+        const popoverId = `rating-${task.id}`;
+
+        return (
+          <Popover
+            open={openPopoverId === popoverId}
+            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+          >
+            <PopoverTrigger asChild>
+              <button
+                className="h-8 px-3 flex items-center gap-1"
+                aria-label={`Rating ${rating}`}
+              >
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <svg
+                    key={i}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-4 w-4 ${i <= rating ? "text-yellow-400" : "text-muted-foreground"}`}
+                  >
+                    <path
+                      d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                ))}
+              </button>
+            </PopoverTrigger>
+
+            <PopoverContent
+              className="w-60 p-3 bg-card border border-border shadow-lg rounded-lg"
+              align="center"
+            >
+              <div className="flex gap-2 justify-center">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setOpenPopoverId?.(null);
+                      onRatingChange?.(task.id, i);
+                    }}
+                    className="p-1"
+                    aria-label={`Set rating ${i}`}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`h-6 w-6 ${i <= rating ? "text-yellow-400" : "text-muted-foreground"}`}
+                    >
+                      <path
+                        d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        );
+      },
+    },
+    {
       id: "date",
       label: "Date",
       width: "160px",
@@ -263,30 +346,68 @@ export const getWorkloadColumns = ({
       width: "128px",
       align: "center",
       render: (task: any) => {
-        const memberObj = members.find((m) => String(m.user_id) === String(task.assigned_to_id));
+        const memberObj = members.find(
+          (m) => String(m.user_id) === String(task.assigned_to_id)
+        );
         const popoverId = `person-${task.id}`;
         return (
-          <Popover open={openPopoverId === popoverId} onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}>
+          <Popover
+            open={openPopoverId === popoverId}
+            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+          >
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 px-3 text-xs font-medium"
+                className="h-8 w-full px-3 text-xs font-medium flex items-center justify-center gap-2"
+                title={memberObj?.name || "Unassigned"}
+                aria-label={memberObj?.name ? memberObj.name : "Unassigned"}
               >
-                {memberObj?.name || "-"}
+                {memberObj?.name ? (
+                  <span className="truncate text-center w-full">
+                    {memberObj.name}
+                  </span>
+                ) : (
+                  <User className="h-4 w-4 text-foreground" />
+                )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg" align="center">
+            <PopoverContent
+              className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg"
+              align="center"
+            >
               <div className="space-y-1">
-                {members.map((member) => (
-                  <button
-                    key={member.user_id}
-                    onClick={() => onPersonChange?.(task.id, member.user_id)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-accent transition-colors text-sm font-medium text-left"
-                  >
-                    <span>{member.name}</span>
-                  </button>
-                ))}
+                {members.map((member) => {
+                  const name = (member?.name ?? "").trim();
+                  const initials = name
+                    .split(/\s+/)
+                    .map((n: string) => n[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase();
+
+                  const bgColor = stringToHslColor(
+                    name || String(member?.user_id || "usesr")
+                  );
+
+                  return (
+                    <button
+                      key={member.user_id}
+                      onClick={() => onPersonChange?.(task.id, member.user_id)}
+                      className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-accent transition-colors text-sm font-medium text-left"
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback
+                          style={{ background: bgColor, color: "white" }}
+                        >
+                          {initials || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{member.name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </PopoverContent>
           </Popover>

@@ -1,5 +1,9 @@
 import React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+
+// Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
+// const _loadedGroupsForBoard = new Set<string>();
+// const _loadedCMSForBoard = new Set<string>();
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
@@ -30,6 +34,7 @@ import {
   Lock,
   GripVertical,
   Pencil,
+  ArrowRightLeft,
   // GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -67,7 +72,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
-// import { Popover, PopoverContent, PopoverTrigger} from "@/shared/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import {
   DndContext,
   closestCenter,
@@ -116,6 +121,7 @@ export interface Task {
   person?: string;
   assigned_to_id?: string;
   timeSpent?: string;
+  rating?: number;
   group_id?: string;
   subitems?: Task[];
 }
@@ -137,10 +143,27 @@ const DEFAULT_TABS = [
 ];
 
 // Default visible columns - all columns visible by default
-const DEFAULT_VISIBLE_COLUMNS = ["item", "status", "priority", "description", "person", "time"];
+const DEFAULT_VISIBLE_COLUMNS = [
+  "item",
+  "status",
+  "priority",
+  "description",
+  "rating",
+  "person",
+  "time",
+];
 
 // All available columns (for the dropdown menu)
-const ALL_AVAILABLE_COLUMNS = ["item", "status", "priority", "description", "date", "person", "time"];
+const ALL_AVAILABLE_COLUMNS = [
+  "item",
+  "status",
+  "priority",
+  "description",
+  "rating",
+  "date",
+  "person",
+  "time",
+];
 
 const PRESET_COLORS = [
   "#16a249", // green
@@ -312,8 +335,10 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
 // =======================
 interface SortableColumnHeaderProps {
   column: any;
+  onToggleCollapse?: () => void;
+  onStartResize?: (columnId: string, e: React.PointerEvent) => void;
 }
-const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
+const SortableColumnHeader = ({ column, onToggleCollapse, onStartResize }: SortableColumnHeaderProps) => {
   const {
     setNodeRef,
     attributes,
@@ -341,12 +366,26 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
     >
       <div
         {...(!column.fixed ? listeners : {})}
-        className={`group flex items-center justify-between ${
+        className={`relative group flex items-center justify-between ${
           column.fixed
             ? "cursor-default opacity-80"
             : "cursor-grab active:cursor-grabbing"
         }`}
       >
+        {/* Resizer handle (right edge) */}
+        {!column.fixed && !column.collapsed && (
+          <div
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onStartResize?.(column.id, e);
+            }}
+            role="separator"
+            aria-orientation="vertical"
+            className="absolute right-0 top-0 h-12 w-4 -mr-6 cursor-col-resize z-40"
+            title={`Resize ${column.label}`}
+          />
+        )}
         <GripVertical
           className="h-4 w-4
                   opacity-0
@@ -356,56 +395,85 @@ const SortableColumnHeader = ({ column }: SortableColumnHeaderProps) => {
                   cursor-grab active:cursor-grabbing"
         />
 
-        <span className="flex-1 text-center">{column.label}</span>
-
-        {/* More menu icon – hover only */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        {column.collapsed ? (
+          <div className="flex items-center justify-center w-full">
             <Button
               variant="ghost"
               size="sm"
-              className="
-              h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity
-              "
-              onClick={(e) => e.stopPropagation()}
+              className="h-6 w-6 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCollapse?.();
+              }}
+              aria-label={`Expand ${column.label}`}
+              title={`Expand ${column.label}`}
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <ArrowRightLeft className="h-4 w-4" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                <span>Sort</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
+          </div>
+        ) : (
+          <>
+            <span className="flex-1 text-center">{column.label}</span>
+
+            {/* More menu icon – hover only */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="
+                  h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity
+                  "
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                    <span>Sort</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => {}}>
+                      Sort ascending
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {}}>
+                      Sort descending
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem onClick={() => onToggleCollapse?.()} disabled={column.fixed}>
+                  {column.collapsed ? (
+                    <>
+                      <Maximize2 className="h-4 w-4 mr-2" />
+                      <span>Expand</span>
+                    </>
+                  ) : (
+                    <>
+                      <Minimize2 className="h-4 w-4 mr-2" />
+                      <span>Collapse</span>
+                    </>
+                  )}
+                </DropdownMenuItem>
+                {/* <DropdownMenuItem onClick={() => {}}>
+                  <Filter className="h-4 w-4 mr-2" />
+                  <span>Filter</span>
+                </DropdownMenuItem> */}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => {}}>
-                  Sort ascending
+                  <Lock className="h-4 w-4 mr-2" />
+                  <span>Lock column</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {}}>
-                  Sort descending
+                  <Trash className="h-4 w-4 mr-2 text-destructive" />
+                  <span>Delete</span> {/* delete column */}
                 </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuItem onClick={() => {}}>
-              <Minimize2 className="h-4 w-4 mr-2" />
-              <span>Collapse</span>
-            </DropdownMenuItem>
-            {/* <DropdownMenuItem onClick={() => {}}>
-              <Filter className="h-4 w-4 mr-2" />
-              <span>Filter</span>
-            </DropdownMenuItem> */}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => {}}>
-              <Lock className="h-4 w-4 mr-2" />
-              <span>Lock column</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => {}}>
-              <Trash className="h-4 w-4 mr-2 text-destructive" />
-              <span>Delete</span> {/* delete column */}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
       </div>
     </th>
   );
@@ -420,6 +488,21 @@ export function WorkloadBoard({
   const navigate = useNavigate();
   const [editingBoardName, setEditingBoardName] = useState(false);
   const [boardNameValue, setBoardNameValue] = useState(boardName);
+
+  // Compute user initials from localStorage `user_data` for avatar fallback
+  const userInitials = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("user_data");
+      if (!raw) return "U";
+      const parsed = JSON.parse(raw) as any;
+      const name = (parsed?.name as string) || (parsed?.username as string) || "";
+      const trimmed = name.trim();
+      if (!trimmed) return "U";
+      return trimmed.charAt(0).toUpperCase();
+    } catch {
+      return "U";
+    }
+  }, []);
   const [activeTab, setActiveTab] = useState("Main Table");
   // Main Table FilterRow states
   const [mainTableSearchQuery, setMainTableSearchQuery] = useState("");
@@ -429,12 +512,22 @@ export function WorkloadBoard({
   );
   const [groupNames, setGroupNames] = useState<Record<string, string>>({});
   const [groupColors, setGroupColors] = useState<Record<string, string>>({});
+
+  // Optional: group label text and label background color (persisted per board)
+  // Labels are stored server-side via the groups API; keep in-memory state and seed from API on load
+  const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
+  const [groupLabelColors, setGroupLabelColors] = useState<Record<string, string>>({});
+
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupNameInput, setNewGroupNameInput] = useState("");
   const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
   const [editGroupNameInput, setEditGroupNameInput] = useState("");
   const [editGroupColorInput, setEditGroupColorInput] = useState("#3b82f6");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+
+  // Edit dialog optional label fields
+  const [editGroupLabelInput, setEditGroupLabelInput] = useState<string>("");
+  const [editGroupLabelColorInput, setEditGroupLabelColorInput] = useState<string>("#3b82f6");
   const [newGroupColorInput, setNewGroupColorInput] = useState("#3b82f6");
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<string | null>(
     null
@@ -509,6 +602,10 @@ export function WorkloadBoard({
 
   // Fetch groups from API on component mount
   useEffect(() => {
+    // Prevent duplicate fetches for the same board (helps with React StrictMode double mount in dev)
+    // if (_loadedGroupsForBoard.has(String(boardId))) return;
+    // _loadedGroupsForBoard.add(String(boardId));
+
     const loadGroupsAndTasks = async () => {
       setIsLoadingGroups(true);
 
@@ -541,6 +638,7 @@ export function WorkloadBoard({
           priority_id: String(task.task_priority_id),
           estimatedDate: task.due_date,
           person: task.assignee?.name,
+          rating: typeof task.rating !== 'undefined' ? Number(task.rating) : undefined,
           group_id: String(task.group_id),
           timeSpent: task.time_spent_hours ? `${task.time_spent_hours}h` : "0h",
 
@@ -556,10 +654,12 @@ export function WorkloadBoard({
               priority_id: String(st.task_priority_id),
               estimatedDate: st.due_date,
               person: st.assignee?.name,
+              rating: typeof st.rating !== 'undefined' ? Number(st.rating) : undefined,
               timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
               group_id: String(task.group_id), // ✅ ADD THIS
               subitems: [],
             })),
+
         }));
 
         console.log("Tasks with Subtasks:", tasksWithSubtasks);
@@ -584,10 +684,20 @@ export function WorkloadBoard({
 
         setGroups(groupedData);
 
-        // expand all groups by default
-        setExpandedGroups(
-          Object.fromEntries(groupedData.map((g: any) => [g.id, true]))
-        );
+      // Seed label state from API response (server-side labels)
+      const seedLabels: Record<string, string> = {};
+      const seedLabelColors: Record<string, string> = {};
+      groupsRes.forEach((g: any) => {
+        if (g.label) seedLabels[String(g.id)] = g.label;
+        if (g.label_color) seedLabelColors[String(g.id)] = g.label_color;
+      });
+      setGroupLabels(seedLabels);
+      setGroupLabelColors(seedLabelColors);
+
+      // expand all groups by default
+      setExpandedGroups(
+        Object.fromEntries(groupedData.map((g: any) => [g.id, true]))
+      );
       } catch (err) {
         toast.error("Failed to load board data");
         console.error(err);
@@ -601,6 +711,10 @@ export function WorkloadBoard({
 
   // Fetch CMS data (statuses, priorities, and members) on component mount
   useEffect(() => {
+    // Prevent duplicate CMS fetches for the same board (helps with React StrictMode double mount in dev)
+    // if (_loadedCMSForBoard.has(String(boardId))) return;
+    // _loadedCMSForBoard.add(String(boardId));
+
     const loadCMSData = async () => {
       try {
         const boardIdNum = Number(boardId);
@@ -841,6 +955,14 @@ export function WorkloadBoard({
       setGroups([...groups, transformedGroup]);
       setGroupNames({ ...groupNames, [String(newGroup.id)]: newGroup.name });
       setGroupColors({ ...groupColors, [String(newGroup.id)]: newGroup.color });
+      // Seed any server-provided label info
+      if (newGroup.label) {
+        setGroupLabels({ ...groupLabels, [String(newGroup.id)]: newGroup.label });
+      }
+      if (newGroup.label_color) {
+        setGroupLabelColors({ ...groupLabelColors, [String(newGroup.id)]: newGroup.label_color });
+      }
+
       setExpandedGroups({ ...expandedGroups, [String(newGroup.id)]: true });
 
       // Close dialog and reset input
@@ -864,8 +986,13 @@ export function WorkloadBoard({
     setEditingGroupId(groupId);
     setEditGroupNameInput(groupNames[groupId] || group.name);
     setEditGroupColorInput(groupColors[groupId] || group.color);
-    // setEditGroupLabelInput(groupLabels[groupId] || "");
-    // setEditGroupLabelColorInput(groupLabelColors[groupId] || "#3b82f6");
+    // Prefer in-memory label state; fallback to server-provided group label
+    setEditGroupLabelInput(
+      groupLabels[groupId] ?? (group as any).label ?? ""
+    );
+    setEditGroupLabelColorInput(
+      groupLabelColors[groupId] ?? (group as any).label_color ?? "#3b82f6"
+    );
     setEditGroupDialogOpen(true);
   };
 
@@ -878,7 +1005,9 @@ export function WorkloadBoard({
       const payload = {
         name: editGroupNameInput.trim(),
         color: editGroupColorInput,
-        // label: editGroupLabelInput.trim() || null,
+        // use label fields so the server owns label persistence
+        label: editGroupLabelInput.trim() || null,
+        label_color: editGroupLabelColorInput || null,
       };
 
       // Call API to update group
@@ -896,24 +1025,28 @@ export function WorkloadBoard({
       });
 
       // Update label state
-      // if (editGroupLabelInput.trim()) {
-      //   setGroupLabels({
-      //     ...groupLabels,
-      //     [editingGroupId]: editGroupLabelInput.trim(),
-      //   });
-      //   setGroupLabelColors({
-      //     ...groupLabelColors,
-      //     [editingGroupId]: editGroupLabelColorInput,
-      //   });
-      // } else {
-      //   const updatedLabels = { ...groupLabels };
-      //   delete updatedLabels[editingGroupId];
-      //   setGroupLabels(updatedLabels);
+      // Update label state from API response (don't persist client-side)
+      if (res && typeof res.label !== "undefined" && res.label !== null) {
+        const labelVal = res.label as string;
+        setGroupLabels((prev) => ({ ...prev, [editingGroupId]: labelVal }));
+      } else {
+        setGroupLabels((prev) => {
+          const copy = { ...prev };
+          delete copy[editingGroupId];
+          return copy;
+        });
+      }
 
-      //   const updatedLabelColors = { ...groupLabelColors };
-      //   delete updatedLabelColors[editingGroupId];
-      //   setGroupLabelColors(updatedLabelColors);
-      // }
+      if (res && typeof res.label_color !== "undefined" && res.label_color !== null) {
+        const labelColorVal = res.label_color as string;
+        setGroupLabelColors((prev) => ({ ...prev, [editingGroupId]: labelColorVal }));
+      } else {
+        setGroupLabelColors((prev) => {
+          const copy = { ...prev };
+          delete copy[editingGroupId];
+          return copy;
+        });
+      }
 
       // Also update the groups array
       const updatedGroups = groups.map((group) => {
@@ -922,6 +1055,8 @@ export function WorkloadBoard({
             ...group,
             name: res.name,
             color: res.color,
+            label: res.label,
+            label_color: res.label_color,
           };
         }
         return group;
@@ -934,8 +1069,8 @@ export function WorkloadBoard({
       setEditingGroupId(null);
       setEditGroupNameInput("");
       setEditGroupColorInput("#3b82f6");
-      // setEditGroupLabelInput("");
-      // setEditGroupLabelColorInput("#3b82f6");
+      setEditGroupLabelInput("");
+      setEditGroupLabelColorInput("#3b82f6");
 
       toast.success("Group updated successfully");
     } catch (error) {
@@ -983,6 +1118,19 @@ export function WorkloadBoard({
       const updatedExpandedGroups = { ...expandedGroups };
       delete updatedExpandedGroups[groupToDelete];
       setExpandedGroups(updatedExpandedGroups);
+
+      // Remove any label metadata for the deleted group
+      const updatedGroupLabels = { ...groupLabels };
+      if (updatedGroupLabels[groupToDelete]) {
+        delete updatedGroupLabels[groupToDelete];
+        setGroupLabels(updatedGroupLabels);
+      }
+
+      const updatedGroupLabelColors = { ...groupLabelColors };
+      if (updatedGroupLabelColors[groupToDelete]) {
+        delete updatedGroupLabelColors[groupToDelete];
+        setGroupLabelColors(updatedGroupLabelColors);
+      }
 
       // Close dialog and reset
       setDeleteGroupDialogOpen(false);
@@ -1193,11 +1341,35 @@ export function WorkloadBoard({
     setCommentsPanelOpen(true);
   };
 
-  const openEditTaskDialog = (task: Task) => {
+  // Which field to focus when opening the edit dialog
+  const [editTaskDialogFocus, setEditTaskDialogFocus] = useState<"name" | "description">("name");
+
+  // Refs to inputs inside the edit dialog
+  const editNameRef = useRef<HTMLInputElement | null>(null);
+  const editDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const openEditTaskDialog = (task: Task, focus: "name" | "description" = "name") => {
     setEditingTask(task);
     setEditTaskName(task.name);
+    setEditTaskDialogFocus(focus);
     setEditTaskDialogOpen(true);
   };
+
+  // Focus appropriate input when the dialog opens
+  useEffect(() => {
+    if (!editTaskDialogOpen) return;
+    // allow dialog to mount
+    const id = window.setTimeout(() => {
+      if (editTaskDialogFocus === "name") {
+        editNameRef.current?.focus();
+        editNameRef.current?.select?.();
+      } else {
+        editDescriptionRef.current?.focus();
+      }
+    }, 0);
+
+    return () => window.clearTimeout(id);
+  }, [editTaskDialogOpen, editTaskDialogFocus]);
 
   const handleUpdateTask = async () => {
     if (!editingTask || !editTaskName.trim()) {
@@ -1230,6 +1402,7 @@ export function WorkloadBoard({
               priority: updatedTaskResponse.priority_label,
               estimatedDate: updatedTaskResponse.due_date || "-",
               person: updatedTaskResponse.assignee?.name,
+              rating: typeof updatedTaskResponse.rating !== 'undefined' ? Number(updatedTaskResponse.rating) : task.rating,
               timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
             };
           }
@@ -1246,6 +1419,7 @@ export function WorkloadBoard({
                   priority: updatedTaskResponse.priority_label,
                   estimatedDate: updatedTaskResponse.due_date || "-",
                   person: updatedTaskResponse.assignee?.name,
+                  rating: typeof updatedTaskResponse.rating !== 'undefined' ? Number(updatedTaskResponse.rating) : subitem.rating,
                   timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
                 };
               }
@@ -1432,6 +1606,59 @@ export function WorkloadBoard({
     } catch (err) {
       console.error(err);
       toast.error("Failed to update priority");
+    }
+  };
+
+  const handleRatingChange = async (taskId: string, rating: number) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        rating: Number(rating),
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                rating: updated.rating ?? Number(rating),
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        rating: updated.rating ?? Number(rating),
+                      }
+                    : sub
+                ),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      // Close popover after update
+      setOpenPopoverId(null);
+      toast.success("Rating updated successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update rating");
     }
   };
 
@@ -1649,10 +1876,179 @@ export function WorkloadBoard({
     );
   };
 
+  const toggleCollapseColumn = (columnId: string) => {
+    setCollapsedColumns((prev) => {
+      const willBeCollapsed = !prev[columnId];
+      const updated = { ...prev, [columnId]: willBeCollapsed };
+
+      try {
+        localStorage.setItem(
+          `board-collapsed-columns-${boardId}`,
+          JSON.stringify(updated)
+        );
+      } catch {}
+
+      // Update columnWidths and prevColumnWidths synchronously so the UI reflects the collapsed width immediately.
+      const currentWidth = columnWidths[columnId];
+      const updatedColumnWidths = { ...columnWidths };
+      const updatedPrevWidths = { ...prevColumnWidths };
+
+      if (willBeCollapsed) {
+        // Save current width (if any) so we can restore it when expanded
+        if (typeof currentWidth !== "undefined" && currentWidth !== COLLAPSED_WIDTH) {
+          updatedPrevWidths[columnId] = currentWidth;
+        } else if (!currentWidth) {
+          // If no explicit saved width, try to read from current workloadColumns fallback width
+          const existingCol = workloadColumns.find((c) => c.id === columnId);
+          if (existingCol && existingCol.width && existingCol.width !== COLLAPSED_WIDTH) {
+            updatedPrevWidths[columnId] = existingCol.width as string;
+          }
+        }
+
+        // Force column to collapsed width
+        updatedColumnWidths[columnId] = COLLAPSED_WIDTH;
+      } else {
+        // Expanding: restore previous width if we have it, otherwise remove the custom width so it falls back to default
+        if (updatedPrevWidths[columnId]) {
+          updatedColumnWidths[columnId] = updatedPrevWidths[columnId];
+          delete updatedPrevWidths[columnId];
+        } else {
+          // Remove the explicit width so the column uses its default
+          delete updatedColumnWidths[columnId];
+        }
+      }
+
+      try {
+        localStorage.setItem(
+          `board-column-widths-${boardId}`,
+          JSON.stringify(updatedColumnWidths)
+        );
+      } catch {}
+
+      try {
+        localStorage.setItem(
+          `board-prev-column-widths-${boardId}`,
+          JSON.stringify(updatedPrevWidths)
+        );
+      } catch {}
+
+      setPrevColumnWidths(updatedPrevWidths);
+      setColumnWidths(updatedColumnWidths);
+
+      // Recompute columns with new collapsed state and widths
+      const allColumns = getWorkloadColumns({
+        expandedTasks,
+        toggleTask,
+        onOpenComments: openCommentsPanel,
+        onEditTask: openEditTaskDialog,
+        statuses,
+        priorities,
+        members,
+        onStatusChange: handleStatusChange,
+        onPriorityChange: handlePriorityChange,
+        onPersonChange: handlePersonChange,
+        openPopoverId,
+        setOpenPopoverId,
+      });
+
+      const newCols = allColumns
+        .map((col) => ({
+          ...col,
+          collapsed: !!updated[col.id],
+          width: updatedColumnWidths[col.id] ?? (updated[col.id] ? COLLAPSED_WIDTH : col.width),
+        }))
+        .filter((col) => visibleColumns[col.id] === true);
+
+      setWorkloadColumns(newCols as any);
+
+      return updated;
+    });
+  };
+
+  const startColumnResize = (columnId: string, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = (e as any).clientX as number;
+
+    // Find initial width
+    const currentCol = workloadColumns.find((c) => c.id === columnId);
+    const startWidthStr = columnWidths[columnId] ?? (currentCol?.width ?? "150px");
+    const startWidth = parseInt(String(startWidthStr).replace(/px$/, "")) || 150;
+
+    const onPointerMove = (ev: PointerEvent) => {
+      const delta = (ev as PointerEvent).clientX - startX;
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, Math.round(startWidth + delta));
+
+      // Apply new width immediately and persist
+      setColumnWidths((prev) => {
+        const updated = { ...prev, [columnId]: `${newWidth}px` };
+        try {
+          localStorage.setItem(
+            `board-column-widths-${boardId}`,
+            JSON.stringify(updated)
+          );
+        } catch {}
+
+        return updated;
+      });
+
+      setWorkloadColumns((prevCols) =>
+        prevCols.map((col) =>
+          col.id === columnId ? { ...col, width: `${newWidth}px` } : col
+        )
+      );
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+
+    // capture pointer to the element if available
+    try {
+      (e.target as Element).setPointerCapture?.((e as any).pointerId);
+    } catch {}
+  };
+
   // const workloadColumns = getWorkloadColumns({
   //   expandedTasks,
   //   toggleTask,
   // });
+
+  // Collapsed columns state (persisted per board)
+  const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem(`board-collapsed-columns-${boardId}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const COLLAPSED_WIDTH = "32px";
+  const MIN_COLUMN_WIDTH = 24;
+
+  const [columnWidths, setColumnWidths] = useState<Record<string, string>>(() => {
+    try {
+      const raw = localStorage.getItem(`board-column-widths-${boardId}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Keep a backup of column widths that were present before collapsing a column so we can restore them on expand
+  const [prevColumnWidths, setPrevColumnWidths] = useState<Record<string, string>>(() => {
+    try {
+      const raw = localStorage.getItem(`board-prev-column-widths-${boardId}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
 
   const [workloadColumns, setWorkloadColumns] = useState(() => {
     const allColumns = getWorkloadColumns({
@@ -1666,11 +2062,19 @@ export function WorkloadBoard({
       onStatusChange: handleStatusChange,
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
+      onRatingChange: handleRatingChange,
       openPopoverId,
       setOpenPopoverId,
     });
-    // Filter columns based on visibility - only show if explicitly set to true
-    return allColumns.filter((col) => visibleColumns[col.id] === true);
+
+    // Apply collapsed state and persisted widths and filter visibility
+    return allColumns
+      .map((col) => ({
+        ...col,
+        collapsed: !!collapsedColumns[col.id],
+        width: columnWidths[col.id] ?? (collapsedColumns[col.id] ? COLLAPSED_WIDTH : col.width),
+      }))
+      .filter((col) => visibleColumns[col.id] === true);
   });
 
   // Update workloadColumns when CMS data changes
@@ -1686,14 +2090,21 @@ export function WorkloadBoard({
       onStatusChange: handleStatusChange,
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
+      onRatingChange: handleRatingChange,
       openPopoverId,
       setOpenPopoverId,
     });
-    // Filter columns based on visibility - only show if explicitly set to true
+    // Apply collapsed state and filter columns based on visibility and saved widths
     setWorkloadColumns(
-      allColumns.filter((col) => visibleColumns[col.id] === true)
+      allColumns
+        .map((col) => ({
+          ...col,
+          collapsed: !!collapsedColumns[col.id],
+          width: columnWidths[col.id] ?? (collapsedColumns[col.id] ? COLLAPSED_WIDTH : col.width),
+        }))
+        .filter((col) => visibleColumns[col.id] === true)
     );
-  }, [statuses, priorities, members, openPopoverId, visibleColumns]);
+  }, [statuses, priorities, members, openPopoverId, visibleColumns, collapsedColumns, columnWidths]);
 
   const totalColumns = workloadColumns.length + 1;
   // NEW : End
@@ -1716,6 +2127,15 @@ export function WorkloadBoard({
         .resize-handle:hover {
           opacity: 1;
           transform: scale(1.2);
+        }
+
+        /* Hide horizontal scrollbar but keep scrolling intact */
+        .no-scrollbar-x {
+          -ms-overflow-style: none; /* IE and Edge */
+          scrollbar-width: none; /* Firefox */
+        }
+        .no-scrollbar-x::-webkit-scrollbar {
+          display: none; /* Chrome, Safari and Opera */
         }
       `}</style>
 
@@ -1748,7 +2168,7 @@ export function WorkloadBoard({
               <div className="flex items-center -space-x-2">
                 <Avatar className="w-8 h-8 border-2 border-background">
                   <AvatarFallback className="bg-blue-500">
-                    <span className="text-white text-xs font-semibold">U</span>
+                    <span className="text-white text-xs font-semibold">{userInitials}</span>
                   </AvatarFallback>
                 </Avatar>
               </div>
@@ -1813,7 +2233,7 @@ export function WorkloadBoard({
               <div className="flex items-center gap-3 flex-1">
                 {/* Search */}
                 <div className="relative max-w-xs">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
                   <Input
                     placeholder="Search items..."
                     value={mainTableSearchQuery}
@@ -1832,49 +2252,53 @@ export function WorkloadBoard({
                 Sort
               </Button> */}
 
-              {/* Column Visibility Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              {/* Column Visibility Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm">
                     <EyeOff className="h-4 w-4 mr-2" />
                     Columns
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                </PopoverTrigger>
+
+                <PopoverContent align="end" className="w-56">
                   <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
                     Show/Hide Columns
                   </div>
-                  <DropdownMenuSeparator />
-                  {ALL_AVAILABLE_COLUMNS.map((columnId) => {
-                    const columnLabel =
-                      {
-                        item: "Item",
-                        status: "Status",
-                        priority: "Priority",
-                        description: "Description",
-                        date: "Date",
-                        person: "Person",
-                        time: "Time Spent",
-                      }[columnId] || columnId;
+                  <div className="border-t border-border my-2" />
 
-                    return (
-                      <DropdownMenuItem
-                        key={columnId}
-                        onClick={() => toggleColumnVisibility(columnId)}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns[columnId] === true}
-                          onChange={() => {}}
-                          className="cursor-pointer"
-                        />
-                        <span>{columnLabel}</span>
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  <div className="p-2 space-y-1">
+                    {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                      const columnLabel =
+                        {
+                          item: "Item",
+                          status: "Status",
+                          priority: "Priority",
+                          description: "Description",
+                          rating: "Rating",
+                          date: "Date",
+                          person: "Person",
+                          time: "Time Spent",
+                        }[columnId] || columnId;
+
+                      return (
+                        <label
+                          key={columnId}
+                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns[columnId] === true}
+                            onChange={() => toggleColumnVisibility(columnId)}
+                            className="cursor-pointer"
+                          />
+                          <span className="text-sm">{columnLabel}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Task Groups */}
@@ -2017,8 +2441,8 @@ export function WorkloadBoard({
                                   {groupNames[group.id] || group.name}
                                 </span>
 
-                                {/* Label Chip - POSTPONED */}
-                                {/* {groupLabels[group.id] && (
+                                {/* Label Chip (optional) */}
+                                {groupLabels[group.id] && (
                                   <div
                                     className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
                                     style={{
@@ -2028,7 +2452,7 @@ export function WorkloadBoard({
                                   >
                                     {groupLabels[group.id]}
                                   </div>
-                                )} */}
+                                )}
                                 <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
                                   <Button
                                     variant="ghost"
@@ -2069,7 +2493,7 @@ export function WorkloadBoard({
 
                               {/* Task Table */}
                               {expandedGroups[group.id] && (
-                                <div className="overflow-x-auto">
+                                <div className="overflow-x-auto no-scrollbar-x">
                                   <table
                                     className="w-full"
                                     style={{ tableLayout: "auto" }}
@@ -2154,6 +2578,8 @@ export function WorkloadBoard({
                                               <SortableColumnHeader
                                                 key={col.id}
                                                 column={col}
+                                                onToggleCollapse={() => toggleCollapseColumn(col.id)}
+                                                onStartResize={startColumnResize}
                                               />
                                             ))}
                                           </tr>
@@ -2194,7 +2620,20 @@ export function WorkloadBoard({
                                                 )}
                                                 style={{ width: col.width }}
                                               >
-                                                {col.render(task)}
+                                                {col.collapsed ? (
+                                                  <div className="flex items-center justify-center">
+                                                    <button
+                                                      className="h-6 w-6 rounded-sm   flex items-center justify-center"
+                                                      onClick={() => toggleCollapseColumn(col.id)}
+                                                      aria-label={`Expand ${col.label}`}
+                                                      title={`Expand ${col.label}`}
+                                                    >
+                                                      <MoreHorizontal className="h-3 w-3" />
+                                                    </button>
+                                                  </div>
+                                                ) : (
+                                                  col.render(task)
+                                                )}
                                               </td>
                                             ))}
                                           </tr>
@@ -2234,7 +2673,20 @@ export function WorkloadBoard({
                                                         "text-left"
                                                     )}
                                                   >
-                                                    {col.render(subtask, true)}
+                                                    {col.collapsed ? (
+                                                      <div className="flex items-center justify-center">
+                                                        <button
+                                                          className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
+                                                          onClick={() => toggleCollapseColumn(col.id)}
+                                                          aria-label={`Expand ${col.label}`}
+                                                          title={`Expand ${col.label}`}
+                                                        >
+                                                          <ChevronRight className="h-3 w-3" />
+                                                        </button>
+                                                      </div>
+                                                    ) : (
+                                                      col.render(subtask, true)
+                                                    )}
                                                   </td>
                                                 ))}
                                               </tr>
@@ -2529,7 +2981,7 @@ export function WorkloadBoard({
               />
             </div>
             {/* Label Input - POSTPONED */}
-            {/* <div className="grid gap-2">
+            <div className="grid gap-2">
               <label htmlFor="edit-group-label" className="text-sm font-medium">
                 Label (Optional)
               </label>
@@ -2540,7 +2992,7 @@ export function WorkloadBoard({
                 onChange={(e) => setEditGroupLabelInput(e.target.value)}
               />
             </div>
-            <div className="grid gap-3">
+            {/* <div className="grid gap-3">
               <label className="text-sm font-medium">Label Color</label>
               <div className="flex gap-2">
                 {PRESET_COLORS.map((color) => (
@@ -2556,7 +3008,7 @@ export function WorkloadBoard({
                   />
                 ))}
               </div>
-            </div> */}
+            </div>  */}
           </div>
           <DialogFooter>
             <Button
@@ -2566,8 +3018,8 @@ export function WorkloadBoard({
                 setEditingGroupId(null);
                 setEditGroupNameInput("");
                 setEditGroupColorInput("#3b82f6");
-                // setEditGroupLabelInput("");
-                // setEditGroupLabelColorInput("#3b82f6");
+                setEditGroupLabelInput("");
+                setEditGroupLabelColorInput("#3b82f6");
               }}
             >
               Cancel
@@ -2649,6 +3101,7 @@ export function WorkloadBoard({
                   }
                 }}
                 autoFocus
+                ref={editNameRef}
               />
             </div>
             <div className="grid gap-2">
@@ -2672,6 +3125,7 @@ export function WorkloadBoard({
                 }}
                 className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 rows={4}
+                ref={editDescriptionRef}
               />
             </div>
           </div>
