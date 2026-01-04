@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X, Search, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 // import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -83,6 +84,7 @@ export function AddBoardDialog({
   workspaceId = 1,
   organizationId,
 }: AddBoardDialogProps) {
+    const navigate = useNavigate();
   const { testUsers, currentUser } = useTestUser();
   const { createBoard, loading } = useBoards();
   const [boardName, setBoardName] = useState("New Board");
@@ -530,6 +532,16 @@ export function AddBoardDialog({
         setIconColor(PRESET_COLORS[0]);
         setMembers([]);
         setSearchQuery("");
+
+        // navigate to the created board if the API returned an id
+        const payload = result.payload as any;
+        const createdBoardId =
+          payload?.id || payload?.board?.id || payload?.board_id || payload?.boardId;
+        if (createdBoardId) {
+          navigate(`/board/${createdBoardId}`);
+        } else {
+          console.warn("createBoard fulfilled but no board id returned", payload);
+        }
       } else if (result.type === "boards/createBoard/rejected") {
         toast({
           title: "Error",
