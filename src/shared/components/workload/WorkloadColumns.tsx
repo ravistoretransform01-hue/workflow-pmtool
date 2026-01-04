@@ -3,6 +3,7 @@ import {
   ChevronRight,
   MessageCirclePlus,
   Pencil,
+  User,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
 import {
@@ -271,9 +272,15 @@ export const getWorkloadColumns = ({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 px-3 text-xs font-medium"
+                className="h-8 w-full px-3 text-xs font-medium flex items-center justify-center gap-2"
+                title={memberObj?.name || "Unassigned"}
+                aria-label={memberObj?.name ? memberObj.name : "Unassigned"}
               >
-                {memberObj?.name || "-"}
+                {memberObj?.name ? (
+                  <span className="truncate text-center w-full">{memberObj.name}</span>
+                ) : (
+                  <User className="h-4 w-4 text-muted-foreground" />
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg" align="center">

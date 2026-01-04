@@ -111,11 +111,11 @@ export const AppSidebar = () => {
   );
 
   const handleAddBoard = () => {
-    if (!newBoardName.trim()) {
-      toast.error("Board name is required");
-      return;
-    }
-    toast.success(`Board "${newBoardName}" created`);
+    // if (!newBoardName.trim()) {
+    //   toast.error("Board name is required");
+    //   return;
+    // }
+    // toast.success(`Board "${newBoardName}" created`);
     setNewBoardName("");
     setAddBoardOpen(false);
     setAddMenuOpen(false);

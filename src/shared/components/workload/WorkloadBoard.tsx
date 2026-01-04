@@ -1,5 +1,9 @@
 import React from "react";
 import { useState, useEffect } from "react";
+
+// Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
+const _loadedGroupsForBoard = new Set<string>();
+const _loadedCMSForBoard = new Set<string>();
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
@@ -137,10 +141,25 @@ const DEFAULT_TABS = [
 ];
 
 // Default visible columns - all columns visible by default
-const DEFAULT_VISIBLE_COLUMNS = ["item", "status", "priority", "description", "person", "time"];
+const DEFAULT_VISIBLE_COLUMNS = [
+  "item",
+  "status",
+  "priority",
+  "description",
+  "person",
+  "time",
+];
 
 // All available columns (for the dropdown menu)
-const ALL_AVAILABLE_COLUMNS = ["item", "status", "priority", "description", "date", "person", "time"];
+const ALL_AVAILABLE_COLUMNS = [
+  "item",
+  "status",
+  "priority",
+  "description",
+  "date",
+  "person",
+  "time",
+];
 
 const PRESET_COLORS = [
   "#16a249", // green
@@ -509,6 +528,10 @@ export function WorkloadBoard({
 
   // Fetch groups from API on component mount
   useEffect(() => {
+    // Prevent duplicate fetches for the same board (helps with React StrictMode double mount in dev)
+    if (_loadedGroupsForBoard.has(String(boardId))) return;
+    _loadedGroupsForBoard.add(String(boardId));
+
     const loadGroupsAndTasks = async () => {
       setIsLoadingGroups(true);
 
@@ -601,6 +624,10 @@ export function WorkloadBoard({
 
   // Fetch CMS data (statuses, priorities, and members) on component mount
   useEffect(() => {
+    // Prevent duplicate CMS fetches for the same board (helps with React StrictMode double mount in dev)
+    if (_loadedCMSForBoard.has(String(boardId))) return;
+    _loadedCMSForBoard.add(String(boardId));
+
     const loadCMSData = async () => {
       try {
         const boardIdNum = Number(boardId);

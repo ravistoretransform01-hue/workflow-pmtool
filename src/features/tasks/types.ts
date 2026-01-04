@@ -69,6 +69,8 @@ export interface UpdateTaskRequest {
   estimated_date_to?: string;
   assigned_to?: number;
   is_private?: number;
+  member?: string;
+  
 }
 
 export interface DeleteTaskRequest {
