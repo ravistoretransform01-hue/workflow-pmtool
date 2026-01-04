@@ -12,6 +12,16 @@ import {
   PopoverTrigger,
 } from "@/shared/components/ui/popover";
 import { Button } from "@/shared/components/ui/button";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+
+function stringToHslColor(str: string, s = 70, l = 55): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h} ${s}% ${l}%)`;
+}
 
 interface Column {
   id: string;
@@ -39,7 +49,7 @@ export const getWorkloadColumns = ({
   expandedTasks: Record<string, boolean>;
   toggleTask: (taskId: string) => void;
   onOpenComments?: (task: any) => void;
-  onEditTask?: (task: any) => void;
+  onEditTask?: (task: any, focus?: "name" | "description") => void;
   statuses?: Status[];
   priorities?: Priority[];
   members?: any[];
@@ -70,7 +80,7 @@ export const getWorkloadColumns = ({
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => onEditTask?.(task)}
+                  onClick={() => onEditTask?.(task, "name")}
                   className="p-1 hover:bg-muted rounded"
                 >
                   <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -103,7 +113,7 @@ export const getWorkloadColumns = ({
             </button>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
-                onClick={() => onEditTask?.(task)}
+                onClick={() => onEditTask?.(task, "name")}
                 className="p-1 hover:bg-muted rounded"
               >
                 <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -232,7 +242,7 @@ export const getWorkloadColumns = ({
 
         return (
           <button
-            onClick={() => onEditTask?.(task)}
+            onClick={() => onEditTask?.(task, "description")}
             className="w-full text-left group"
             title={description}
           >
@@ -264,10 +274,15 @@ export const getWorkloadColumns = ({
       width: "128px",
       align: "center",
       render: (task: any) => {
-        const memberObj = members.find((m) => String(m.user_id) === String(task.assigned_to_id));
+        const memberObj = members.find(
+          (m) => String(m.user_id) === String(task.assigned_to_id)
+        );
         const popoverId = `person-${task.id}`;
         return (
-          <Popover open={openPopoverId === popoverId} onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}>
+          <Popover
+            open={openPopoverId === popoverId}
+            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+          >
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
@@ -277,23 +292,50 @@ export const getWorkloadColumns = ({
                 aria-label={memberObj?.name ? memberObj.name : "Unassigned"}
               >
                 {memberObj?.name ? (
-                  <span className="truncate text-center w-full">{memberObj.name}</span>
+                  <span className="truncate text-center w-full">
+                    {memberObj.name}
+                  </span>
                 ) : (
-                  <User className="h-4 w-4 text-muted-foreground" />
+                  <User className="h-4 w-4 text-foreground" />
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg" align="center">
+            <PopoverContent
+              className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg"
+              align="center"
+            >
               <div className="space-y-1">
-                {members.map((member) => (
-                  <button
-                    key={member.user_id}
-                    onClick={() => onPersonChange?.(task.id, member.user_id)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-accent transition-colors text-sm font-medium text-left"
-                  >
-                    <span>{member.name}</span>
-                  </button>
-                ))}
+                {members.map((member) => {
+                  const name = (member?.name ?? "").trim();
+                  const initials = name
+                    .split(/\s+/)
+                    .map((n: string) => n[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase();
+
+                  const bgColor = stringToHslColor(
+                    name || String(member?.user_id || "usesr")
+                  );
+
+                  return (
+                    <button
+                      key={member.user_id}
+                      onClick={() => onPersonChange?.(task.id, member.user_id)}
+                      className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-accent transition-colors text-sm font-medium text-left"
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback
+                          style={{ background: bgColor, color: "white" }}
+                        >
+                          {initials || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{member.name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </PopoverContent>
           </Popover>

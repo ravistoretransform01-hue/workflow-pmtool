@@ -1,9 +1,9 @@
 import React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
-const _loadedGroupsForBoard = new Set<string>();
-const _loadedCMSForBoard = new Set<string>();
+// const _loadedGroupsForBoard = new Set<string>();
+// const _loadedCMSForBoard = new Set<string>();
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
@@ -71,7 +71,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
-// import { Popover, PopoverContent, PopoverTrigger} from "@/shared/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import {
   DndContext,
   closestCenter,
@@ -529,8 +529,8 @@ export function WorkloadBoard({
   // Fetch groups from API on component mount
   useEffect(() => {
     // Prevent duplicate fetches for the same board (helps with React StrictMode double mount in dev)
-    if (_loadedGroupsForBoard.has(String(boardId))) return;
-    _loadedGroupsForBoard.add(String(boardId));
+    // if (_loadedGroupsForBoard.has(String(boardId))) return;
+    // _loadedGroupsForBoard.add(String(boardId));
 
     const loadGroupsAndTasks = async () => {
       setIsLoadingGroups(true);
@@ -625,8 +625,8 @@ export function WorkloadBoard({
   // Fetch CMS data (statuses, priorities, and members) on component mount
   useEffect(() => {
     // Prevent duplicate CMS fetches for the same board (helps with React StrictMode double mount in dev)
-    if (_loadedCMSForBoard.has(String(boardId))) return;
-    _loadedCMSForBoard.add(String(boardId));
+    // if (_loadedCMSForBoard.has(String(boardId))) return;
+    // _loadedCMSForBoard.add(String(boardId));
 
     const loadCMSData = async () => {
       try {
@@ -1220,11 +1220,35 @@ export function WorkloadBoard({
     setCommentsPanelOpen(true);
   };
 
-  const openEditTaskDialog = (task: Task) => {
+  // Which field to focus when opening the edit dialog
+  const [editTaskDialogFocus, setEditTaskDialogFocus] = useState<"name" | "description">("name");
+
+  // Refs to inputs inside the edit dialog
+  const editNameRef = useRef<HTMLInputElement | null>(null);
+  const editDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const openEditTaskDialog = (task: Task, focus: "name" | "description" = "name") => {
     setEditingTask(task);
     setEditTaskName(task.name);
+    setEditTaskDialogFocus(focus);
     setEditTaskDialogOpen(true);
   };
+
+  // Focus appropriate input when the dialog opens
+  useEffect(() => {
+    if (!editTaskDialogOpen) return;
+    // allow dialog to mount
+    const id = window.setTimeout(() => {
+      if (editTaskDialogFocus === "name") {
+        editNameRef.current?.focus();
+        editNameRef.current?.select?.();
+      } else {
+        editDescriptionRef.current?.focus();
+      }
+    }, 0);
+
+    return () => window.clearTimeout(id);
+  }, [editTaskDialogOpen, editTaskDialogFocus]);
 
   const handleUpdateTask = async () => {
     if (!editingTask || !editTaskName.trim()) {
@@ -1859,49 +1883,52 @@ export function WorkloadBoard({
                 Sort
               </Button> */}
 
-              {/* Column Visibility Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              {/* Column Visibility Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm">
                     <EyeOff className="h-4 w-4 mr-2" />
                     Columns
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                </PopoverTrigger>
+
+                <PopoverContent align="end" className="w-56">
                   <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
                     Show/Hide Columns
                   </div>
-                  <DropdownMenuSeparator />
-                  {ALL_AVAILABLE_COLUMNS.map((columnId) => {
-                    const columnLabel =
-                      {
-                        item: "Item",
-                        status: "Status",
-                        priority: "Priority",
-                        description: "Description",
-                        date: "Date",
-                        person: "Person",
-                        time: "Time Spent",
-                      }[columnId] || columnId;
+                  <div className="border-t border-border my-2" />
 
-                    return (
-                      <DropdownMenuItem
-                        key={columnId}
-                        onClick={() => toggleColumnVisibility(columnId)}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns[columnId] === true}
-                          onChange={() => {}}
-                          className="cursor-pointer"
-                        />
-                        <span>{columnLabel}</span>
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  <div className="p-2 space-y-1">
+                    {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                      const columnLabel =
+                        {
+                          item: "Item",
+                          status: "Status",
+                          priority: "Priority",
+                          description: "Description",
+                          date: "Date",
+                          person: "Person",
+                          time: "Time Spent",
+                        }[columnId] || columnId;
+
+                      return (
+                        <label
+                          key={columnId}
+                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns[columnId] === true}
+                            onChange={() => toggleColumnVisibility(columnId)}
+                            className="cursor-pointer"
+                          />
+                          <span className="text-sm">{columnLabel}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Task Groups */}
@@ -2676,6 +2703,7 @@ export function WorkloadBoard({
                   }
                 }}
                 autoFocus
+                ref={editNameRef}
               />
             </div>
             <div className="grid gap-2">
@@ -2699,6 +2727,7 @@ export function WorkloadBoard({
                 }}
                 className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 rows={4}
+                ref={editDescriptionRef}
               />
             </div>
           </div>
