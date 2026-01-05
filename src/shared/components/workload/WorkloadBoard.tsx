@@ -149,6 +149,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "priority",
   "description",
   "rating",
+  "estimatedDate",
   "person",
   "time",
 ];
@@ -160,6 +161,7 @@ const ALL_AVAILABLE_COLUMNS = [
   "priority",
   "description",
   "rating",
+  "estimatedDate",
   "date",
   "person",
   "time",
@@ -1717,6 +1719,62 @@ export function WorkloadBoard({
     }
   };
 
+  // const handleEstimatedDateChange = async (taskId: string, fromDate: string | null, toDate: string | null) => {
+  //   try {
+  //     const boardIdNum = Number(boardId);
+
+  //     const payload: UpdateTaskRequest = {
+  //       id: taskId,
+  //       board_id: boardIdNum,
+  //       due_date: fromDate || undefined,
+  //       // due_date_end: toDate || undefined,
+  //     };
+
+  //     const updated = await tasksApi.updateTask(payload);
+
+  //     setGroups((prevGroups) =>
+  //       prevGroups.map((group) => ({
+  //         ...group,
+  //         tasks: group.tasks.map((task) => {
+  //           // ✅ parent task
+  //           if (task.id === taskId) {
+  //             return {
+  //               ...task,
+  //               estimatedDate: updated.due_date || "-",
+  //               // estimatedDateEnd: updated.due_date_end || null,
+  //             };
+  //           }
+
+  //           // ✅ subtask
+  //           if (task.subitems?.length) {
+  //             return {
+  //               ...task,
+  //               subitems: task.subitems.map((sub) =>
+  //                 sub.id === taskId
+  //                   ? {
+  //                       ...sub,
+  //                       estimatedDate: updated.due_date || "-",
+  //                       // estimatedDateEnd: updated.due_date_end || null,
+  //                     }
+  //                   : sub
+  //               ),
+  //             };
+  //           }
+
+  //           return task;
+  //         }),
+  //       }))
+  //     );
+
+  //     // Close popover after update
+  //     setOpenPopoverId(null);
+  //     toast.success("Date updated successfully");
+  //   } catch (err) {
+  //     console.error(err);
+  //     toast.error("Failed to update date");
+  //   }
+  // };
+
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
     const updatedChecked: Record<string, boolean> = {
       [taskId]: checked,
@@ -2276,6 +2334,7 @@ export function WorkloadBoard({
                           priority: "Priority",
                           description: "Description",
                           rating: "Rating",
+                          estimatedDate: "Estimated Date",
                           date: "Date",
                           person: "Person",
                           time: "Time Spent",

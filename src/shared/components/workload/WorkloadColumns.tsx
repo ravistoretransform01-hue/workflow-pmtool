@@ -1,9 +1,11 @@
+import { useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
   MessageCirclePlus,
   Pencil,
   User,
+  X,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
 import {
@@ -13,6 +15,8 @@ import {
 } from "@/shared/components/ui/popover";
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "../ui/avatar";
+import { Calendar } from "@/shared/components/ui/calendar";
+import { format, parseISO } from "date-fns";
 
 function stringToHslColor(str: string, s = 70, l = 55): string {
   let hash = 0;
@@ -21,6 +25,93 @@ function stringToHslColor(str: string, s = 70, l = 55): string {
   }
   const h = Math.abs(hash) % 360;
   return `hsl(${h} ${s}% ${l}%)`;
+}
+
+// Component for rating stars with hover preview
+function RatingStars({
+  task,
+  rating,
+  popoverId,
+  openPopoverId,
+  setOpenPopoverId,
+  onRatingChange,
+}: {
+  task: any;
+  rating: number;
+  popoverId: string;
+  openPopoverId?: string | null;
+  setOpenPopoverId?: (id: string | null) => void;
+  onRatingChange?: (taskId: string, rating: number) => void;
+}) {
+  const [hoveredRating, setHoveredRating] = useState(0);
+
+  return (
+    <Popover
+      open={openPopoverId === popoverId}
+      onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+    >
+      <PopoverTrigger asChild>
+        <button
+          className="w-full h-8 flex items-center justify-center gap-1"
+          aria-label={`Rating ${rating}`}
+        >
+          {[1, 2, 3, 4, 5].map((i) => (
+            <svg
+              key={i}
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className={`h-4 w-4 ${
+                i <= rating ? "text-yellow-400" : "text-muted-foreground"
+              }`}
+            >
+              <path
+                d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
+                fill="currentColor"
+              />
+            </svg>
+          ))}
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent
+        className="w-60 p-3 bg-card border border-border shadow-lg rounded-lg"
+        align="center"
+      >
+        <div className="flex gap-2 justify-center">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <button
+              key={i}
+              onClick={() => {
+                setOpenPopoverId?.(null);
+                onRatingChange?.(task.id, i);
+              }}
+              onMouseEnter={() => setHoveredRating(i)}
+              onMouseLeave={() => setHoveredRating(0)}
+              className="p-1"
+              aria-label={`Set rating ${i}`}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className={`h-6 w-6 transition-colors ${
+                  i <= (hoveredRating || rating)
+                    ? "text-yellow-400"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <path
+                  d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 interface Column {
@@ -44,6 +135,7 @@ export const getWorkloadColumns = ({
   onPriorityChange,
   onPersonChange,
   onRatingChange,
+  onEstimatedDateChange,
   openPopoverId,
   setOpenPopoverId,
 }: {
@@ -58,6 +150,11 @@ export const getWorkloadColumns = ({
   onPriorityChange?: (taskId: string, priorityId: string) => void;
   onPersonChange?: (taskId: string, memberId: string) => void;
   onRatingChange?: (taskId: string, rating: number) => void;
+  onEstimatedDateChange?: (
+    taskId: string,
+    fromDate: string | null,
+    toDate: string | null
+  ) => void;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
 }): Column[] => {
@@ -273,66 +370,119 @@ export const getWorkloadColumns = ({
         const popoverId = `rating-${task.id}`;
 
         return (
+          <RatingStars
+            task={task}
+            rating={rating}
+            popoverId={popoverId}
+            openPopoverId={openPopoverId}
+            setOpenPopoverId={setOpenPopoverId}
+            onRatingChange={onRatingChange}
+          />
+        );
+      },
+    },
+    {
+      id: "estimatedDate",
+      label: "Estimated Date",
+      width: "180px",
+      align: "center",
+      render: (task: any) => {
+        const estimatedDate = task.estimatedDate ?? "-";
+        const estimatedDateEnd = task.estimatedDateEnd ?? null;
+        const popoverId = `estimatedDate-${task.id}`;
+        const [dateRange, setDateRange] = useState<
+          { from?: Date; to?: Date } | undefined
+        >(() => {
+          const from =
+            estimatedDate && estimatedDate !== "-"
+              ? parseISO(estimatedDate)
+              : undefined;
+          const to = estimatedDateEnd ? parseISO(estimatedDateEnd) : undefined;
+          return { from, to };
+        });
+
+        const handleDateRangeChange = (
+          range: { from?: Date; to?: Date } | undefined
+        ) => {
+          setDateRange(range);
+          const fromDate = range?.from
+            ? format(range.from, "yyyy-MM-dd")
+            : null;
+          const toDate = range?.to ? format(range.to, "yyyy-MM-dd") : null;
+          onEstimatedDateChange?.(task.id, fromDate, toDate);
+          // setOpenPopoverId?.(null);
+        };
+
+        const formatDateDisplay = () => {
+          if (estimatedDate === "-") return "-";
+          if (estimatedDateEnd && estimatedDateEnd !== "-") {
+            return `${estimatedDate} → ${estimatedDateEnd}`;
+          }
+          return estimatedDate;
+        };
+
+        return (
           <Popover
             open={openPopoverId === popoverId}
             onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
           >
             <PopoverTrigger asChild>
-              <button
-                className="h-8 px-3 flex items-center gap-1"
-                aria-label={`Rating ${rating}`}
-              >
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <svg
-                    key={i}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className={`h-4 w-4 ${i <= rating ? "text-yellow-400" : "text-muted-foreground"}`}
+              <div className="relative group inline-block">
+                <button className="bg-muted text-muted-foreground px-4 py-1 rounded-full text-sm hover:bg-accent transition-colors">
+                  {formatDateDisplay()}
+                </button>
+                {estimatedDate !== "-" && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDateRangeChange(undefined);
+                    }}
+                    className="absolute -right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-opacity"
                   >
-                    <path
-                      d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                ))}
-              </button>
+                    ×
+                  </button>
+                )}
+              </div>
             </PopoverTrigger>
-
             <PopoverContent
-              className="w-60 p-3 bg-card border border-border shadow-lg rounded-lg"
+              className="w-auto p-4 bg-card border border-border shadow-lg rounded-lg"
               align="center"
             >
-              <div className="flex gap-2 justify-center">
-                {[1, 2, 3, 4, 5].map((i) => (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-sm">Select Date Range</h3>
                   <button
-                    key={i}
-                    onClick={() => {
-                      setOpenPopoverId?.(null);
-                      onRatingChange?.(task.id, i);
-                    }}
-                    className="p-1"
-                    aria-label={`Set rating ${i}`}
+                    onClick={() => setOpenPopoverId?.(null)}
+                    className="text-muted-foreground hover:text-foreground"
                   >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className={`h-6 w-6 ${i <= rating ? "text-yellow-400" : "text-muted-foreground"}`}
-                    >
-                      <path
-                        d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
-                        fill="currentColor"
-                      />
-                    </svg>
+                    <X className="h-4 w-4" />
                   </button>
-                ))}
+                </div>
+                <Calendar
+                  mode="range"
+                  selected={
+                    dateRange?.from
+                      ? { from: dateRange.from, to: dateRange.to }
+                      : undefined
+                  }
+                  onSelect={handleDateRangeChange}
+                  disabled={(date) =>
+                    date < new Date(new Date().setHours(0, 0, 0, 0))
+                  }
+                />
               </div>
             </PopoverContent>
           </Popover>
         );
       },
     },
+    // {
+    //   id: "timer",
+    //   label: "Timer",
+    //   width: "160px",
+    //   align: "center",
+    //   render: (task: any) => task.estimatedDate ?? "-",
+    // },
     {
       id: "date",
       label: "Date",
