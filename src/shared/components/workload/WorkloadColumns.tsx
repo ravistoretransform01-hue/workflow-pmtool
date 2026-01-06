@@ -6,6 +6,7 @@ import {
   Pencil,
   User,
   X,
+  Search,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
 import {
@@ -16,6 +17,7 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Calendar } from "@/shared/components/ui/calendar";
+import { Input } from "@/shared/components/ui/input";
 import { format, parseISO } from "date-fns";
 
 function stringToHslColor(str: string, s = 70, l = 55): string {
@@ -27,7 +29,116 @@ function stringToHslColor(str: string, s = 70, l = 55): string {
   return `hsl(${h} ${s}% ${l}%)`;
 }
 
-// Component for rating stars with hover preview
+// Component for person selection with search
+function PersonPopover({
+  task,
+  members,
+  memberObj,
+  popoverId,
+  openPopoverId,
+  setOpenPopoverId,
+  onPersonChange,
+}: {
+  task: any;
+  members: any[];
+  memberObj: any;
+  popoverId: string;
+  openPopoverId?: string | null;
+  setOpenPopoverId?: (id: string | null) => void;
+  onPersonChange?: (taskId: string, memberId: string) => void;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredMembers = members.filter((member) =>
+    (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <Popover
+      open={openPopoverId === popoverId}
+      onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 w-full px-3 text-xs font-medium flex items-center justify-center gap-2"
+          title={memberObj?.name || "Unassigned"}
+          aria-label={memberObj?.name ? memberObj.name : "Unassigned"}
+        >
+          {memberObj?.name ? (
+            <span className="truncate text-center w-full">
+              {memberObj.name}
+            </span>
+          ) : (
+            <User className="h-4 w-4 text-foreground" />
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg"
+        align="center"
+      >
+        <div className="space-y-2">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+            <Input
+              placeholder="Search members..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
+
+          {/* Members List */}
+          <div className="space-y-1 max-h-64 overflow-y-auto">
+            {filteredMembers.length === 0 ? (
+              <div className="text-center py-4 text-sm text-muted-foreground">
+                No members found
+              </div>
+            ) : (
+              filteredMembers.map((member) => {
+                const name = (member?.name ?? "").trim();
+                const initials = name
+                  .split(/\s+/)
+                  .map((n: string) => n[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase();
+
+                const bgColor = stringToHslColor(
+                  name || String(member?.user_id || "user")
+                );
+
+                return (
+                  <button
+                    key={member.user_id}
+                    onClick={() => {
+                      onPersonChange?.(task.id, member.user_id);
+                      setOpenPopoverId?.(null);
+                    }}
+                    className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-accent transition-colors text-sm font-medium text-left"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback
+                        style={{ background: bgColor, color: "white" }}
+                      >
+                        {initials || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>{member.name}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 function RatingStars({
   task,
   rating,
@@ -547,66 +658,15 @@ export const getWorkloadColumns = ({
         );
         const popoverId = `person-${task.id}`;
         return (
-          <Popover
-            open={openPopoverId === popoverId}
-            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-full px-3 text-xs font-medium flex items-center justify-center gap-2"
-                title={memberObj?.name || "Unassigned"}
-                aria-label={memberObj?.name ? memberObj.name : "Unassigned"}
-              >
-                {memberObj?.name ? (
-                  <span className="truncate text-center w-full">
-                    {memberObj.name}
-                  </span>
-                ) : (
-                  <User className="h-4 w-4 text-foreground" />
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg"
-              align="center"
-            >
-              <div className="space-y-1">
-                {members.map((member) => {
-                  const name = (member?.name ?? "").trim();
-                  const initials = name
-                    .split(/\s+/)
-                    .map((n: string) => n[0])
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .join("")
-                    .toUpperCase();
-
-                  const bgColor = stringToHslColor(
-                    name || String(member?.user_id || "usesr")
-                  );
-
-                  return (
-                    <button
-                      key={member.user_id}
-                      onClick={() => onPersonChange?.(task.id, member.user_id)}
-                      className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-accent transition-colors text-sm font-medium text-left"
-                    >
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback
-                          style={{ background: bgColor, color: "white" }}
-                        >
-                          {initials || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{member.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </PopoverContent>
-          </Popover>
+          <PersonPopover
+            task={task}
+            members={members}
+            memberObj={memberObj}
+            popoverId={popoverId}
+            openPopoverId={openPopoverId}
+            setOpenPopoverId={setOpenPopoverId}
+            onPersonChange={onPersonChange}
+          />
         );
       },
     },
