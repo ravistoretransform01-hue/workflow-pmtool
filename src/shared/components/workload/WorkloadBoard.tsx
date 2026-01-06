@@ -121,6 +121,7 @@ export interface Task {
   estimatedDate?: string;
   person?: string;
   assigned_to_id?: string;
+  assigned_to_ids?: string[]; // Multiple assignees
   timeSpent?: string;
   rating?: number;
   group_id?: string;
@@ -152,6 +153,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "rating",
   "estimatedDate",
   "person",
+  "timer",
   "time",
 ];
 
@@ -165,6 +167,7 @@ const ALL_AVAILABLE_COLUMNS = [
   "estimatedDate",
   "date",
   "person",
+  "timer",
   "time",
 ];
 
@@ -562,6 +565,13 @@ export function WorkloadBoard({
     Array<{ name: string; size: number; type: string; url: string }>
   >([]);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+
+  // Timer state - track which task's timer is currently running
+  const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
+
+  // Timer conflict dialog state
+  const [timerConflictDialogOpen, setTimerConflictDialogOpen] = useState(false);
+  const [conflictingTaskName, setConflictingTaskName] = useState("");
 
   // CMS Data states
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -1665,10 +1675,11 @@ export function WorkloadBoard({
     }
   };
 
-  const handlePersonChange = async (taskId: string, memberId: string) => {
+  const handlePersonChange = async (taskId: string, memberId: string, isMultiple?: boolean) => {
     try {
       const boardIdNum = Number(boardId);
 
+      // For now, we'll handle single assignment (API will be updated later for multiple)
       const payload: UpdateTaskRequest = {
         id: taskId,
         board_id: boardIdNum,
@@ -1683,10 +1694,27 @@ export function WorkloadBoard({
           tasks: group.tasks.map((task) => {
             // ✅ parent task
             if (task.id === taskId) {
+              // For multiple assignees, we'll store them in assigned_to_ids
+              const currentIds = task.assigned_to_ids || [];
+              let newIds = currentIds;
+              
+              if (isMultiple) {
+                // Toggle the member in the list
+                if (currentIds.includes(memberId)) {
+                  newIds = currentIds.filter((id) => id !== memberId);
+                } else {
+                  newIds = [...currentIds, memberId];
+                }
+              } else {
+                // Single assignment
+                newIds = [memberId];
+              }
+
               return {
                 ...task,
                 person: updated.assignee?.name,
                 assigned_to_id: String(updated.assigned_to),
+                assigned_to_ids: newIds,
               };
             }
 
@@ -1694,15 +1722,30 @@ export function WorkloadBoard({
             if (task.subitems?.length) {
               return {
                 ...task,
-                subitems: task.subitems.map((sub) =>
-                  sub.id === taskId
-                    ? {
-                        ...sub,
-                        person: updated.assignee?.name,
-                        assigned_to_id: String(updated.assigned_to),
+                subitems: task.subitems.map((sub) => {
+                  if (sub.id === taskId) {
+                    const currentIds = sub.assigned_to_ids || [];
+                    let newIds = currentIds;
+                    
+                    if (isMultiple) {
+                      if (currentIds.includes(memberId)) {
+                        newIds = currentIds.filter((id) => id !== memberId);
+                      } else {
+                        newIds = [...currentIds, memberId];
                       }
-                    : sub
-                ),
+                    } else {
+                      newIds = [memberId];
+                    }
+
+                    return {
+                      ...sub,
+                      person: updated.assignee?.name,
+                      assigned_to_id: String(updated.assigned_to),
+                      assigned_to_ids: newIds,
+                    };
+                  }
+                  return sub;
+                }),
               };
             }
 
@@ -1711,8 +1754,6 @@ export function WorkloadBoard({
         }))
       );
 
-      // Close popover after update
-      setOpenPopoverId(null);
       toast.success("Person assigned successfully");
     } catch (err) {
       console.error(err);
@@ -1794,6 +1835,29 @@ export function WorkloadBoard({
       ...prev,
       ...updatedChecked,
     }));
+  };
+
+  const handleTimerStart = (taskId: string) => {
+    setActiveTimerId(taskId);
+  };
+
+  const handleTimerConflict = (conflictingTaskId: string) => {
+    // Find the conflicting task name
+    let taskName = "Another task";
+    getFilteredGroups().forEach((group) => {
+      group.tasks.forEach((task) => {
+        if (task.id === conflictingTaskId) {
+          taskName = task.name;
+        }
+        task.subitems?.forEach((subitem) => {
+          if (subitem.id === conflictingTaskId) {
+            taskName = subitem.name;
+          }
+        });
+      });
+    });
+    setConflictingTaskName(taskName);
+    setTimerConflictDialogOpen(true);
   };
 
   const deleteCheckedTasks = async () => {
@@ -2398,6 +2462,7 @@ export function WorkloadBoard({
                           estimatedDate: "Estimated Date",
                           date: "Date",
                           person: "Person",
+                          timer: "Timer",
                           time: "Time Spent",
                         }[columnId] || columnId;
 
@@ -2709,7 +2774,15 @@ export function WorkloadBoard({
 
                                     {/* Table Body */}
                                     <tbody>
-                                      {group.tasks.map((task) => (
+                                      {group.tasks.map((task) => {
+                                        const taskWithProps = {
+                                          ...task,
+                                          boardId: boardId,
+                                          activeTimerId: activeTimerId,
+                                          onTimerStart: handleTimerStart,
+                                          onTimerConflict: handleTimerConflict,
+                                        };
+                                        return (
                                         <React.Fragment key={task.id}>
                                           {/* ================= TASK ROW ================= */}
                                           <tr className="border-t border-b border-border hover:bg-muted/40">
@@ -2752,7 +2825,7 @@ export function WorkloadBoard({
                                                     </button>
                                                   </div>
                                                 ) : (
-                                                  col.render(task)
+                                                  col.render(taskWithProps)
                                                 )}
                                               </td>
                                             ))}
@@ -2760,7 +2833,15 @@ export function WorkloadBoard({
 
                                           {/* ================= SUBITEM ROWS ================= */}
                                           {expandedTasks[task.id] &&
-                                            task.subitems?.map((subtask) => (
+                                            task.subitems?.map((subtask) => {
+                                              const subtaskWithProps = {
+                                                ...subtask,
+                                                boardId: boardId,
+                                                activeTimerId: activeTimerId,
+                                                onTimerStart: handleTimerStart,
+                                                onTimerConflict: handleTimerConflict,
+                                              };
+                                              return (
                                               <tr
                                                 key={subtask.id}
                                                 className="  hover:bg-muted/30 border-b border-border"
@@ -2805,12 +2886,13 @@ export function WorkloadBoard({
                                                         </button>
                                                       </div>
                                                     ) : (
-                                                      col.render(subtask, true)
+                                                      col.render(subtaskWithProps, true)
                                                     )}
                                                   </td>
                                                 ))}
                                               </tr>
-                                            ))}
+                                            );
+                                            })}
 
                                           {/* ================= ADD SUBITEM ================= */}
                                           {expandedTasks[task.id] && (
@@ -2894,7 +2976,8 @@ export function WorkloadBoard({
                                             </tr>
                                           )}
                                         </React.Fragment>
-                                      ))}
+                                      );
+                                      })}
 
                                       {/* ================= ADD ITEM ROW ================= */}
                                       <tr>
@@ -3262,6 +3345,26 @@ export function WorkloadBoard({
             </Button>
             <Button onClick={handleUpdateTask} disabled={!editTaskName.trim()}>
               Update Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Timer Conflict Dialog */}
+      <Dialog open={timerConflictDialogOpen} onOpenChange={setTimerConflictDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Timer Already Running</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-foreground">
+              Another timer is already running on "<strong>{conflictingTaskName}</strong>". 
+              Please stop it first before starting a new timer.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setTimerConflictDialogOpen(false)}>
+              OK
             </Button>
           </DialogFooter>
         </DialogContent>

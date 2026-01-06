@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -7,6 +7,8 @@ import {
   User,
   X,
   Search,
+  Play,
+  Pause,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
 import {
@@ -29,11 +31,133 @@ function stringToHslColor(str: string, s = 70, l = 55): string {
   return `hsl(${h} ${s}% ${l}%)`;
 }
 
+// Component for timer/stopwatch
+function Timer({
+  taskId,
+  boardId,
+  activeTimerId,
+  onTimerStart,
+  onTimerConflict,
+}: {
+  taskId: string;
+  boardId: string;
+  activeTimerId: string | null;
+  onTimerStart: (taskId: string | null) => void;
+  onTimerConflict?: (taskId: string) => void;
+}) {
+  const [seconds, setSeconds] = useState(0);
+  const isRunning = activeTimerId === taskId;
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (isRunning) {
+      interval = setInterval(() => {
+        setSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRunning]);
+
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
+  };
+
+  const handlePlayPause = () => {
+    if (isRunning) {
+      // Pause
+      console.log({
+        taskId,
+        boardId,
+        timestamp: new Date().toISOString(),
+        action: "stop",
+      });
+      onTimerStart(null as any); // Pass null to stop the timer
+    } else {
+      // Play
+      if (activeTimerId && activeTimerId !== taskId) {
+        console.log({
+          taskId,
+          boardId,
+          timestamp: new Date().toISOString(),
+          action: "conflict",
+        });
+        onTimerConflict?.(activeTimerId);
+        return;
+      }
+      console.log({
+        taskId,
+        boardId,
+        timestamp: new Date().toISOString(),
+        action: "play",
+      });
+      onTimerStart(taskId);
+    }
+  };
+
+  // const handleReset = () => {
+  //   setSeconds(0);
+  //   console.log({
+  //     taskId,
+  //     boardId,
+  //     timestamp: new Date().toISOString(),
+  //     action: "reset",
+  //   });
+  // };
+
+  // Determine background color based on timer state
+  let bgColor = "bg-blue-500/50"; // Default: blue
+  if (isRunning) {
+    bgColor = "bg-green-500/50"; // Running: green
+  }
+  // TODO: Add red for overtime when estimatedSeconds is available
+  // if (isOverTime) {
+  //   bgColor = "bg-red-500/50"; // Overtime: red
+  // }
+
+  return (
+    <div
+      className={`flex items-center justify-center gap-2 w-full h-full ${bgColor} rounded`}
+    >
+      <button
+        onClick={handlePlayPause}
+        className="p-2 hover:bg-muted rounded transition-colors"
+        title={isRunning ? "Pause" : "Start"}
+      >
+        {isRunning ? (
+          <Pause className="h-4 w-4 text-foreground" />
+        ) : (
+          <Play className="h-4 w-4 text-foreground" />
+        )}
+      </button>
+      <div className="rounded px-3 py-1 min-w-14 text-center">
+        <span className="text-sm font-medium">{formatTime(seconds)}</span>
+      </div>
+      {/* <button
+        onClick={handleReset}
+        className="p-1 hover:bg-muted rounded transition-colors"
+        title="Reset"
+      >
+        <RotateCcw className="h-4 w-4 text-foreground" />
+      </button> */}
+    </div>
+  );
+}
+
 // Component for person selection with search
 function PersonPopover({
   task,
   members,
-  memberObj,
+  selectedMemberIds,
   popoverId,
   openPopoverId,
   setOpenPopoverId,
@@ -41,17 +165,38 @@ function PersonPopover({
 }: {
   task: any;
   members: any[];
-  memberObj: any;
+  selectedMemberIds?: string[];
   popoverId: string;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
-  onPersonChange?: (taskId: string, memberId: string) => void;
+  onPersonChange?: (taskId: string, memberId: string, isMultiple?: boolean) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [localSelected, setLocalSelected] = useState<Set<string>>(
+    new Set(selectedMemberIds || [])
+  );
 
   const filteredMembers = members.filter((member) =>
     (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleMemberToggle = (memberId: string) => {
+    const newSelected = new Set(localSelected);
+    if (newSelected.has(memberId)) {
+      newSelected.delete(memberId);
+    } else {
+      newSelected.add(memberId);
+    }
+    setLocalSelected(newSelected);
+  };
+
+  const handleUpdateAssignees = () => {
+    // Notify parent of all selected members
+    localSelected.forEach((memberId) => {
+      onPersonChange?.(task.id, memberId, true);
+    });
+    setOpenPopoverId?.(null);
+  };
 
   return (
     <Popover
@@ -59,29 +204,54 @@ function PersonPopover({
       onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
     >
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 w-full px-3 text-xs font-medium flex items-center justify-center gap-2"
-          title={memberObj?.name || "Unassigned"}
-          aria-label={memberObj?.name ? memberObj.name : "Unassigned"}
-        >
-          {memberObj?.name ? (
-            <span className="truncate text-center w-full">
-              {memberObj.name}
-            </span>
+        <div className="h-8 w-full flex items-center justify-center gap-1 px-2">
+          {localSelected.size === 0 ? (
+            <button className="h-8 w-8 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors">
+              <User className="h-4 w-4 text-muted-foreground" />
+            </button>
           ) : (
-            <User className="h-4 w-4 text-foreground" />
+            <div className="flex items-center gap-1">
+              {Array.from(localSelected).slice(0, 3).map((memberId) => {
+                const member = members.find((m) => String(m.user_id) === String(memberId));
+                if (!member) return null;
+                const name = (member?.name ?? "").trim();
+                const initials = name
+                  .split(/\s+/)
+                  .map((n: string) => n[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase();
+                const bgColor = stringToHslColor(
+                  name || String(member?.user_id || "user")
+                );
+                return (
+                  <Avatar key={memberId} className="h-6 w-6">
+                    <AvatarFallback
+                      style={{ background: bgColor, color: "white" }}
+                      className="text-xs font-semibold"
+                    >
+                      {initials || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                );
+              })}
+              {localSelected.size > 3 && (
+                <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                  +{localSelected.size - 3}
+                </div>
+              )}
+            </div>
           )}
-        </Button>
+        </div>
       </PopoverTrigger>
       <PopoverContent
-        className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg"
+        className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg flex flex-col"
         align="center"
       >
-        <div className="space-y-2">
+        <div className="space-y-2 flex flex-col">
           {/* Search Input */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
             <Input
               placeholder="Search members..."
@@ -91,8 +261,8 @@ function PersonPopover({
             />
           </div>
 
-          {/* Members List */}
-          <div className="space-y-1 max-h-64 overflow-y-auto">
+          {/* Members List - Show 2.5 items, rest scrollable */}
+          <div className="space-y-1 overflow-y-auto" style={{ maxHeight: "calc(2.5 * 40px)" }}>
             {filteredMembers.length === 0 ? (
               <div className="text-center py-4 text-sm text-muted-foreground">
                 No members found
@@ -112,15 +282,22 @@ function PersonPopover({
                   name || String(member?.user_id || "user")
                 );
 
+                const isSelected = localSelected.has(String(member.user_id));
+
                 return (
                   <button
                     key={member.user_id}
-                    onClick={() => {
-                      onPersonChange?.(task.id, member.user_id);
-                      setOpenPopoverId?.(null);
-                    }}
-                    className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-accent transition-colors text-sm font-medium text-left"
+                    onClick={() => handleMemberToggle(String(member.user_id))}
+                    className={`w-full flex items-center gap-3 px-2 py-2 rounded transition-colors text-sm font-medium text-left ${
+                      isSelected ? "bg-accent" : "hover:bg-accent"
+                    }`}
                   >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {}}
+                      className="h-4 w-4 rounded"
+                    />
                     <Avatar className="h-8 w-8">
                       <AvatarFallback
                         style={{ background: bgColor, color: "white" }}
@@ -133,6 +310,17 @@ function PersonPopover({
                 );
               })
             )}
+          </div>
+
+          {/* Update Button */}
+          <div className="flex-shrink-0 pt-2 border-t border-border">
+            <Button
+              onClick={handleUpdateAssignees}
+              className="w-full h-8 text-sm"
+              size="sm"
+            >
+              Update
+            </Button>
           </div>
         </div>
       </PopoverContent>
@@ -377,7 +565,7 @@ export const getWorkloadColumns = ({
   members?: any[];
   onStatusChange?: (taskId: string, statusId: string) => void;
   onPriorityChange?: (taskId: string, priorityId: string) => void;
-  onPersonChange?: (taskId: string, memberId: string) => void;
+  onPersonChange?: (taskId: string, memberId: string, isMultiple?: boolean) => void;
   onRatingChange?: (taskId: string, rating: number) => void;
   onEstimatedDateChange?: (
     taskId: string,
@@ -647,21 +835,20 @@ export const getWorkloadColumns = ({
       align: "center",
       render: (task: any) => task.date ?? "-",
     },
+
     {
       id: "person",
       label: "Person",
       width: "128px",
       align: "center",
       render: (task: any) => {
-        const memberObj = members.find(
-          (m) => String(m.user_id) === String(task.assigned_to_id)
-        );
+        const selectedMemberIds = task.assigned_to_ids || (task.assigned_to_id ? [task.assigned_to_id] : []);
         const popoverId = `person-${task.id}`;
         return (
           <PersonPopover
             task={task}
             members={members}
-            memberObj={memberObj}
+            selectedMemberIds={selectedMemberIds}
             popoverId={popoverId}
             openPopoverId={openPopoverId}
             setOpenPopoverId={setOpenPopoverId}
@@ -669,6 +856,22 @@ export const getWorkloadColumns = ({
           />
         );
       },
+    },
+    
+    {
+      id: "timer",
+      label: "Timer",
+      width: "160px",
+      align: "center",
+      render: (task: any) => (
+        <Timer
+          taskId={task.id}
+          boardId={task.boardId}
+          activeTimerId={task.activeTimerId}
+          onTimerStart={task.onTimerStart}
+          onTimerConflict={task.onTimerConflict}
+        />
+      ),
     },
     {
       id: "time",
