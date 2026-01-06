@@ -4,7 +4,6 @@ import {
   ChevronRight,
   MessageCirclePlus,
   Pencil,
-  User,
   X,
   Search,
   Play,
@@ -169,7 +168,7 @@ function PersonPopover({
   popoverId: string;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
-  onPersonChange?: (taskId: string, memberId: string, isMultiple?: boolean) => void;
+  onPersonChange?: (taskId: string, memberIds: string[]) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [localSelected, setLocalSelected] = useState<Set<string>>(
@@ -191,10 +190,8 @@ function PersonPopover({
   };
 
   const handleUpdateAssignees = () => {
-    // Notify parent of all selected members
-    localSelected.forEach((memberId) => {
-      onPersonChange?.(task.id, memberId, true);
-    });
+    // Send all selected members at once
+    onPersonChange?.(task.id, Array.from(localSelected));
     setOpenPopoverId?.(null);
   };
 
@@ -204,13 +201,11 @@ function PersonPopover({
       onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
     >
       <PopoverTrigger asChild>
-        <div className="h-8 w-full flex items-center justify-center gap-1 px-2">
+        <button className="w-full flex justify-center hover:opacity-80 transition-opacity cursor-pointer">
           {localSelected.size === 0 ? (
-            <button className="h-8 w-8 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors">
-              <User className="h-4 w-4 text-muted-foreground" />
-            </button>
+            <span className="text-muted-foreground text-xs">+ Add</span>
           ) : (
-            <div className="flex items-center gap-1">
+            <div className="flex justify-center -space-x-4">
               {Array.from(localSelected).slice(0, 3).map((memberId) => {
                 const member = members.find((m) => String(m.user_id) === String(memberId));
                 if (!member) return null;
@@ -226,10 +221,10 @@ function PersonPopover({
                   name || String(member?.user_id || "user")
                 );
                 return (
-                  <Avatar key={memberId} className="h-6 w-6">
+                  <Avatar key={memberId} className="h-6 w-6 border-2 border-background">
                     <AvatarFallback
                       style={{ background: bgColor, color: "white" }}
-                      className="text-xs font-semibold"
+                      className="text-[10px] font-semibold"
                     >
                       {initials || "U"}
                     </AvatarFallback>
@@ -237,13 +232,11 @@ function PersonPopover({
                 );
               })}
               {localSelected.size > 3 && (
-                <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground">
-                  +{localSelected.size - 3}
-                </div>
+                <span className="text-xs text-muted-foreground ml-1">+{localSelected.size - 3}</span>
               )}
             </div>
           )}
-        </div>
+        </button>
       </PopoverTrigger>
       <PopoverContent
         className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg flex flex-col"
@@ -262,7 +255,7 @@ function PersonPopover({
           </div>
 
           {/* Members List - Show 2.5 items, rest scrollable */}
-          <div className="space-y-1 overflow-y-auto" style={{ maxHeight: "calc(2.5 * 40px)" }}>
+          <div className="space-y-1 overflow-y-auto" style={{ maxHeight: "calc(4 * 40px)", scrollbarWidth: "none", msOverflowStyle: "none" }}>
             {filteredMembers.length === 0 ? (
               <div className="text-center py-4 text-sm text-muted-foreground">
                 No members found
@@ -288,9 +281,7 @@ function PersonPopover({
                   <button
                     key={member.user_id}
                     onClick={() => handleMemberToggle(String(member.user_id))}
-                    className={`w-full flex items-center gap-3 px-2 py-2 rounded transition-colors text-sm font-medium text-left ${
-                      isSelected ? "bg-accent" : "hover:bg-accent"
-                    }`}
+                    className="w-full flex items-center gap-3 px-2 py-2 rounded transition-colors text-sm font-medium text-left hover:bg-muted"
                   >
                     <input
                       type="checkbox"
@@ -565,7 +556,7 @@ export const getWorkloadColumns = ({
   members?: any[];
   onStatusChange?: (taskId: string, statusId: string) => void;
   onPriorityChange?: (taskId: string, priorityId: string) => void;
-  onPersonChange?: (taskId: string, memberId: string, isMultiple?: boolean) => void;
+  onPersonChange?: (taskId: string, memberIds: string[]) => void;
   onRatingChange?: (taskId: string, rating: number) => void;
   onEstimatedDateChange?: (
     taskId: string,

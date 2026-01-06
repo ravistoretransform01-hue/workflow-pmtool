@@ -651,6 +651,8 @@ export function WorkloadBoard({
           priority_id: String(task.task_priority_id),
           estimatedDate: task.due_date,
           person: task.assignee?.name,
+          assigned_to_id: task.assigned_to,
+          assigned_to_ids: task.assignees?.map((a) => String(a.user_id)) || (task.assigned_to ? [String(task.assigned_to)] : []),
           rating: typeof task.rating !== 'undefined' ? Number(task.rating) : undefined,
           group_id: String(task.group_id),
           timeSpent: task.time_spent_hours ? `${task.time_spent_hours}h` : "0h",
@@ -667,6 +669,8 @@ export function WorkloadBoard({
               priority_id: String(st.task_priority_id),
               estimatedDate: st.due_date,
               person: st.assignee?.name,
+              assigned_to_id: st.assigned_to,
+              assigned_to_ids: st.assignees?.map((a) => String(a.user_id)) || (st.assigned_to ? [String(st.assigned_to)] : []),
               rating: typeof st.rating !== 'undefined' ? Number(st.rating) : undefined,
               timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
               group_id: String(task.group_id), // ✅ ADD THIS
@@ -1675,18 +1679,26 @@ export function WorkloadBoard({
     }
   };
 
-  const handlePersonChange = async (taskId: string, memberId: string, isMultiple?: boolean) => {
+  const handlePersonChange = async (taskId: string, memberIds: string[]) => {
     try {
       const boardIdNum = Number(boardId);
 
-      // For now, we'll handle single assignment (API will be updated later for multiple)
+      // Filter out null/undefined values and convert to numbers
+      const validMemberIds = memberIds
+        .filter((id) => id && id !== "null" && id !== "undefined")
+        .map((id) => Number(id));
+
+      // Send the update with assignees array
       const payload: UpdateTaskRequest = {
         id: taskId,
         board_id: boardIdNum,
-        assigned_to: Number(memberId),
+        assignees: validMemberIds,
       };
 
       const updated = await tasksApi.updateTask(payload);
+
+      // Extract assignee IDs from the response
+      const assigneeIds = updated.assignees?.map((a) => String(a.user_id)) || [];
 
       setGroups((prevGroups) =>
         prevGroups.map((group) => ({
@@ -1694,27 +1706,11 @@ export function WorkloadBoard({
           tasks: group.tasks.map((task) => {
             // ✅ parent task
             if (task.id === taskId) {
-              // For multiple assignees, we'll store them in assigned_to_ids
-              const currentIds = task.assigned_to_ids || [];
-              let newIds = currentIds;
-              
-              if (isMultiple) {
-                // Toggle the member in the list
-                if (currentIds.includes(memberId)) {
-                  newIds = currentIds.filter((id) => id !== memberId);
-                } else {
-                  newIds = [...currentIds, memberId];
-                }
-              } else {
-                // Single assignment
-                newIds = [memberId];
-              }
-
               return {
                 ...task,
-                person: updated.assignee?.name,
-                assigned_to_id: String(updated.assigned_to),
-                assigned_to_ids: newIds,
+                person: updated.assignees?.[0]?.name || updated.assignee?.name,
+                assigned_to_id: updated.assignees?.[0]?.user_id || String(updated.assigned_to),
+                assigned_to_ids: assigneeIds,
               };
             }
 
@@ -1724,24 +1720,11 @@ export function WorkloadBoard({
                 ...task,
                 subitems: task.subitems.map((sub) => {
                   if (sub.id === taskId) {
-                    const currentIds = sub.assigned_to_ids || [];
-                    let newIds = currentIds;
-                    
-                    if (isMultiple) {
-                      if (currentIds.includes(memberId)) {
-                        newIds = currentIds.filter((id) => id !== memberId);
-                      } else {
-                        newIds = [...currentIds, memberId];
-                      }
-                    } else {
-                      newIds = [memberId];
-                    }
-
                     return {
                       ...sub,
-                      person: updated.assignee?.name,
-                      assigned_to_id: String(updated.assigned_to),
-                      assigned_to_ids: newIds,
+                      person: updated.assignees?.[0]?.name || updated.assignee?.name,
+                      assigned_to_id: updated.assignees?.[0]?.user_id || String(updated.assigned_to),
+                      assigned_to_ids: assigneeIds,
                     };
                   }
                   return sub;

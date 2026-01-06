@@ -28,11 +28,17 @@ export interface TaskResponse {
     name: string;
     email: string;
   };
-  assignee: {
+  assignee?: {
     id: number;
     name: string;
     email: string;
   };
+  assignees?: Array<{
+    user_id: string;
+    name: string;
+    email: string;
+    is_primary?: boolean;
+  }>;
   status_label: string;
   priority_label: string;
   subtasks_count: string;
@@ -70,6 +76,7 @@ export interface UpdateTaskRequest {
   estimated_date_from?: string;
   estimated_date_to?: string;
   assigned_to?: number;
+  assignees?: number[]; // Multiple assignees
   is_private?: number;
   member?: string;
   // optional rating update
