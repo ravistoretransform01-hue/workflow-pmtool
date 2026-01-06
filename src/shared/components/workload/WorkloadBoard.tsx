@@ -2166,7 +2166,30 @@ export function WorkloadBoard({
   }, [statuses, priorities, members, openPopoverId, visibleColumns, collapsedColumns, columnWidths]);
 
   const totalColumns = workloadColumns.length + 1;
-  // NEW : End
+
+  // Track unsaved changes for layout
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [initialGroupOrder, setInitialGroupOrder] = useState<string[]>([]);
+  const [initialColumnOrder, setInitialColumnOrder] = useState<string[]>([]);
+
+  // Initialize the original order when groups and columns are loaded
+  useEffect(() => {
+    setInitialGroupOrder(groups.map((g) => g.id));
+    setInitialColumnOrder(workloadColumns.map((c) => c.id));
+  }, []);
+
+  // Check if there are unsaved changes
+  useEffect(() => {
+    const currentGroupOrder = groups.map((g) => g.id);
+    const currentColumnOrder = workloadColumns.map((c) => c.id);
+
+    const groupsChanged =
+      JSON.stringify(currentGroupOrder) !== JSON.stringify(initialGroupOrder);
+    const columnsChanged =
+      JSON.stringify(currentColumnOrder) !== JSON.stringify(initialColumnOrder);
+
+    setHasUnsavedChanges(groupsChanged || columnsChanged);
+  }, [groups, workloadColumns, initialGroupOrder, initialColumnOrder]);
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -2300,6 +2323,43 @@ export function WorkloadBoard({
                     className="pl-9 h-8 bg-background border-border w-48"
                   />
                 </div>
+
+                {/* Save Button */}
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={!hasUnsavedChanges}
+                  onClick={() => {
+                    // Build the payload
+                    const groupOrder: Record<string, string> = {};
+                    groups.forEach((group, index) => {
+                      groupOrder[String(index + 1)] = group.id;
+                    });
+
+                    const columnOrder: Record<string, string> = {};
+                    workloadColumns.forEach((col, index) => {
+                      columnOrder[String(index + 1)] = col.id;
+                    });
+
+                    const payload = {
+                      board_id: parseInt(boardId, 10),
+                      group_order: groupOrder,
+                      column_order: columnOrder,
+                    };
+
+                    console.log("Save payload:", payload);
+                    
+                    // Update initial order to mark changes as saved
+                    setInitialGroupOrder(groups.map((g) => g.id));
+                    setInitialColumnOrder(workloadColumns.map((c) => c.id));
+                    setHasUnsavedChanges(false);
+                    
+                    toast.success("Layout saved successfully");
+                    // API call will be added here in the future
+                  }}
+                >
+                  Save View
+                </Button>
               </div>
 
               {/* <Button variant="ghost" size="sm">
