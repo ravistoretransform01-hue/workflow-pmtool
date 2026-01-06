@@ -1,5 +1,6 @@
 import React from "react";
 import { useState, useEffect, useRef, useMemo } from "react";
+import { format, parseISO } from "date-fns";
 
 // Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
 // const _loadedGroupsForBoard = new Set<string>();
@@ -1719,61 +1720,59 @@ export function WorkloadBoard({
     }
   };
 
-  // const handleEstimatedDateChange = async (taskId: string, fromDate: string | null, toDate: string | null) => {
-  //   try {
-  //     const boardIdNum = Number(boardId);
+  const handleEstimatedDateChange = (taskId: string, fromDate: string | null, toDate?: string | null) => {
+    // Format the date range display
+    let dateDisplay = "-";
+    if (fromDate) {
+      if (toDate && toDate !== fromDate) {
+        // Format as "13 Jan, 2026 - 14 Jan, 2026"
+        const fromFormatted = format(parseISO(fromDate), "dd MMM, yyyy");
+        const toFormatted = format(parseISO(toDate), "dd MMM, yyyy");
+        dateDisplay = `${fromFormatted} - ${toFormatted}`;
+      } else {
+        // Single date: "13 Jan, 2026"
+        dateDisplay = format(parseISO(fromDate), "dd MMM, yyyy");
+      }
+    }
 
-  //     const payload: UpdateTaskRequest = {
-  //       id: taskId,
-  //       board_id: boardIdNum,
-  //       due_date: fromDate || undefined,
-  //       // due_date_end: toDate || undefined,
-  //     };
+    setGroups((prevGroups) =>
+      prevGroups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => {
+          // ✅ parent task
+          if (task.id === taskId) {
+            return {
+              ...task,
+              estimatedDate: dateDisplay,
+              estimatedDateEnd: toDate || null,
+            };
+          }
 
-  //     const updated = await tasksApi.updateTask(payload);
+          // ✅ subtask
+          if (task.subitems?.length) {
+            return {
+              ...task,
+              subitems: task.subitems.map((sub) =>
+                sub.id === taskId
+                  ? {
+                      ...sub,
+                      estimatedDate: dateDisplay,
+                      estimatedDateEnd: toDate || null,
+                    }
+                  : sub
+              ),
+            };
+          }
 
-  //     setGroups((prevGroups) =>
-  //       prevGroups.map((group) => ({
-  //         ...group,
-  //         tasks: group.tasks.map((task) => {
-  //           // ✅ parent task
-  //           if (task.id === taskId) {
-  //             return {
-  //               ...task,
-  //               estimatedDate: updated.due_date || "-",
-  //               // estimatedDateEnd: updated.due_date_end || null,
-  //             };
-  //           }
+          return task;
+        }),
+      }))
+    );
 
-  //           // ✅ subtask
-  //           if (task.subitems?.length) {
-  //             return {
-  //               ...task,
-  //               subitems: task.subitems.map((sub) =>
-  //                 sub.id === taskId
-  //                   ? {
-  //                       ...sub,
-  //                       estimatedDate: updated.due_date || "-",
-  //                       // estimatedDateEnd: updated.due_date_end || null,
-  //                     }
-  //                   : sub
-  //               ),
-  //             };
-  //           }
-
-  //           return task;
-  //         }),
-  //       }))
-  //     );
-
-  //     // Close popover after update
-  //     setOpenPopoverId(null);
-  //     toast.success("Date updated successfully");
-  //   } catch (err) {
-  //     console.error(err);
-  //     toast.error("Failed to update date");
-  //   }
-  // };
+    // Close popover after update
+    setOpenPopoverId(null);
+    toast.success("Date updated successfully");
+  };
 
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
     const updatedChecked: Record<string, boolean> = {
@@ -2121,6 +2120,7 @@ export function WorkloadBoard({
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
+      onEstimatedDateChange: handleEstimatedDateChange,
       openPopoverId,
       setOpenPopoverId,
     });
@@ -2149,6 +2149,7 @@ export function WorkloadBoard({
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
+      onEstimatedDateChange: handleEstimatedDateChange,
       openPopoverId,
       setOpenPopoverId,
     });

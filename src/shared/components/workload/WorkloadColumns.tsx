@@ -114,6 +114,124 @@ function RatingStars({
   );
 }
 
+// Component for estimated date picker
+function EstimatedDatePicker({
+  task,
+  estimatedDate,
+  estimatedDateEnd,
+  popoverId,
+  openPopoverId,
+  setOpenPopoverId,
+  onEstimatedDateChange,
+}: {
+  task: any;
+  estimatedDate: string;
+  estimatedDateEnd: string | null;
+  popoverId: string;
+  openPopoverId?: string | null;
+  setOpenPopoverId?: (id: string | null) => void;
+  onEstimatedDateChange?: (
+    taskId: string,
+    fromDate: string | null,
+    toDate?: string | null
+  ) => void;
+}) {
+  const [dateRange, setDateRange] = useState<
+    { from?: Date; to?: Date } | undefined
+  >(() => {
+    const from =
+      estimatedDate && estimatedDate !== "-"
+        ? parseISO(estimatedDate)
+        : undefined;
+    const to = estimatedDateEnd ? parseISO(estimatedDateEnd) : undefined;
+    return { from, to };
+  });
+
+  const handleDateRangeChange = (
+    range: { from?: Date; to?: Date } | undefined
+  ) => {
+    setDateRange(range);
+  };
+
+  const formatDateDisplay = () => {
+    if (estimatedDate === "-") return "-";
+    // estimatedDate already contains the full formatted range (e.g., "15 Jan, 2026 - 19 Jan, 2026")
+    // so just return it as-is
+    return estimatedDate;
+  };
+
+  return (
+    <Popover
+      open={openPopoverId === popoverId}
+      onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+    >
+      <PopoverTrigger asChild>
+        <div className="w-full">
+          <button className="w-full bg-muted text-muted-foreground px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
+            {formatDateDisplay()}
+          </button>
+        </div>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-auto p-4 bg-card border border-border shadow-lg rounded-lg"
+        align="center"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium text-sm">Select Date Range</h3>
+            <button
+              onClick={() => setOpenPopoverId?.(null)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <Calendar
+            mode="range"
+            selected={
+              dateRange?.from
+                ? { from: dateRange.from, to: dateRange.to }
+                : undefined
+            }
+            onSelect={handleDateRangeChange}
+            disabled={(date) =>
+              date < new Date(new Date().setHours(0, 0, 0, 0))
+            }
+          />
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDateRange(undefined);
+                onEstimatedDateChange?.(task.id, null);
+                setOpenPopoverId?.(null);
+              }}
+            >
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (dateRange?.from) {
+                  const fromDate = format(dateRange.from, "yyyy-MM-dd");
+                  const toDate = dateRange.to
+                    ? format(dateRange.to, "yyyy-MM-dd")
+                    : fromDate;
+                  onEstimatedDateChange?.(task.id, fromDate, toDate);
+                }
+                setOpenPopoverId?.(null);
+              }}
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 interface Column {
   id: string;
   label: string;
@@ -153,7 +271,7 @@ export const getWorkloadColumns = ({
   onEstimatedDateChange?: (
     taskId: string,
     fromDate: string | null,
-    toDate: string | null
+    toDate?: string | null
   ) => void;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
@@ -390,89 +508,17 @@ export const getWorkloadColumns = ({
         const estimatedDate = task.estimatedDate ?? "-";
         const estimatedDateEnd = task.estimatedDateEnd ?? null;
         const popoverId = `estimatedDate-${task.id}`;
-        const [dateRange, setDateRange] = useState<
-          { from?: Date; to?: Date } | undefined
-        >(() => {
-          const from =
-            estimatedDate && estimatedDate !== "-"
-              ? parseISO(estimatedDate)
-              : undefined;
-          const to = estimatedDateEnd ? parseISO(estimatedDateEnd) : undefined;
-          return { from, to };
-        });
-
-        const handleDateRangeChange = (
-          range: { from?: Date; to?: Date } | undefined
-        ) => {
-          setDateRange(range);
-          const fromDate = range?.from
-            ? format(range.from, "yyyy-MM-dd")
-            : null;
-          const toDate = range?.to ? format(range.to, "yyyy-MM-dd") : null;
-          onEstimatedDateChange?.(task.id, fromDate, toDate);
-          // setOpenPopoverId?.(null);
-        };
-
-        const formatDateDisplay = () => {
-          if (estimatedDate === "-") return "-";
-          if (estimatedDateEnd && estimatedDateEnd !== "-") {
-            return `${estimatedDate} → ${estimatedDateEnd}`;
-          }
-          return estimatedDate;
-        };
 
         return (
-          <Popover
-            open={openPopoverId === popoverId}
-            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
-          >
-            <PopoverTrigger asChild>
-              <div className="relative group inline-block">
-                <button className="bg-muted text-muted-foreground px-4 py-1 rounded-full text-sm hover:bg-accent transition-colors">
-                  {formatDateDisplay()}
-                </button>
-                {estimatedDate !== "-" && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDateRangeChange(undefined);
-                    }}
-                    className="absolute -right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-opacity"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-auto p-4 bg-card border border-border shadow-lg rounded-lg"
-              align="center"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-sm">Select Date Range</h3>
-                  <button
-                    onClick={() => setOpenPopoverId?.(null)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <Calendar
-                  mode="range"
-                  selected={
-                    dateRange?.from
-                      ? { from: dateRange.from, to: dateRange.to }
-                      : undefined
-                  }
-                  onSelect={handleDateRangeChange}
-                  disabled={(date) =>
-                    date < new Date(new Date().setHours(0, 0, 0, 0))
-                  }
-                />
-              </div>
-            </PopoverContent>
-          </Popover>
+          <EstimatedDatePicker
+            task={task}
+            estimatedDate={estimatedDate}
+            estimatedDateEnd={estimatedDateEnd}
+            popoverId={popoverId}
+            openPopoverId={openPopoverId}
+            setOpenPopoverId={setOpenPopoverId}
+            onEstimatedDateChange={onEstimatedDateChange}
+          />
         );
       },
     },
@@ -488,7 +534,7 @@ export const getWorkloadColumns = ({
       label: "Date",
       width: "160px",
       align: "center",
-      render: (task: any) => task.estimatedDate ?? "-",
+      render: (task: any) => task.date ?? "-",
     },
     {
       id: "person",
