@@ -599,6 +599,7 @@ export function WorkloadBoard({
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#FF0000");
+  const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
 
   // Column visibility state - load from localStorage
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
@@ -2789,17 +2790,21 @@ export function WorkloadBoard({
                                 </span>
 
                                 {/* Label Chip (optional) */}
-                                {groupLabels[group.id] && (
-                                  <div
-                                    className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
-                                    style={{
-                                      backgroundColor:
-                                        groupLabelColors[group.id] || "#3b82f6",
-                                    }}
-                                  >
-                                    {groupLabels[group.id]}
-                                  </div>
-                                )}
+                                {groupLabels[group.id] && (() => {
+                                  // Find the label object to get its color
+                                  const labelObj = labels.find(l => l.label_name === groupLabels[group.id]);
+                                  const labelColor = labelObj?.label_color || groupLabelColors[group.id] || "#3b82f6";
+                                  return (
+                                    <div
+                                      className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
+                                      style={{
+                                        backgroundColor: labelColor,
+                                      }}
+                                    >
+                                      {groupLabels[group.id]}
+                                    </div>
+                                  );
+                                })()}
                                 {/* edit group button */}
                                 <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
                                   <Popover  open={editGroupDialogOpen && editingGroupId === group.id} onOpenChange={(open) => {
@@ -2898,6 +2903,7 @@ export function WorkloadBoard({
                                                     setIsCreatingLabel(false);
                                                     setNewLabelName("");
                                                     setNewLabelColor("#FF0000");
+                                                    setLabelDropdownOpen(true);
                                                   }}
                                                 >
                                                   Cancel
@@ -2925,12 +2931,18 @@ export function WorkloadBoard({
                                                         });
 
                                                         // Add new label to the list
-                                                        setLabels([...labels, createdLabel]);
+                                                        setLabels((prevLabels) => [...prevLabels, createdLabel]);
                                                         setEditGroupLabelInput(createdLabel.label_name);
                                                         setEditGroupLabelColorInput(createdLabel.label_color);
-                                                        setIsCreatingLabel(false);
+                                                        
+                                                        // Reset form and exit creation mode
                                                         setNewLabelName("");
                                                         setNewLabelColor("#FF0000");
+                                                        setIsCreatingLabel(false);
+                                                        
+                                                        // Reopen dropdown to show the new label
+                                                        setLabelDropdownOpen(true);
+                                                        
                                                         toast.success("Label created successfully");
                                                       } catch (error) {
                                                         console.error("Failed to create label:", error);
@@ -2944,7 +2956,7 @@ export function WorkloadBoard({
                                               </div>
                                             </div>
                                           ) : (
-                                            <DropdownMenu>
+                                            <DropdownMenu open={labelDropdownOpen} onOpenChange={setLabelDropdownOpen}>
                                               <DropdownMenuTrigger asChild>
                                                 <Button
                                                   variant="outline"
@@ -2965,7 +2977,7 @@ export function WorkloadBoard({
                                                   )}
                                                 </Button>
                                               </DropdownMenuTrigger>
-                                              <DropdownMenuContent className="w-56" align="start">
+                                              <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto" align="start">
                                                 <DropdownMenuItem
                                                   onClick={() => {
                                                     setEditGroupLabelInput("");
@@ -2975,12 +2987,13 @@ export function WorkloadBoard({
                                                   <span className="text-muted-foreground">No Label</span>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
-                                                {labels.map((label) => (
+                                                {Array.isArray(labels) && labels.map((label) => (
                                                   <DropdownMenuItem
-                                                    key={label.id}
+                                                    key={`label-${label.id}`}
                                                     onClick={() => {
                                                       setEditGroupLabelInput(label.label_name);
                                                       setEditGroupLabelColorInput(label.label_color);
+                                                      setLabelDropdownOpen(false);
                                                     }}
                                                     className="flex items-center gap-2"
                                                   >
@@ -2995,7 +3008,10 @@ export function WorkloadBoard({
                                                 ))}
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem
-                                                  onClick={() => setIsCreatingLabel(true)}
+                                                  onClick={() => {
+                                                    setIsCreatingLabel(true);
+                                                    setLabelDropdownOpen(false);
+                                                  }}
                                                 >
                                                   <span className="text-primary">+ Add New Label</span>
                                                 </DropdownMenuItem>
