@@ -29,3 +29,5 @@ export {
   formatApiTime,
   timeAgoFromApiDate,
 } from "./dates";
+
+export { sortBy } from "./sorting";

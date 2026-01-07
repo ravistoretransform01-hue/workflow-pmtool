@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronDown,
   ChevronRight,
   MessageCirclePlus,
   Pencil,
-  User,
   X,
+  Search,
+  Play,
+  Pause,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
 import {
@@ -16,6 +18,7 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Calendar } from "@/shared/components/ui/calendar";
+import { Input } from "@/shared/components/ui/input";
 import { format, parseISO } from "date-fns";
 
 function stringToHslColor(str: string, s = 70, l = 55): string {
@@ -27,10 +30,292 @@ function stringToHslColor(str: string, s = 70, l = 55): string {
   return `hsl(${h} ${s}% ${l}%)`;
 }
 
-// Component for rating stars with hover preview
+// Component for timer/stopwatch
+function Timer({
+  taskId,
+  boardId,
+  activeTimerId,
+  onTimerStart,
+  onTimerConflict,
+}: {
+  taskId: string;
+  boardId: string;
+  activeTimerId: string | null;
+  onTimerStart: (taskId: string | null) => void;
+  onTimerConflict?: (taskId: string) => void;
+}) {
+  const [seconds, setSeconds] = useState(0);
+  const isRunning = activeTimerId === taskId;
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (isRunning) {
+      interval = setInterval(() => {
+        setSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRunning]);
+
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
+  };
+
+  const handlePlayPause = () => {
+    if (isRunning) {
+      // Pause
+      console.log({
+        taskId,
+        boardId,
+        timestamp: new Date().toISOString(),
+        action: "stop",
+      });
+      onTimerStart(null as any); // Pass null to stop the timer
+    } else {
+      // Play
+      if (activeTimerId && activeTimerId !== taskId) {
+        console.log({
+          taskId,
+          boardId,
+          timestamp: new Date().toISOString(),
+          action: "conflict",
+        });
+        onTimerConflict?.(activeTimerId);
+        return;
+      }
+      console.log({
+        taskId,
+        boardId,
+        timestamp: new Date().toISOString(),
+        action: "play",
+      });
+      onTimerStart(taskId);
+    }
+  };
+
+  // const handleReset = () => {
+  //   setSeconds(0);
+  //   console.log({
+  //     taskId,
+  //     boardId,
+  //     timestamp: new Date().toISOString(),
+  //     action: "reset",
+  //   });
+  // };
+
+  // Determine background color based on timer state
+  let bgColor = "bg-blue-500/50"; // Default: blue
+  if (isRunning) {
+    bgColor = "bg-green-500/50"; // Running: green
+  }
+  // TODO: Add red for overtime when estimatedSeconds is available
+  // if (isOverTime) {
+  //   bgColor = "bg-red-500/50"; // Overtime: red
+  // }
+
+  return (
+    <div
+      className={`flex items-center justify-center gap-2 w-full h-full ${bgColor} rounded`}
+    >
+      <button
+        onClick={handlePlayPause}
+        className="p-2 hover:bg-muted rounded transition-colors"
+        title={isRunning ? "Pause" : "Start"}
+      >
+        {isRunning ? (
+          <Pause className="h-4 w-4 text-foreground" />
+        ) : (
+          <Play className="h-4 w-4 text-foreground" />
+        )}
+      </button>
+      <div className="rounded px-3 py-1 min-w-14 text-center">
+        <span className="text-sm font-medium">{formatTime(seconds)}</span>
+      </div>
+      {/* <button
+        onClick={handleReset}
+        className="p-1 hover:bg-muted rounded transition-colors"
+        title="Reset"
+      >
+        <RotateCcw className="h-4 w-4 text-foreground" />
+      </button> */}
+    </div>
+  );
+}
+
+// Component for person selection with search
+function PersonPopover({
+  task,
+  members,
+  selectedMemberIds,
+  popoverId,
+  openPopoverId,
+  setOpenPopoverId,
+  onPersonChange,
+}: {
+  task: any;
+  members: any[];
+  selectedMemberIds?: string[];
+  popoverId: string;
+  openPopoverId?: string | null;
+  setOpenPopoverId?: (id: string | null) => void;
+  onPersonChange?: (taskId: string, memberIds: string[]) => void;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [localSelected, setLocalSelected] = useState<string | null>(
+    selectedMemberIds?.[0] || null
+  );
+
+  const filteredMembers = members.filter((member) =>
+    (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleMemberSelect = (memberId: string) => {
+    setLocalSelected(memberId);
+  };
+
+  const handleUpdateAssignees = () => {
+    // Send selected member (or empty array if none selected)
+    onPersonChange?.(task.id, localSelected ? [localSelected] : []);
+    setOpenPopoverId?.(null);
+  };
+
+  return (
+    <Popover
+      open={openPopoverId === popoverId}
+      onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+    >
+      <PopoverTrigger asChild>
+        <button 
+          className="w-full flex justify-center hover:opacity-80 transition-opacity cursor-pointer"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {!localSelected ? (
+            <span className="text-muted-foreground text-xs">+ Add</span>
+          ) : (
+            <div className="flex justify-center">
+              {(() => {
+                const member = members.find((m) => String(m.user_id) === String(localSelected));
+                if (!member) return null;
+                const name = (member?.name ?? "").trim();
+                const initials = name
+                  .split(/\s+/)
+                  .map((n: string) => n[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase();
+                const bgColor = stringToHslColor(
+                  name || String(member?.user_id || "user")
+                );
+                return (
+                  <Avatar className="h-8 w-8 border-2 border-background">
+                    <AvatarFallback
+                      style={{ background: bgColor, color: "white" }}
+                      className="text-[10px] font-semibold"
+                    >
+                      {initials || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                );
+              })()}
+            </div>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg flex flex-col"
+        align="center"
+      >
+        <div className="space-y-2 flex flex-col">
+          {/* Search Input */}
+          <div className="relative flex-shrink-0">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+            <Input
+              placeholder="Search members..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
+
+          {/* Members List - Show 2.5 items, rest scrollable */}
+          <div className="space-y-1 overflow-y-auto" style={{ maxHeight: "calc(4 * 40px)", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+            {filteredMembers.length === 0 ? (
+              <div className="text-center py-4 text-sm text-muted-foreground">
+                No members found
+              </div>
+            ) : (
+              filteredMembers.map((member) => {
+                const name = (member?.name ?? "").trim();
+                const initials = name
+                  .split(/\s+/)
+                  .map((n: string) => n[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase();
+
+                const bgColor = stringToHslColor(
+                  name || String(member?.user_id || "user")
+                );
+
+                const isSelected = localSelected === String(member.user_id);
+
+                return (
+                  <button
+                    key={member.user_id}
+                    onClick={() => handleMemberSelect(String(member.user_id))}
+                    className="w-full flex items-center gap-3 px-2 py-2 rounded transition-colors text-sm font-medium text-left hover:bg-muted"
+                  >
+                    <input
+                      type="radio" 
+                      checked={isSelected}
+                      onChange={() => {}}
+                      className="h-4 w-4 accent-primary cursor-pointer"
+                    />
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback
+                        style={{ background: bgColor, color: "white" }}
+                      >
+                        {initials || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>{member.name}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Update Button */}
+          <div className="flex-shrink-0 pt-2 border-t border-border">
+            <Button
+              onClick={handleUpdateAssignees}
+              className="w-full h-8 text-sm"
+              size="sm"
+            >
+              Update
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 function RatingStars({
   task,
   rating,
+  ratingCount,
   popoverId,
   openPopoverId,
   setOpenPopoverId,
@@ -38,6 +323,7 @@ function RatingStars({
 }: {
   task: any;
   rating: number;
+  ratingCount?: number;
   popoverId: string;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
@@ -53,7 +339,9 @@ function RatingStars({
       <PopoverTrigger asChild>
         <button
           className="w-full h-8 flex items-center justify-center gap-1"
-          aria-label={`Rating ${rating}`}
+          aria-label={`Rating ${rating}${ratingCount ? ` (${ratingCount} rating${ratingCount !== 1 ? 's' : ''})` : ''}`}
+          onClick={(e) => e.stopPropagation()}
+          title={ratingCount ? `${ratingCount} rating${ratingCount !== 1 ? 's' : ''}` : 'No ratings'}
         >
           {[1, 2, 3, 4, 5].map((i) => (
             <svg
@@ -71,6 +359,9 @@ function RatingStars({
               />
             </svg>
           ))}
+          {/* {ratingCount ? (
+            <span className="text-xs text-muted-foreground ml-1">({ratingCount})</span>
+          ) : null} */}
         </button>
       </PopoverTrigger>
 
@@ -78,36 +369,169 @@ function RatingStars({
         className="w-60 p-3 bg-card border border-border shadow-lg rounded-lg"
         align="center"
       >
-        <div className="flex gap-2 justify-center">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <button
-              key={i}
-              onClick={() => {
-                setOpenPopoverId?.(null);
-                onRatingChange?.(task.id, i);
-              }}
-              onMouseEnter={() => setHoveredRating(i)}
-              onMouseLeave={() => setHoveredRating(0)}
-              className="p-1"
-              aria-label={`Set rating ${i}`}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className={`h-6 w-6 transition-colors ${
-                  i <= (hoveredRating || rating)
-                    ? "text-yellow-400"
-                    : "text-muted-foreground"
-                }`}
+        <div className="space-y-3">
+          <div className="flex gap-2 justify-center">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setOpenPopoverId?.(null);
+                  onRatingChange?.(task.id, i);
+                }}
+                onMouseEnter={() => setHoveredRating(i)}
+                onMouseLeave={() => setHoveredRating(0)}
+                className="p-1"
+                aria-label={`Set rating ${i}`}
               >
-                <path
-                  d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
-                  fill="currentColor"
-                />
-              </svg>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-6 w-6 transition-colors ${
+                    i <= (hoveredRating || rating)
+                      ? "text-yellow-400"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  <path
+                    d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+            ))}
+          </div>
+          {/* {ratingCount ? (
+            <div className="text-center text-xs text-muted-foreground">
+              {ratingCount} rating{ratingCount !== 1 ? 's' : ''}
+            </div>
+          ) : null} */}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Component for estimated date picker
+function EstimatedDatePicker({
+  task,
+  estimatedDate,
+  estimatedDateEnd,
+  popoverId,
+  openPopoverId,
+  setOpenPopoverId,
+  onEstimatedDateChange,
+}: {
+  task: any;
+  estimatedDate: string;
+  estimatedDateEnd: string | null;
+  popoverId: string;
+  openPopoverId?: string | null;
+  setOpenPopoverId?: (id: string | null) => void;
+  onEstimatedDateChange?: (
+    taskId: string,
+    fromDate: string | null,
+    toDate?: string | null
+  ) => void;
+}) {
+  const [dateRange, setDateRange] = useState<
+    { from?: Date; to?: Date } | undefined
+  >(() => {
+    // Try to parse the dates - they might be in ISO format or display format
+    try {
+      const from =
+        estimatedDate && estimatedDate !== "-"
+          ? parseISO(estimatedDate)
+          : undefined;
+      const to = estimatedDateEnd ? parseISO(estimatedDateEnd) : undefined;
+      return { from, to };
+    } catch {
+      // If parsing fails, return undefined (user will select dates fresh)
+      return undefined;
+    }
+  });
+
+  const handleDateRangeChange = (
+    range: { from?: Date; to?: Date } | undefined
+  ) => {
+    setDateRange(range);
+  };
+
+  const formatDateDisplay = () => {
+    if (estimatedDate === "-") return "-";
+    // estimatedDate already contains the full formatted range (e.g., "15 Jan, 2026 - 19 Jan, 2026")
+    // so just return it as-is
+    return estimatedDate;
+  };
+
+  return (
+    <Popover
+      open={openPopoverId === popoverId}
+      onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+    >
+      <PopoverTrigger asChild>
+        <div className="w-full" onClick={(e) => e.stopPropagation()}>
+          <button 
+            className="w-full bg-muted text-muted-foreground px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate"
+          >
+            {formatDateDisplay()}
+          </button>
+        </div>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-auto p-4 bg-card border border-border shadow-lg rounded-lg"
+        align="center"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium text-sm">Select Date Range</h3>
+            <button
+              onClick={() => setOpenPopoverId?.(null)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
             </button>
-          ))}
+          </div>
+          <Calendar
+            mode="range"
+            selected={
+              dateRange?.from
+                ? { from: dateRange.from, to: dateRange.to }
+                : undefined
+            }
+            onSelect={handleDateRangeChange}
+            disabled={(date) =>
+              date < new Date(new Date().setHours(0, 0, 0, 0))
+            }
+          />
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDateRange(undefined);
+                onEstimatedDateChange?.(task.id, null);
+                setOpenPopoverId?.(null);
+              }}
+            >
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (dateRange?.from) {
+                  const fromDate = format(dateRange.from, "yyyy-MM-dd");
+                  const toDate = dateRange.to
+                    ? format(dateRange.to, "yyyy-MM-dd")
+                    : fromDate;
+                  onEstimatedDateChange?.(task.id, fromDate, toDate);
+                }
+                setOpenPopoverId?.(null);
+              }}
+            >
+              Done
+            </Button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
@@ -148,12 +572,12 @@ export const getWorkloadColumns = ({
   members?: any[];
   onStatusChange?: (taskId: string, statusId: string) => void;
   onPriorityChange?: (taskId: string, priorityId: string) => void;
-  onPersonChange?: (taskId: string, memberId: string) => void;
+  onPersonChange?: (taskId: string, memberIds: string[]) => void;
   onRatingChange?: (taskId: string, rating: number) => void;
   onEstimatedDateChange?: (
     taskId: string,
     fromDate: string | null,
-    toDate: string | null
+    toDate?: string | null
   ) => void;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
@@ -179,13 +603,19 @@ export const getWorkloadColumns = ({
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => onEditTask?.(task, "name")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditTask?.(task, "name");
+                  }}
                   className="p-1 hover:bg-muted rounded"
                 >
                   <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                 </button>
                 <button
-                  onClick={() => onOpenComments?.(task)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenComments?.(task);
+                  }}
                   className="p-1 hover:bg-muted rounded"
                 >
                   <MessageCirclePlus className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -197,7 +627,10 @@ export const getWorkloadColumns = ({
         return (
           <div className="flex items-center gap-2 justify-between group">
             <button
-              onClick={() => toggleTask(task.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleTask(task.id);
+              }}
               className="flex items-center gap-2 font-medium text-foreground hover:underline"
             >
               {
@@ -212,13 +645,19 @@ export const getWorkloadColumns = ({
             </button>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
-                onClick={() => onEditTask?.(task, "name")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditTask?.(task, "name");
+                }}
                 className="p-1 hover:bg-muted rounded"
               >
                 <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
               </button>
               <button
-                onClick={() => onOpenComments?.(task)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenComments?.(task);
+                }}
                 className="p-1 hover:bg-muted rounded"
               >
                 <MessageCirclePlus className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -251,6 +690,7 @@ export const getWorkloadColumns = ({
                   color: "white",
                   border: "none",
                 }}
+                onClick={(e) => e.stopPropagation()}
               >
                 {statusObj?.name || "No Status"}
               </Button>
@@ -302,6 +742,7 @@ export const getWorkloadColumns = ({
                   color: "white",
                   border: "none",
                 }}
+                onClick={(e) => e.stopPropagation()}
               >
                 {priorityObj?.name || "No Priority"}
               </Button>
@@ -341,7 +782,10 @@ export const getWorkloadColumns = ({
 
         return (
           <button
-            onClick={() => onEditTask?.(task, "description")}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditTask?.(task, "description");
+            }}
             className="w-full text-left group"
             title={description}
           >
@@ -367,12 +811,14 @@ export const getWorkloadColumns = ({
       align: "center",
       render: (task: any) => {
         const rating = Number(task.rating) || 0;
+        const ratingCount = task.ratingCount || 0;
         const popoverId = `rating-${task.id}`;
 
         return (
           <RatingStars
             task={task}
             rating={rating}
+            ratingCount={ratingCount}
             popoverId={popoverId}
             openPopoverId={openPopoverId}
             setOpenPopoverId={setOpenPopoverId}
@@ -390,89 +836,17 @@ export const getWorkloadColumns = ({
         const estimatedDate = task.estimatedDate ?? "-";
         const estimatedDateEnd = task.estimatedDateEnd ?? null;
         const popoverId = `estimatedDate-${task.id}`;
-        const [dateRange, setDateRange] = useState<
-          { from?: Date; to?: Date } | undefined
-        >(() => {
-          const from =
-            estimatedDate && estimatedDate !== "-"
-              ? parseISO(estimatedDate)
-              : undefined;
-          const to = estimatedDateEnd ? parseISO(estimatedDateEnd) : undefined;
-          return { from, to };
-        });
-
-        const handleDateRangeChange = (
-          range: { from?: Date; to?: Date } | undefined
-        ) => {
-          setDateRange(range);
-          const fromDate = range?.from
-            ? format(range.from, "yyyy-MM-dd")
-            : null;
-          const toDate = range?.to ? format(range.to, "yyyy-MM-dd") : null;
-          onEstimatedDateChange?.(task.id, fromDate, toDate);
-          // setOpenPopoverId?.(null);
-        };
-
-        const formatDateDisplay = () => {
-          if (estimatedDate === "-") return "-";
-          if (estimatedDateEnd && estimatedDateEnd !== "-") {
-            return `${estimatedDate} → ${estimatedDateEnd}`;
-          }
-          return estimatedDate;
-        };
 
         return (
-          <Popover
-            open={openPopoverId === popoverId}
-            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
-          >
-            <PopoverTrigger asChild>
-              <div className="relative group inline-block">
-                <button className="bg-muted text-muted-foreground px-4 py-1 rounded-full text-sm hover:bg-accent transition-colors">
-                  {formatDateDisplay()}
-                </button>
-                {estimatedDate !== "-" && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDateRangeChange(undefined);
-                    }}
-                    className="absolute -right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs transition-opacity"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-auto p-4 bg-card border border-border shadow-lg rounded-lg"
-              align="center"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-sm">Select Date Range</h3>
-                  <button
-                    onClick={() => setOpenPopoverId?.(null)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <Calendar
-                  mode="range"
-                  selected={
-                    dateRange?.from
-                      ? { from: dateRange.from, to: dateRange.to }
-                      : undefined
-                  }
-                  onSelect={handleDateRangeChange}
-                  disabled={(date) =>
-                    date < new Date(new Date().setHours(0, 0, 0, 0))
-                  }
-                />
-              </div>
-            </PopoverContent>
-          </Popover>
+          <EstimatedDatePicker
+            task={task}
+            estimatedDate={estimatedDate}
+            estimatedDateEnd={estimatedDateEnd}
+            popoverId={popoverId}
+            openPopoverId={openPopoverId}
+            setOpenPopoverId={setOpenPopoverId}
+            onEstimatedDateChange={onEstimatedDateChange}
+          />
         );
       },
     },
@@ -488,81 +862,45 @@ export const getWorkloadColumns = ({
       label: "Date",
       width: "160px",
       align: "center",
-      render: (task: any) => task.estimatedDate ?? "-",
+      render: (task: any) => task.date ?? "-",
     },
+
     {
       id: "person",
       label: "Person",
       width: "128px",
       align: "center",
       render: (task: any) => {
-        const memberObj = members.find(
-          (m) => String(m.user_id) === String(task.assigned_to_id)
-        );
+        const selectedMemberIds = task.assigned_to_ids || (task.assigned_to_id ? [task.assigned_to_id] : []);
         const popoverId = `person-${task.id}`;
         return (
-          <Popover
-            open={openPopoverId === popoverId}
-            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-full px-3 text-xs font-medium flex items-center justify-center gap-2"
-                title={memberObj?.name || "Unassigned"}
-                aria-label={memberObj?.name ? memberObj.name : "Unassigned"}
-              >
-                {memberObj?.name ? (
-                  <span className="truncate text-center w-full">
-                    {memberObj.name}
-                  </span>
-                ) : (
-                  <User className="h-4 w-4 text-foreground" />
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg"
-              align="center"
-            >
-              <div className="space-y-1">
-                {members.map((member) => {
-                  const name = (member?.name ?? "").trim();
-                  const initials = name
-                    .split(/\s+/)
-                    .map((n: string) => n[0])
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .join("")
-                    .toUpperCase();
-
-                  const bgColor = stringToHslColor(
-                    name || String(member?.user_id || "usesr")
-                  );
-
-                  return (
-                    <button
-                      key={member.user_id}
-                      onClick={() => onPersonChange?.(task.id, member.user_id)}
-                      className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-accent transition-colors text-sm font-medium text-left"
-                    >
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback
-                          style={{ background: bgColor, color: "white" }}
-                        >
-                          {initials || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{member.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </PopoverContent>
-          </Popover>
+          <PersonPopover
+            task={task}
+            members={members}
+            selectedMemberIds={selectedMemberIds}
+            popoverId={popoverId}
+            openPopoverId={openPopoverId}
+            setOpenPopoverId={setOpenPopoverId}
+            onPersonChange={onPersonChange}
+          />
         );
       },
+    },
+    
+    {
+      id: "timer",
+      label: "Timer",
+      width: "160px",
+      align: "center",
+      render: (task: any) => (
+        <Timer
+          taskId={task.id}
+          boardId={task.boardId}
+          activeTimerId={task.activeTimerId}
+          onTimerStart={task.onTimerStart}
+          onTimerConflict={task.onTimerConflict}
+        />
+      ),
     },
     {
       id: "time",

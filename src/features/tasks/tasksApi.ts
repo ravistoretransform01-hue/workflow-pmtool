@@ -1,10 +1,15 @@
 import axios from "@/lib/axios";
-import type { TaskResponse, CreateTaskRequest, UpdateTaskRequest } from "./types";
+import type {
+  TaskResponse,
+  CreateTaskRequest,
+  UpdateTaskRequest,
+} from "./types";
 
 const TASKS_ENDPOINTS = {
   GET_ALL_TASKS: `/tasks`,
   GET_ALL_TASKS_BY_BOARDID: (groupId: string | number) =>
     `/tasks?board_id=${groupId}`,
+  GET_SINGLE_TASK: (taskId: string | number) => `/tasks/single?id=${taskId}`,
   CREATE_TASK: `/tasks`,
   DELETE_TASK: `/tasks`,
   UPDATE_TASK: `/tasks`,
@@ -20,6 +25,18 @@ export const tasksApi = {
     try {
       const response = await axios.get<{ data: TaskResponse[] }>(
         TASKS_ENDPOINTS.GET_ALL_TASKS_BY_BOARDID(boardId)
+      );
+      return response.data.data || [];
+    } catch (error) {
+      console.error("Failed to fetch tasks:", error);
+      throw error;
+    }
+  },
+
+  getSingleTasks: async (boardId: string | number): Promise<TaskResponse> => {
+    try {
+      const response = await axios.get<{ data: TaskResponse }>(
+        TASKS_ENDPOINTS.GET_SINGLE_TASK(boardId)
       );
       return response.data.data || [];
     } catch (error) {

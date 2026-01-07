@@ -1,8 +1,14 @@
 import { cmsApi } from "./cmsApi";
 import type { CMSRequest, CMSData, Status, Priority, Member } from "./types";
 
-const STORAGE_KEY = "cms_data";
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+/**
+ * Generate a unique storage key for each board
+ */
+function getStorageKey(boardId: number): string {
+  return `cms_data_board_${boardId}`;
+}
 
 /**
  * Get CMS data from localStorage or fetch from API if not available
@@ -12,18 +18,18 @@ const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
   try {
     // Try to get from localStorage first
-    const cachedData = getFromLocalStorage();
+    const cachedData = getFromLocalStorage(payload.board_id);
 
     if (cachedData) {
-      console.log("Using cached CMS data from localStorage");
+      console.log(`Using cached CMS data from localStorage for board ${payload.board_id}`);
       return cachedData;
     }
 
     // If not in cache, fetch from API
-    console.log("Fetching CMS data from API");
+    console.log(`Fetching CMS data from API for board ${payload.board_id}`);
     const apiResponse = await cmsApi.getCMSData(payload);
 
-    // Store in localStorage
+    // Store in localStorage with board-specific key
     const cmsData: CMSData = {
       statuses: apiResponse.statuses,
       priority: apiResponse.priority,
@@ -31,15 +37,15 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
       timestamp: Date.now(),
     };
 
-    saveToLocalStorage(cmsData);
+    saveToLocalStorage(payload.board_id, cmsData);
     return cmsData;
   } catch (error) {
     console.error("Error fetching CMS data:", error);
 
     // Fallback to cached data even if expired
-    const cachedData = getFromLocalStorage(true);
+    const cachedData = getFromLocalStorage(payload.board_id, true);
     if (cachedData) {
-      console.log("Using expired cached CMS data as fallback");
+      console.log(`Using expired cached CMS data as fallback for board ${payload.board_id}`);
       return cachedData;
     }
 
@@ -121,12 +127,24 @@ export async function getMemberById(
 }
 
 /**
- * Clear CMS data from localStorage
+ * Clear CMS data from localStorage for a specific board
+ * @param boardId - Board ID to clear cache for (optional, clears all if not provided)
  */
-export function clearCMSCache(): void {
+export function clearCMSCache(boardId?: number): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
-    console.log("CMS cache cleared");
+    if (boardId) {
+      localStorage.removeItem(getStorageKey(boardId));
+      console.log(`CMS cache cleared for board ${boardId}`);
+    } else {
+      // Clear all board-specific CMS caches
+      const keys = Object.keys(localStorage);
+      keys.forEach((key) => {
+        if (key.startsWith("cms_data_board_")) {
+          localStorage.removeItem(key);
+        }
+      });
+      console.log("All CMS caches cleared");
+    }
   } catch (error) {
     console.error("Error clearing CMS cache:", error);
   }
@@ -134,12 +152,14 @@ export function clearCMSCache(): void {
 
 /**
  * Get CMS data from localStorage
+ * @param boardId - Board ID to get cache for
  * @param ignoreExpiry - If true, return data even if expired
  * @returns CMSData or null if not found or expired
  */
-function getFromLocalStorage(ignoreExpiry = false): CMSData | null {
+function getFromLocalStorage(boardId: number, ignoreExpiry = false): CMSData | null {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const storageKey = getStorageKey(boardId);
+    const stored = localStorage.getItem(storageKey);
 
     if (!stored) {
       return null;
@@ -151,7 +171,7 @@ function getFromLocalStorage(ignoreExpiry = false): CMSData | null {
     if (!ignoreExpiry) {
       const isExpired = Date.now() - cmsData.timestamp > CACHE_DURATION;
       if (isExpired) {
-        console.log("CMS cache expired, will fetch fresh data");
+        console.log(`CMS cache expired for board ${boardId}, will fetch fresh data`);
         return null;
       }
     }
@@ -165,12 +185,14 @@ function getFromLocalStorage(ignoreExpiry = false): CMSData | null {
 
 /**
  * Save CMS data to localStorage
+ * @param boardId - Board ID to save cache for
  * @param cmsData - Data to save
  */
-function saveToLocalStorage(cmsData: CMSData): void {
+function saveToLocalStorage(boardId: number, cmsData: CMSData): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cmsData));
-    console.log("CMS data saved to localStorage");
+    const storageKey = getStorageKey(boardId);
+    localStorage.setItem(storageKey, JSON.stringify(cmsData));
+    console.log(`CMS data saved to localStorage for board ${boardId}`);
   } catch (error) {
     console.error("Error saving CMS data to localStorage:", error);
   }

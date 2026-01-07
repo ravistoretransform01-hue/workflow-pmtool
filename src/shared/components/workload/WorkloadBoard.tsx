@@ -1,5 +1,6 @@
 import React from "react";
 import { useState, useEffect, useRef, useMemo } from "react";
+import { format, parseISO } from "date-fns";
 
 // Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
 // const _loadedGroupsForBoard = new Set<string>();
@@ -8,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
-import { getCMSData } from "@/features/cms/cmsStorage";
+import { getCMSData, clearCMSCache } from "@/features/cms/cmsStorage";
 import type {
   CreateTaskRequest,
   UpdateTaskRequest,
@@ -38,6 +39,7 @@ import {
   // GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sortBy } from "@/lib/sorting";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
@@ -93,6 +95,7 @@ import { FileUploadDropdown } from "../FileUploadDropdown";
 import { EmojiPicker } from "../EmojiPicker";
 import { getOrganizationId } from "@/lib/utils";
 import { getWorkloadColumns } from "./WorkloadColumns";
+import { TaskCardDialog } from "./TaskCardDialog";
 import type { TaskResponse } from "@/features/tasks/types";
 
 interface WorkloadBoardProps {
@@ -120,8 +123,20 @@ export interface Task {
   estimatedDate?: string;
   person?: string;
   assigned_to_id?: string;
+  assigned_to_ids?: string[]; // Multiple assignees
   timeSpent?: string;
-  rating?: number;
+  rating?: number; // Display rating as average number (1-5)
+  ratingCount?: number; // Number of ratings
+  ratings?: Array<{
+    id: string;
+    assignee_id: string;
+    rating: string | number;
+    assignee?: {
+      id: number;
+      name: string;
+      email: string;
+    };
+  }>;
   group_id?: string;
   subitems?: Task[];
 }
@@ -151,6 +166,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "rating",
   "estimatedDate",
   "person",
+  "timer",
   "time",
 ];
 
@@ -164,6 +180,7 @@ const ALL_AVAILABLE_COLUMNS = [
   "estimatedDate",
   "date",
   "person",
+  "timer",
   "time",
 ];
 
@@ -552,7 +569,8 @@ export function WorkloadBoard({
   );
   const [checkedTasks, setCheckedTasks] = useState<Record<string, boolean>>({});
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [sheetTaskCardOpen, setSheetTaskCardOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editTaskName, setEditTaskName] = useState("");
@@ -561,6 +579,13 @@ export function WorkloadBoard({
     Array<{ name: string; size: number; type: string; url: string }>
   >([]);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+
+  // Timer state - track which task's timer is currently running
+  const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
+
+  // Timer conflict dialog state
+  const [timerConflictDialogOpen, setTimerConflictDialogOpen] = useState(false);
+  const [conflictingTaskName, setConflictingTaskName] = useState("");
 
   // CMS Data states
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -630,39 +655,64 @@ export function WorkloadBoard({
         const subtasks: TaskResponse[] = tasksRes.filter((t) => t.parent_id);
 
         // 2️⃣ Normalize tasks into UI Task model
-        const tasksWithSubtasks: Task[] = parentTasks.map((task) => ({
-          id: String(task.id),
-          name: task.name,
-          description: task.description,
-          status: task.status_label,
-          status_id: String(task.status_id),
-          priority: task.priority_label,
-          priority_id: String(task.task_priority_id),
-          estimatedDate: task.due_date,
-          person: task.assignee?.name,
-          rating: typeof task.rating !== 'undefined' ? Number(task.rating) : undefined,
-          group_id: String(task.group_id),
-          timeSpent: task.time_spent_hours ? `${task.time_spent_hours}h` : "0h",
+        const tasksWithSubtasks: Task[] = parentTasks.map((task) => {
+          // Extract numeric rating from average_rating field
+          const extractRating = (taskData: any): number | undefined => {
+            if (!taskData) return undefined;
+            // Use average_rating if available, otherwise check old format
+            if (typeof taskData.average_rating === 'number' && taskData.average_rating !== null) {
+              return Math.round(taskData.average_rating);
+            }
+            if (typeof taskData.rating === 'object' && 'rating' in taskData.rating) {
+              return Number(taskData.rating.rating);
+            }
+            if (typeof taskData.rating === 'number') {
+              return taskData.rating;
+            }
+            return undefined;
+          };
 
-          subitems: subtasks
-            .filter((st) => String(st.parent_id) === String(task.id))
-            .map((st) => ({
-              id: String(st.id),
-              name: st.name,
-              description: st.description,
-              status: st.status_label,
-              status_id: String(st.status_id),
-              priority: st.priority_label,
-              priority_id: String(st.task_priority_id),
-              estimatedDate: st.due_date,
-              person: st.assignee?.name,
-              rating: typeof st.rating !== 'undefined' ? Number(st.rating) : undefined,
-              timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
-              group_id: String(task.group_id), // ✅ ADD THIS
-              subitems: [],
-            })),
+          return {
+            id: String(task.id),
+            name: task.name,
+            description: task.description,
+            status: task.status_label,
+            status_id: String(task.status_id),
+            priority: task.priority_label,
+            priority_id: String(task.task_priority_id),
+            estimatedDate: task.due_date,
+            person: task.assignee?.name,
+            assigned_to_id: task.assigned_to,
+            assigned_to_ids: task.assignees?.map((a) => String(a.user_id)) || (task.assigned_to ? [String(task.assigned_to)] : []),
+            rating: extractRating(task),
+            ratingCount: task.rating_count || 0,
+            ratings: task.ratings,
+            group_id: String(task.group_id),
+            timeSpent: task.time_spent_hours ? `${task.time_spent_hours}h` : "0h",
 
-        }));
+            subitems: subtasks
+              .filter((st) => String(st.parent_id) === String(task.id))
+              .map((st) => ({
+                id: String(st.id),
+                name: st.name,
+                description: st.description,
+                status: st.status_label,
+                status_id: String(st.status_id),
+                priority: st.priority_label,
+                priority_id: String(st.task_priority_id),
+                estimatedDate: st.due_date,
+                person: st.assignee?.name,
+                assigned_to_id: st.assigned_to,
+                assigned_to_ids: st.assignees?.map((a) => String(a.user_id)) || (st.assigned_to ? [String(st.assigned_to)] : []),
+                rating: extractRating(st),
+                ratingCount: st.rating_count || 0,
+                ratings: st.ratings,
+                timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
+                group_id: String(task.group_id),
+                subitems: [],
+              })),
+          };
+        });
 
         console.log("Tasks with Subtasks:", tasksWithSubtasks);
 
@@ -728,6 +778,9 @@ export function WorkloadBoard({
           return;
         }
 
+        // Clear the cache for this board to ensure fresh data on mount
+        clearCMSCache(boardIdNum);
+
         const cmsData = await getCMSData({
           organization_id: organizationIdNum,
           board_id: boardIdNum,
@@ -736,8 +789,18 @@ export function WorkloadBoard({
 
         console.log("Fetched CMS Data:", cmsData);
 
-        setStatuses(cmsData.statuses);
-        setPriorities(cmsData.priority);
+        // Sort statuses by status_order
+        const sortedStatuses = [...cmsData.statuses].sort(
+          sortBy((s) => s.status_order, "number")
+        );
+
+        // Sort priorities by priority_order
+        const sortedPriorities = [...cmsData.priority].sort(
+          sortBy((p) => p.priority_order, "number")
+        );
+
+        setStatuses(sortedStatuses);
+        setPriorities(sortedPriorities);
         setMembers(cmsData.members || []);
       } catch (err) {
         console.error("Failed to load CMS data:", err);
@@ -904,6 +967,23 @@ export function WorkloadBoard({
         JSON.stringify(newGroups)
       );
     }
+  };
+
+  // Helper to find current task by ID from groups state
+  const getTaskById = (taskId: string | null): Task | null => {
+    if (!taskId) return null;
+    for (const group of groups) {
+      const task = group.tasks.find(t => t.id === taskId);
+      if (task) return task;
+      const subitem = group.tasks.flatMap(t => t.subitems || []).find(s => s.id === taskId);
+      if (subitem) return subitem;
+    }
+    return null;
+  };
+
+  const openCommentsPanel = (task: Task) => {
+    setSelectedTaskId(task.id);
+    setCommentsPanelOpen(true);
   };
 
   const addNewGroup = async () => {
@@ -1338,11 +1418,6 @@ export function WorkloadBoard({
     setExpandedGroups(allExpanded);
   };
 
-  const openCommentsPanel = (task: Task) => {
-    setSelectedTask(task);
-    setCommentsPanelOpen(true);
-  };
-
   // Which field to focus when opening the edit dialog
   const [editTaskDialogFocus, setEditTaskDialogFocus] = useState<"name" | "description">("name");
 
@@ -1391,6 +1466,21 @@ export function WorkloadBoard({
 
       const updatedTaskResponse = await tasksApi.updateTask(payload);
 
+      // Extract numeric rating from average_rating field
+      const extractRating = (taskData: any): number | undefined => {
+        if (!taskData) return undefined;
+        if (typeof taskData.average_rating === 'number' && taskData.average_rating !== null) {
+          return Math.round(taskData.average_rating);
+        }
+        if (typeof taskData.rating === 'object' && 'rating' in taskData.rating) {
+          return Number(taskData.rating.rating);
+        }
+        if (typeof taskData.rating === 'number') {
+          return taskData.rating;
+        }
+        return undefined;
+      };
+
       // Update local state with API response
       const updatedGroups = groups.map((group) => ({
         ...group,
@@ -1404,7 +1494,9 @@ export function WorkloadBoard({
               priority: updatedTaskResponse.priority_label,
               estimatedDate: updatedTaskResponse.due_date || "-",
               person: updatedTaskResponse.assignee?.name,
-              rating: typeof updatedTaskResponse.rating !== 'undefined' ? Number(updatedTaskResponse.rating) : task.rating,
+              rating: extractRating(updatedTaskResponse),
+              ratingCount: updatedTaskResponse.rating_count || 0,
+              ratings: updatedTaskResponse.ratings,
               timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
             };
           }
@@ -1421,7 +1513,9 @@ export function WorkloadBoard({
                   priority: updatedTaskResponse.priority_label,
                   estimatedDate: updatedTaskResponse.due_date || "-",
                   person: updatedTaskResponse.assignee?.name,
-                  rating: typeof updatedTaskResponse.rating !== 'undefined' ? Number(updatedTaskResponse.rating) : subitem.rating,
+                  rating: extractRating(updatedTaskResponse),
+                  ratingCount: updatedTaskResponse.rating_count || 0,
+                  ratings: updatedTaskResponse.ratings,
                   timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
                 };
               }
@@ -1615,13 +1709,39 @@ export function WorkloadBoard({
     try {
       const boardIdNum = Number(boardId);
 
+      // Get the currently assigned member ID (first assignee)
+      let assigneeId = 0;
+      for (const group of groups) {
+        const task = group.tasks.find(t => t.id === taskId);
+        if (task) {
+          assigneeId = task.assigned_to_ids?.[0] ? Number(task.assigned_to_ids[0]) : 0;
+          break;
+        }
+        const subitem = group.tasks.flatMap(t => t.subitems || []).find(s => s.id === taskId);
+        if (subitem) {
+          assigneeId = subitem.assigned_to_ids?.[0] ? Number(subitem.assigned_to_ids[0]) : 0;
+          break;
+        }
+      }
+
+
+      console.log("assigneeId", assigneeId)
+
       const payload: UpdateTaskRequest = {
         id: taskId,
         board_id: boardIdNum,
-        rating: Number(rating),
+        rating: {
+          rating: Number(rating),
+          assignee_id: assigneeId,
+        },
       };
 
       const updated = await tasksApi.updateTask(payload);
+
+      // Extract numeric rating from average_rating field
+      const ratingValue = updated.average_rating 
+        ? Math.round(updated.average_rating)
+        : Number(rating);
 
       setGroups((prevGroups) =>
         prevGroups.map((group) => ({
@@ -1631,7 +1751,9 @@ export function WorkloadBoard({
             if (task.id === taskId) {
               return {
                 ...task,
-                rating: updated.rating ?? Number(rating),
+                rating: ratingValue,
+                ratingCount: updated.rating_count || 0,
+                ratings: updated.ratings,
               };
             }
 
@@ -1643,7 +1765,9 @@ export function WorkloadBoard({
                   sub.id === taskId
                     ? {
                         ...sub,
-                        rating: updated.rating ?? Number(rating),
+                        rating: ratingValue,
+                        ratingCount: updated.rating_count || 0,
+                        ratings: updated.ratings,
                       }
                     : sub
                 ),
@@ -1664,17 +1788,26 @@ export function WorkloadBoard({
     }
   };
 
-  const handlePersonChange = async (taskId: string, memberId: string) => {
+  const handlePersonChange = async (taskId: string, memberIds: string[]) => {
     try {
       const boardIdNum = Number(boardId);
 
+      // Filter out null/undefined values and convert to numbers
+      const validMemberIds = memberIds
+        .filter((id) => id && id !== "null" && id !== "undefined")
+        .map((id) => Number(id));
+
+      // Send the update with assignees array
       const payload: UpdateTaskRequest = {
         id: taskId,
         board_id: boardIdNum,
-        assigned_to: Number(memberId),
+        assignees: validMemberIds,
       };
 
       const updated = await tasksApi.updateTask(payload);
+
+      // Extract assignee IDs from the response
+      const assigneeIds = updated.assignees?.map((a) => String(a.user_id)) || [];
 
       setGroups((prevGroups) =>
         prevGroups.map((group) => ({
@@ -1684,8 +1817,9 @@ export function WorkloadBoard({
             if (task.id === taskId) {
               return {
                 ...task,
-                person: updated.assignee?.name,
-                assigned_to_id: String(updated.assigned_to),
+                person: updated.assignees?.[0]?.name || updated.assignee?.name,
+                assigned_to_id: updated.assignees?.[0]?.user_id || String(updated.assigned_to),
+                assigned_to_ids: assigneeIds,
               };
             }
 
@@ -1693,15 +1827,17 @@ export function WorkloadBoard({
             if (task.subitems?.length) {
               return {
                 ...task,
-                subitems: task.subitems.map((sub) =>
-                  sub.id === taskId
-                    ? {
-                        ...sub,
-                        person: updated.assignee?.name,
-                        assigned_to_id: String(updated.assigned_to),
-                      }
-                    : sub
-                ),
+                subitems: task.subitems.map((sub) => {
+                  if (sub.id === taskId) {
+                    return {
+                      ...sub,
+                      person: updated.assignees?.[0]?.name || updated.assignee?.name,
+                      assigned_to_id: updated.assignees?.[0]?.user_id || String(updated.assigned_to),
+                      assigned_to_ids: assigneeIds,
+                    };
+                  }
+                  return sub;
+                }),
               };
             }
 
@@ -1710,8 +1846,6 @@ export function WorkloadBoard({
         }))
       );
 
-      // Close popover after update
-      setOpenPopoverId(null);
       toast.success("Person assigned successfully");
     } catch (err) {
       console.error(err);
@@ -1719,61 +1853,59 @@ export function WorkloadBoard({
     }
   };
 
-  // const handleEstimatedDateChange = async (taskId: string, fromDate: string | null, toDate: string | null) => {
-  //   try {
-  //     const boardIdNum = Number(boardId);
+  const handleEstimatedDateChange = (taskId: string, fromDate: string | null, toDate?: string | null) => {
+    // Format the date range display
+    let dateDisplay = "-";
+    if (fromDate) {
+      if (toDate && toDate !== fromDate) {
+        // Format as "13 Jan, 2026 - 14 Jan, 2026"
+        const fromFormatted = format(parseISO(fromDate), "dd MMM, yyyy");
+        const toFormatted = format(parseISO(toDate), "dd MMM, yyyy");
+        dateDisplay = `${fromFormatted} - ${toFormatted}`;
+      } else {
+        // Single date: "13 Jan, 2026"
+        dateDisplay = format(parseISO(fromDate), "dd MMM, yyyy");
+      }
+    }
 
-  //     const payload: UpdateTaskRequest = {
-  //       id: taskId,
-  //       board_id: boardIdNum,
-  //       due_date: fromDate || undefined,
-  //       // due_date_end: toDate || undefined,
-  //     };
+    setGroups((prevGroups) =>
+      prevGroups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => {
+          // ✅ parent task
+          if (task.id === taskId) {
+            return {
+              ...task,
+              estimatedDate: dateDisplay,
+              estimatedDateEnd: toDate || null,
+            };
+          }
 
-  //     const updated = await tasksApi.updateTask(payload);
+          // ✅ subtask
+          if (task.subitems?.length) {
+            return {
+              ...task,
+              subitems: task.subitems.map((sub) =>
+                sub.id === taskId
+                  ? {
+                      ...sub,
+                      estimatedDate: dateDisplay,
+                      estimatedDateEnd: toDate || null,
+                    }
+                  : sub
+              ),
+            };
+          }
 
-  //     setGroups((prevGroups) =>
-  //       prevGroups.map((group) => ({
-  //         ...group,
-  //         tasks: group.tasks.map((task) => {
-  //           // ✅ parent task
-  //           if (task.id === taskId) {
-  //             return {
-  //               ...task,
-  //               estimatedDate: updated.due_date || "-",
-  //               // estimatedDateEnd: updated.due_date_end || null,
-  //             };
-  //           }
+          return task;
+        }),
+      }))
+    );
 
-  //           // ✅ subtask
-  //           if (task.subitems?.length) {
-  //             return {
-  //               ...task,
-  //               subitems: task.subitems.map((sub) =>
-  //                 sub.id === taskId
-  //                   ? {
-  //                       ...sub,
-  //                       estimatedDate: updated.due_date || "-",
-  //                       // estimatedDateEnd: updated.due_date_end || null,
-  //                     }
-  //                   : sub
-  //               ),
-  //             };
-  //           }
-
-  //           return task;
-  //         }),
-  //       }))
-  //     );
-
-  //     // Close popover after update
-  //     setOpenPopoverId(null);
-  //     toast.success("Date updated successfully");
-  //   } catch (err) {
-  //     console.error(err);
-  //     toast.error("Failed to update date");
-  //   }
-  // };
+    // Close popover after update
+    setOpenPopoverId(null);
+    toast.success("Date updated successfully");
+  };
 
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
     const updatedChecked: Record<string, boolean> = {
@@ -1795,6 +1927,29 @@ export function WorkloadBoard({
       ...prev,
       ...updatedChecked,
     }));
+  };
+
+  const handleTimerStart = (taskId: string) => {
+    setActiveTimerId(taskId);
+  };
+
+  const handleTimerConflict = (conflictingTaskId: string) => {
+    // Find the conflicting task name
+    let taskName = "Another task";
+    getFilteredGroups().forEach((group) => {
+      group.tasks.forEach((task) => {
+        if (task.id === conflictingTaskId) {
+          taskName = task.name;
+        }
+        task.subitems?.forEach((subitem) => {
+          if (subitem.id === conflictingTaskId) {
+            taskName = subitem.name;
+          }
+        });
+      });
+    });
+    setConflictingTaskName(taskName);
+    setTimerConflictDialogOpen(true);
   };
 
   const deleteCheckedTasks = async () => {
@@ -2121,6 +2276,7 @@ export function WorkloadBoard({
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
+      onEstimatedDateChange: handleEstimatedDateChange,
       openPopoverId,
       setOpenPopoverId,
     });
@@ -2149,6 +2305,7 @@ export function WorkloadBoard({
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
+      onEstimatedDateChange: handleEstimatedDateChange,
       openPopoverId,
       setOpenPopoverId,
     });
@@ -2165,7 +2322,30 @@ export function WorkloadBoard({
   }, [statuses, priorities, members, openPopoverId, visibleColumns, collapsedColumns, columnWidths]);
 
   const totalColumns = workloadColumns.length + 1;
-  // NEW : End
+
+  // Track unsaved changes for layout
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [initialGroupOrder, setInitialGroupOrder] = useState<string[]>([]);
+  const [initialColumnOrder, setInitialColumnOrder] = useState<string[]>([]);
+
+  // Initialize the original order when groups and columns are loaded
+  useEffect(() => {
+    setInitialGroupOrder(groups.map((g) => g.id));
+    setInitialColumnOrder(workloadColumns.map((c) => c.id));
+  }, []);
+
+  // Check if there are unsaved changes
+  useEffect(() => {
+    const currentGroupOrder = groups.map((g) => g.id);
+    const currentColumnOrder = workloadColumns.map((c) => c.id);
+
+    const groupsChanged =
+      JSON.stringify(currentGroupOrder) !== JSON.stringify(initialGroupOrder);
+    const columnsChanged =
+      JSON.stringify(currentColumnOrder) !== JSON.stringify(initialColumnOrder);
+
+    setHasUnsavedChanges(groupsChanged || columnsChanged);
+  }, [groups, workloadColumns, initialGroupOrder, initialColumnOrder]);
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -2299,6 +2479,43 @@ export function WorkloadBoard({
                     className="pl-9 h-8 bg-background border-border w-48"
                   />
                 </div>
+
+                {/* Save Button */}
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={!hasUnsavedChanges}
+                  onClick={() => {
+                    // Build the payload
+                    const groupOrder: Record<string, string> = {};
+                    groups.forEach((group, index) => {
+                      groupOrder[String(index + 1)] = group.id;
+                    });
+
+                    const columnOrder: Record<string, string> = {};
+                    workloadColumns.forEach((col, index) => {
+                      columnOrder[String(index + 1)] = col.id;
+                    });
+
+                    const payload = {
+                      board_id: parseInt(boardId, 10),
+                      group_order: groupOrder,
+                      column_order: columnOrder,
+                    };
+
+                    console.log("Save payload:", payload);
+                    
+                    // Update initial order to mark changes as saved
+                    setInitialGroupOrder(groups.map((g) => g.id));
+                    setInitialColumnOrder(workloadColumns.map((c) => c.id));
+                    setHasUnsavedChanges(false);
+                    
+                    toast.success("Layout saved successfully");
+                    // API call will be added here in the future
+                  }}
+                >
+                  Save View
+                </Button>
               </div>
 
               {/* <Button variant="ghost" size="sm">
@@ -2337,6 +2554,7 @@ export function WorkloadBoard({
                           estimatedDate: "Estimated Date",
                           date: "Date",
                           person: "Person",
+                          timer: "Timer",
                           time: "Time Spent",
                         }[columnId] || columnId;
 
@@ -2648,11 +2866,25 @@ export function WorkloadBoard({
 
                                     {/* Table Body */}
                                     <tbody>
-                                      {group.tasks.map((task) => (
+                                      {group.tasks.map((task) => {
+                                        const taskWithProps = {
+                                          ...task,
+                                          boardId: boardId,
+                                          activeTimerId: activeTimerId,
+                                          onTimerStart: handleTimerStart,
+                                          onTimerConflict: handleTimerConflict,
+                                        };
+                                        return (
                                         <React.Fragment key={task.id}>
                                           {/* ================= TASK ROW ================= */}
-                                          <tr className="border-t border-b border-border hover:bg-muted/40">
-                                            <td className="p-4 text-center border-r border-border">
+                                          <tr 
+                                            className="border-t border-b border-border hover:bg-muted/40 cursor-pointer"
+                                            onClick={() => {
+                                              setSelectedTaskId(task.id);
+                                              setSheetTaskCardOpen(true);
+                                            }}
+                                          >
+                                            <td className="p-4 text-center border-r border-border" onClick={(e) => e.stopPropagation()}>
                                               <input
                                                 type="checkbox"
                                                 checked={
@@ -2678,12 +2910,16 @@ export function WorkloadBoard({
                                                     "text-left"
                                                 )}
                                                 style={{ width: col.width }}
+                                                onClick={(e) => e.stopPropagation()}
                                               >
                                                 {col.collapsed ? (
                                                   <div className="flex items-center justify-center">
                                                     <button
                                                       className="h-6 w-6 rounded-sm   flex items-center justify-center"
-                                                      onClick={() => toggleCollapseColumn(col.id)}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleCollapseColumn(col.id);
+                                                      }}
                                                       aria-label={`Expand ${col.label}`}
                                                       title={`Expand ${col.label}`}
                                                     >
@@ -2691,7 +2927,7 @@ export function WorkloadBoard({
                                                     </button>
                                                   </div>
                                                 ) : (
-                                                  col.render(task)
+                                                  col.render(taskWithProps)
                                                 )}
                                               </td>
                                             ))}
@@ -2699,12 +2935,20 @@ export function WorkloadBoard({
 
                                           {/* ================= SUBITEM ROWS ================= */}
                                           {expandedTasks[task.id] &&
-                                            task.subitems?.map((subtask) => (
+                                            task.subitems?.map((subtask) => {
+                                              const subtaskWithProps = {
+                                                ...subtask,
+                                                boardId: boardId,
+                                                activeTimerId: activeTimerId,
+                                                onTimerStart: handleTimerStart,
+                                                onTimerConflict: handleTimerConflict,
+                                              };
+                                              return (
                                               <tr
                                                 key={subtask.id}
                                                 className="  hover:bg-muted/30 border-b border-border"
                                               >
-                                                <td className="p-4 text-center border-r border-border">
+                                                <td className="p-4 text-center border-r border-border" onClick={(e) => e.stopPropagation()}>
                                                   <input
                                                     type="checkbox"
                                                     checked={
@@ -2731,12 +2975,16 @@ export function WorkloadBoard({
                                                       col.align === "left" &&
                                                         "text-left"
                                                     )}
+                                                    onClick={(e) => e.stopPropagation()}
                                                   >
                                                     {col.collapsed ? (
                                                       <div className="flex items-center justify-center">
                                                         <button
                                                           className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
-                                                          onClick={() => toggleCollapseColumn(col.id)}
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleCollapseColumn(col.id);
+                                                          }}
                                                           aria-label={`Expand ${col.label}`}
                                                           title={`Expand ${col.label}`}
                                                         >
@@ -2744,12 +2992,13 @@ export function WorkloadBoard({
                                                         </button>
                                                       </div>
                                                     ) : (
-                                                      col.render(subtask, true)
+                                                      col.render(subtaskWithProps, true)
                                                     )}
                                                   </td>
                                                 ))}
                                               </tr>
-                                            ))}
+                                            );
+                                            })}
 
                                           {/* ================= ADD SUBITEM ================= */}
                                           {expandedTasks[task.id] && (
@@ -2833,7 +3082,8 @@ export function WorkloadBoard({
                                             </tr>
                                           )}
                                         </React.Fragment>
-                                      ))}
+                                      );
+                                      })}
 
                                       {/* ================= ADD ITEM ROW ================= */}
                                       <tr>
@@ -3206,6 +3456,26 @@ export function WorkloadBoard({
         </DialogContent>
       </Dialog>
 
+      {/* Timer Conflict Dialog */}
+      <Dialog open={timerConflictDialogOpen} onOpenChange={setTimerConflictDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Timer Already Running</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-foreground">
+              Another timer is already running on "<strong>{conflictingTaskName}</strong>". 
+              Please stop it first before starting a new timer.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setTimerConflictDialogOpen(false)}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ALL SHEETS WILL GO HERE */}
       {/* Comments Panel Sheet */}
       <Sheet
@@ -3222,7 +3492,7 @@ export function WorkloadBoard({
             <SheetHeader className="px-6 py-4 border-b border-border">
               <div className="flex items-center justify-between">
                 <SheetTitle className="text-2xl font-semibold">
-                  {selectedTask?.name || "Task Details"}
+                  {getTaskById(selectedTaskId)?.name || "Task Details"}
                 </SheetTitle>
                 <div className="flex items-center gap-4">
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -3253,6 +3523,18 @@ export function WorkloadBoard({
                     <RefreshCcw className="h-4 w-4 mr-2" />
                     Client Updates
                   </TabsTrigger>
+
+                  <Button
+                    variant="ghost"
+                    className="rounded-none border-b-2 border-transparent hover:bg-transparent h-auto py-3 px-4"
+                    onClick={() => {
+                      setCommentsPanelOpen(false);
+                      setSheetTaskCardOpen(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Task
+                  </Button>
 
                   <TabsTrigger
                     value="activity"
@@ -3383,6 +3665,21 @@ export function WorkloadBoard({
       )}
 
       {/* */}
+      {/* Task Card Dialog */}
+      <TaskCardDialog
+        open={sheetTaskCardOpen}
+        onOpenChange={setSheetTaskCardOpen}
+        task={getTaskById(selectedTaskId)}
+        boardName={boardName}
+        statuses={statuses}
+        priorities={priorities}
+        members={members}
+        onStatusChange={handleStatusChange}
+        onPriorityChange={handlePriorityChange}
+        onPersonChange={handlePersonChange}
+        onRatingChange={handleRatingChange}
+        onEstimatedDateChange={handleEstimatedDateChange}
+      />
     </div>
   );
 }
