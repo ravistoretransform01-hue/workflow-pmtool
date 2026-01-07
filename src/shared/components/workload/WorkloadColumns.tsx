@@ -171,27 +171,21 @@ function PersonPopover({
   onPersonChange?: (taskId: string, memberIds: string[]) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [localSelected, setLocalSelected] = useState<Set<string>>(
-    new Set(selectedMemberIds || [])
+  const [localSelected, setLocalSelected] = useState<string | null>(
+    selectedMemberIds?.[0] || null
   );
 
   const filteredMembers = members.filter((member) =>
     (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleMemberToggle = (memberId: string) => {
-    const newSelected = new Set(localSelected);
-    if (newSelected.has(memberId)) {
-      newSelected.delete(memberId);
-    } else {
-      newSelected.add(memberId);
-    }
-    setLocalSelected(newSelected);
+  const handleMemberSelect = (memberId: string) => {
+    setLocalSelected(memberId);
   };
 
   const handleUpdateAssignees = () => {
-    // Send all selected members at once
-    onPersonChange?.(task.id, Array.from(localSelected));
+    // Send selected member (or empty array if none selected)
+    onPersonChange?.(task.id, localSelected ? [localSelected] : []);
     setOpenPopoverId?.(null);
   };
 
@@ -205,12 +199,12 @@ function PersonPopover({
           className="w-full flex justify-center hover:opacity-80 transition-opacity cursor-pointer"
           onClick={(e) => e.stopPropagation()}
         >
-          {localSelected.size === 0 ? (
+          {!localSelected ? (
             <span className="text-muted-foreground text-xs">+ Add</span>
           ) : (
-            <div className="flex justify-center -space-x-4">
-              {Array.from(localSelected).slice(0, 3).map((memberId) => {
-                const member = members.find((m) => String(m.user_id) === String(memberId));
+            <div className="flex justify-center">
+              {(() => {
+                const member = members.find((m) => String(m.user_id) === String(localSelected));
                 if (!member) return null;
                 const name = (member?.name ?? "").trim();
                 const initials = name
@@ -224,7 +218,7 @@ function PersonPopover({
                   name || String(member?.user_id || "user")
                 );
                 return (
-                  <Avatar key={memberId} className="h-8 w-8 border-2 border-background">
+                  <Avatar className="h-8 w-8 border-2 border-background">
                     <AvatarFallback
                       style={{ background: bgColor, color: "white" }}
                       className="text-[10px] font-semibold"
@@ -233,10 +227,7 @@ function PersonPopover({
                     </AvatarFallback>
                   </Avatar>
                 );
-              })}
-              {localSelected.size > 3 && (
-                <span className="text-xs text-muted-foreground ml-1">+{localSelected.size - 3}</span>
-              )}
+              })()}
             </div>
           )}
         </button>
@@ -278,19 +269,19 @@ function PersonPopover({
                   name || String(member?.user_id || "user")
                 );
 
-                const isSelected = localSelected.has(String(member.user_id));
+                const isSelected = localSelected === String(member.user_id);
 
                 return (
                   <button
                     key={member.user_id}
-                    onClick={() => handleMemberToggle(String(member.user_id))}
+                    onClick={() => handleMemberSelect(String(member.user_id))}
                     className="w-full flex items-center gap-3 px-2 py-2 rounded transition-colors text-sm font-medium text-left hover:bg-muted"
                   >
                     <input
-                      type="checkbox"
+                      type="radio" 
                       checked={isSelected}
                       onChange={() => {}}
-                      className="h-4 w-4 rounded"
+                      className="h-4 w-4 accent-primary cursor-pointer"
                     />
                     <Avatar className="h-8 w-8">
                       <AvatarFallback
@@ -324,6 +315,7 @@ function PersonPopover({
 function RatingStars({
   task,
   rating,
+  ratingCount,
   popoverId,
   openPopoverId,
   setOpenPopoverId,
@@ -331,6 +323,7 @@ function RatingStars({
 }: {
   task: any;
   rating: number;
+  ratingCount?: number;
   popoverId: string;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
@@ -346,8 +339,9 @@ function RatingStars({
       <PopoverTrigger asChild>
         <button
           className="w-full h-8 flex items-center justify-center gap-1"
-          aria-label={`Rating ${rating}`}
+          aria-label={`Rating ${rating}${ratingCount ? ` (${ratingCount} rating${ratingCount !== 1 ? 's' : ''})` : ''}`}
           onClick={(e) => e.stopPropagation()}
+          title={ratingCount ? `${ratingCount} rating${ratingCount !== 1 ? 's' : ''}` : 'No ratings'}
         >
           {[1, 2, 3, 4, 5].map((i) => (
             <svg
@@ -365,6 +359,9 @@ function RatingStars({
               />
             </svg>
           ))}
+          {/* {ratingCount ? (
+            <span className="text-xs text-muted-foreground ml-1">({ratingCount})</span>
+          ) : null} */}
         </button>
       </PopoverTrigger>
 
@@ -372,36 +369,43 @@ function RatingStars({
         className="w-60 p-3 bg-card border border-border shadow-lg rounded-lg"
         align="center"
       >
-        <div className="flex gap-2 justify-center">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <button
-              key={i}
-              onClick={() => {
-                setOpenPopoverId?.(null);
-                onRatingChange?.(task.id, i);
-              }}
-              onMouseEnter={() => setHoveredRating(i)}
-              onMouseLeave={() => setHoveredRating(0)}
-              className="p-1"
-              aria-label={`Set rating ${i}`}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className={`h-6 w-6 transition-colors ${
-                  i <= (hoveredRating || rating)
-                    ? "text-yellow-400"
-                    : "text-muted-foreground"
-                }`}
+        <div className="space-y-3">
+          <div className="flex gap-2 justify-center">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setOpenPopoverId?.(null);
+                  onRatingChange?.(task.id, i);
+                }}
+                onMouseEnter={() => setHoveredRating(i)}
+                onMouseLeave={() => setHoveredRating(0)}
+                className="p-1"
+                aria-label={`Set rating ${i}`}
               >
-                <path
-                  d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
-                  fill="currentColor"
-                />
-              </svg>
-            </button>
-          ))}
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-6 w-6 transition-colors ${
+                    i <= (hoveredRating || rating)
+                      ? "text-yellow-400"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  <path
+                    d="M12 .587l3.668 7.431L23.5 9.753l-5.75 5.601L19.334 24 12 20.202 4.666 24l1.584-8.646L.5 9.753l7.832-1.735L12 .587z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+            ))}
+          </div>
+          {/* {ratingCount ? (
+            <div className="text-center text-xs text-muted-foreground">
+              {ratingCount} rating{ratingCount !== 1 ? 's' : ''}
+            </div>
+          ) : null} */}
         </div>
       </PopoverContent>
     </Popover>
@@ -807,12 +811,14 @@ export const getWorkloadColumns = ({
       align: "center",
       render: (task: any) => {
         const rating = Number(task.rating) || 0;
+        const ratingCount = task.ratingCount || 0;
         const popoverId = `rating-${task.id}`;
 
         return (
           <RatingStars
             task={task}
             rating={rating}
+            ratingCount={ratingCount}
             popoverId={popoverId}
             openPopoverId={openPopoverId}
             setOpenPopoverId={setOpenPopoverId}

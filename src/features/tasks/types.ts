@@ -44,8 +44,29 @@ export interface TaskResponse {
   subtasks_count: string;
   time_spent_hours: number;
   is_overdue: boolean;
-  // optional rating field (1-5)
-  rating?: number;
+  estimation: string | null;
+  // New rating structure from API
+  ratings?: Array<{
+    id: string;
+    task_id: string;
+    assignee_id: string;
+    assigner_id: string;
+    rating: string | number;
+    created_at: string;
+    updated_at: string;
+    assignee?: {
+      id: number;
+      name: string;
+      email: string;
+    };
+    assigner?: {
+      id: number;
+      name: string;
+      email: string;
+    };
+  }>;
+  average_rating: number | null;
+  rating_count: number;
 }
 
 export interface CreateTaskRequest {
@@ -79,9 +100,11 @@ export interface UpdateTaskRequest {
   assignees?: number[]; // Multiple assignees
   is_private?: number;
   member?: string;
-  // optional rating update
-  rating?: number;
-  
+  // optional rating update - now an object with rating and assignee_id
+  rating?: {
+    rating: string | number;
+    assignee_id: number;
+  };
 }
 
 export interface DeleteTaskRequest {

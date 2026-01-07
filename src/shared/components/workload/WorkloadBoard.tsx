@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
-import { getCMSData } from "@/features/cms/cmsStorage";
+import { getCMSData, clearCMSCache } from "@/features/cms/cmsStorage";
 import type {
   CreateTaskRequest,
   UpdateTaskRequest,
@@ -39,6 +39,7 @@ import {
   // GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sortBy } from "@/lib/sorting";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
@@ -124,7 +125,18 @@ export interface Task {
   assigned_to_id?: string;
   assigned_to_ids?: string[]; // Multiple assignees
   timeSpent?: string;
-  rating?: number;
+  rating?: number; // Display rating as average number (1-5)
+  ratingCount?: number; // Number of ratings
+  ratings?: Array<{
+    id: string;
+    assignee_id: string;
+    rating: string | number;
+    assignee?: {
+      id: number;
+      name: string;
+      email: string;
+    };
+  }>;
   group_id?: string;
   subitems?: Task[];
 }
@@ -643,43 +655,64 @@ export function WorkloadBoard({
         const subtasks: TaskResponse[] = tasksRes.filter((t) => t.parent_id);
 
         // 2️⃣ Normalize tasks into UI Task model
-        const tasksWithSubtasks: Task[] = parentTasks.map((task) => ({
-          id: String(task.id),
-          name: task.name,
-          description: task.description,
-          status: task.status_label,
-          status_id: String(task.status_id),
-          priority: task.priority_label,
-          priority_id: String(task.task_priority_id),
-          estimatedDate: task.due_date,
-          person: task.assignee?.name,
-          assigned_to_id: task.assigned_to,
-          assigned_to_ids: task.assignees?.map((a) => String(a.user_id)) || (task.assigned_to ? [String(task.assigned_to)] : []),
-          rating: typeof task.rating !== 'undefined' ? Number(task.rating) : undefined,
-          group_id: String(task.group_id),
-          timeSpent: task.time_spent_hours ? `${task.time_spent_hours}h` : "0h",
+        const tasksWithSubtasks: Task[] = parentTasks.map((task) => {
+          // Extract numeric rating from average_rating field
+          const extractRating = (taskData: any): number | undefined => {
+            if (!taskData) return undefined;
+            // Use average_rating if available, otherwise check old format
+            if (typeof taskData.average_rating === 'number' && taskData.average_rating !== null) {
+              return Math.round(taskData.average_rating);
+            }
+            if (typeof taskData.rating === 'object' && 'rating' in taskData.rating) {
+              return Number(taskData.rating.rating);
+            }
+            if (typeof taskData.rating === 'number') {
+              return taskData.rating;
+            }
+            return undefined;
+          };
 
-          subitems: subtasks
-            .filter((st) => String(st.parent_id) === String(task.id))
-            .map((st) => ({
-              id: String(st.id),
-              name: st.name,
-              description: st.description,
-              status: st.status_label,
-              status_id: String(st.status_id),
-              priority: st.priority_label,
-              priority_id: String(st.task_priority_id),
-              estimatedDate: st.due_date,
-              person: st.assignee?.name,
-              assigned_to_id: st.assigned_to,
-              assigned_to_ids: st.assignees?.map((a) => String(a.user_id)) || (st.assigned_to ? [String(st.assigned_to)] : []),
-              rating: typeof st.rating !== 'undefined' ? Number(st.rating) : undefined,
-              timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
-              group_id: String(task.group_id), // ✅ ADD THIS
-              subitems: [],
-            })),
+          return {
+            id: String(task.id),
+            name: task.name,
+            description: task.description,
+            status: task.status_label,
+            status_id: String(task.status_id),
+            priority: task.priority_label,
+            priority_id: String(task.task_priority_id),
+            estimatedDate: task.due_date,
+            person: task.assignee?.name,
+            assigned_to_id: task.assigned_to,
+            assigned_to_ids: task.assignees?.map((a) => String(a.user_id)) || (task.assigned_to ? [String(task.assigned_to)] : []),
+            rating: extractRating(task),
+            ratingCount: task.rating_count || 0,
+            ratings: task.ratings,
+            group_id: String(task.group_id),
+            timeSpent: task.time_spent_hours ? `${task.time_spent_hours}h` : "0h",
 
-        }));
+            subitems: subtasks
+              .filter((st) => String(st.parent_id) === String(task.id))
+              .map((st) => ({
+                id: String(st.id),
+                name: st.name,
+                description: st.description,
+                status: st.status_label,
+                status_id: String(st.status_id),
+                priority: st.priority_label,
+                priority_id: String(st.task_priority_id),
+                estimatedDate: st.due_date,
+                person: st.assignee?.name,
+                assigned_to_id: st.assigned_to,
+                assigned_to_ids: st.assignees?.map((a) => String(a.user_id)) || (st.assigned_to ? [String(st.assigned_to)] : []),
+                rating: extractRating(st),
+                ratingCount: st.rating_count || 0,
+                ratings: st.ratings,
+                timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
+                group_id: String(task.group_id),
+                subitems: [],
+              })),
+          };
+        });
 
         console.log("Tasks with Subtasks:", tasksWithSubtasks);
 
@@ -745,6 +778,9 @@ export function WorkloadBoard({
           return;
         }
 
+        // Clear the cache for this board to ensure fresh data on mount
+        clearCMSCache(boardIdNum);
+
         const cmsData = await getCMSData({
           organization_id: organizationIdNum,
           board_id: boardIdNum,
@@ -753,8 +789,18 @@ export function WorkloadBoard({
 
         console.log("Fetched CMS Data:", cmsData);
 
-        setStatuses(cmsData.statuses);
-        setPriorities(cmsData.priority);
+        // Sort statuses by status_order
+        const sortedStatuses = [...cmsData.statuses].sort(
+          sortBy((s) => s.status_order, "number")
+        );
+
+        // Sort priorities by priority_order
+        const sortedPriorities = [...cmsData.priority].sort(
+          sortBy((p) => p.priority_order, "number")
+        );
+
+        setStatuses(sortedStatuses);
+        setPriorities(sortedPriorities);
         setMembers(cmsData.members || []);
       } catch (err) {
         console.error("Failed to load CMS data:", err);
@@ -1420,6 +1466,21 @@ export function WorkloadBoard({
 
       const updatedTaskResponse = await tasksApi.updateTask(payload);
 
+      // Extract numeric rating from average_rating field
+      const extractRating = (taskData: any): number | undefined => {
+        if (!taskData) return undefined;
+        if (typeof taskData.average_rating === 'number' && taskData.average_rating !== null) {
+          return Math.round(taskData.average_rating);
+        }
+        if (typeof taskData.rating === 'object' && 'rating' in taskData.rating) {
+          return Number(taskData.rating.rating);
+        }
+        if (typeof taskData.rating === 'number') {
+          return taskData.rating;
+        }
+        return undefined;
+      };
+
       // Update local state with API response
       const updatedGroups = groups.map((group) => ({
         ...group,
@@ -1433,7 +1494,9 @@ export function WorkloadBoard({
               priority: updatedTaskResponse.priority_label,
               estimatedDate: updatedTaskResponse.due_date || "-",
               person: updatedTaskResponse.assignee?.name,
-              rating: typeof updatedTaskResponse.rating !== 'undefined' ? Number(updatedTaskResponse.rating) : task.rating,
+              rating: extractRating(updatedTaskResponse),
+              ratingCount: updatedTaskResponse.rating_count || 0,
+              ratings: updatedTaskResponse.ratings,
               timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
             };
           }
@@ -1450,7 +1513,9 @@ export function WorkloadBoard({
                   priority: updatedTaskResponse.priority_label,
                   estimatedDate: updatedTaskResponse.due_date || "-",
                   person: updatedTaskResponse.assignee?.name,
-                  rating: typeof updatedTaskResponse.rating !== 'undefined' ? Number(updatedTaskResponse.rating) : subitem.rating,
+                  rating: extractRating(updatedTaskResponse),
+                  ratingCount: updatedTaskResponse.rating_count || 0,
+                  ratings: updatedTaskResponse.ratings,
                   timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
                 };
               }
@@ -1644,13 +1709,39 @@ export function WorkloadBoard({
     try {
       const boardIdNum = Number(boardId);
 
+      // Get the currently assigned member ID (first assignee)
+      let assigneeId = 0;
+      for (const group of groups) {
+        const task = group.tasks.find(t => t.id === taskId);
+        if (task) {
+          assigneeId = task.assigned_to_ids?.[0] ? Number(task.assigned_to_ids[0]) : 0;
+          break;
+        }
+        const subitem = group.tasks.flatMap(t => t.subitems || []).find(s => s.id === taskId);
+        if (subitem) {
+          assigneeId = subitem.assigned_to_ids?.[0] ? Number(subitem.assigned_to_ids[0]) : 0;
+          break;
+        }
+      }
+
+
+      console.log("assigneeId", assigneeId)
+
       const payload: UpdateTaskRequest = {
         id: taskId,
         board_id: boardIdNum,
-        rating: Number(rating),
+        rating: {
+          rating: Number(rating),
+          assignee_id: assigneeId,
+        },
       };
 
       const updated = await tasksApi.updateTask(payload);
+
+      // Extract numeric rating from average_rating field
+      const ratingValue = updated.average_rating 
+        ? Math.round(updated.average_rating)
+        : Number(rating);
 
       setGroups((prevGroups) =>
         prevGroups.map((group) => ({
@@ -1660,7 +1751,9 @@ export function WorkloadBoard({
             if (task.id === taskId) {
               return {
                 ...task,
-                rating: updated.rating ?? Number(rating),
+                rating: ratingValue,
+                ratingCount: updated.rating_count || 0,
+                ratings: updated.ratings,
               };
             }
 
@@ -1672,7 +1765,9 @@ export function WorkloadBoard({
                   sub.id === taskId
                     ? {
                         ...sub,
-                        rating: updated.rating ?? Number(rating),
+                        rating: ratingValue,
+                        ratingCount: updated.rating_count || 0,
+                        ratings: updated.ratings,
                       }
                     : sub
                 ),
@@ -2789,7 +2884,7 @@ export function WorkloadBoard({
                                               setSheetTaskCardOpen(true);
                                             }}
                                           >
-                                            <td className="p-4 text-center border-r border-border">
+                                            <td className="p-4 text-center border-r border-border" onClick={(e) => e.stopPropagation()}>
                                               <input
                                                 type="checkbox"
                                                 checked={
@@ -2853,7 +2948,7 @@ export function WorkloadBoard({
                                                 key={subtask.id}
                                                 className="  hover:bg-muted/30 border-b border-border"
                                               >
-                                                <td className="p-4 text-center border-r border-border">
+                                                <td className="p-4 text-center border-r border-border" onClick={(e) => e.stopPropagation()}>
                                                   <input
                                                     type="checkbox"
                                                     checked={
