@@ -2733,15 +2733,155 @@ export function WorkloadBoard({
                                     {groupLabels[group.id]}
                                   </div>
                                 )}
+                                {/* edit group button */}
                                 <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => editGroup(group.id)}
-                                    className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
+                                  <Popover  open={editGroupDialogOpen && editingGroupId === group.id} onOpenChange={(open) => {
+                                    if (open) {
+                                      editGroup(group.id);
+                                    } else {
+                                      setEditGroupDialogOpen(false);
+                                      setEditingGroupId(null);
+                                    }
+                                  }}>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => editGroup(group.id)}
+                                        className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80 p-4" align="start">
+                                      <div className="space-y-4">
+                                        <div>
+                                          <h3 className="font-semibold text-sm mb-3">Edit Group</h3>
+                                        </div>
+                                        
+                                        {/* Color Picker */}
+                                        <div className="space-y-2">
+                                          <label className="text-sm font-medium">Color</label>
+                                          <div className="flex gap-2">
+                                            {PRESET_COLORS.map((color) => (
+                                              <button
+                                                key={color}
+                                                className={`h-10 w-10 rounded-lg transition-all border-2 ${
+                                                  editGroupColorInput === color
+                                                    ? "border-foreground scale-110"
+                                                    : "border-transparent hover:scale-105"
+                                                }`}
+                                                style={{ backgroundColor: color }}
+                                                onClick={() => setEditGroupColorInput(color)}
+                                              />
+                                            ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Group Name Input */}
+                                        <div className="space-y-2">
+                                          <label htmlFor="edit-group-name" className="text-sm font-medium">
+                                            Group Name
+                                          </label>
+                                          <Input
+                                            id="edit-group-name"
+                                            placeholder="Enter group name..."
+                                            value={editGroupNameInput}
+                                            onChange={(e) => setEditGroupNameInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") {
+                                                handleUpdateGroup();
+                                              }
+                                            }}
+                                            autoFocus
+                                          />
+                                        </div>
+
+                                        {/* Label Dropdown */}
+                                        <div className="space-y-2">
+                                          <label className="text-sm font-medium">Label (Optional)</label>
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                              <Button
+                                                variant="outline"
+                                                className="w-full justify-start text-left font-normal"
+                                              >
+                                                {editGroupLabelInput ? (
+                                                  <div className="flex items-center gap-2">
+                                                    <div
+                                                      className="w-3 h-3 rounded-full flex-shrink-0"
+                                                      style={{
+                                                        backgroundColor: editGroupLabelColorInput,
+                                                      }}
+                                                    />
+                                                    <span>{editGroupLabelInput}</span>
+                                                  </div>
+                                                ) : (
+                                                  <span className="text-muted-foreground">Select a label...</span>
+                                                )}
+                                              </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent className="w-56" align="start">
+                                              <DropdownMenuItem
+                                                onClick={() => {
+                                                  setEditGroupLabelInput("");
+                                                  setEditGroupLabelColorInput("#3b82f6");
+                                                }}
+                                              >
+                                                <span className="text-muted-foreground">No Label</span>
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                              {labels.map((label) => (
+                                                <DropdownMenuItem
+                                                  key={label.id}
+                                                  onClick={() => {
+                                                    setEditGroupLabelInput(label.label_name);
+                                                    setEditGroupLabelColorInput(label.label_color);
+                                                  }}
+                                                  className="flex items-center gap-2"
+                                                >
+                                                  <div
+                                                    className="w-3 h-3 rounded-full flex-shrink-0"
+                                                    style={{
+                                                      backgroundColor: label.label_color,
+                                                    }}
+                                                  />
+                                                  <span>{label.label_name}</span>
+                                                </DropdownMenuItem>
+                                              ))}
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-2 justify-end pt-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              setEditGroupDialogOpen(false);
+                                              setEditingGroupId(null);
+                                              setEditGroupNameInput("");
+                                              setEditGroupColorInput("#3b82f6");
+                                              setEditGroupLabelInput("");
+                                              setEditGroupLabelColorInput("#3b82f6");
+                                            }}
+                                          >
+                                            Cancel
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            onClick={() => {
+                                              handleUpdateGroup();
+                                              setEditGroupDialogOpen(false);
+                                            }}
+                                          >
+                                            Update
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
                                 </div>
 
                                 {/* Group Progress Bar - Time Spent vs Estimated Time */}
@@ -3246,144 +3386,6 @@ export function WorkloadBoard({
               disabled={!newGroupNameInput.trim() || isCreatingGroup}
             >
               {isCreatingGroup ? "Creating..." : "Create Group"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Group Dialog */}
-      <Dialog open={editGroupDialogOpen} onOpenChange={setEditGroupDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Group</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-3">
-              <label className="text-sm font-medium">Color</label>
-              <div className="flex gap-2">
-                {PRESET_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
-                      editGroupColorInput === color
-                        ? "border-foreground scale-110"
-                        : "border-transparent hover:scale-105"
-                    }`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setEditGroupColorInput(color)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <label htmlFor="edit-group-name" className="text-sm font-medium">
-                Group Name
-              </label>
-              <Input
-                id="edit-group-name"
-                placeholder="Enter group name..."
-                value={editGroupNameInput}
-                onChange={(e) => setEditGroupNameInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleUpdateGroup();
-                  }
-                }}
-                autoFocus
-              />
-            </div>
-            {/* Label Dropdown - Select from available labels */}
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Label (Optional)</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    {editGroupLabelInput ? (
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{
-                            backgroundColor: editGroupLabelColorInput,
-                          }}
-                        />
-                        <span>{editGroupLabelInput}</span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">Select a label...</span>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="start">
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setEditGroupLabelInput("");
-                      setEditGroupLabelColorInput("#3b82f6");
-                    }}
-                  >
-                    <span className="text-muted-foreground">No Label</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {labels.map((label) => (
-                    <DropdownMenuItem
-                      key={label.id}
-                      onClick={() => {
-                        setEditGroupLabelInput(label.label_name);
-                        setEditGroupLabelColorInput(label.label_color);
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{
-                          backgroundColor: label.label_color,
-                        }}
-                      />
-                      <span>{label.label_name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            {/* <div className="grid gap-3">
-              <label className="text-sm font-medium">Label Color</label>
-              <div className="flex gap-2">
-                {PRESET_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
-                      editGroupLabelColorInput === color
-                        ? "border-foreground scale-110"
-                        : "border-transparent hover:scale-105"
-                    }`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setEditGroupLabelColorInput(color)}
-                  />
-                ))}
-              </div>
-            </div>  */}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEditGroupDialogOpen(false);
-                setEditingGroupId(null);
-                setEditGroupNameInput("");
-                setEditGroupColorInput("#3b82f6");
-                setEditGroupLabelInput("");
-                setEditGroupLabelColorInput("#3b82f6");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdateGroup}
-              disabled={!editGroupNameInput.trim()}
-            >
-              Update Group
             </Button>
           </DialogFooter>
         </DialogContent>
