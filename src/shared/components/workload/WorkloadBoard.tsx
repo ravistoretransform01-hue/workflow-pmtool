@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
+import { cmsApi } from "@/features/cms/cmsApi";
 import { getCMSData, clearCMSCache } from "@/features/cms/cmsStorage";
 import type {
   CreateTaskRequest,
@@ -593,6 +594,11 @@ export function WorkloadBoard({
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [labels, setLabels] = useState<any[]>([]);
+
+  // New label creation state
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [newLabelName, setNewLabelName] = useState("");
+  const [newLabelColor, setNewLabelColor] = useState("#FF0000");
 
   // Column visibility state - load from localStorage
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
@@ -2085,10 +2091,12 @@ export function WorkloadBoard({
     const newWorkloadColumns = arrayMove(workloadColumns, oldIndex, newIndex);
     setWorkloadColumns(newWorkloadColumns);
 
-    // Optional: persist
+    // Update columnOrder state and persist
+    const newOrder = newWorkloadColumns.map((c) => c.id);
+    setColumnOrder(newOrder);
     localStorage.setItem(
       `workload-columns-${boardId}`,
-      JSON.stringify(newWorkloadColumns.map((c) => c.id))
+      JSON.stringify(newOrder)
     );
   };
 
@@ -2151,7 +2159,7 @@ export function WorkloadBoard({
       setPrevColumnWidths(updatedPrevWidths);
       setColumnWidths(updatedColumnWidths);
 
-      // Recompute columns with new collapsed state and widths
+      // Recompute columns with new collapsed state and widths, preserving column order
       const allColumns = getWorkloadColumns({
         expandedTasks,
         toggleTask,
@@ -2163,11 +2171,28 @@ export function WorkloadBoard({
         onStatusChange: handleStatusChange,
         onPriorityChange: handlePriorityChange,
         onPersonChange: handlePersonChange,
+        onRatingChange: handleRatingChange,
+        onEstimatedDateChange: handleEstimatedDateChange,
         openPopoverId,
         setOpenPopoverId,
       });
 
-      const newCols = allColumns
+      // Apply saved column order
+      let orderedColumns = allColumns;
+      if (columnOrder.length > 0) {
+        const columnMap = new Map(allColumns.map((col) => [col.id, col]));
+        orderedColumns = columnOrder
+          .map((id) => columnMap.get(id))
+          .filter(Boolean) as typeof allColumns;
+        // Add any new columns that weren't in saved order
+        allColumns.forEach((col) => {
+          if (!columnOrder.includes(col.id)) {
+            orderedColumns.push(col);
+          }
+        });
+      }
+
+      const newCols = orderedColumns
         .map((col) => ({
           ...col,
           collapsed: !!updated[col.id],
@@ -2266,6 +2291,16 @@ export function WorkloadBoard({
     }
   });
 
+  // Track column order separately to preserve it across updates
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`workload-columns-${boardId}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [workloadColumns, setWorkloadColumns] = useState(() => {
     const allColumns = getWorkloadColumns({
       expandedTasks,
@@ -2284,8 +2319,23 @@ export function WorkloadBoard({
       setOpenPopoverId,
     });
 
+    // Apply saved column order if available
+    let orderedColumns = allColumns;
+    if (columnOrder.length > 0) {
+      const columnMap = new Map(allColumns.map((col) => [col.id, col]));
+      orderedColumns = columnOrder
+        .map((id) => columnMap.get(id))
+        .filter(Boolean) as typeof allColumns;
+      // Add any new columns that weren't in saved order
+      allColumns.forEach((col) => {
+        if (!columnOrder.includes(col.id)) {
+          orderedColumns.push(col);
+        }
+      });
+    }
+
     // Apply collapsed state and persisted widths and filter visibility
-    return allColumns
+    return orderedColumns
       .map((col) => ({
         ...col,
         collapsed: !!collapsedColumns[col.id],
@@ -2294,7 +2344,8 @@ export function WorkloadBoard({
       .filter((col) => visibleColumns[col.id] === true);
   });
 
-  // Update workloadColumns when CMS data changes
+  // Update workloadColumns when CMS data, visibility, or popover state changes
+  // Preserve column order by using columnOrder state
   useEffect(() => {
     const allColumns = getWorkloadColumns({
       expandedTasks,
@@ -2312,9 +2363,25 @@ export function WorkloadBoard({
       openPopoverId,
       setOpenPopoverId,
     });
+
+    // Apply saved column order
+    let orderedColumns = allColumns;
+    if (columnOrder.length > 0) {
+      const columnMap = new Map(allColumns.map((col) => [col.id, col]));
+      orderedColumns = columnOrder
+        .map((id) => columnMap.get(id))
+        .filter(Boolean) as typeof allColumns;
+      // Add any new columns that weren't in saved order
+      allColumns.forEach((col) => {
+        if (!columnOrder.includes(col.id)) {
+          orderedColumns.push(col);
+        }
+      });
+    }
+
     // Apply collapsed state and filter columns based on visibility and saved widths
     setWorkloadColumns(
-      allColumns
+      orderedColumns
         .map((col) => ({
           ...col,
           collapsed: !!collapsedColumns[col.id],
@@ -2322,7 +2389,7 @@ export function WorkloadBoard({
         }))
         .filter((col) => visibleColumns[col.id] === true)
     );
-  }, [statuses, priorities, members, openPopoverId, visibleColumns, collapsedColumns, columnWidths]);
+  }, [statuses, priorities, members, openPopoverId, visibleColumns, collapsedColumns, columnWidths, columnOrder]);
 
   const totalColumns = workloadColumns.length + 1;
 
@@ -2800,57 +2867,141 @@ export function WorkloadBoard({
                                         {/* Label Dropdown */}
                                         <div className="space-y-2">
                                           <label className="text-sm font-medium">Label (Optional)</label>
-                                          <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                              <Button
-                                                variant="outline"
-                                                className="w-full justify-start text-left font-normal"
-                                              >
-                                                {editGroupLabelInput ? (
-                                                  <div className="flex items-center gap-2">
+                                          {isCreatingLabel ? (
+                                            <div className="space-y-2">
+                                              <Input
+                                                placeholder="Label name..."
+                                                value={newLabelName}
+                                                onChange={(e) => setNewLabelName(e.target.value)}
+                                                className="h-8 text-sm"
+                                              />
+                                              <div className="flex gap-2">
+                                                {PRESET_COLORS.map((color) => (
+                                                  <button
+                                                    key={color}
+                                                    className={`h-8 w-8 rounded-lg transition-all border-2 ${
+                                                      newLabelColor === color
+                                                        ? "border-foreground scale-110"
+                                                        : "border-transparent hover:scale-105"
+                                                    }`}
+                                                    style={{ backgroundColor: color }}
+                                                    onClick={() => setNewLabelColor(color)}
+                                                  />
+                                                ))}
+                                              </div>
+                                              <div className="flex gap-2">
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="flex-1 h-8"
+                                                  onClick={() => {
+                                                    setIsCreatingLabel(false);
+                                                    setNewLabelName("");
+                                                    setNewLabelColor("#FF0000");
+                                                  }}
+                                                >
+                                                  Cancel
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  className="flex-1 h-8"
+                                                  onClick={async () => {
+                                                    if (newLabelName.trim()) {
+                                                      try {
+                                                        const organizationIdNum = getOrganizationId();
+                                                        const boardIdNum = Number(boardId);
+
+                                                        if (organizationIdNum === null) {
+                                                          toast.error("Organization not found");
+                                                          return;
+                                                        }
+
+                                                        // Call API to create label
+                                                        const createdLabel = await cmsApi.createLabel({
+                                                          label_name: newLabelName.trim(),
+                                                          label_color: newLabelColor,
+                                                          organization_id: organizationIdNum,
+                                                          board_id: boardIdNum,
+                                                        });
+
+                                                        // Add new label to the list
+                                                        setLabels([...labels, createdLabel]);
+                                                        setEditGroupLabelInput(createdLabel.label_name);
+                                                        setEditGroupLabelColorInput(createdLabel.label_color);
+                                                        setIsCreatingLabel(false);
+                                                        setNewLabelName("");
+                                                        setNewLabelColor("#FF0000");
+                                                        toast.success("Label created successfully");
+                                                      } catch (error) {
+                                                        console.error("Failed to create label:", error);
+                                                        toast.error("Failed to create label");
+                                                      }
+                                                    }
+                                                  }}
+                                                >
+                                                  Create
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button
+                                                  variant="outline"
+                                                  className="w-full justify-start text-left font-normal"
+                                                >
+                                                  {editGroupLabelInput ? (
+                                                    <div className="flex items-center gap-2">
+                                                      <div
+                                                        className="w-3 h-3 rounded-full flex-shrink-0"
+                                                        style={{
+                                                          backgroundColor: editGroupLabelColorInput,
+                                                        }}
+                                                      />
+                                                      <span>{editGroupLabelInput}</span>
+                                                    </div>
+                                                  ) : (
+                                                    <span className="text-muted-foreground">Select a label...</span>
+                                                  )}
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent className="w-56" align="start">
+                                                <DropdownMenuItem
+                                                  onClick={() => {
+                                                    setEditGroupLabelInput("");
+                                                    setEditGroupLabelColorInput("#3b82f6");
+                                                  }}
+                                                >
+                                                  <span className="text-muted-foreground">No Label</span>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                {labels.map((label) => (
+                                                  <DropdownMenuItem
+                                                    key={label.id}
+                                                    onClick={() => {
+                                                      setEditGroupLabelInput(label.label_name);
+                                                      setEditGroupLabelColorInput(label.label_color);
+                                                    }}
+                                                    className="flex items-center gap-2"
+                                                  >
                                                     <div
                                                       className="w-3 h-3 rounded-full flex-shrink-0"
                                                       style={{
-                                                        backgroundColor: editGroupLabelColorInput,
+                                                        backgroundColor: label.label_color,
                                                       }}
                                                     />
-                                                    <span>{editGroupLabelInput}</span>
-                                                  </div>
-                                                ) : (
-                                                  <span className="text-muted-foreground">Select a label...</span>
-                                                )}
-                                              </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent className="w-56" align="start">
-                                              <DropdownMenuItem
-                                                onClick={() => {
-                                                  setEditGroupLabelInput("");
-                                                  setEditGroupLabelColorInput("#3b82f6");
-                                                }}
-                                              >
-                                                <span className="text-muted-foreground">No Label</span>
-                                              </DropdownMenuItem>
-                                              <DropdownMenuSeparator />
-                                              {labels.map((label) => (
+                                                    <span>{label.label_name}</span>
+                                                  </DropdownMenuItem>
+                                                ))}
+                                                <DropdownMenuSeparator />
                                                 <DropdownMenuItem
-                                                  key={label.id}
-                                                  onClick={() => {
-                                                    setEditGroupLabelInput(label.label_name);
-                                                    setEditGroupLabelColorInput(label.label_color);
-                                                  }}
-                                                  className="flex items-center gap-2"
+                                                  onClick={() => setIsCreatingLabel(true)}
                                                 >
-                                                  <div
-                                                    className="w-3 h-3 rounded-full flex-shrink-0"
-                                                    style={{
-                                                      backgroundColor: label.label_color,
-                                                    }}
-                                                  />
-                                                  <span>{label.label_name}</span>
+                                                  <span className="text-primary">+ Add New Label</span>
                                                 </DropdownMenuItem>
-                                              ))}
-                                            </DropdownMenuContent>
-                                          </DropdownMenu>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          )}
                                         </div>
 
                                         {/* Action Buttons */}
