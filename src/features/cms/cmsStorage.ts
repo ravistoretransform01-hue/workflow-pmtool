@@ -1,5 +1,5 @@
 import { cmsApi } from "./cmsApi";
-import type { CMSRequest, CMSData, Status, Priority, Member } from "./types";
+import type { CMSRequest, CMSData, Status, Priority, Member, Label } from "./types";
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
@@ -32,8 +32,9 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
     // Store in localStorage with board-specific key
     const cmsData: CMSData = {
       statuses: apiResponse.statuses,
-      priority: apiResponse.priority,
+      priorities: apiResponse.priorities,
       members: apiResponse.members || [],
+      labels: apiResponse.labels || [],
       timestamp: Date.now(),
     };
 
@@ -71,7 +72,7 @@ export async function getStatuses(payload: CMSRequest): Promise<Status[]> {
  */
 export async function getPriorities(payload: CMSRequest): Promise<Priority[]> {
   const cmsData = await getCMSData(payload);
-  return cmsData.priority;
+  return cmsData.priorities;
 }
 
 /**
@@ -82,6 +83,16 @@ export async function getPriorities(payload: CMSRequest): Promise<Priority[]> {
 export async function getMembers(payload: CMSRequest): Promise<Member[]> {
   const cmsData = await getCMSData(payload);
   return cmsData.members;
+}
+
+/**
+ * Get labels from localStorage or fetch if not available
+ * @param payload - Request payload
+ * @returns Array of Label objects
+ */
+export async function getLabels(payload: CMSRequest): Promise<Label[]> {
+  const cmsData = await getCMSData(payload);
+  return cmsData.labels;
 }
 
 /**
@@ -124,6 +135,20 @@ export async function getMemberById(
 ): Promise<Member | undefined> {
   const members = await getMembers(payload);
   return members.find((m) => m.user_id === memberId);
+}
+
+/**
+ * Get a specific label by ID
+ * @param payload - Request payload
+ * @param labelId - Label ID to find
+ * @returns Label object or undefined
+ */
+export async function getLabelById(
+  payload: CMSRequest,
+  labelId: string
+): Promise<Label | undefined> {
+  const labels = await getLabels(payload);
+  return labels.find((l) => l.id === labelId);
 }
 
 /**

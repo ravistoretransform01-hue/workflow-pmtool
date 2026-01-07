@@ -137,6 +137,7 @@ export interface Task {
       email: string;
     };
   }>;
+  label_id?: string; // Label ID for the task
   group_id?: string;
   subitems?: Task[];
 }
@@ -591,6 +592,7 @@ export function WorkloadBoard({
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [members, setMembers] = useState<any[]>([]);
+  const [labels, setLabels] = useState<any[]>([]);
 
   // Column visibility state - load from localStorage
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
@@ -795,13 +797,14 @@ export function WorkloadBoard({
         );
 
         // Sort priorities by priority_order
-        const sortedPriorities = [...cmsData.priority].sort(
+        const sortedPriorities = [...cmsData.priorities].sort(
           sortBy((p) => p.priority_order, "number")
         );
 
         setStatuses(sortedStatuses);
         setPriorities(sortedPriorities);
         setMembers(cmsData.members || []);
+        setLabels(cmsData.labels || []);
       } catch (err) {
         console.error("Failed to load CMS data:", err);
         // Don't show toast error as CMS data is optional
@@ -3289,17 +3292,60 @@ export function WorkloadBoard({
                 autoFocus
               />
             </div>
-            {/* Label Input - POSTPONED */}
+            {/* Label Dropdown - Select from available labels */}
             <div className="grid gap-2">
-              <label htmlFor="edit-group-label" className="text-sm font-medium">
-                Label (Optional)
-              </label>
-              <Input
-                id="edit-group-label"
-                placeholder="Enter label text..."
-                value={editGroupLabelInput}
-                onChange={(e) => setEditGroupLabelInput(e.target.value)}
-              />
+              <label className="text-sm font-medium">Label (Optional)</label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    {editGroupLabelInput ? (
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{
+                            backgroundColor: editGroupLabelColorInput,
+                          }}
+                        />
+                        <span>{editGroupLabelInput}</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">Select a label...</span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="start">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setEditGroupLabelInput("");
+                      setEditGroupLabelColorInput("#3b82f6");
+                    }}
+                  >
+                    <span className="text-muted-foreground">No Label</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {labels.map((label) => (
+                    <DropdownMenuItem
+                      key={label.id}
+                      onClick={() => {
+                        setEditGroupLabelInput(label.label_name);
+                        setEditGroupLabelColorInput(label.label_color);
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{
+                          backgroundColor: label.label_color,
+                        }}
+                      />
+                      <span>{label.label_name}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             {/* <div className="grid gap-3">
               <label className="text-sm font-medium">Label Color</label>
