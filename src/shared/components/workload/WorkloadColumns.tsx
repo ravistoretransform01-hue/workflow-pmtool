@@ -201,7 +201,10 @@ function PersonPopover({
       onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
     >
       <PopoverTrigger asChild>
-        <button className="w-full flex justify-center hover:opacity-80 transition-opacity cursor-pointer">
+        <button 
+          className="w-full flex justify-center hover:opacity-80 transition-opacity cursor-pointer"
+          onClick={(e) => e.stopPropagation()}
+        >
           {localSelected.size === 0 ? (
             <span className="text-muted-foreground text-xs">+ Add</span>
           ) : (
@@ -221,7 +224,7 @@ function PersonPopover({
                   name || String(member?.user_id || "user")
                 );
                 return (
-                  <Avatar key={memberId} className="h-6 w-6 border-2 border-background">
+                  <Avatar key={memberId} className="h-8 w-8 border-2 border-background">
                     <AvatarFallback
                       style={{ background: bgColor, color: "white" }}
                       className="text-[10px] font-semibold"
@@ -344,6 +347,7 @@ function RatingStars({
         <button
           className="w-full h-8 flex items-center justify-center gap-1"
           aria-label={`Rating ${rating}`}
+          onClick={(e) => e.stopPropagation()}
         >
           {[1, 2, 3, 4, 5].map((i) => (
             <svg
@@ -429,12 +433,18 @@ function EstimatedDatePicker({
   const [dateRange, setDateRange] = useState<
     { from?: Date; to?: Date } | undefined
   >(() => {
-    const from =
-      estimatedDate && estimatedDate !== "-"
-        ? parseISO(estimatedDate)
-        : undefined;
-    const to = estimatedDateEnd ? parseISO(estimatedDateEnd) : undefined;
-    return { from, to };
+    // Try to parse the dates - they might be in ISO format or display format
+    try {
+      const from =
+        estimatedDate && estimatedDate !== "-"
+          ? parseISO(estimatedDate)
+          : undefined;
+      const to = estimatedDateEnd ? parseISO(estimatedDateEnd) : undefined;
+      return { from, to };
+    } catch {
+      // If parsing fails, return undefined (user will select dates fresh)
+      return undefined;
+    }
   });
 
   const handleDateRangeChange = (
@@ -456,8 +466,10 @@ function EstimatedDatePicker({
       onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
     >
       <PopoverTrigger asChild>
-        <div className="w-full">
-          <button className="w-full bg-muted text-muted-foreground px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
+        <div className="w-full" onClick={(e) => e.stopPropagation()}>
+          <button 
+            className="w-full bg-muted text-muted-foreground px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate"
+          >
             {formatDateDisplay()}
           </button>
         </div>
@@ -587,13 +599,19 @@ export const getWorkloadColumns = ({
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => onEditTask?.(task, "name")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditTask?.(task, "name");
+                  }}
                   className="p-1 hover:bg-muted rounded"
                 >
                   <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                 </button>
                 <button
-                  onClick={() => onOpenComments?.(task)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenComments?.(task);
+                  }}
                   className="p-1 hover:bg-muted rounded"
                 >
                   <MessageCirclePlus className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -605,7 +623,10 @@ export const getWorkloadColumns = ({
         return (
           <div className="flex items-center gap-2 justify-between group">
             <button
-              onClick={() => toggleTask(task.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleTask(task.id);
+              }}
               className="flex items-center gap-2 font-medium text-foreground hover:underline"
             >
               {
@@ -620,13 +641,19 @@ export const getWorkloadColumns = ({
             </button>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
-                onClick={() => onEditTask?.(task, "name")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditTask?.(task, "name");
+                }}
                 className="p-1 hover:bg-muted rounded"
               >
                 <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
               </button>
               <button
-                onClick={() => onOpenComments?.(task)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenComments?.(task);
+                }}
                 className="p-1 hover:bg-muted rounded"
               >
                 <MessageCirclePlus className="h-4 w-4 text-muted-foreground hover:text-foreground" />
@@ -659,6 +686,7 @@ export const getWorkloadColumns = ({
                   color: "white",
                   border: "none",
                 }}
+                onClick={(e) => e.stopPropagation()}
               >
                 {statusObj?.name || "No Status"}
               </Button>
@@ -710,6 +738,7 @@ export const getWorkloadColumns = ({
                   color: "white",
                   border: "none",
                 }}
+                onClick={(e) => e.stopPropagation()}
               >
                 {priorityObj?.name || "No Priority"}
               </Button>
@@ -749,7 +778,10 @@ export const getWorkloadColumns = ({
 
         return (
           <button
-            onClick={() => onEditTask?.(task, "description")}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditTask?.(task, "description");
+            }}
             className="w-full text-left group"
             title={description}
           >

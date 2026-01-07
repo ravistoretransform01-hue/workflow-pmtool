@@ -94,6 +94,7 @@ import { FileUploadDropdown } from "../FileUploadDropdown";
 import { EmojiPicker } from "../EmojiPicker";
 import { getOrganizationId } from "@/lib/utils";
 import { getWorkloadColumns } from "./WorkloadColumns";
+import { TaskCardDialog } from "./TaskCardDialog";
 import type { TaskResponse } from "@/features/tasks/types";
 
 interface WorkloadBoardProps {
@@ -556,7 +557,8 @@ export function WorkloadBoard({
   );
   const [checkedTasks, setCheckedTasks] = useState<Record<string, boolean>>({});
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [sheetTaskCardOpen, setSheetTaskCardOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editTaskName, setEditTaskName] = useState("");
@@ -919,6 +921,23 @@ export function WorkloadBoard({
         JSON.stringify(newGroups)
       );
     }
+  };
+
+  // Helper to find current task by ID from groups state
+  const getTaskById = (taskId: string | null): Task | null => {
+    if (!taskId) return null;
+    for (const group of groups) {
+      const task = group.tasks.find(t => t.id === taskId);
+      if (task) return task;
+      const subitem = group.tasks.flatMap(t => t.subitems || []).find(s => s.id === taskId);
+      if (subitem) return subitem;
+    }
+    return null;
+  };
+
+  const openCommentsPanel = (task: Task) => {
+    setSelectedTaskId(task.id);
+    setCommentsPanelOpen(true);
   };
 
   const addNewGroup = async () => {
@@ -1351,11 +1370,6 @@ export function WorkloadBoard({
       allExpanded[group.id] = true;
     });
     setExpandedGroups(allExpanded);
-  };
-
-  const openCommentsPanel = (task: Task) => {
-    setSelectedTask(task);
-    setCommentsPanelOpen(true);
   };
 
   // Which field to focus when opening the edit dialog
@@ -2768,7 +2782,13 @@ export function WorkloadBoard({
                                         return (
                                         <React.Fragment key={task.id}>
                                           {/* ================= TASK ROW ================= */}
-                                          <tr className="border-t border-b border-border hover:bg-muted/40">
+                                          <tr 
+                                            className="border-t border-b border-border hover:bg-muted/40 cursor-pointer"
+                                            onClick={() => {
+                                              setSelectedTaskId(task.id);
+                                              setSheetTaskCardOpen(true);
+                                            }}
+                                          >
                                             <td className="p-4 text-center border-r border-border">
                                               <input
                                                 type="checkbox"
@@ -2795,12 +2815,16 @@ export function WorkloadBoard({
                                                     "text-left"
                                                 )}
                                                 style={{ width: col.width }}
+                                                onClick={(e) => e.stopPropagation()}
                                               >
                                                 {col.collapsed ? (
                                                   <div className="flex items-center justify-center">
                                                     <button
                                                       className="h-6 w-6 rounded-sm   flex items-center justify-center"
-                                                      onClick={() => toggleCollapseColumn(col.id)}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleCollapseColumn(col.id);
+                                                      }}
                                                       aria-label={`Expand ${col.label}`}
                                                       title={`Expand ${col.label}`}
                                                     >
@@ -2856,12 +2880,16 @@ export function WorkloadBoard({
                                                       col.align === "left" &&
                                                         "text-left"
                                                     )}
+                                                    onClick={(e) => e.stopPropagation()}
                                                   >
                                                     {col.collapsed ? (
                                                       <div className="flex items-center justify-center">
                                                         <button
                                                           className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
-                                                          onClick={() => toggleCollapseColumn(col.id)}
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleCollapseColumn(col.id);
+                                                          }}
                                                           aria-label={`Expand ${col.label}`}
                                                           title={`Expand ${col.label}`}
                                                         >
@@ -3369,7 +3397,7 @@ export function WorkloadBoard({
             <SheetHeader className="px-6 py-4 border-b border-border">
               <div className="flex items-center justify-between">
                 <SheetTitle className="text-2xl font-semibold">
-                  {selectedTask?.name || "Task Details"}
+                  {getTaskById(selectedTaskId)?.name || "Task Details"}
                 </SheetTitle>
                 <div className="flex items-center gap-4">
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -3400,6 +3428,18 @@ export function WorkloadBoard({
                     <RefreshCcw className="h-4 w-4 mr-2" />
                     Client Updates
                   </TabsTrigger>
+
+                  <Button
+                    variant="ghost"
+                    className="rounded-none border-b-2 border-transparent hover:bg-transparent h-auto py-3 px-4"
+                    onClick={() => {
+                      setCommentsPanelOpen(false);
+                      setSheetTaskCardOpen(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Task
+                  </Button>
 
                   <TabsTrigger
                     value="activity"
@@ -3530,6 +3570,21 @@ export function WorkloadBoard({
       )}
 
       {/* */}
+      {/* Task Card Dialog */}
+      <TaskCardDialog
+        open={sheetTaskCardOpen}
+        onOpenChange={setSheetTaskCardOpen}
+        task={getTaskById(selectedTaskId)}
+        boardName={boardName}
+        statuses={statuses}
+        priorities={priorities}
+        members={members}
+        onStatusChange={handleStatusChange}
+        onPriorityChange={handlePriorityChange}
+        onPersonChange={handlePersonChange}
+        onRatingChange={handleRatingChange}
+        onEstimatedDateChange={handleEstimatedDateChange}
+      />
     </div>
   );
 }
