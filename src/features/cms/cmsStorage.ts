@@ -1,5 +1,5 @@
 import { cmsApi } from "./cmsApi";
-import type { CMSRequest, CMSData, Status, Priority, Member, Label } from "./types";
+import type { CMSRequest, CMSData, Status, Priority, Member, Label, Tag } from "./types";
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
@@ -35,6 +35,7 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
       priorities: apiResponse.priorities,
       members: apiResponse.members || [],
       labels: apiResponse.labels || [],
+      tags: apiResponse.tags || [],
       timestamp: Date.now(),
     };
 
@@ -96,6 +97,16 @@ export async function getLabels(payload: CMSRequest): Promise<Label[]> {
 }
 
 /**
+ * Get tags from localStorage or fetch if not available
+ * @param payload - Request payload
+ * @returns Array of Tag objects
+ */
+export async function getTags(payload: CMSRequest): Promise<Tag[]> {
+  const cmsData = await getCMSData(payload);
+  return cmsData.tags;
+}
+
+/**
  * Get a specific status by ID
  * @param payload - Request payload
  * @param statusId - Status ID to find
@@ -149,6 +160,20 @@ export async function getLabelById(
 ): Promise<Label | undefined> {
   const labels = await getLabels(payload);
   return labels.find((l) => l.id === labelId);
+}
+
+/**
+ * Get a specific tag by ID
+ * @param payload - Request payload
+ * @param tagId - Tag ID to find
+ * @returns Tag object or undefined
+ */
+export async function getTagById(
+  payload: CMSRequest,
+  tagId: string
+): Promise<Tag | undefined> {
+  const tags = await getTags(payload);
+  return tags.find((t) => t.id === tagId);
 }
 
 /**

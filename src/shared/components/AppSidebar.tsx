@@ -197,7 +197,7 @@ export const AppSidebar = () => {
   };
 
   return (
-    <Sidebar>
+    <Sidebar className="z-20">
       <SidebarHeader className="h-16 flex items-center justify-center">
         <div className="flex items-center justify-between gap-2 w-full">
           <div className="flex items-center gap-2">
