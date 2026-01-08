@@ -1174,8 +1174,9 @@ export const getWorkloadColumns = ({
                   taskTags.map((tag: any) => (
                     <span
                       key={tag.tag_id}
-                      className="px-2 py-1 rounded text-xs font-medium text-white"
+                      className="px-2 py-1 rounded text-xs font-medium text-white cursor-pointer hover:opacity-90"
                       style={{ backgroundColor: `#${tag.tag_slug}` }}
+                      title={tag.tag_name}
                     >
                       {tag.tag_name}
                     </span>
@@ -1207,17 +1208,16 @@ export const getWorkloadColumns = ({
                         <button
                           onClick={async () => {
                             try {
-                              // Remove tag by filtering it out and sending updated list
+                              // Remove tag by sending the tag to remove
+                              await tasksApi.updateTaskTags({
+                                id: task.id,
+                                tag_id: tag.tag_id,
+                              });
+                              
+                              // Update local state by removing the tag
                               const updatedTags = taskTags.filter(
                                 (t: any) => t.tag_id !== tag.tag_id
                               );
-                              const tagIds = updatedTags.map((t: any) => t.tag_id);
-                              
-                              await tasksApi.updateTaskTags({
-                                id: task.id,
-                                tag_id: tagIds,
-                              });
-                              
                               onTagChange?.(task.id, updatedTags);
                               toast.success("Tag removed");
                             } catch (error) {
@@ -1248,7 +1248,13 @@ export const getWorkloadColumns = ({
                           onClick={async () => {
                             if (!isAlreadyAdded) {
                               try {
-                                // Add tag by including it in the updated list
+                                // Add tag by sending the tag ID
+                                await tasksApi.updateTaskTags({
+                                  id: task.id,
+                                  tag_id: cmsTag.id,
+                                });
+                                
+                                // Add tag to local state
                                 const newTag = {
                                   task_tag_id: Date.now(), // Temporary ID
                                   tag_id: cmsTag.id,
@@ -1260,13 +1266,6 @@ export const getWorkloadColumns = ({
                                   tagged_at: new Date().toISOString(),
                                 };
                                 const updatedTags = [...taskTags, newTag];
-                                const tagIds = updatedTags.map((t: any) => t.tag_id);
-                                
-                                await tasksApi.updateTaskTags({
-                                  id: task.id,
-                                  tag_id: tagIds,
-                                });
-                                
                                 onTagChange?.(task.id, updatedTags);
                                 toast.success("Tag added");
                               } catch (error) {

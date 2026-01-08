@@ -731,6 +731,7 @@ export function WorkloadBoard({
             rating: extractRating(task),
             ratingCount: task.rating_count || 0,
             ratings: task.ratings,
+            tags: task.tags || [],
             group_id: String(task.group_id),
             timeSpent: task.time_spent_hours ? `${task.time_spent_hours}h` : "0h",
 
@@ -757,6 +758,7 @@ export function WorkloadBoard({
                 rating: extractRating(st),
                 ratingCount: st.rating_count || 0,
                 ratings: st.ratings,
+                tags: st.tags || [],
                 timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
                 group_id: String(task.group_id),
                 subitems: [],
