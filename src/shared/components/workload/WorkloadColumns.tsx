@@ -243,7 +243,7 @@ function PersonPopover({
         <div className="space-y-2 flex flex-col">
           {/* Search Input */}
           <div className="relative flex-shrink-0">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-0 pointer-events-none" />
             <Input
               placeholder="Search members..."
               value={searchQuery}
@@ -792,12 +792,14 @@ export const getWorkloadColumns = ({
   statuses = [],
   priorities = [],
   members = [],
+  tags = [],
   onStatusChange,
   onPriorityChange,
   onPersonChange,
   onRatingChange,
   onEstimatedDateChange,
   onEstimatedTimeChange,
+  onTagChange,
   openPopoverId,
   setOpenPopoverId,
 }: {
@@ -808,6 +810,7 @@ export const getWorkloadColumns = ({
   statuses?: Status[];
   priorities?: Priority[];
   members?: any[];
+  tags?: any[];
   onStatusChange?: (taskId: string, statusId: string) => void;
   onPriorityChange?: (taskId: string, priorityId: string) => void;
   onPersonChange?: (taskId: string, memberIds: string[]) => void;
@@ -821,6 +824,7 @@ export const getWorkloadColumns = ({
     taskId: string,
     hours: string | number | null
   ) => void;
+  onTagChange?: (taskId: string, tags: any[]) => void;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
 }): Column[] => {
@@ -1142,6 +1146,151 @@ export const getWorkloadColumns = ({
             setOpenPopoverId={setOpenPopoverId}
             onPersonChange={onPersonChange}
           />
+        );
+      },
+    },
+    {
+      id: "tags",
+      label: "Tags",
+      width: "180px",
+      align: "center",
+      render: (task: any) => {
+        const taskTags = task.tags || [];
+        const popoverId = `tags-${task.id}`;
+
+        return (
+          <Popover
+            open={openPopoverId === popoverId}
+            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+          >
+            <PopoverTrigger asChild>
+              <button
+                className="w-full flex flex-wrap gap-1 justify-center items-center hover:opacity-80 transition-opacity cursor-pointer"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {taskTags.length === 0 ? (
+                  <span className="text-muted-foreground text-xs">+ Add</span>
+                ) : (
+                  taskTags.map((tag: any) => (
+                    <span
+                      key={tag.tag_id}
+                      className="px-2 py-1 rounded text-xs font-medium text-white"
+                      style={{ backgroundColor: `#${tag.tag_slug}` }}
+                    >
+                      {tag.tag_name}
+                    </span>
+                  ))
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg flex flex-col"
+              align="center"
+            >
+              <div className="space-y-2 flex flex-col">
+                <h3 className="font-medium text-sm">Manage Tags</h3>
+                
+                {/* Current Tags */}
+                {taskTags.length > 0 && (
+                  <div className="space-y-1 border-b border-border pb-2">
+                    {taskTags.map((tag: any) => (
+                      <div
+                        key={tag.task_tag_id}
+                        className="flex items-center justify-between px-2 py-1 rounded hover:bg-muted"
+                      >
+                        <span
+                          className="px-2 py-1 rounded text-xs font-medium text-white"
+                          style={{ backgroundColor: `#${tag.tag_slug}` }}
+                        >
+                          {tag.tag_name}
+                        </span>
+                        <button
+                          onClick={async () => {
+                            try {
+                              // Remove tag by filtering it out and sending updated list
+                              const updatedTags = taskTags.filter(
+                                (t: any) => t.tag_id !== tag.tag_id
+                              );
+                              const tagIds = updatedTags.map((t: any) => t.tag_id);
+                              
+                              await tasksApi.updateTaskTags({
+                                id: task.id,
+                                tag_id: tagIds,
+                              });
+                              
+                              onTagChange?.(task.id, updatedTags);
+                              toast.success("Tag removed");
+                            } catch (error) {
+                              console.error("Failed to remove tag:", error);
+                              toast.error("Failed to remove tag");
+                            }
+                          }}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Available Tags to Add */}
+                {Array.isArray(tags) && tags.length > 0 && (
+                  <div className="space-y-1 border-b border-border pb-2">
+                    <p className="text-xs font-medium text-muted-foreground px-2">Available Tags:</p>
+                    {tags.map((cmsTag: any) => {
+                      const isAlreadyAdded = taskTags.some(
+                        (t: any) => t.tag_id === cmsTag.id
+                      );
+                      return (
+                        <button
+                          key={cmsTag.id}
+                          onClick={async () => {
+                            if (!isAlreadyAdded) {
+                              try {
+                                // Add tag by including it in the updated list
+                                const newTag = {
+                                  task_tag_id: Date.now(), // Temporary ID
+                                  tag_id: cmsTag.id,
+                                  tag_name: cmsTag.name,
+                                  tag_slug: cmsTag.slug,
+                                  tag_is_active: cmsTag.is_active,
+                                  tagged_by: 2,
+                                  tagged_by_name: "Current User",
+                                  tagged_at: new Date().toISOString(),
+                                };
+                                const updatedTags = [...taskTags, newTag];
+                                const tagIds = updatedTags.map((t: any) => t.tag_id);
+                                
+                                await tasksApi.updateTaskTags({
+                                  id: task.id,
+                                  tag_id: tagIds,
+                                });
+                                
+                                onTagChange?.(task.id, updatedTags);
+                                toast.success("Tag added");
+                              } catch (error) {
+                                console.error("Failed to add tag:", error);
+                                toast.error("Failed to add tag");
+                              }
+                            }
+                          }}
+                          disabled={isAlreadyAdded}
+                          className={`w-full text-left px-2 py-1 rounded text-xs font-medium transition-colors ${
+                            isAlreadyAdded
+                              ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                              : "hover:bg-muted cursor-pointer"
+                          }`}
+                        >
+                          {cmsTag.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         );
       },
     },

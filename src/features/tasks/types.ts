@@ -77,6 +77,17 @@ export interface TaskResponse {
   }>;
   average_rating: number | null;
   rating_count: number;
+  // Tags array
+  tags?: Array<{
+    task_tag_id: number;
+    tag_id: number;
+    tag_name: string;
+    tag_slug: string;
+    tag_is_active: boolean;
+    tagged_by: number;
+    tagged_by_name: string;
+    tagged_at: string;
+  }>;
 }
 
 export interface GetTasksResponse {

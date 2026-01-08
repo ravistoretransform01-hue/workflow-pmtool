@@ -16,6 +16,8 @@ const TASKS_ENDPOINTS = {
   UPDATE_TASK: `/tasks`,
   CREATE_ESTIMATED_DATE: `/tasks/estimate/date`,
   UPDATE_ESTIMATED_DATE: `/tasks/estimate/date`,
+  ADD_TAG: `/tasks/tag`,
+  REMOVE_TAG: (taskTagId: string | number) => `/tasks/tag/${taskTagId}`,
 };
 
 export const tasksApi = {
@@ -159,6 +161,57 @@ export const tasksApi = {
       return response.data.data;
     } catch (error) {
       console.error("Failed to update estimated date:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update task tags via PUT endpoint
+   * Sends array of tag IDs to add/update tags for a task
+   */
+  updateTaskTags: async (payload: {
+    id: string | number;
+    tag_id: (string | number)[];
+  }): Promise<TaskResponse> => {
+    try {
+      const response = await axios.put<{ data: TaskResponse }>(
+        TASKS_ENDPOINTS.UPDATE_TASK,
+        payload
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to update task tags:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Add a tag to a task (legacy - use updateTaskTags instead)
+   */
+  addTag: async (payload: {
+    task_id: string | number;
+    tag_id: string | number;
+  }): Promise<any> => {
+    try {
+      const response = await axios.post(
+        TASKS_ENDPOINTS.ADD_TAG,
+        payload
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to add tag:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove a tag from a task (legacy - use updateTaskTags instead)
+   */
+  removeTag: async (taskTagId: string | number): Promise<void> => {
+    try {
+      await axios.delete(TASKS_ENDPOINTS.REMOVE_TAG(taskTagId));
+    } catch (error) {
+      console.error("Failed to remove tag:", error);
       throw error;
     }
   },

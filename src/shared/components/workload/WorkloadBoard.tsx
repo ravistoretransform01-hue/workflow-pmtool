@@ -150,6 +150,16 @@ export interface Task {
   }>;
   label_id?: string; // Label ID for the task
   group_id?: string;
+  tags?: Array<{
+    task_tag_id: number;
+    tag_id: number;
+    tag_name: string;
+    tag_slug: string;
+    tag_is_active: boolean;
+    tagged_by: number;
+    tagged_by_name: string;
+    tagged_at: string;
+  }>;
   subitems?: Task[];
 }
 
@@ -179,6 +189,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "estimatedDate",
   "estimatedTime",
   "person",
+  "tags",
   "timer",
   "time",
 ];
@@ -194,6 +205,7 @@ const ALL_AVAILABLE_COLUMNS = [
   "estimatedTime",
   "date",
   "person",
+  "tags",
   "timer",
   "time",
 ];
@@ -382,6 +394,10 @@ const SortableColumnHeader = ({ column, onToggleCollapse, onStartResize }: Sorta
   } = useSortable({
     id: column.id,
     disabled: column.fixed,
+    data: {
+      type: "column",
+      isFixed: column.fixed,
+    },
   });
 
   const style = {
@@ -606,6 +622,7 @@ export function WorkloadBoard({
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [labels, setLabels] = useState<any[]>([]);
+  const [tags, setTags] = useState<any[]>([]);
 
   // New label creation state
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
@@ -836,6 +853,7 @@ export function WorkloadBoard({
         setPriorities(sortedPriorities);
         setMembers(cmsData.members || []);
         setLabels(cmsData.labels || []);
+        setTags(cmsData.tags || []);
       } catch (err) {
         console.error("Failed to load CMS data:", err);
         // Don't show toast error as CMS data is optional
@@ -1977,6 +1995,43 @@ export function WorkloadBoard({
     setOpenPopoverId(null);
   };
 
+  const handleTagChange = (taskId: string, tags: any[]) => {
+    setGroups((prevGroups) =>
+      prevGroups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => {
+          // ✅ parent task
+          if (task.id === taskId) {
+            return {
+              ...task,
+              tags,
+            };
+          }
+
+          // ✅ subtask
+          if (task.subitems?.length) {
+            return {
+              ...task,
+              subitems: task.subitems.map((sub) =>
+                sub.id === taskId
+                  ? {
+                      ...sub,
+                      tags,
+                    }
+                  : sub
+              ),
+            };
+          }
+
+          return task;
+        }),
+      }))
+    );
+
+    // Close popover after update
+    setOpenPopoverId(null);
+  };
+
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
     const updatedChecked: Record<string, boolean> = {
       [taskId]: checked,
@@ -2146,6 +2201,14 @@ export function WorkloadBoard({
 
     if (!over || active.id === over.id) return;
 
+    // Prevent dragging fixed columns or dropping on fixed columns
+    const activeColumn = workloadColumns.find((c) => c.id === active.id);
+    const overColumn = workloadColumns.find((c) => c.id === over.id);
+
+    if (activeColumn?.fixed || overColumn?.fixed) {
+      return;
+    }
+
     const oldIndex = workloadColumns.findIndex((c) => c.id === active.id);
     const newIndex = workloadColumns.findIndex((c) => c.id === over.id);
 
@@ -2269,6 +2332,12 @@ export function WorkloadBoard({
   };
 
   const startColumnResize = (columnId: string, e: React.PointerEvent) => {
+    // Prevent resizing fixed columns
+    const column = workloadColumns.find((c) => c.id === columnId);
+    if (column?.fixed) {
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
     const startX = (e as any).clientX as number;
@@ -2280,7 +2349,24 @@ export function WorkloadBoard({
 
     const onPointerMove = (ev: PointerEvent) => {
       const delta = (ev as PointerEvent).clientX - startX;
-      const newWidth = Math.max(MIN_COLUMN_WIDTH, Math.round(startWidth + delta));
+      const newWidth = Math.round(startWidth + delta);
+
+      // Check if width is below minimum threshold
+      if (newWidth < MIN_COLUMN_WIDTH) {
+        // Auto-collapse the column
+        setCollapsedColumns((prev) => ({
+          ...prev,
+          [columnId]: true,
+        }));
+        try {
+          const updated = { ...collapsedColumns, [columnId]: true };
+          localStorage.setItem(
+            `board-collapsed-columns-${boardId}`,
+            JSON.stringify(updated)
+          );
+        } catch {}
+        return;
+      }
 
       // Apply new width immediately and persist
       setColumnWidths((prev) => {
@@ -2332,7 +2418,7 @@ export function WorkloadBoard({
   });
 
   const COLLAPSED_WIDTH = "32px";
-  const MIN_COLUMN_WIDTH = 24;
+  const MIN_COLUMN_WIDTH = 80;
 
   const [columnWidths, setColumnWidths] = useState<Record<string, string>>(() => {
     try {
@@ -2418,12 +2504,14 @@ export function WorkloadBoard({
       statuses,
       priorities,
       members,
+      tags,
       onStatusChange: handleStatusChange,
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
       onEstimatedTimeChange: handleEstimatedTimeChange,
+      onTagChange: handleTagChange,
       openPopoverId,
       setOpenPopoverId,
     });
@@ -3144,11 +3232,10 @@ export function WorkloadBoard({
 
                               {/* Task Table */}
                               {expandedGroups[group.id] && (
-                                <div className="overflow-x-auto no-scrollbar-x">
-                                  <table
-                                    className="w-full"
-                                    style={{ tableLayout: "auto" }}
-                                  >
+                                <table
+                                  className="w-full"
+                                  style={{ tableLayout: "fixed" }}
+                                >
                                     {/* Table head */}
                                     {/* <thead className="border-b border-border bg-muted/30">
                                       <tr className="text-sm text-muted-foreground">
@@ -3510,7 +3597,6 @@ export function WorkloadBoard({
                                       </tr>
                                     </tbody>
                                   </table>
-                                </div>
                               )}
                             </div>
                           )}

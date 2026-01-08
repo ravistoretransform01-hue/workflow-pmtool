@@ -30,12 +30,25 @@ export interface Label {
   scope: string;
 }
 
+export interface Tag {
+  id: string;
+  name: string;
+  slug: string;
+  board_id: string;
+  organization_id: string;
+  is_active: string;
+  usage_count: string;
+  created_by: string;
+  created_at: string;
+}
+
 export interface CMSResponse {
   status: boolean;
   statuses: Status[];
   priorities: Priority[];
   members: Member[];
   labels: Label[];
+  tags: Tag[];
 }
 
 export interface CMSRequest {
@@ -49,5 +62,6 @@ export interface CMSData {
   priorities: Priority[];
   members: Member[];
   labels: Label[];
+  tags: Tag[];
   timestamp: number;
 }
