@@ -10,6 +10,8 @@ import {
   Pause,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
+import { tasksApi } from "@/features/tasks/tasksApi";
+import { toast } from "sonner";
 import {
   Popover,
   PopoverContent,
@@ -195,7 +197,7 @@ function PersonPopover({
       onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
     >
       <PopoverTrigger asChild>
-        <button 
+        <button
           className="w-full flex justify-center hover:opacity-80 transition-opacity cursor-pointer"
           onClick={(e) => e.stopPropagation()}
         >
@@ -204,7 +206,9 @@ function PersonPopover({
           ) : (
             <div className="flex justify-center">
               {(() => {
-                const member = members.find((m) => String(m.user_id) === String(localSelected));
+                const member = members.find(
+                  (m) => String(m.user_id) === String(localSelected)
+                );
                 if (!member) return null;
                 const name = (member?.name ?? "").trim();
                 const initials = name
@@ -249,7 +253,14 @@ function PersonPopover({
           </div>
 
           {/* Members List - Show 2.5 items, rest scrollable */}
-          <div className="space-y-1 overflow-y-auto" style={{ maxHeight: "calc(4 * 40px)", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <div
+            className="space-y-1 overflow-y-auto"
+            style={{
+              maxHeight: "calc(4 * 40px)",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
+          >
             {filteredMembers.length === 0 ? (
               <div className="text-center py-4 text-sm text-muted-foreground">
                 No members found
@@ -278,7 +289,7 @@ function PersonPopover({
                     className="w-full flex items-center gap-3 px-2 py-2 rounded transition-colors text-sm font-medium text-left hover:bg-muted"
                   >
                     <input
-                      type="radio" 
+                      type="radio"
                       checked={isSelected}
                       onChange={() => {}}
                       className="h-4 w-4 accent-primary cursor-pointer"
@@ -339,9 +350,17 @@ function RatingStars({
       <PopoverTrigger asChild>
         <button
           className="w-full h-8 flex items-center justify-center gap-1"
-          aria-label={`Rating ${rating}${ratingCount ? ` (${ratingCount} rating${ratingCount !== 1 ? 's' : ''})` : ''}`}
+          aria-label={`Rating ${rating}${
+            ratingCount
+              ? ` (${ratingCount} rating${ratingCount !== 1 ? "s" : ""})`
+              : ""
+          }`}
           onClick={(e) => e.stopPropagation()}
-          title={ratingCount ? `${ratingCount} rating${ratingCount !== 1 ? 's' : ''}` : 'No ratings'}
+          title={
+            ratingCount
+              ? `${ratingCount} rating${ratingCount !== 1 ? "s" : ""}`
+              : "No ratings"
+          }
         >
           {[1, 2, 3, 4, 5].map((i) => (
             <svg
@@ -434,22 +453,52 @@ function EstimatedDatePicker({
     toDate?: string | null
   ) => void;
 }) {
-  const [dateRange, setDateRange] = useState<
-    { from?: Date; to?: Date } | undefined
-  >(() => {
-    // Try to parse the dates - they might be in ISO format or display format
+  // Initialize date range from task.estimation object or formatted estimatedDate string
+  const getInitialDateRange = (): { from?: Date; to?: Date } | undefined => {
     try {
-      const from =
-        estimatedDate && estimatedDate !== "-"
-          ? parseISO(estimatedDate)
-          : undefined;
-      const to = estimatedDateEnd ? parseISO(estimatedDateEnd) : undefined;
-      return { from, to };
-    } catch {
+      // First priority: use task.estimation as the source of truth
+      if (task.estimation?.estimated_date_from) {
+        const from = parseISO(task.estimation.estimated_date_from);
+        const to = task.estimation.estimated_date_to
+          ? parseISO(task.estimation.estimated_date_to)
+          : from;
+        return { from, to };
+      }
+
+      // Fallback: parse the formatted estimatedDate string (e.g., "2026-01-13  -  2026-01-22")
+      if (estimatedDate && estimatedDate !== "-") {
+        const parts = estimatedDate.split("  -  ");
+        if (parts.length === 2) {
+          // Range format: "2026-01-13  -  2026-01-22"
+          const from = parseISO(parts[0].trim());
+          const to = parseISO(parts[1].trim());
+          return { from, to };
+        } else if (parts.length === 1) {
+          // Single date format
+          const from = parseISO(parts[0].trim());
+          return { from, to: from };
+        }
+      }
+
+      // No estimation exists yet
+      return undefined;
+    } catch (error) {
       // If parsing fails, return undefined (user will select dates fresh)
+      console.warn("Failed to parse estimated date:", error);
       return undefined;
     }
-  });
+  };
+
+  const [dateRange, setDateRange] = useState<
+    { from?: Date; to?: Date } | undefined
+  >(getInitialDateRange());
+
+  // Update dateRange when task.estimation changes (e.g., when popover opens)
+  useEffect(() => {
+    if (openPopoverId === popoverId) {
+      setDateRange(getInitialDateRange());
+    }
+  }, [openPopoverId, popoverId, task.estimation]);
 
   const handleDateRangeChange = (
     range: { from?: Date; to?: Date } | undefined
@@ -458,6 +507,7 @@ function EstimatedDatePicker({
   };
 
   const formatDateDisplay = () => {
+    console.log(`estimatedDate "${estimatedDate}"`);
     if (estimatedDate === "-") return "-";
     // estimatedDate already contains the full formatted range (e.g., "15 Jan, 2026 - 19 Jan, 2026")
     // so just return it as-is
@@ -471,9 +521,7 @@ function EstimatedDatePicker({
     >
       <PopoverTrigger asChild>
         <div className="w-full" onClick={(e) => e.stopPropagation()}>
-          <button 
-            className="w-full bg-muted text-muted-foreground px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate"
-          >
+          <button className="w-full bg-muted text-muted-foreground px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
             {formatDateDisplay()}
           </button>
         </div>
@@ -518,15 +566,42 @@ function EstimatedDatePicker({
             </Button>
             <Button
               size="sm"
-              onClick={() => {
+              onClick={async () => {
                 if (dateRange?.from) {
                   const fromDate = format(dateRange.from, "yyyy-MM-dd");
                   const toDate = dateRange.to
                     ? format(dateRange.to, "yyyy-MM-dd")
                     : fromDate;
-                  onEstimatedDateChange?.(task.id, fromDate, toDate);
+
+                  try {
+                    // Check if estimation already exists by checking if estimatedDate is not "-"
+                    const hasEstimation = estimatedDate && estimatedDate !== "-";
+
+                    if (hasEstimation) {
+                      // Update existing estimation
+                      await tasksApi.updateEstimatedDate({
+                        task_id: task.id,
+                        estimated_date_from: fromDate,
+                        estimated_date_to: toDate,
+                      });
+                    } else {
+                      // Create new estimation
+                      await tasksApi.createEstimatedDate({
+                        task_id: task.id,
+                        estimated_date_from: fromDate,
+                        estimated_date_to: toDate,
+                      });
+                    }
+
+                    // Update local state
+                    onEstimatedDateChange?.(task.id, fromDate, toDate);
+                    setOpenPopoverId?.(null);
+                    toast.success("Estimated date updated successfully");
+                  } catch (error) {
+                    console.error("Failed to update estimated date:", error);
+                    toast.error("Failed to update estimated date");
+                  }
                 }
-                setOpenPopoverId?.(null);
               }}
             >
               Done
@@ -864,14 +939,15 @@ export const getWorkloadColumns = ({
       align: "center",
       render: (task: any) => task.date ?? "-",
     },
-
     {
       id: "person",
       label: "Person",
       width: "128px",
       align: "center",
       render: (task: any) => {
-        const selectedMemberIds = task.assigned_to_ids || (task.assigned_to_id ? [task.assigned_to_id] : []);
+        const selectedMemberIds =
+          task.assigned_to_ids ||
+          (task.assigned_to_id ? [task.assigned_to_id] : []);
         const popoverId = `person-${task.id}`;
         return (
           <PersonPopover
@@ -886,7 +962,7 @@ export const getWorkloadColumns = ({
         );
       },
     },
-    
+
     {
       id: "timer",
       label: "Timer",

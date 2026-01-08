@@ -123,16 +123,25 @@ export interface Task {
   priority_id?: string;
   estimatedDate?: string;
   person?: string;
-  assigned_to_id?: string;
+  assigned_to_id?: string | number;
   assigned_to_ids?: string[]; // Multiple assignees
   timeSpent?: string;
   rating?: number; // Display rating as average number (1-5)
   ratingCount?: number; // Number of ratings
   ratings?: Array<{
     id: string;
-    assignee_id: string;
+    task_id?: string;
+    assignee_id: string | number;
+    assigner_id?: string | number;
     rating: string | number;
+    created_at?: string;
+    updated_at?: string;
     assignee?: {
+      id: number;
+      name: string;
+      email: string;
+    };
+    assigner?: {
       id: number;
       name: string;
       email: string;
@@ -689,7 +698,12 @@ export function WorkloadBoard({
             status_id: String(task.status_id),
             priority: task.priority_label,
             priority_id: String(task.task_priority_id),
-            estimatedDate: task.due_date,
+            // Handle new estimation object structure
+            estimatedDate: task.estimation?.estimated_date_from 
+              ? (task.estimation.estimated_date_to && task.estimation.estimated_date_to !== task.estimation.estimated_date_from
+                  ? `${task.estimation.estimated_date_from}  -  ${task.estimation.estimated_date_to}`
+                  : task.estimation.estimated_date_from)
+              : task.due_date,
             person: task.assignee?.name,
             assigned_to_id: task.assigned_to,
             assigned_to_ids: task.assignees?.map((a) => String(a.user_id)) || (task.assigned_to ? [String(task.assigned_to)] : []),
@@ -709,7 +723,12 @@ export function WorkloadBoard({
                 status_id: String(st.status_id),
                 priority: st.priority_label,
                 priority_id: String(st.task_priority_id),
-                estimatedDate: st.due_date,
+                // Handle new estimation object structure
+                estimatedDate: st.estimation?.estimated_date_from 
+                  ? (st.estimation.estimated_date_to && st.estimation.estimated_date_to !== st.estimation.estimated_date_from
+                      ? `${st.estimation.estimated_date_from}  -  ${st.estimation.estimated_date_to}`
+                      : st.estimation.estimated_date_from)
+                  : st.due_date,
                 person: st.assignee?.name,
                 assigned_to_id: st.assigned_to,
                 assigned_to_ids: st.assignees?.map((a) => String(a.user_id)) || (st.assigned_to ? [String(st.assigned_to)] : []),
@@ -1914,7 +1933,6 @@ export function WorkloadBoard({
 
     // Close popover after update
     setOpenPopoverId(null);
-    toast.success("Date updated successfully");
   };
 
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
