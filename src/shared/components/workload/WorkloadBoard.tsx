@@ -122,6 +122,7 @@ export interface Task {
   priority?: string;
   priority_id?: string;
   estimatedDate?: string;
+  estimatedHours?: string | number; // Approved hours from estimation
   person?: string;
   assigned_to_id?: string | number;
   assigned_to_ids?: string[]; // Multiple assignees
@@ -176,6 +177,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "description",
   "rating",
   "estimatedDate",
+  "estimatedTime",
   "person",
   "timer",
   "time",
@@ -189,6 +191,7 @@ const ALL_AVAILABLE_COLUMNS = [
   "description",
   "rating",
   "estimatedDate",
+  "estimatedTime",
   "date",
   "person",
   "timer",
@@ -704,6 +707,7 @@ export function WorkloadBoard({
                   ? `${format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(task.estimation.estimated_date_to), "dd MMM, yyyy")}`
                   : format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy"))
               : task.due_date,
+            estimatedHours: task.estimation?.approved_hours || "-",
             person: task.assignee?.name,
             assigned_to_id: task.assigned_to,
             assigned_to_ids: task.assignees?.map((a) => String(a.user_id)) || (task.assigned_to ? [String(task.assigned_to)] : []),
@@ -729,6 +733,7 @@ export function WorkloadBoard({
                       ? `${format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(st.estimation.estimated_date_to), "dd MMM, yyyy")}`
                       : format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy"))
                   : st.due_date,
+                estimatedHours: st.estimation?.approved_hours || "-",
                 person: st.assignee?.name,
                 assigned_to_id: st.assigned_to,
                 assigned_to_ids: st.assignees?.map((a) => String(a.user_id)) || (st.assigned_to ? [String(st.assigned_to)] : []),
@@ -1935,6 +1940,43 @@ export function WorkloadBoard({
     setOpenPopoverId(null);
   };
 
+  const handleEstimatedTimeChange = (taskId: string, hours: string | number | null) => {
+    setGroups((prevGroups) =>
+      prevGroups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => {
+          // ✅ parent task
+          if (task.id === taskId) {
+            return {
+              ...task,
+              estimatedHours: hours || "-",
+            };
+          }
+
+          // ✅ subtask
+          if (task.subitems?.length) {
+            return {
+              ...task,
+              subitems: task.subitems.map((sub) =>
+                sub.id === taskId
+                  ? {
+                      ...sub,
+                      estimatedHours: hours || "-",
+                    }
+                  : sub
+              ),
+            };
+          }
+
+          return task;
+        }),
+      }))
+    );
+
+    // Close popover after update
+    setOpenPopoverId(null);
+  };
+
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
     const updatedChecked: Record<string, boolean> = {
       [taskId]: checked,
@@ -2192,6 +2234,7 @@ export function WorkloadBoard({
         onPersonChange: handlePersonChange,
         onRatingChange: handleRatingChange,
         onEstimatedDateChange: handleEstimatedDateChange,
+        onEstimatedTimeChange: handleEstimatedTimeChange,
         openPopoverId,
         setOpenPopoverId,
       });
@@ -2334,6 +2377,7 @@ export function WorkloadBoard({
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
+      onEstimatedTimeChange: handleEstimatedTimeChange,
       openPopoverId,
       setOpenPopoverId,
     });
@@ -2379,6 +2423,7 @@ export function WorkloadBoard({
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
+      onEstimatedTimeChange: handleEstimatedTimeChange,
       openPopoverId,
       setOpenPopoverId,
     });
@@ -2641,6 +2686,7 @@ export function WorkloadBoard({
                           description: "Description",
                           rating: "Rating",
                           estimatedDate: "Estimated Date",
+                          estimatedTime: "Estimated Time",
                           date: "Date",
                           person: "Person",
                           timer: "Timer",

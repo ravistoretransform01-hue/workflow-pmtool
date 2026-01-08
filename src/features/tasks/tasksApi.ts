@@ -147,8 +147,9 @@ export const tasksApi = {
    */
   updateEstimatedDate: async (payload: {
     task_id: string | number;
-    estimated_date_from: string;
-    estimated_date_to: string;
+    estimated_date_from?: string;
+    estimated_date_to?: string;
+    approved_hours?: string | number | null;
   }): Promise<EstimatedDateResponse> => {
     try {
       const response = await axios.put<{ data: EstimatedDateResponse }>(

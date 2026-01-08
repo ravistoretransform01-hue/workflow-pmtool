@@ -435,7 +435,7 @@ function RatingStars({
 function EstimatedDatePicker({
   task,
   estimatedDate,
-  estimatedDateEnd,
+  // estimatedDateEnd,
   popoverId,
   openPopoverId,
   setOpenPopoverId,
@@ -515,7 +515,6 @@ function EstimatedDatePicker({
   };
 
   const formatDateDisplay = () => {
-    console.log(`estimatedDate "${estimatedDate}"`);
     if (estimatedDate === "-") return "-";
     // estimatedDate already contains the full formatted range (e.g., "15 Jan, 2026 - 19 Jan, 2026")
     // so just return it as-is
@@ -621,6 +620,132 @@ function EstimatedDatePicker({
   );
 }
 
+// Component for estimated time picker
+function EstimatedTimePicker({
+  task,
+  estimatedHours,
+  hasEstimatedDate,
+  popoverId,
+  openPopoverId,
+  setOpenPopoverId,
+  onEstimatedTimeChange,
+}: {
+  task: any;
+  estimatedHours: string | number;
+  hasEstimatedDate: boolean;
+  popoverId: string;
+  openPopoverId?: string | null;
+  setOpenPopoverId?: (id: string | null) => void;
+  onEstimatedTimeChange?: (taskId: string, hours: string | number | null) => void;
+}) {
+  const [hours, setHours] = useState<string>(
+    estimatedHours && estimatedHours !== "-" ? String(estimatedHours) : ""
+  );
+
+  // Update hours when estimatedHours changes
+  useEffect(() => {
+    if (openPopoverId === popoverId) {
+      setHours(
+        estimatedHours && estimatedHours !== "-" ? String(estimatedHours) : ""
+      );
+    }
+  }, [openPopoverId, popoverId, estimatedHours]);
+
+  return (
+    <Popover
+      open={openPopoverId === popoverId}
+      onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+    >
+      <PopoverTrigger asChild>
+        <button
+          className={`w-full text-sm px-3 py-1.5 rounded transition-colors ${
+            hasEstimatedDate
+              ? "bg-muted text-foreground hover:bg-accent cursor-pointer"
+              : "bg-muted/50 text-muted-foreground cursor-not-allowed opacity-50"
+          }`}
+          disabled={!hasEstimatedDate}
+          title={
+            hasEstimatedDate
+              ? "Click to edit estimated time"
+              : "Set estimated date first"
+          }
+          onClick={(e) => e.stopPropagation()}
+        >
+          {estimatedHours === "-" ? "-" : `${estimatedHours}h`}
+        </button>
+      </PopoverTrigger>
+      {hasEstimatedDate && (
+        <PopoverContent
+          className="w-auto p-4 bg-card border border-border shadow-lg rounded-lg"
+          align="center"
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium text-sm">Estimated Time (Hours)</h3>
+              <button
+                onClick={() => setOpenPopoverId?.(null)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <Input
+                type="number"
+                placeholder="Enter hours"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+                className="h-8 text-sm"
+                min="0"
+                step="0.5"
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setHours("");
+                  onEstimatedTimeChange?.(task.id, null);
+                  setOpenPopoverId?.(null);
+                }}
+              >
+                Clear
+              </Button>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const approvedHours = hours ? Number(hours) : null;
+
+                    // Call API to update approved hours
+                    await tasksApi.updateEstimatedDate({
+                      task_id: task.id,
+                      approved_hours: approvedHours,
+                    });
+
+                    // Update local state
+                    onEstimatedTimeChange?.(task.id, approvedHours);
+                    setOpenPopoverId?.(null);
+                    toast.success("Estimated time updated successfully");
+                  } catch (error) {
+                    console.error("Failed to update estimated time:", error);
+                    toast.error("Failed to update estimated time");
+                  }
+                }}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      )}
+    </Popover>
+  );
+}
+
 interface Column {
   id: string;
   label: string;
@@ -643,6 +768,7 @@ export const getWorkloadColumns = ({
   onPersonChange,
   onRatingChange,
   onEstimatedDateChange,
+  onEstimatedTimeChange,
   openPopoverId,
   setOpenPopoverId,
 }: {
@@ -661,6 +787,10 @@ export const getWorkloadColumns = ({
     taskId: string,
     fromDate: string | null,
     toDate?: string | null
+  ) => void;
+  onEstimatedTimeChange?: (
+    taskId: string,
+    hours: string | number | null
   ) => void;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
@@ -933,13 +1063,29 @@ export const getWorkloadColumns = ({
         );
       },
     },
-    // {
-    //   id: "timer",
-    //   label: "Timer",
-    //   width: "160px",
-    //   align: "center",
-    //   render: (task: any) => task.estimatedDate ?? "-",
-    // },
+    {
+      id: "estimatedTime",
+      label: "Estimated Time",
+      width: "140px",
+      align: "center",
+      render: (task: any) => {
+        const estimatedHours = task.estimatedHours ?? "-";
+        const hasEstimatedDate = task.estimatedDate && task.estimatedDate !== "-";
+        const popoverId = `estimatedTime-${task.id}`;
+
+        return (
+          <EstimatedTimePicker
+            task={task}
+            estimatedHours={estimatedHours}
+            hasEstimatedDate={hasEstimatedDate}
+            popoverId={popoverId}
+            openPopoverId={openPopoverId}
+            setOpenPopoverId={setOpenPopoverId}
+            onEstimatedTimeChange={onEstimatedTimeChange}
+          />
+        );
+      },
+    },
     {
       id: "date",
       label: "Date",

@@ -108,7 +108,7 @@ export interface EstimatedDateResponse {
   task_id: string;
   estimated_date_from: string;
   estimated_date_to: string;
-  approved_hours: string | null;
+  approved_hours: string | number | null;
   created_by: string;
   created_at: string;
   updated_at: string;
