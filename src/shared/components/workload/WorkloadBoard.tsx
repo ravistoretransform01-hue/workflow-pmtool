@@ -701,8 +701,8 @@ export function WorkloadBoard({
             // Handle new estimation object structure
             estimatedDate: task.estimation?.estimated_date_from 
               ? (task.estimation.estimated_date_to && task.estimation.estimated_date_to !== task.estimation.estimated_date_from
-                  ? `${task.estimation.estimated_date_from}  -  ${task.estimation.estimated_date_to}`
-                  : task.estimation.estimated_date_from)
+                  ? `${format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(task.estimation.estimated_date_to), "dd MMM, yyyy")}`
+                  : format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy"))
               : task.due_date,
             person: task.assignee?.name,
             assigned_to_id: task.assigned_to,
@@ -726,8 +726,8 @@ export function WorkloadBoard({
                 // Handle new estimation object structure
                 estimatedDate: st.estimation?.estimated_date_from 
                   ? (st.estimation.estimated_date_to && st.estimation.estimated_date_to !== st.estimation.estimated_date_from
-                      ? `${st.estimation.estimated_date_from}  -  ${st.estimation.estimated_date_to}`
-                      : st.estimation.estimated_date_from)
+                      ? `${format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(st.estimation.estimated_date_to), "dd MMM, yyyy")}`
+                      : format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy"))
                   : st.due_date,
                 person: st.assignee?.name,
                 assigned_to_id: st.assigned_to,

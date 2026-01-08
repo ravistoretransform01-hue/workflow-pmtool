@@ -21,7 +21,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { Input } from "@/shared/components/ui/input";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, parse } from "date-fns";
 
 function stringToHslColor(str: string, s = 70, l = 55): string {
   let hash = 0;
@@ -465,18 +465,26 @@ function EstimatedDatePicker({
         return { from, to };
       }
 
-      // Fallback: parse the formatted estimatedDate string (e.g., "2026-01-13  -  2026-01-22")
+      // Fallback: parse the formatted estimatedDate string (e.g., "15 Jan, 2026  -  19 Jan, 2026")
       if (estimatedDate && estimatedDate !== "-") {
         const parts = estimatedDate.split("  -  ");
         if (parts.length === 2) {
-          // Range format: "2026-01-13  -  2026-01-22"
-          const from = parseISO(parts[0].trim());
-          const to = parseISO(parts[1].trim());
-          return { from, to };
+          // Range format: "15 Jan, 2026  -  19 Jan, 2026"
+          try {
+            const from = parse(parts[0].trim(), "dd MMM, yyyy", new Date());
+            const to = parse(parts[1].trim(), "dd MMM, yyyy", new Date());
+            return { from, to };
+          } catch {
+            return undefined;
+          }
         } else if (parts.length === 1) {
           // Single date format
-          const from = parseISO(parts[0].trim());
-          return { from, to: from };
+          try {
+            const from = parse(parts[0].trim(), "dd MMM, yyyy", new Date());
+            return { from, to: from };
+          } catch {
+            return undefined;
+          }
         }
       }
 
