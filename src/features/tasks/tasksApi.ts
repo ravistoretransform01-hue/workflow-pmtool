@@ -167,11 +167,11 @@ export const tasksApi = {
 
   /**
    * Update task tags via PUT endpoint
-   * Sends array of tag IDs to add/update tags for a task
+   * Sends tag ID to add/update tags for a task
    */
   updateTaskTags: async (payload: {
     id: string | number;
-    tag_id: (string | number)[];
+    tag_id: string | number;
   }): Promise<TaskResponse> => {
     try {
       const response = await axios.put<{ data: TaskResponse }>(
