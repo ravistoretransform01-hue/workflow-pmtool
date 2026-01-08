@@ -261,6 +261,23 @@ function PersonPopover({
               msOverflowStyle: "none",
             }}
           >
+            {/* No Member Option */}
+            <button
+              onClick={() => setLocalSelected(null)}
+              className="w-full border-y border-border flex items-center gap-3 px-2 py-2 rounded transition-colors text-sm font-medium text-left hover:bg-muted"
+            >
+              <input
+                type="radio"
+                checked={localSelected === null}
+                onChange={() => {}}
+                className="h-4 w-4 accent-primary cursor-pointer"
+              />
+              <span className="text-muted-foreground">No Member</span>
+            </button>
+
+            {/* Divider */}
+            {/* <div className="border-t border-d border-border my-1" /> */}
+
             {filteredMembers.length === 0 ? (
               <div className="text-center py-4 text-sm text-muted-foreground">
                 No members found
@@ -309,10 +326,22 @@ function PersonPopover({
           </div>
 
           {/* Update Button */}
-          <div className="flex-shrink-0 pt-2 border-t border-border">
+          <div className="flex-shrink-0 pt-2 border-t border-border flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setLocalSelected(null);
+                onPersonChange?.(task.id, []);
+                setOpenPopoverId?.(null);
+              }}
+              className="flex-1 h-8 text-sm"
+              size="sm"
+            >
+              Clear
+            </Button>
             <Button
               onClick={handleUpdateAssignees}
-              className="w-full h-8 text-sm"
+              className="flex-1 h-8 text-sm"
               size="sm"
             >
               Update
