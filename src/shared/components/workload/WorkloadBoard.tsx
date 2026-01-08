@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
+import { cmsApi } from "@/features/cms/cmsApi";
 import { getCMSData, clearCMSCache } from "@/features/cms/cmsStorage";
 import type {
   CreateTaskRequest,
@@ -121,22 +122,33 @@ export interface Task {
   priority?: string;
   priority_id?: string;
   estimatedDate?: string;
+  estimatedHours?: string | number; // Approved hours from estimation
   person?: string;
-  assigned_to_id?: string;
+  assigned_to_id?: string | number;
   assigned_to_ids?: string[]; // Multiple assignees
   timeSpent?: string;
   rating?: number; // Display rating as average number (1-5)
   ratingCount?: number; // Number of ratings
   ratings?: Array<{
     id: string;
-    assignee_id: string;
+    task_id?: string;
+    assignee_id: string | number;
+    assigner_id?: string | number;
     rating: string | number;
+    created_at?: string;
+    updated_at?: string;
     assignee?: {
       id: number;
       name: string;
       email: string;
     };
+    assigner?: {
+      id: number;
+      name: string;
+      email: string;
+    };
   }>;
+  label_id?: string; // Label ID for the task
   group_id?: string;
   subitems?: Task[];
 }
@@ -165,6 +177,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "description",
   "rating",
   "estimatedDate",
+  "estimatedTime",
   "person",
   "timer",
   "time",
@@ -178,6 +191,7 @@ const ALL_AVAILABLE_COLUMNS = [
   "description",
   "rating",
   "estimatedDate",
+  "estimatedTime",
   "date",
   "person",
   "timer",
@@ -591,6 +605,13 @@ export function WorkloadBoard({
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [members, setMembers] = useState<any[]>([]);
+  const [labels, setLabels] = useState<any[]>([]);
+
+  // New label creation state
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [newLabelName, setNewLabelName] = useState("");
+  const [newLabelColor, setNewLabelColor] = useState("#FF0000");
+  const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
 
   // Column visibility state - load from localStorage
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
@@ -680,7 +701,13 @@ export function WorkloadBoard({
             status_id: String(task.status_id),
             priority: task.priority_label,
             priority_id: String(task.task_priority_id),
-            estimatedDate: task.due_date,
+            // Handle new estimation object structure
+            estimatedDate: task.estimation?.estimated_date_from 
+              ? (task.estimation.estimated_date_to && task.estimation.estimated_date_to !== task.estimation.estimated_date_from
+                  ? `${format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(task.estimation.estimated_date_to), "dd MMM, yyyy")}`
+                  : format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy"))
+              : task.due_date,
+            estimatedHours: task.estimation?.approved_hours || "-",
             person: task.assignee?.name,
             assigned_to_id: task.assigned_to,
             assigned_to_ids: task.assignees?.map((a) => String(a.user_id)) || (task.assigned_to ? [String(task.assigned_to)] : []),
@@ -700,7 +727,13 @@ export function WorkloadBoard({
                 status_id: String(st.status_id),
                 priority: st.priority_label,
                 priority_id: String(st.task_priority_id),
-                estimatedDate: st.due_date,
+                // Handle new estimation object structure
+                estimatedDate: st.estimation?.estimated_date_from 
+                  ? (st.estimation.estimated_date_to && st.estimation.estimated_date_to !== st.estimation.estimated_date_from
+                      ? `${format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(st.estimation.estimated_date_to), "dd MMM, yyyy")}`
+                      : format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy"))
+                  : st.due_date,
+                estimatedHours: st.estimation?.approved_hours || "-",
                 person: st.assignee?.name,
                 assigned_to_id: st.assigned_to,
                 assigned_to_ids: st.assignees?.map((a) => String(a.user_id)) || (st.assigned_to ? [String(st.assigned_to)] : []),
@@ -795,13 +828,14 @@ export function WorkloadBoard({
         );
 
         // Sort priorities by priority_order
-        const sortedPriorities = [...cmsData.priority].sort(
+        const sortedPriorities = [...cmsData.priorities].sort(
           sortBy((p) => p.priority_order, "number")
         );
 
         setStatuses(sortedStatuses);
         setPriorities(sortedPriorities);
         setMembers(cmsData.members || []);
+        setLabels(cmsData.labels || []);
       } catch (err) {
         console.error("Failed to load CMS data:", err);
         // Don't show toast error as CMS data is optional
@@ -1904,7 +1938,43 @@ export function WorkloadBoard({
 
     // Close popover after update
     setOpenPopoverId(null);
-    toast.success("Date updated successfully");
+  };
+
+  const handleEstimatedTimeChange = (taskId: string, hours: string | number | null) => {
+    setGroups((prevGroups) =>
+      prevGroups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => {
+          // ✅ parent task
+          if (task.id === taskId) {
+            return {
+              ...task,
+              estimatedHours: hours || "-",
+            };
+          }
+
+          // ✅ subtask
+          if (task.subitems?.length) {
+            return {
+              ...task,
+              subitems: task.subitems.map((sub) =>
+                sub.id === taskId
+                  ? {
+                      ...sub,
+                      estimatedHours: hours || "-",
+                    }
+                  : sub
+              ),
+            };
+          }
+
+          return task;
+        }),
+      }))
+    );
+
+    // Close popover after update
+    setOpenPopoverId(null);
   };
 
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
@@ -2082,10 +2152,12 @@ export function WorkloadBoard({
     const newWorkloadColumns = arrayMove(workloadColumns, oldIndex, newIndex);
     setWorkloadColumns(newWorkloadColumns);
 
-    // Optional: persist
+    // Update columnOrder state and persist
+    const newOrder = newWorkloadColumns.map((c) => c.id);
+    setColumnOrder(newOrder);
     localStorage.setItem(
       `workload-columns-${boardId}`,
-      JSON.stringify(newWorkloadColumns.map((c) => c.id))
+      JSON.stringify(newOrder)
     );
   };
 
@@ -2148,7 +2220,7 @@ export function WorkloadBoard({
       setPrevColumnWidths(updatedPrevWidths);
       setColumnWidths(updatedColumnWidths);
 
-      // Recompute columns with new collapsed state and widths
+      // Recompute columns with new collapsed state and widths, preserving column order
       const allColumns = getWorkloadColumns({
         expandedTasks,
         toggleTask,
@@ -2160,11 +2232,29 @@ export function WorkloadBoard({
         onStatusChange: handleStatusChange,
         onPriorityChange: handlePriorityChange,
         onPersonChange: handlePersonChange,
+        onRatingChange: handleRatingChange,
+        onEstimatedDateChange: handleEstimatedDateChange,
+        onEstimatedTimeChange: handleEstimatedTimeChange,
         openPopoverId,
         setOpenPopoverId,
       });
 
-      const newCols = allColumns
+      // Apply saved column order
+      let orderedColumns = allColumns;
+      if (columnOrder.length > 0) {
+        const columnMap = new Map(allColumns.map((col) => [col.id, col]));
+        orderedColumns = columnOrder
+          .map((id) => columnMap.get(id))
+          .filter(Boolean) as typeof allColumns;
+        // Add any new columns that weren't in saved order
+        allColumns.forEach((col) => {
+          if (!columnOrder.includes(col.id)) {
+            orderedColumns.push(col);
+          }
+        });
+      }
+
+      const newCols = orderedColumns
         .map((col) => ({
           ...col,
           collapsed: !!updated[col.id],
@@ -2263,6 +2353,16 @@ export function WorkloadBoard({
     }
   });
 
+  // Track column order separately to preserve it across updates
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`workload-columns-${boardId}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [workloadColumns, setWorkloadColumns] = useState(() => {
     const allColumns = getWorkloadColumns({
       expandedTasks,
@@ -2277,12 +2377,28 @@ export function WorkloadBoard({
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
+      onEstimatedTimeChange: handleEstimatedTimeChange,
       openPopoverId,
       setOpenPopoverId,
     });
 
+    // Apply saved column order if available
+    let orderedColumns = allColumns;
+    if (columnOrder.length > 0) {
+      const columnMap = new Map(allColumns.map((col) => [col.id, col]));
+      orderedColumns = columnOrder
+        .map((id) => columnMap.get(id))
+        .filter(Boolean) as typeof allColumns;
+      // Add any new columns that weren't in saved order
+      allColumns.forEach((col) => {
+        if (!columnOrder.includes(col.id)) {
+          orderedColumns.push(col);
+        }
+      });
+    }
+
     // Apply collapsed state and persisted widths and filter visibility
-    return allColumns
+    return orderedColumns
       .map((col) => ({
         ...col,
         collapsed: !!collapsedColumns[col.id],
@@ -2291,7 +2407,8 @@ export function WorkloadBoard({
       .filter((col) => visibleColumns[col.id] === true);
   });
 
-  // Update workloadColumns when CMS data changes
+  // Update workloadColumns when CMS data, visibility, or popover state changes
+  // Preserve column order by using columnOrder state
   useEffect(() => {
     const allColumns = getWorkloadColumns({
       expandedTasks,
@@ -2306,12 +2423,29 @@ export function WorkloadBoard({
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
+      onEstimatedTimeChange: handleEstimatedTimeChange,
       openPopoverId,
       setOpenPopoverId,
     });
+
+    // Apply saved column order
+    let orderedColumns = allColumns;
+    if (columnOrder.length > 0) {
+      const columnMap = new Map(allColumns.map((col) => [col.id, col]));
+      orderedColumns = columnOrder
+        .map((id) => columnMap.get(id))
+        .filter(Boolean) as typeof allColumns;
+      // Add any new columns that weren't in saved order
+      allColumns.forEach((col) => {
+        if (!columnOrder.includes(col.id)) {
+          orderedColumns.push(col);
+        }
+      });
+    }
+
     // Apply collapsed state and filter columns based on visibility and saved widths
     setWorkloadColumns(
-      allColumns
+      orderedColumns
         .map((col) => ({
           ...col,
           collapsed: !!collapsedColumns[col.id],
@@ -2319,7 +2453,7 @@ export function WorkloadBoard({
         }))
         .filter((col) => visibleColumns[col.id] === true)
     );
-  }, [statuses, priorities, members, openPopoverId, visibleColumns, collapsedColumns, columnWidths]);
+  }, [statuses, priorities, members, openPopoverId, visibleColumns, collapsedColumns, columnWidths, columnOrder]);
 
   const totalColumns = workloadColumns.length + 1;
 
@@ -2552,6 +2686,7 @@ export function WorkloadBoard({
                           description: "Description",
                           rating: "Rating",
                           estimatedDate: "Estimated Date",
+                          estimatedTime: "Estimated Time",
                           date: "Date",
                           person: "Person",
                           timer: "Timer",
@@ -2719,26 +2854,265 @@ export function WorkloadBoard({
                                 </span>
 
                                 {/* Label Chip (optional) */}
-                                {groupLabels[group.id] && (
-                                  <div
-                                    className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
-                                    style={{
-                                      backgroundColor:
-                                        groupLabelColors[group.id] || "#3b82f6",
-                                    }}
-                                  >
-                                    {groupLabels[group.id]}
-                                  </div>
-                                )}
+                                {groupLabels[group.id] && (() => {
+                                  // Find the label object to get its color
+                                  const labelObj = labels.find(l => l.label_name === groupLabels[group.id]);
+                                  const labelColor = labelObj?.label_color || groupLabelColors[group.id] || "#3b82f6";
+                                  return (
+                                    <div
+                                      className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
+                                      style={{
+                                        backgroundColor: labelColor,
+                                      }}
+                                    >
+                                      {groupLabels[group.id]}
+                                    </div>
+                                  );
+                                })()}
+                                {/* edit group button */}
                                 <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => editGroup(group.id)}
-                                    className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
+                                  <Popover  open={editGroupDialogOpen && editingGroupId === group.id} onOpenChange={(open) => {
+                                    if (open) {
+                                      editGroup(group.id);
+                                    } else {
+                                      setEditGroupDialogOpen(false);
+                                      setEditingGroupId(null);
+                                    }
+                                  }}>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => editGroup(group.id)}
+                                        className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80 p-4" align="start">
+                                      <div className="space-y-4">
+                                        <div>
+                                          <h3 className="font-semibold text-sm mb-3">Edit Group</h3>
+                                        </div>
+                                        
+                                        {/* Color Picker */}
+                                        <div className="space-y-2">
+                                          <label className="text-sm font-medium">Color</label>
+                                          <div className="flex gap-2">
+                                            {PRESET_COLORS.map((color) => (
+                                              <button
+                                                key={color}
+                                                className={`h-10 w-10 rounded-lg transition-all border-2 ${
+                                                  editGroupColorInput === color
+                                                    ? "border-foreground scale-110"
+                                                    : "border-transparent hover:scale-105"
+                                                }`}
+                                                style={{ backgroundColor: color }}
+                                                onClick={() => setEditGroupColorInput(color)}
+                                              />
+                                            ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Group Name Input */}
+                                        <div className="space-y-2">
+                                          <label htmlFor="edit-group-name" className="text-sm font-medium">
+                                            Group Name
+                                          </label>
+                                          <Input
+                                            id="edit-group-name"
+                                            placeholder="Enter group name..."
+                                            value={editGroupNameInput}
+                                            onChange={(e) => setEditGroupNameInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") {
+                                                handleUpdateGroup();
+                                              }
+                                            }}
+                                            autoFocus
+                                          />
+                                        </div>
+
+                                        {/* Label Dropdown */}
+                                        <div className="space-y-2">
+                                          <label className="text-sm font-medium">Label (Optional)</label>
+                                          {isCreatingLabel ? (
+                                            <div className="space-y-2">
+                                              <Input
+                                                placeholder="Label name..."
+                                                value={newLabelName}
+                                                onChange={(e) => setNewLabelName(e.target.value)}
+                                                className="h-8 text-sm"
+                                              />
+                                              <div className="flex gap-2">
+                                                {PRESET_COLORS.map((color) => (
+                                                  <button
+                                                    key={color}
+                                                    className={`h-8 w-8 rounded-lg transition-all border-2 ${
+                                                      newLabelColor === color
+                                                        ? "border-foreground scale-110"
+                                                        : "border-transparent hover:scale-105"
+                                                    }`}
+                                                    style={{ backgroundColor: color }}
+                                                    onClick={() => setNewLabelColor(color)}
+                                                  />
+                                                ))}
+                                              </div>
+                                              <div className="flex gap-2">
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="flex-1 h-8"
+                                                  onClick={() => {
+                                                    setIsCreatingLabel(false);
+                                                    setNewLabelName("");
+                                                    setNewLabelColor("#FF0000");
+                                                    setLabelDropdownOpen(true);
+                                                  }}
+                                                >
+                                                  Cancel
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  className="flex-1 h-8"
+                                                  onClick={async () => {
+                                                    if (newLabelName.trim()) {
+                                                      try {
+                                                        const organizationIdNum = getOrganizationId();
+                                                        const boardIdNum = Number(boardId);
+
+                                                        if (organizationIdNum === null) {
+                                                          toast.error("Organization not found");
+                                                          return;
+                                                        }
+
+                                                        // Call API to create label
+                                                        const createdLabel = await cmsApi.createLabel({
+                                                          label_name: newLabelName.trim(),
+                                                          label_color: newLabelColor,
+                                                          organization_id: organizationIdNum,
+                                                          board_id: boardIdNum,
+                                                        });
+
+                                                        // Add new label to the list
+                                                        setLabels((prevLabels) => [...prevLabels, createdLabel]);
+                                                        setEditGroupLabelInput(createdLabel.label_name);
+                                                        setEditGroupLabelColorInput(createdLabel.label_color);
+                                                        
+                                                        // Reset form and exit creation mode
+                                                        setNewLabelName("");
+                                                        setNewLabelColor("#FF0000");
+                                                        setIsCreatingLabel(false);
+                                                        
+                                                        // Reopen dropdown to show the new label
+                                                        setLabelDropdownOpen(true);
+                                                        
+                                                        toast.success("Label created successfully");
+                                                      } catch (error) {
+                                                        console.error("Failed to create label:", error);
+                                                        toast.error("Failed to create label");
+                                                      }
+                                                    }
+                                                  }}
+                                                >
+                                                  Create
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <DropdownMenu open={labelDropdownOpen} onOpenChange={setLabelDropdownOpen}>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button
+                                                  variant="outline"
+                                                  className="w-full justify-start text-left font-normal"
+                                                >
+                                                  {editGroupLabelInput ? (
+                                                    <div className="flex items-center gap-2">
+                                                      <div
+                                                        className="w-3 h-3 rounded-full flex-shrink-0"
+                                                        style={{
+                                                          backgroundColor: editGroupLabelColorInput,
+                                                        }}
+                                                      />
+                                                      <span>{editGroupLabelInput}</span>
+                                                    </div>
+                                                  ) : (
+                                                    <span className="text-muted-foreground">Select a label...</span>
+                                                  )}
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto" align="start">
+                                                <DropdownMenuItem
+                                                  onClick={() => {
+                                                    setEditGroupLabelInput("");
+                                                    setEditGroupLabelColorInput("#3b82f6");
+                                                  }}
+                                                >
+                                                  <span className="text-muted-foreground">No Label</span>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                {Array.isArray(labels) && labels.map((label) => (
+                                                  <DropdownMenuItem
+                                                    key={`label-${label.id}`}
+                                                    onClick={() => {
+                                                      setEditGroupLabelInput(label.label_name);
+                                                      setEditGroupLabelColorInput(label.label_color);
+                                                      setLabelDropdownOpen(false);
+                                                    }}
+                                                    className="flex items-center gap-2"
+                                                  >
+                                                    <div
+                                                      className="w-3 h-3 rounded-full flex-shrink-0"
+                                                      style={{
+                                                        backgroundColor: label.label_color,
+                                                      }}
+                                                    />
+                                                    <span>{label.label_name}</span>
+                                                  </DropdownMenuItem>
+                                                ))}
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                  onClick={() => {
+                                                    setIsCreatingLabel(true);
+                                                    setLabelDropdownOpen(false);
+                                                  }}
+                                                >
+                                                  <span className="text-primary">+ Add New Label</span>
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          )}
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-2 justify-end pt-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              setEditGroupDialogOpen(false);
+                                              setEditingGroupId(null);
+                                              setEditGroupNameInput("");
+                                              setEditGroupColorInput("#3b82f6");
+                                              setEditGroupLabelInput("");
+                                              setEditGroupLabelColorInput("#3b82f6");
+                                            }}
+                                          >
+                                            Cancel
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            onClick={() => {
+                                              handleUpdateGroup();
+                                              setEditGroupDialogOpen(false);
+                                            }}
+                                          >
+                                            Update
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
                                 </div>
 
                                 {/* Group Progress Bar - Time Spent vs Estimated Time */}
@@ -3243,101 +3617,6 @@ export function WorkloadBoard({
               disabled={!newGroupNameInput.trim() || isCreatingGroup}
             >
               {isCreatingGroup ? "Creating..." : "Create Group"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Group Dialog */}
-      <Dialog open={editGroupDialogOpen} onOpenChange={setEditGroupDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Group</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-3">
-              <label className="text-sm font-medium">Color</label>
-              <div className="flex gap-2">
-                {PRESET_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
-                      editGroupColorInput === color
-                        ? "border-foreground scale-110"
-                        : "border-transparent hover:scale-105"
-                    }`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setEditGroupColorInput(color)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <label htmlFor="edit-group-name" className="text-sm font-medium">
-                Group Name
-              </label>
-              <Input
-                id="edit-group-name"
-                placeholder="Enter group name..."
-                value={editGroupNameInput}
-                onChange={(e) => setEditGroupNameInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleUpdateGroup();
-                  }
-                }}
-                autoFocus
-              />
-            </div>
-            {/* Label Input - POSTPONED */}
-            <div className="grid gap-2">
-              <label htmlFor="edit-group-label" className="text-sm font-medium">
-                Label (Optional)
-              </label>
-              <Input
-                id="edit-group-label"
-                placeholder="Enter label text..."
-                value={editGroupLabelInput}
-                onChange={(e) => setEditGroupLabelInput(e.target.value)}
-              />
-            </div>
-            {/* <div className="grid gap-3">
-              <label className="text-sm font-medium">Label Color</label>
-              <div className="flex gap-2">
-                {PRESET_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
-                      editGroupLabelColorInput === color
-                        ? "border-foreground scale-110"
-                        : "border-transparent hover:scale-105"
-                    }`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setEditGroupLabelColorInput(color)}
-                  />
-                ))}
-              </div>
-            </div>  */}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEditGroupDialogOpen(false);
-                setEditingGroupId(null);
-                setEditGroupNameInput("");
-                setEditGroupColorInput("#3b82f6");
-                setEditGroupLabelInput("");
-                setEditGroupLabelColorInput("#3b82f6");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdateGroup}
-              disabled={!editGroupNameInput.trim()}
-            >
-              Update Group
             </Button>
           </DialogFooter>
         </DialogContent>

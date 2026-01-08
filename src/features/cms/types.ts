@@ -15,13 +15,27 @@ export interface Priority {
 export interface Member {
   user_id: string;
   name: string;
+  email?: string;
+  username?: string;
+}
+
+export interface Label {
+  id: string;
+  label_name: string;
+  label_color: string;
+  board_id: string;
+  organization_id: string;
+  created_by: string;
+  created_at: string;
+  scope: string;
 }
 
 export interface CMSResponse {
   status: boolean;
   statuses: Status[];
-  priority: Priority[];
+  priorities: Priority[];
   members: Member[];
+  labels: Label[];
 }
 
 export interface CMSRequest {
@@ -32,7 +46,8 @@ export interface CMSRequest {
 
 export interface CMSData {
   statuses: Status[];
-  priority: Priority[];
+  priorities: Priority[];
   members: Member[];
+  labels: Label[];
   timestamp: number;
 }

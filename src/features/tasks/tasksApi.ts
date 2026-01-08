@@ -3,6 +3,7 @@ import type {
   TaskResponse,
   CreateTaskRequest,
   UpdateTaskRequest,
+  EstimatedDateResponse,
 } from "./types";
 
 const TASKS_ENDPOINTS = {
@@ -13,6 +14,8 @@ const TASKS_ENDPOINTS = {
   CREATE_TASK: `/tasks`,
   DELETE_TASK: `/tasks`,
   UPDATE_TASK: `/tasks`,
+  CREATE_ESTIMATED_DATE: `/tasks/estimate/date`,
+  UPDATE_ESTIMATED_DATE: `/tasks/estimate/date`,
 };
 
 export const tasksApi = {
@@ -115,6 +118,47 @@ export const tasksApi = {
       });
     } catch (error) {
       console.error("Failed to delete task:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create estimated date for a task
+   */
+  createEstimatedDate: async (payload: {
+    task_id: string | number;
+    estimated_date_from: string;
+    estimated_date_to: string;
+  }): Promise<EstimatedDateResponse> => {
+    try {
+      const response = await axios.post<{ data: EstimatedDateResponse }>(
+        TASKS_ENDPOINTS.CREATE_ESTIMATED_DATE,
+        payload
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to create estimated date:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update estimated date for a task
+   */
+  updateEstimatedDate: async (payload: {
+    task_id: string | number;
+    estimated_date_from?: string;
+    estimated_date_to?: string;
+    approved_hours?: string | number | null;
+  }): Promise<EstimatedDateResponse> => {
+    try {
+      const response = await axios.put<{ data: EstimatedDateResponse }>(
+        TASKS_ENDPOINTS.UPDATE_ESTIMATED_DATE,
+        payload
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to update estimated date:", error);
       throw error;
     }
   },
