@@ -616,6 +616,8 @@ export function WorkloadBoard({
   const [inlineReplyId, setInlineReplyId] = useState<string | number | null>(null);
   const [inlineReplyText, setInlineReplyText] = useState("");
   const [expandedThreads, setExpandedThreads] = useState<Record<string | number, boolean>>({});
+  const [editingCommentId, setEditingCommentId] = useState<string | number | null>(null);
+  const [editCommentText, setEditCommentText] = useState("");
 
   // Timer state - track which task's timer is currently running
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
@@ -4160,24 +4162,70 @@ export function WorkloadBoard({
                                       </DropdownMenu>
                                     </div>
                                   </div>
-                                  <div
-                                    className="text-sm text-foreground/90 leading-relaxed break-words pr-4"
-                                    dangerouslySetInnerHTML={{ __html: comment.content }}
-                                  />
-                                  <div className="pt-0.5 flex items-center gap-4">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 px-2 -ml-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
-                                      onClick={() => {
-                                        setInlineReplyId(comment.id);
-                                        setInlineReplyText("");
-                                      }}
-                                    >
-                                      <MessageCirclePlus className="h-3.5 w-3.5 mr-1.5" />
-                                      Reply
-                                    </Button>
-                                  </div>
+                                  {editingCommentId === comment.id ? (
+                                    <div className="space-y-3 pt-2 mr-4">
+                                      <MentionRichTextEditor
+                                        value={editCommentText}
+                                        onChange={setEditCommentText}
+                                        placeholder="Edit your comment..."
+                                        availablePeople={[]}
+                                      />
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          className="h-8 text-xs px-4"
+                                          onClick={() => {
+                                            handleUpdateComment(comment.id, editCommentText);
+                                            setEditingCommentId(null);
+                                          }}
+                                          disabled={!editCommentText.trim()}
+                                        >
+                                          Save
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 text-xs px-3"
+                                          onClick={() => setEditingCommentId(null)}
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div
+                                        className="text-sm text-foreground/90 leading-relaxed break-words pr-4"
+                                        dangerouslySetInnerHTML={{ __html: comment.content }}
+                                      />
+                                      <div className="pt-0.5 flex items-center gap-4">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 px-2 -ml-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
+                                          onClick={() => {
+                                            setInlineReplyId(comment.id);
+                                            setInlineReplyText("");
+                                          }}
+                                        >
+                                          <MessageCirclePlus className="h-3.5 w-3.5 mr-1.5" />
+                                          Reply
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
+                                          onClick={() => {
+                                            setEditingCommentId(comment.id);
+                                            setEditCommentText(comment.content);
+                                          }}
+                                        >
+                                          <Pencil className="h-3 w-3 mr-1.5" />
+                                          Edit
+                                        </Button>
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               </div>
 
@@ -4250,23 +4298,68 @@ export function WorkloadBoard({
                                           </DropdownMenu>
                                         </div>
                                       </div>
-                                      <div
-                                        className="text-sm text-foreground/80 leading-relaxed break-words"
-                                        dangerouslySetInnerHTML={{ __html: reply.content }}
-                                      />
-                                      <div className="pt-0.5 flex items-center gap-4">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 px-1.5 -ml-1.5 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
-                                          onClick={() => {
-                                            setInlineReplyId(reply.id);
-                                            setInlineReplyText("");
-                                          }}
-                                        >
-                                          Reply
-                                        </Button>
-                                      </div>
+                                      {editingCommentId === reply.id ? (
+                                        <div className="space-y-3 pt-2">
+                                          <MentionRichTextEditor
+                                            value={editCommentText}
+                                            onChange={setEditCommentText}
+                                            placeholder="Edit your reply..."
+                                            availablePeople={[]}
+                                          />
+                                          <div className="flex gap-2">
+                                            <Button
+                                              size="sm"
+                                              className="h-8 text-xs px-4"
+                                              onClick={() => {
+                                                handleUpdateComment(reply.id, editCommentText);
+                                                setEditingCommentId(null);
+                                              }}
+                                              disabled={!editCommentText.trim()}
+                                            >
+                                              Save
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-8 text-xs px-3"
+                                              onClick={() => setEditingCommentId(null)}
+                                            >
+                                              Cancel
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <div
+                                            className="text-sm text-foreground/80 leading-relaxed break-words"
+                                            dangerouslySetInnerHTML={{ __html: reply.content }}
+                                          />
+                                          <div className="pt-0.5 flex items-center gap-4">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 px-1.5 -ml-1.5 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
+                                              onClick={() => {
+                                                setInlineReplyId(reply.id);
+                                                setInlineReplyText("");
+                                              }}
+                                            >
+                                              Reply
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
+                                              onClick={() => {
+                                                setEditingCommentId(reply.id);
+                                                setEditCommentText(reply.content);
+                                              }}
+                                            >
+                                              Edit
+                                            </Button>
+                                          </div>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
@@ -4276,10 +4369,7 @@ export function WorkloadBoard({
                                   <div className="mt-4 mr-4 bg-muted/30 p-4 rounded-xl border border-border/50 shadow-inner relative transition-all animate-in fade-in slide-in-from-top-2 duration-200">
                                     <div className="mb-3 flex items-center justify-between">
                                       <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-primary/80">
-                                        Replying to {(() => {
-                                          const target = comments.find(c => String(c.id) === String(inlineReplyId));
-                                          return target?.user?.name || "User";
-                                        })()}
+                                        Replying to {comments.find(c => String(c.id) === String(inlineReplyId))?.user?.name || "User"}
                                       </span>
                                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-background" onClick={() => setInlineReplyId(null)}>
                                         <X className="h-3 w-3" />
