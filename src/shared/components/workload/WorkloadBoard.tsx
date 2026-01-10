@@ -37,7 +37,8 @@ import {
   GripVertical,
   Pencil,
   ArrowRightLeft,
-  // GripVertical,
+  X,
+  MessageCirclePlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
@@ -97,7 +98,7 @@ import { EmojiPicker } from "../EmojiPicker";
 import { getOrganizationId } from "@/lib/utils";
 import { getWorkloadColumns } from "./WorkloadColumns";
 import { TaskCardDialog } from "./TaskCardDialog";
-import type { TaskResponse } from "@/features/tasks/types";
+import type { TaskResponse, TaskComment } from "@/features/tasks/types";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -361,11 +362,10 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     <button
       ref={setNodeRef}
       style={style}
-      className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
-        activeTab === tab
-          ? "text-primary border-b-primary"
-          : "text-muted-foreground border-b-transparent hover:text-foreground"
-      }`}
+      className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap ${activeTab === tab
+        ? "text-primary border-b-primary"
+        : "text-muted-foreground border-b-transparent hover:text-foreground"
+        }`}
       onClick={() => onTabClick(tab)}
       {...attributes}
       {...listeners}
@@ -415,11 +415,10 @@ const SortableColumnHeader = ({ column, onToggleCollapse, onStartResize }: Sorta
     >
       <div
         {...(!column.fixed ? listeners : {})}
-        className={`relative group flex items-center justify-between ${
-          column.fixed
-            ? "cursor-default opacity-80"
-            : "cursor-grab active:cursor-grabbing"
-        }`}
+        className={`relative group flex items-center justify-between ${column.fixed
+          ? "cursor-default opacity-80"
+          : "cursor-grab active:cursor-grabbing"
+          }`}
       >
         {/* Resizer handle (right edge) */}
         {!column.fixed && !column.collapsed && (
@@ -485,10 +484,10 @@ const SortableColumnHeader = ({ column, onToggleCollapse, onStartResize }: Sorta
                     <span>Sort</span>
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => {}}>
+                    <DropdownMenuItem onClick={() => { }}>
                       Sort ascending
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => {}}>
+                    <DropdownMenuItem onClick={() => { }}>
                       Sort descending
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
@@ -511,11 +510,11 @@ const SortableColumnHeader = ({ column, onToggleCollapse, onStartResize }: Sorta
                   <span>Filter</span>
                 </DropdownMenuItem> */}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => {}}>
+                <DropdownMenuItem onClick={() => { }}>
                   <Lock className="h-4 w-4 mr-2" />
                   <span>Lock column</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {}}>
+                <DropdownMenuItem onClick={() => { }}>
                   <Trash className="h-4 w-4 mr-2 text-destructive" />
                   <span>Delete</span> {/* delete column */}
                 </DropdownMenuItem>
@@ -609,6 +608,14 @@ export function WorkloadBoard({
     Array<{ name: string; size: number; type: string; url: string }>
   >([]);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+
+  // Comments state
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<TaskComment | null>(null);
+  const [inlineReplyId, setInlineReplyId] = useState<string | number | null>(null);
+  const [inlineReplyText, setInlineReplyText] = useState("");
+  const [expandedThreads, setExpandedThreads] = useState<Record<string | number, boolean>>({});
 
   // Timer state - track which task's timer is currently running
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
@@ -719,10 +726,10 @@ export function WorkloadBoard({
             priority: task.priority_label,
             priority_id: String(task.task_priority_id),
             // Handle new estimation object structure
-            estimatedDate: task.estimation?.estimated_date_from 
+            estimatedDate: task.estimation?.estimated_date_from
               ? (task.estimation.estimated_date_to && task.estimation.estimated_date_to !== task.estimation.estimated_date_from
-                  ? `${format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(task.estimation.estimated_date_to), "dd MMM, yyyy")}`
-                  : format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy"))
+                ? `${format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(task.estimation.estimated_date_to), "dd MMM, yyyy")}`
+                : format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy"))
               : task.due_date,
             estimatedHours: task.estimation?.approved_hours || "-",
             person: task.assignee?.name,
@@ -746,10 +753,10 @@ export function WorkloadBoard({
                 priority: st.priority_label,
                 priority_id: String(st.task_priority_id),
                 // Handle new estimation object structure
-                estimatedDate: st.estimation?.estimated_date_from 
+                estimatedDate: st.estimation?.estimated_date_from
                   ? (st.estimation.estimated_date_to && st.estimation.estimated_date_to !== st.estimation.estimated_date_from
-                      ? `${format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(st.estimation.estimated_date_to), "dd MMM, yyyy")}`
-                      : format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy"))
+                    ? `${format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(st.estimation.estimated_date_to), "dd MMM, yyyy")}`
+                    : format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy"))
                   : st.due_date,
                 estimatedHours: st.estimation?.approved_hours || "-",
                 person: st.assignee?.name,
@@ -788,20 +795,20 @@ export function WorkloadBoard({
 
         setGroups(groupedData);
 
-      // Seed label state from API response (server-side labels)
-      const seedLabels: Record<string, string> = {};
-      const seedLabelColors: Record<string, string> = {};
-      groupsRes.forEach((g: any) => {
-        if (g.label) seedLabels[String(g.id)] = g.label;
-        if (g.label_color) seedLabelColors[String(g.id)] = g.label_color;
-      });
-      setGroupLabels(seedLabels);
-      setGroupLabelColors(seedLabelColors);
+        // Seed label state from API response (server-side labels)
+        const seedLabels: Record<string, string> = {};
+        const seedLabelColors: Record<string, string> = {};
+        groupsRes.forEach((g: any) => {
+          if (g.label) seedLabels[String(g.id)] = g.label;
+          if (g.label_color) seedLabelColors[String(g.id)] = g.label_color;
+        });
+        setGroupLabels(seedLabels);
+        setGroupLabelColors(seedLabelColors);
 
-      // expand all groups by default
-      setExpandedGroups(
-        Object.fromEntries(groupedData.map((g: any) => [g.id, true]))
-      );
+        // expand all groups by default
+        setExpandedGroups(
+          Object.fromEntries(groupedData.map((g: any) => [g.id, true]))
+        );
       } catch (err) {
         toast.error("Failed to load board data");
         console.error(err);
@@ -864,6 +871,27 @@ export function WorkloadBoard({
 
     loadCMSData();
   }, [boardId]);
+
+  // Fetch comments when task is selected or comments panel is opened
+  useEffect(() => {
+    const fetchComments = async (taskId: string) => {
+      setIsLoadingComments(true);
+      try {
+        const data = await tasksApi.getComments(taskId);
+        setComments(data);
+      } catch (error) {
+        console.error("Failed to fetch comments:", error);
+      } finally {
+        setIsLoadingComments(false);
+      }
+    };
+
+    if (commentsPanelOpen && selectedTaskId) {
+      fetchComments(selectedTaskId);
+    } else {
+      setComments([]);
+    }
+  }, [commentsPanelOpen, selectedTaskId]);
 
   // useEffect(() => {
   //   const loadGroupsAndTasks = async () => {
@@ -1681,10 +1709,10 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) =>
                   sub.id === taskId
                     ? {
-                        ...sub,
-                        status: updated.status_label,
-                        status_id: String(updated.status_id),
-                      }
+                      ...sub,
+                      status: updated.status_label,
+                      status_id: String(updated.status_id),
+                    }
                     : sub
                 ),
               };
@@ -1736,10 +1764,10 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) =>
                   sub.id === taskId
                     ? {
-                        ...sub,
-                        priority: updated.priority_label,
-                        priority_id: String(updated.task_priority_id),
-                      }
+                      ...sub,
+                      priority: updated.priority_label,
+                      priority_id: String(updated.task_priority_id),
+                    }
                     : sub
                 ),
               };
@@ -1793,7 +1821,7 @@ export function WorkloadBoard({
       const updated = await tasksApi.updateTask(payload);
 
       // Extract numeric rating from average_rating field
-      const ratingValue = updated.average_rating 
+      const ratingValue = updated.average_rating
         ? Math.round(updated.average_rating)
         : Number(rating);
 
@@ -1818,11 +1846,11 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) =>
                   sub.id === taskId
                     ? {
-                        ...sub,
-                        rating: ratingValue,
-                        ratingCount: updated.rating_count || 0,
-                        ratings: updated.ratings,
-                      }
+                      ...sub,
+                      rating: ratingValue,
+                      ratingCount: updated.rating_count || 0,
+                      ratings: updated.ratings,
+                    }
                     : sub
                 ),
               };
@@ -1942,10 +1970,10 @@ export function WorkloadBoard({
               subitems: task.subitems.map((sub) =>
                 sub.id === taskId
                   ? {
-                      ...sub,
-                      estimatedDate: dateDisplay,
-                      estimatedDateEnd: toDate || null,
-                    }
+                    ...sub,
+                    estimatedDate: dateDisplay,
+                    estimatedDateEnd: toDate || null,
+                  }
                   : sub
               ),
             };
@@ -1980,9 +2008,9 @@ export function WorkloadBoard({
               subitems: task.subitems.map((sub) =>
                 sub.id === taskId
                   ? {
-                      ...sub,
-                      estimatedHours: hours || "-",
-                    }
+                    ...sub,
+                    estimatedHours: hours || "-",
+                  }
                   : sub
               ),
             };
@@ -2017,9 +2045,9 @@ export function WorkloadBoard({
               subitems: task.subitems.map((sub) =>
                 sub.id === taskId
                   ? {
-                      ...sub,
-                      tags,
-                    }
+                    ...sub,
+                    tags,
+                  }
                   : sub
               ),
             };
@@ -2160,22 +2188,86 @@ export function WorkloadBoard({
       .filter(Boolean) as TaskGroup[];
   };
 
-  const saveUpdate = () => {
-    if (!updateText.trim()) {
+  const saveUpdate = async () => {
+    if (!updateText.trim() || !selectedTaskId) {
       return;
     }
 
     try {
-      // Save update (in a real app, this would call an API)
-      console.log("Saving update:", updateText);
-      toast.success("Update saved successfully");
+      const payload = {
+        content: updateText,
+        parent_id: replyingTo ? Number(replyingTo.id) : null,
+        is_internal: 0,
+      };
+
+      const newComment = await tasksApi.createComment(selectedTaskId, payload);
+
+      // Update local state 
+      setComments((prev) => [newComment, ...prev]);
+
+      toast.success(replyingTo ? "Reply saved successfully" : "Update saved successfully");
 
       // Reset the form
       setUpdateText("");
       setUpdateFiles([]);
+      setReplyingTo(null);
     } catch (error) {
       console.error("Failed to save update:", error);
       toast.error("Failed to save update");
+    }
+  };
+
+  const saveInlineReply = async (parentId: string | number) => {
+    if (!inlineReplyText.trim() || !selectedTaskId) {
+      return;
+    }
+
+    try {
+      const payload = {
+        content: inlineReplyText,
+        parent_id: Number(parentId),
+        is_internal: 0,
+      };
+
+      const newComment = await tasksApi.createComment(selectedTaskId, payload);
+
+      // Update local state 
+      setComments((prev) => [...prev, newComment]);
+
+      toast.success("Reply saved successfully");
+
+      // Reset the form
+      setInlineReplyText("");
+      setInlineReplyId(null);
+    } catch (error) {
+      console.error("Failed to save reply:", error);
+      toast.error("Failed to save reply");
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string | number) => {
+    if (!selectedTaskId) return;
+
+    // In a real app, you might want to show a confirmation dialog
+    try {
+      await tasksApi.deleteComment(selectedTaskId, commentId);
+      setComments((prev) => prev.filter((c) => String(c.id) !== String(commentId)));
+      toast.success("Comment deleted successfully");
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+      toast.error("Failed to delete comment");
+    }
+  };
+
+  const handleUpdateComment = async (commentId: string | number, content: string) => {
+    if (!selectedTaskId) return;
+    try {
+      const updatedComment = await tasksApi.updateComment(selectedTaskId, commentId, { content });
+      setComments((prev) => prev.map((c) => (String(c.id) === String(commentId) ? updatedComment : c)));
+      toast.success("Comment updated successfully");
+    } catch (error) {
+      console.error("Failed to update comment:", error);
+      toast.error("Failed to update comment");
     }
   };
 
@@ -2236,7 +2328,7 @@ export function WorkloadBoard({
           `board-collapsed-columns-${boardId}`,
           JSON.stringify(updated)
         );
-      } catch {}
+      } catch { }
 
       // Update columnWidths and prevColumnWidths synchronously so the UI reflects the collapsed width immediately.
       const currentWidth = columnWidths[columnId];
@@ -2273,14 +2365,14 @@ export function WorkloadBoard({
           `board-column-widths-${boardId}`,
           JSON.stringify(updatedColumnWidths)
         );
-      } catch {}
+      } catch { }
 
       try {
         localStorage.setItem(
           `board-prev-column-widths-${boardId}`,
           JSON.stringify(updatedPrevWidths)
         );
-      } catch {}
+      } catch { }
 
       setPrevColumnWidths(updatedPrevWidths);
       setColumnWidths(updatedColumnWidths);
@@ -2366,7 +2458,7 @@ export function WorkloadBoard({
             `board-collapsed-columns-${boardId}`,
             JSON.stringify(updated)
           );
-        } catch {}
+        } catch { }
         return;
       }
 
@@ -2378,7 +2470,7 @@ export function WorkloadBoard({
             `board-column-widths-${boardId}`,
             JSON.stringify(updated)
           );
-        } catch {}
+        } catch { }
 
         return updated;
       });
@@ -2401,7 +2493,7 @@ export function WorkloadBoard({
     // capture pointer to the element if available
     try {
       (e.target as Element).setPointerCapture?.((e as any).pointerId);
-    } catch {}
+    } catch { }
   };
 
   // const workloadColumns = getWorkloadColumns({
@@ -2728,12 +2820,12 @@ export function WorkloadBoard({
                     };
 
                     console.log("Save payload:", payload);
-                    
+
                     // Update initial order to mark changes as saved
                     setInitialGroupOrder(groups.map((g) => g.id));
                     setInitialColumnOrder(workloadColumns.map((c) => c.id));
                     setHasUnsavedChanges(false);
-                    
+
                     toast.success("Layout saved successfully");
                     // API call will be added here in the future
                   }}
@@ -2961,7 +3053,7 @@ export function WorkloadBoard({
                                 })()}
                                 {/* edit group button */}
                                 <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
-                                  <Popover  open={editGroupDialogOpen && editingGroupId === group.id} onOpenChange={(open) => {
+                                  <Popover open={editGroupDialogOpen && editingGroupId === group.id} onOpenChange={(open) => {
                                     if (open) {
                                       editGroup(group.id);
                                     } else {
@@ -2984,7 +3076,7 @@ export function WorkloadBoard({
                                         <div>
                                           <h3 className="font-semibold text-sm mb-3">Edit Group</h3>
                                         </div>
-                                        
+
                                         {/* Color Picker */}
                                         <div className="space-y-2">
                                           <label className="text-sm font-medium">Color</label>
@@ -2992,11 +3084,10 @@ export function WorkloadBoard({
                                             {PRESET_COLORS.map((color) => (
                                               <button
                                                 key={color}
-                                                className={`h-10 w-10 rounded-lg transition-all border-2 ${
-                                                  editGroupColorInput === color
-                                                    ? "border-foreground scale-110"
-                                                    : "border-transparent hover:scale-105"
-                                                }`}
+                                                className={`h-10 w-10 rounded-lg transition-all border-2 ${editGroupColorInput === color
+                                                  ? "border-foreground scale-110"
+                                                  : "border-transparent hover:scale-105"
+                                                  }`}
                                                 style={{ backgroundColor: color }}
                                                 onClick={() => setEditGroupColorInput(color)}
                                               />
@@ -3038,11 +3129,10 @@ export function WorkloadBoard({
                                                 {PRESET_COLORS.map((color) => (
                                                   <button
                                                     key={color}
-                                                    className={`h-8 w-8 rounded-lg transition-all border-2 ${
-                                                      newLabelColor === color
-                                                        ? "border-foreground scale-110"
-                                                        : "border-transparent hover:scale-105"
-                                                    }`}
+                                                    className={`h-8 w-8 rounded-lg transition-all border-2 ${newLabelColor === color
+                                                      ? "border-foreground scale-110"
+                                                      : "border-transparent hover:scale-105"
+                                                      }`}
                                                     style={{ backgroundColor: color }}
                                                     onClick={() => setNewLabelColor(color)}
                                                   />
@@ -3088,15 +3178,15 @@ export function WorkloadBoard({
                                                         setLabels((prevLabels) => [...prevLabels, createdLabel]);
                                                         setEditGroupLabelInput(createdLabel.label_name);
                                                         setEditGroupLabelColorInput(createdLabel.label_color);
-                                                        
+
                                                         // Reset form and exit creation mode
                                                         setNewLabelName("");
                                                         setNewLabelColor("#FF0000");
                                                         setIsCreatingLabel(false);
-                                                        
+
                                                         // Reopen dropdown to show the new label
                                                         setLabelDropdownOpen(true);
-                                                        
+
                                                         toast.success("Label created successfully");
                                                       } catch (error) {
                                                         console.error("Failed to create label:", error);
@@ -3223,8 +3313,8 @@ export function WorkloadBoard({
                                         /{" "}
                                         {progress.estimatedTimeSeconds > 0
                                           ? formatSecondsToTime(
-                                              progress.estimatedTimeSeconds
-                                            )
+                                            progress.estimatedTimeSeconds
+                                          )
                                           : "—"}
                                       </span>
                                     </div>
@@ -3238,8 +3328,8 @@ export function WorkloadBoard({
                                   className="w-full"
                                   style={{ tableLayout: "fixed" }}
                                 >
-                                    {/* Table head */}
-                                    {/* <thead className="border-b border-border bg-muted/30">
+                                  {/* Table head */}
+                                  {/* <thead className="border-b border-border bg-muted/30">
                                       <tr className="text-sm text-muted-foreground">
                                         <th className="p-4 w-12 border-r border-border text-center">
                                           <input type="checkbox" />
@@ -3262,85 +3352,85 @@ export function WorkloadBoard({
                                       </tr>
                                     </thead> */}
 
-                                    <DndContext
-                                      sensors={sensors}
-                                      collisionDetection={closestCenter}
-                                      onDragEnd={handleColumnDragEnd}
+                                  <DndContext
+                                    sensors={sensors}
+                                    collisionDetection={closestCenter}
+                                    onDragEnd={handleColumnDragEnd}
+                                  >
+                                    <SortableContext
+                                      items={workloadColumns.map((c) => c.id)}
+                                      strategy={horizontalListSortingStrategy}
                                     >
-                                      <SortableContext
-                                        items={workloadColumns.map((c) => c.id)}
-                                        strategy={horizontalListSortingStrategy}
-                                      >
-                                        <thead className="border-b border-border bg-muted/30">
-                                          <tr className="text-sm text-muted-foreground">
-                                            <th className="p-4 w-12 border-r border-border text-center">
-                                              <input
-                                                type="checkbox"
-                                                checked={
-                                                  group.tasks.length > 0 &&
-                                                  group.tasks.every(
-                                                    (task) =>
-                                                      checkedTasks[task.id] ||
-                                                      false
-                                                  )
-                                                }
-                                                onChange={(e) => {
-                                                  const updatedChecked: Record<
-                                                    string,
-                                                    boolean
-                                                  > = {};
-                                                  group.tasks.forEach(
-                                                    (task) => {
-                                                      updatedChecked[task.id] =
-                                                        e.target.checked;
-                                                      // Also select/deselect subitems
-                                                      if (task.subitems) {
-                                                        task.subitems.forEach(
-                                                          (subitem) => {
-                                                            updatedChecked[
-                                                              subitem.id
-                                                            ] =
-                                                              e.target.checked;
-                                                          }
-                                                        );
-                                                      }
+                                      <thead className="border-b border-border bg-muted/30">
+                                        <tr className="text-sm text-muted-foreground">
+                                          <th className="p-4 w-12 border-r border-border text-center">
+                                            <input
+                                              type="checkbox"
+                                              checked={
+                                                group.tasks.length > 0 &&
+                                                group.tasks.every(
+                                                  (task) =>
+                                                    checkedTasks[task.id] ||
+                                                    false
+                                                )
+                                              }
+                                              onChange={(e) => {
+                                                const updatedChecked: Record<
+                                                  string,
+                                                  boolean
+                                                > = {};
+                                                group.tasks.forEach(
+                                                  (task) => {
+                                                    updatedChecked[task.id] =
+                                                      e.target.checked;
+                                                    // Also select/deselect subitems
+                                                    if (task.subitems) {
+                                                      task.subitems.forEach(
+                                                        (subitem) => {
+                                                          updatedChecked[
+                                                            subitem.id
+                                                          ] =
+                                                            e.target.checked;
+                                                        }
+                                                      );
                                                     }
-                                                  );
-                                                  setCheckedTasks((prev) => ({
-                                                    ...prev,
-                                                    ...updatedChecked,
-                                                  }));
-                                                }}
-                                              />
-                                            </th>
+                                                  }
+                                                );
+                                                setCheckedTasks((prev) => ({
+                                                  ...prev,
+                                                  ...updatedChecked,
+                                                }));
+                                              }}
+                                            />
+                                          </th>
 
-                                            {workloadColumns.map((col) => (
-                                              <SortableColumnHeader
-                                                key={col.id}
-                                                column={col}
-                                                onToggleCollapse={() => toggleCollapseColumn(col.id)}
-                                                onStartResize={startColumnResize}
-                                              />
-                                            ))}
-                                          </tr>
-                                        </thead>
-                                      </SortableContext>
-                                    </DndContext>
+                                          {workloadColumns.map((col) => (
+                                            <SortableColumnHeader
+                                              key={col.id}
+                                              column={col}
+                                              onToggleCollapse={() => toggleCollapseColumn(col.id)}
+                                              onStartResize={startColumnResize}
+                                            />
+                                          ))}
+                                        </tr>
+                                      </thead>
+                                    </SortableContext>
+                                  </DndContext>
 
-                                    {/* Table Body */}
-                                    <tbody>
-                                      {group.tasks.map((task) => {
-                                        const taskWithProps = {
-                                          ...task,
-                                          boardId: boardId,
-                                          activeTimerId: activeTimerId,
-                                          onTimerStart: handleTimerStart,
-                                          onTimerConflict: handleTimerConflict,
-                                        };
-                                        return (
+                                  {/* Table Body */}
+                                  <tbody>
+                                    {group.tasks.map((task) => {
+                                      const taskWithProps = {
+                                        ...task,
+                                        boardId: boardId,
+                                        activeTimerId: activeTimerId,
+                                        onTimerStart: handleTimerStart,
+                                        onTimerConflict: handleTimerConflict,
+                                      };
+                                      return (
                                         <React.Fragment key={task.id}>
                                           {/* ================= TASK ROW ================= */}
-                                          <tr 
+                                          <tr
                                             className="border-t border-b border-border hover:bg-muted/40 cursor-pointer"
                                             onClick={() => {
                                               setSelectedTaskId(task.id);
@@ -3368,9 +3458,9 @@ export function WorkloadBoard({
                                                 className={cn(
                                                   "p-4 border-r border-border last:border-r-0",
                                                   col.align === "center" &&
-                                                    "text-center",
+                                                  "text-center",
                                                   col.align === "left" &&
-                                                    "text-left"
+                                                  "text-left"
                                                 )}
                                                 style={{ width: col.width }}
                                                 onClick={(e) => e.stopPropagation()}
@@ -3407,60 +3497,60 @@ export function WorkloadBoard({
                                                 onTimerConflict: handleTimerConflict,
                                               };
                                               return (
-                                              <tr
-                                                key={subtask.id}
-                                                className="  hover:bg-muted/30 border-b border-border"
-                                              >
-                                                <td className="p-4 text-center border-r border-border" onClick={(e) => e.stopPropagation()}>
-                                                  <input
-                                                    type="checkbox"
-                                                    checked={
-                                                      checkedTasks[
+                                                <tr
+                                                  key={subtask.id}
+                                                  className="  hover:bg-muted/30 border-b border-border"
+                                                >
+                                                  <td className="p-4 text-center border-r border-border" onClick={(e) => e.stopPropagation()}>
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={
+                                                        checkedTasks[
                                                         subtask.id
-                                                      ] || false
-                                                    }
-                                                    onChange={(e) =>
-                                                      handleTaskCheckChange(
-                                                        subtask.id,
-                                                        e.target.checked
-                                                      )
-                                                    }
-                                                  />
-                                                </td>
-
-                                                {workloadColumns.map((col) => (
-                                                  <td
-                                                    key={col.id}
-                                                    className={cn(
-                                                      "p-4 border-r border-border last:border-r-0",
-                                                      col.align === "center" &&
-                                                        "text-center",
-                                                      col.align === "left" &&
-                                                        "text-left"
-                                                    )}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                  >
-                                                    {col.collapsed ? (
-                                                      <div className="flex items-center justify-center">
-                                                        <button
-                                                          className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
-                                                          onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            toggleCollapseColumn(col.id);
-                                                          }}
-                                                          aria-label={`Expand ${col.label}`}
-                                                          title={`Expand ${col.label}`}
-                                                        >
-                                                          <ChevronRight className="h-3 w-3" />
-                                                        </button>
-                                                      </div>
-                                                    ) : (
-                                                      col.render(subtaskWithProps, true)
-                                                    )}
+                                                        ] || false
+                                                      }
+                                                      onChange={(e) =>
+                                                        handleTaskCheckChange(
+                                                          subtask.id,
+                                                          e.target.checked
+                                                        )
+                                                      }
+                                                    />
                                                   </td>
-                                                ))}
-                                              </tr>
-                                            );
+
+                                                  {workloadColumns.map((col) => (
+                                                    <td
+                                                      key={col.id}
+                                                      className={cn(
+                                                        "p-4 border-r border-border last:border-r-0",
+                                                        col.align === "center" &&
+                                                        "text-center",
+                                                        col.align === "left" &&
+                                                        "text-left"
+                                                      )}
+                                                      onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                      {col.collapsed ? (
+                                                        <div className="flex items-center justify-center">
+                                                          <button
+                                                            className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              toggleCollapseColumn(col.id);
+                                                            }}
+                                                            aria-label={`Expand ${col.label}`}
+                                                            title={`Expand ${col.label}`}
+                                                          >
+                                                            <ChevronRight className="h-3 w-3" />
+                                                          </button>
+                                                        </div>
+                                                      ) : (
+                                                        col.render(subtaskWithProps, true)
+                                                      )}
+                                                    </td>
+                                                  ))}
+                                                </tr>
+                                              );
                                             })}
 
                                           {/* ================= ADD SUBITEM ================= */}
@@ -3474,7 +3564,7 @@ export function WorkloadBoard({
                                                 className="p-4 border-t border-border"
                                               >
                                                 {addingSubitemToTask ===
-                                                task.id ? (
+                                                  task.id ? (
                                                   <div className="flex items-center gap-2 pl-8">
                                                     <span className="text-muted-foreground">
                                                       └
@@ -3546,59 +3636,59 @@ export function WorkloadBoard({
                                           )}
                                         </React.Fragment>
                                       );
-                                      })}
+                                    })}
 
-                                      {/* ================= ADD ITEM ROW ================= */}
-                                      <tr>
-                                        <td className="p-4 text-center border-r border-border">
-                                          {/* Empty Cell */}
-                                        </td>
-                                        <td
-                                          colSpan={totalColumns}
-                                          className="p-4 border-t border-border"
-                                        >
-                                          {addingItemToGroup === group.id ? (
-                                            <Input
-                                              className="h-8 max-w"
-                                              autoFocus
-                                              placeholder="Enter item name..."
-                                              value={newItemName}
-                                              onChange={(e) =>
-                                                setNewItemName(e.target.value)
+                                    {/* ================= ADD ITEM ROW ================= */}
+                                    <tr>
+                                      <td className="p-4 text-center border-r border-border">
+                                        {/* Empty Cell */}
+                                      </td>
+                                      <td
+                                        colSpan={totalColumns}
+                                        className="p-4 border-t border-border"
+                                      >
+                                        {addingItemToGroup === group.id ? (
+                                          <Input
+                                            className="h-8 max-w"
+                                            autoFocus
+                                            placeholder="Enter item name..."
+                                            value={newItemName}
+                                            onChange={(e) =>
+                                              setNewItemName(e.target.value)
+                                            }
+                                            onKeyDown={(e) => {
+                                              if (
+                                                e.key === "Enter" &&
+                                                newItemName.trim()
+                                              ) {
+                                                addNewItem(group.id);
                                               }
-                                              onKeyDown={(e) => {
-                                                if (
-                                                  e.key === "Enter" &&
-                                                  newItemName.trim()
-                                                ) {
-                                                  addNewItem(group.id);
-                                                }
-                                                if (e.key === "Escape") {
-                                                  setAddingItemToGroup(null);
-                                                  setNewItemName("");
-                                                }
-                                              }}
-                                              onBlur={() => {
+                                              if (e.key === "Escape") {
                                                 setAddingItemToGroup(null);
                                                 setNewItemName("");
-                                              }}
-                                            />
-                                          ) : (
-                                            <button
-                                              onClick={() => {
-                                                setAddingItemToGroup(group.id);
-                                              }}
-                                              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 "
-                                            >
-                                              <span className="text-md">
-                                                + Add Item
-                                              </span>{" "}
-                                            </button>
-                                          )}
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
+                                              }
+                                            }}
+                                            onBlur={() => {
+                                              setAddingItemToGroup(null);
+                                              setNewItemName("");
+                                            }}
+                                          />
+                                        ) : (
+                                          <button
+                                            onClick={() => {
+                                              setAddingItemToGroup(group.id);
+                                            }}
+                                            className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 "
+                                          >
+                                            <span className="text-md">
+                                              + Add Item
+                                            </span>{" "}
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
                               )}
                             </div>
                           )}
@@ -3659,11 +3749,10 @@ export function WorkloadBoard({
                 {PRESET_COLORS.map((color) => (
                   <button
                     key={color}
-                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
-                      newGroupColorInput === color
-                        ? "border-foreground scale-110"
-                        : "border-transparent hover:scale-105"
-                    }`}
+                    className={`h-10 w-10 rounded-lg transition-all border-2 ${newGroupColorInput === color
+                      ? "border-foreground scale-110"
+                      : "border-transparent hover:scale-105"
+                      }`}
                     style={{ backgroundColor: color }}
                     onClick={() => setNewGroupColorInput(color)}
                   />
@@ -3831,7 +3920,7 @@ export function WorkloadBoard({
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-foreground">
-              Another timer is already running on "<strong>{conflictingTaskName}</strong>". 
+              Another timer is already running on "<strong>{conflictingTaskName}</strong>".
               Please stop it first before starting a new timer.
             </p>
           </div>
@@ -3917,9 +4006,25 @@ export function WorkloadBoard({
                 value="updates"
                 className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0"
               >
-                <div className="px-6 pt-2 pb-4 border-b border-border relative z-10">
+                <div className="px-6 pt-2 pb-4 border-b border-border relative z-10 flex flex-col gap-2">
+                  {replyingTo && (
+                    <div className="flex items-center justify-between text-xs bg-muted/50 p-2 rounded border border-border">
+                      <div className="flex items-center gap-2 text-muted-foreground truncate">
+                        <span>Replying to <strong>{replyingTo.user?.name}</strong></span>
+                        <span className="truncate opacity-70 italic" dangerouslySetInnerHTML={{ __html: replyingTo.content.substring(0, 50) + (replyingTo.content.length > 50 ? '...' : '') }} />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 hover:bg-transparent"
+                        onClick={() => setReplyingTo(null)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                   <MentionRichTextEditor
-                    placeholder="Write an update and mention others with @"
+                    placeholder={replyingTo ? "Write a reply..." : "Write an update and mention others with @"}
                     value={updateText}
                     onChange={setUpdateText}
                     availablePeople={[]}
@@ -3953,7 +4058,7 @@ export function WorkloadBoard({
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0"
-                      // onClick={() => mentionEditorRef.current?.showMentionDropdown()}
+                    // onClick={() => mentionEditorRef.current?.showMentionDropdown()}
                     >
                       <AtSign className="h-4 w-4 text-muted-foreground" />
                     </Button>
@@ -3968,17 +4073,249 @@ export function WorkloadBoard({
                 </div>
 
                 <div className="flex-1 overflow-auto px-6 py-4">
-                  <div className="space-y-4">
+                  {isLoadingComments ? (
+                    <div className="flex items-center justify-center py-8">
+                      <p className="text-sm text-muted-foreground">Loading updates...</p>
+                    </div>
+                  ) : comments.length === 0 ? (
                     <div className="text-center py-8">
                       <p className="text-sm text-muted-foreground">
                         No updates yet. Be the first to add one!
                       </p>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-8">
+                      {comments
+                        .filter((c) => !c.parent_id) // Root comments
+                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                        .map((comment) => {
+                          // Helper to find all descendants of a comment to show them flat in this thread
+                          const getDescendants = (parentId: string | number): TaskComment[] => {
+                            const directChildren = comments.filter(c => String(c.parent_id) === String(parentId));
+                            let allDescendants = [...directChildren];
+                            directChildren.forEach(child => {
+                              allDescendants = [...allDescendants, ...getDescendants(child.id)];
+                            });
+                            return allDescendants;
+                          };
+
+                          const allThreadComments = getDescendants(comment.id).sort(
+                            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                          );
+
+                          const isExpanded = expandedThreads[comment.id];
+                          const visibleReplies = isExpanded ? allThreadComments :
+                            (allThreadComments.length > 2 ? [allThreadComments[allThreadComments.length - 1]] : allThreadComments);
+                          const hiddenCount = allThreadComments.length - visibleReplies.length;
+
+                          // Check if currently replying to ANY comment within this specific thread
+                          const isReplyingInThisThread = inlineReplyId && (
+                            String(inlineReplyId) === String(comment.id) ||
+                            allThreadComments.some(rtc => String(rtc.id) === String(inlineReplyId))
+                          );
+
+                          return (
+                            <div key={comment.id} className="space-y-4 relative">
+                              {/* Main Comment */}
+                              <div className="flex gap-4 group relative z-10">
+                                <Avatar className="h-10 w-10 shrink-0 border border-border/50 shadow-sm relative z-10">
+                                  <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                                    {comment.user?.name?.charAt(0).toUpperCase() || "U"}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 space-y-1.5 min-w-0">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-semibold text-foreground">
+                                        {comment.user?.name || "Unknown User"}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                                        {comment.created_at ? format(new Date(comment.created_at), "MMM d, h:mm a") : ""}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-muted">
+                                            <MoreHorizontal className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem
+                                            onClick={() => {
+                                              setInlineReplyId(comment.id);
+                                              setInlineReplyText("");
+                                            }}
+                                          >
+                                            Reply
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            className="text-destructive focus:text-destructive"
+                                            onClick={() => handleDeleteComment(comment.id)}
+                                          >
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Delete
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  </div>
+                                  <div
+                                    className="text-sm text-foreground/90 leading-relaxed break-words pr-4"
+                                    dangerouslySetInnerHTML={{ __html: comment.content }}
+                                  />
+                                  <div className="pt-0.5 flex items-center gap-4">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2 -ml-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
+                                      onClick={() => {
+                                        setInlineReplyId(comment.id);
+                                        setInlineReplyText("");
+                                      }}
+                                    >
+                                      <MessageCirclePlus className="h-3.5 w-3.5 mr-1.5" />
+                                      Reply
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Tread Guide Line */}
+                              {allThreadComments.length > 0 && (
+                                <div className="absolute left-[19px] top-10 bottom-4 w-0.5 bg-muted/40 z-0" />
+                              )}
+
+                              {/* Collapse/Expand Information */}
+                              {allThreadComments.length > 1 && hiddenCount > 0 && (
+                                <div className="pl-14 py-1 relative z-10">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-3 text-xs text-primary bg-primary/5 hover:bg-primary/10 transition-colors flex items-center gap-2"
+                                    onClick={() => setExpandedThreads(prev => ({ ...prev, [comment.id]: true }))}
+                                  >
+                                    <RefreshCcw className="h-3 w-3" />
+                                    Show {hiddenCount} more {hiddenCount === 1 ? 'reply' : 'replies'}
+                                  </Button>
+                                </div>
+                              )}
+
+                              {/* Replies Container */}
+                              <div className="pl-14 space-y-4 relative z-10">
+                                {visibleReplies.map((reply) => (
+                                  <div key={reply.id} className="flex gap-3 group relative py-1">
+                                    {/* Horizontal Connection Line */}
+                                    <div className="absolute -left-[37px] top-5 w-5 h-0.5 bg-muted/40" />
+
+                                    <Avatar className="h-8 w-8 shrink-0 border border-border/50 shadow-sm">
+                                      <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-semibold">
+                                        {reply.user?.name?.charAt(0).toUpperCase() || "U"}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 space-y-0.5 min-w-0">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm font-semibold text-foreground/80">
+                                            {reply.user?.name || "Unknown User"}
+                                          </span>
+                                          <span className="text-[10px] text-muted-foreground italic">
+                                            {reply.created_at ? format(new Date(reply.created_at), "MMM d, h:mm a") : ""}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted">
+                                                <MoreHorizontal className="h-3 w-3" />
+                                              </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                              <DropdownMenuItem
+                                                onClick={() => {
+                                                  setInlineReplyId(reply.id);
+                                                  setInlineReplyText("");
+                                                }}
+                                              >
+                                                Reply
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem
+                                                className="text-destructive focus:text-destructive"
+                                                onClick={() => handleDeleteComment(reply.id)}
+                                              >
+                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                Delete
+                                              </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        </div>
+                                      </div>
+                                      <div
+                                        className="text-sm text-foreground/80 leading-relaxed break-words"
+                                        dangerouslySetInnerHTML={{ __html: reply.content }}
+                                      />
+                                      <div className="pt-0.5 flex items-center gap-4">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 px-1.5 -ml-1.5 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
+                                          onClick={() => {
+                                            setInlineReplyId(reply.id);
+                                            setInlineReplyText("");
+                                          }}
+                                        >
+                                          Reply
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {/* Inline reply editor */}
+                                {isReplyingInThisThread && (
+                                  <div className="mt-4 mr-4 bg-muted/30 p-4 rounded-xl border border-border/50 shadow-inner relative transition-all animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="mb-3 flex items-center justify-between">
+                                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-primary/80">
+                                        Replying to {(() => {
+                                          const target = comments.find(c => String(c.id) === String(inlineReplyId));
+                                          return target?.user?.name || "User";
+                                        })()}
+                                      </span>
+                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-background" onClick={() => setInlineReplyId(null)}>
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <MentionRichTextEditor
+                                      placeholder="Write a reply..."
+                                      value={inlineReplyText}
+                                      onChange={setInlineReplyText}
+                                      availablePeople={[]}
+                                    />
+                                    <div className="mt-3 flex justify-end gap-2">
+                                      <Button variant="ghost" size="sm" className="h-8 text-xs px-3" onClick={() => setInlineReplyId(null)}>
+                                        Cancel
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        className="h-8 text-xs px-4 font-semibold"
+                                        onClick={() => saveInlineReply(inlineReplyId!)}
+                                        disabled={!inlineReplyText.trim()}
+                                      >
+                                        Reply
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
-              <TabsContent
+              {/* <TabsContent
                 value="activity"
                 className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0"
               >
@@ -3987,7 +4324,7 @@ export function WorkloadBoard({
                     Activity log for this task will appear here.
                   </p>
                 </div>
-              </TabsContent>
+              </TabsContent> */}
             </Tabs>
           </div>
         </SheetContent>

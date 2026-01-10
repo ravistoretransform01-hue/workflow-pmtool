@@ -2,7 +2,7 @@ export interface TaskResponse {
   id: string;
   group_id: string;
   parent_id: string | null;
-  organization_id: string; 
+  organization_id: string;
   board_id: string;
   position: string;
   name: string;
@@ -99,7 +99,7 @@ export interface GetTasksResponse {
 
 export interface CreateTaskRequest {
   group_id: number;
-  organization_id: number; 
+  organization_id: number;
   name: string;
   board_id: number;
   parent_id: number | null;
@@ -145,6 +145,39 @@ export interface UpdateTaskRequest {
     rating: string | number;
     assignee_id: number;
   };
+}
+
+export interface TaskComment {
+  id: string | number;
+  task_id: string | number;
+  content: string;
+  parent_id: string | number | null;
+  is_internal: number | string;
+  user_id?: string | number;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    avatar_url?: string;
+  };
+}
+
+export interface TaskCommentResponse {
+  code: number;
+  status: string;
+  data: TaskComment[];
+}
+
+export interface CreateCommentRequest {
+  content: string;
+  parent_id: number | null;
+  is_internal: number;
+}
+
+export interface UpdateCommentRequest {
+  content: string;
 }
 
 export interface DeleteTaskRequest {
