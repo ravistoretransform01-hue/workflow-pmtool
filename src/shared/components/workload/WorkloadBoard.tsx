@@ -2261,7 +2261,7 @@ export function WorkloadBoard({
     }
   };
 
-  const handleUpdateComment = async (commentId: string | number, content: string) => {
+  const updateTaskComment = async (commentId: string | number, content: string) => {
     if (!selectedTaskId) return;
     try {
       const updatedComment = await tasksApi.updateComment(selectedTaskId, commentId, { content });
@@ -4175,7 +4175,7 @@ export function WorkloadBoard({
                                           size="sm"
                                           className="h-8 text-xs px-4"
                                           onClick={() => {
-                                            handleUpdateComment(comment.id, editCommentText);
+                                            updateTaskComment(comment.id, editCommentText);
                                             setEditingCommentId(null);
                                           }}
                                           disabled={!editCommentText.trim()}
@@ -4311,7 +4311,7 @@ export function WorkloadBoard({
                                               size="sm"
                                               className="h-8 text-xs px-4"
                                               onClick={() => {
-                                                handleUpdateComment(reply.id, editCommentText);
+                                                updateTaskComment(reply.id, editCommentText);
                                                 setEditingCommentId(null);
                                               }}
                                               disabled={!editCommentText.trim()}
