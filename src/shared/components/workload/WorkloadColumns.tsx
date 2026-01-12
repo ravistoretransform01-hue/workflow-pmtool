@@ -6,8 +6,6 @@ import {
   Pencil,
   X,
   Search,
-  Play,
-  Pause,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
@@ -23,6 +21,7 @@ import { Calendar } from "@/shared/components/ui/calendar";
 import { Input } from "@/shared/components/ui/input";
 import { format, parseISO, parse } from "date-fns";
 import { TagsColumnCell } from "./TagsColumnCell";
+import { TimerCell } from "./TimerCell";
 
 function stringToHslColor(str: string, s = 70, l = 55): string {
   let hash = 0;
@@ -31,128 +30,6 @@ function stringToHslColor(str: string, s = 70, l = 55): string {
   }
   const h = Math.abs(hash) % 360;
   return `hsl(${h} ${s}% ${l}%)`;
-}
-
-// Component for timer/stopwatch
-function Timer({
-  taskId,
-  boardId,
-  activeTimerId,
-  onTimerStart,
-  onTimerConflict,
-}: {
-  taskId: string;
-  boardId: string;
-  activeTimerId: string | null;
-  onTimerStart: (taskId: string | null) => void;
-  onTimerConflict?: (taskId: string) => void;
-}) {
-  const [seconds, setSeconds] = useState(0);
-  const isRunning = activeTimerId === taskId;
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (isRunning) {
-      interval = setInterval(() => {
-        setSeconds((prev) => prev + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isRunning]);
-
-  const formatTime = (totalSeconds: number) => {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    } else {
-      return `${secs}s`;
-    }
-  };
-
-  const handlePlayPause = () => {
-    if (isRunning) {
-      // Pause
-      console.log({
-        taskId,
-        boardId,
-        timestamp: new Date().toISOString(),
-        action: "stop",
-      });
-      onTimerStart(null as any); // Pass null to stop the timer
-    } else {
-      // Play
-      if (activeTimerId && activeTimerId !== taskId) {
-        console.log({
-          taskId,
-          boardId,
-          timestamp: new Date().toISOString(),
-          action: "conflict",
-        });
-        onTimerConflict?.(activeTimerId);
-        return;
-      }
-      console.log({
-        taskId,
-        boardId,
-        timestamp: new Date().toISOString(),
-        action: "play",
-      });
-      onTimerStart(taskId);
-    }
-  };
-
-  // const handleReset = () => {
-  //   setSeconds(0);
-  //   console.log({
-  //     taskId,
-  //     boardId,
-  //     timestamp: new Date().toISOString(),
-  //     action: "reset",
-  //   });
-  // };
-
-  // Determine background color based on timer state
-  let bgColor = "bg-blue-500/50"; // Default: blue
-  if (isRunning) {
-    bgColor = "bg-green-500/50"; // Running: green
-  }
-  // TODO: Add red for overtime when estimatedSeconds is available
-  // if (isOverTime) {
-  //   bgColor = "bg-red-500/50"; // Overtime: red
-  // }
-
-  return (
-    <div
-      className={`flex items-center justify-center gap-2 w-full h-full ${bgColor} rounded`}
-    >
-      <button
-        onClick={handlePlayPause}
-        className="p-2 hover:bg-muted rounded transition-colors"
-        title={isRunning ? "Pause" : "Start"}
-      >
-        {isRunning ? (
-          <Pause className="h-4 w-4 text-foreground" />
-        ) : (
-          <Play className="h-4 w-4 text-foreground" />
-        )}
-      </button>
-      <div className="rounded px-3 py-1 min-w-14 text-center">
-        <span className="text-sm font-medium">{formatTime(seconds)}</span>
-      </div>
-      {/* <button
-        onClick={handleReset}
-        className="p-1 hover:bg-muted rounded transition-colors"
-        title="Reset"
-      >
-        <RotateCcw className="h-4 w-4 text-foreground" />
-      </button> */}
-    </div>
-  );
 }
 
 // Component for person selection with search
@@ -558,7 +435,7 @@ function EstimatedDatePicker({
     >
       <PopoverTrigger asChild>
         <div className="w-full" onClick={(e) => e.stopPropagation()}>
-          <button className="w-full bg-muted text-muted-foreground px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
+          <button className="w-full bg-muted text-white px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
             {formatDateDisplay()}
           </button>
         </div>
@@ -1183,9 +1060,9 @@ export const getWorkloadColumns = ({
       width: "160px",
       align: "center",
       render: (task: any) => (
-        <Timer
+        <TimerCell
           taskId={task.id}
-          boardId={task.boardId}
+          trackedTimeSeconds={task.tracked_time_seconds || 0}
           activeTimerId={task.activeTimerId}
           onTimerStart={task.onTimerStart}
           onTimerConflict={task.onTimerConflict}

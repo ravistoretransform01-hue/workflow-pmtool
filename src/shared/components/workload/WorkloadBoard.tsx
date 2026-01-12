@@ -110,6 +110,7 @@ export interface Task {
   assigned_to_id?: string | number;
   assigned_to_ids?: string[]; // Multiple assignees
   timeSpent?: string;
+  tracked_time_seconds?: number; // Tracked time in seconds from timer
   rating?: number; // Display rating as average number (1-5)
   ratingCount?: number; // Number of ratings
   ratings?: Array<{
@@ -781,6 +782,7 @@ export function WorkloadBoard({
             timeSpent: task.time_spent_hours
               ? `${task.time_spent_hours}h`
               : "0h",
+            tracked_time_seconds: task.tracked_time_seconds || 0,
 
             subitems: subtasks
               .filter((st) => String(st.parent_id) === String(task.id))
@@ -823,6 +825,7 @@ export function WorkloadBoard({
                   ? `${st.time_spent_hours}h`
                   : "0h",
                 group_id: String(task.group_id),
+                tracked_time_seconds: st.tracked_time_seconds || 0,
                 subitems: [],
               })),
           };
