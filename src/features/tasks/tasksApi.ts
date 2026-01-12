@@ -4,6 +4,9 @@ import type {
   CreateTaskRequest,
   UpdateTaskRequest,
   EstimatedDateResponse,
+  TaskComment,
+  CreateCommentRequest,
+  UpdateCommentRequest,
 } from "./types";
 
 const TASKS_ENDPOINTS = {
@@ -18,6 +21,10 @@ const TASKS_ENDPOINTS = {
   UPDATE_ESTIMATED_DATE: `/tasks/estimate/date`,
   ADD_TAG: `/tasks/tag`,
   REMOVE_TAG: (taskTagId: string | number) => `/tasks/tag/${taskTagId}`,
+  GET_COMMENTS: (taskId: string | number) => `/tasks/${taskId}/comments`,
+  CREATE_COMMENT: (taskId: string | number) => `/tasks/${taskId}/comments`,
+  UPDATE_COMMENT: (taskId: string | number, commentId: string | number) => `/tasks/${taskId}/comments/${commentId}`,
+  DELETE_COMMENT: (taskId: string | number, commentId: string | number) => `/tasks/${taskId}/comments/${commentId}`,
 };
 
 export const tasksApi = {
@@ -212,6 +219,100 @@ export const tasksApi = {
       await axios.delete(TASKS_ENDPOINTS.REMOVE_TAG(taskTagId));
     } catch (error) {
       console.error("Failed to remove tag:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all comments for a task
+   */
+  getComments: async (taskId: string | number): Promise<TaskComment[]> => {
+    try {
+      const response = await axios.get<any>(
+        TASKS_ENDPOINTS.GET_COMMENTS(taskId)
+      );
+
+      let data = response.data;
+
+      // If response is a string, it might contain HTML error messages before the JSON
+      if (typeof data === "string") {
+        const jsonStart = data.indexOf("{");
+        if (jsonStart !== -1) {
+          try {
+            data = JSON.parse(data.substring(jsonStart));
+          } catch (e) {
+            console.error("Failed to parse JSON after stripping HTML:", e);
+          }
+        }
+      }
+
+      // Handle the API response format
+      if (data && data.data && Array.isArray(data.data)) {
+        return data.data;
+      }
+
+      // Fallback if response is array directly
+      if (Array.isArray(data)) {
+        return data;
+      }
+
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch comments:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new comment for a task
+   */
+  createComment: async (
+    taskId: string | number,
+    payload: CreateCommentRequest
+  ): Promise<TaskComment> => {
+    try {
+      const response = await axios.post<{ data: TaskComment }>(
+        TASKS_ENDPOINTS.CREATE_COMMENT(taskId),
+        payload
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to create comment:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update an existing comment
+   */
+  updateComment: async (
+    taskId: string | number,
+    commentId: string | number,
+    payload: UpdateCommentRequest
+  ): Promise<TaskComment> => {
+    try {
+      const response = await axios.put<{ data: TaskComment }>(
+        TASKS_ENDPOINTS.UPDATE_COMMENT(taskId, commentId),
+        payload
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to update comment:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a comment
+   */
+  deleteComment: async (
+    taskId: string | number,
+    commentId: string | number
+  ): Promise<void> => {
+    try {
+      await axios.delete(TASKS_ENDPOINTS.DELETE_COMMENT(taskId, commentId));
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
       throw error;
     }
   },
