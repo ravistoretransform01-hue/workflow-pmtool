@@ -6,8 +6,6 @@ import {
   Pencil,
   X,
   Search,
-  Play,
-  Pause,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
@@ -22,6 +20,8 @@ import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { Input } from "@/shared/components/ui/input";
 import { format, parseISO, parse } from "date-fns";
+import { TagsColumnCell } from "./TagsColumnCell";
+import { TimerCell } from "./TimerCell";
 
 function stringToHslColor(str: string, s = 70, l = 55): string {
   let hash = 0;
@@ -30,128 +30,6 @@ function stringToHslColor(str: string, s = 70, l = 55): string {
   }
   const h = Math.abs(hash) % 360;
   return `hsl(${h} ${s}% ${l}%)`;
-}
-
-// Component for timer/stopwatch
-function Timer({
-  taskId,
-  boardId,
-  activeTimerId,
-  onTimerStart,
-  onTimerConflict,
-}: {
-  taskId: string;
-  boardId: string;
-  activeTimerId: string | null;
-  onTimerStart: (taskId: string | null) => void;
-  onTimerConflict?: (taskId: string) => void;
-}) {
-  const [seconds, setSeconds] = useState(0);
-  const isRunning = activeTimerId === taskId;
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (isRunning) {
-      interval = setInterval(() => {
-        setSeconds((prev) => prev + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isRunning]);
-
-  const formatTime = (totalSeconds: number) => {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    } else {
-      return `${secs}s`;
-    }
-  };
-
-  const handlePlayPause = () => {
-    if (isRunning) {
-      // Pause
-      console.log({
-        taskId,
-        boardId,
-        timestamp: new Date().toISOString(),
-        action: "stop",
-      });
-      onTimerStart(null as any); // Pass null to stop the timer
-    } else {
-      // Play
-      if (activeTimerId && activeTimerId !== taskId) {
-        console.log({
-          taskId,
-          boardId,
-          timestamp: new Date().toISOString(),
-          action: "conflict",
-        });
-        onTimerConflict?.(activeTimerId);
-        return;
-      }
-      console.log({
-        taskId,
-        boardId,
-        timestamp: new Date().toISOString(),
-        action: "play",
-      });
-      onTimerStart(taskId);
-    }
-  };
-
-  // const handleReset = () => {
-  //   setSeconds(0);
-  //   console.log({
-  //     taskId,
-  //     boardId,
-  //     timestamp: new Date().toISOString(),
-  //     action: "reset",
-  //   });
-  // };
-
-  // Determine background color based on timer state
-  let bgColor = "bg-blue-500/50"; // Default: blue
-  if (isRunning) {
-    bgColor = "bg-green-500/50"; // Running: green
-  }
-  // TODO: Add red for overtime when estimatedSeconds is available
-  // if (isOverTime) {
-  //   bgColor = "bg-red-500/50"; // Overtime: red
-  // }
-
-  return (
-    <div
-      className={`flex items-center justify-center gap-2 w-full h-full ${bgColor} rounded`}
-    >
-      <button
-        onClick={handlePlayPause}
-        className="p-2 hover:bg-muted rounded transition-colors"
-        title={isRunning ? "Pause" : "Start"}
-      >
-        {isRunning ? (
-          <Pause className="h-4 w-4 text-foreground" />
-        ) : (
-          <Play className="h-4 w-4 text-foreground" />
-        )}
-      </button>
-      <div className="rounded px-3 py-1 min-w-14 text-center">
-        <span className="text-sm font-medium">{formatTime(seconds)}</span>
-      </div>
-      {/* <button
-        onClick={handleReset}
-        className="p-1 hover:bg-muted rounded transition-colors"
-        title="Reset"
-      >
-        <RotateCcw className="h-4 w-4 text-foreground" />
-      </button> */}
-    </div>
-  );
 }
 
 // Component for person selection with search
@@ -557,7 +435,7 @@ function EstimatedDatePicker({
     >
       <PopoverTrigger asChild>
         <div className="w-full" onClick={(e) => e.stopPropagation()}>
-          <button className="w-full bg-muted text-muted-foreground px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
+          <button className="w-full bg-muted text-white px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
             {formatDateDisplay()}
           </button>
         </div>
@@ -611,7 +489,8 @@ function EstimatedDatePicker({
 
                   try {
                     // Check if estimation already exists by checking if estimatedDate is not "-"
-                    const hasEstimation = estimatedDate && estimatedDate !== "-";
+                    const hasEstimation =
+                      estimatedDate && estimatedDate !== "-";
 
                     if (hasEstimation) {
                       // Update existing estimation
@@ -665,7 +544,10 @@ function EstimatedTimePicker({
   popoverId: string;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
-  onEstimatedTimeChange?: (taskId: string, hours: string | number | null) => void;
+  onEstimatedTimeChange?: (
+    taskId: string,
+    hours: string | number | null
+  ) => void;
 }) {
   const [hours, setHours] = useState<string>(
     estimatedHours && estimatedHours !== "-" ? String(estimatedHours) : ""
@@ -802,6 +684,8 @@ export const getWorkloadColumns = ({
   onTagChange,
   openPopoverId,
   setOpenPopoverId,
+  boardId,
+  onTagCreated,
 }: {
   expandedTasks: Record<string, boolean>;
   toggleTask: (taskId: string) => void;
@@ -827,6 +711,8 @@ export const getWorkloadColumns = ({
   onTagChange?: (taskId: string, tags: any[]) => void;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
+  boardId?: string | number;
+  onTagCreated?: (newTag: any) => void;
 }): Column[] => {
   // Create lookup maps for statuses and priorities
   const statusMap = new Map(statuses.map((s) => [s.id, s]));
@@ -1103,7 +989,8 @@ export const getWorkloadColumns = ({
       align: "center",
       render: (task: any) => {
         const estimatedHours = task.estimatedHours ?? "-";
-        const hasEstimatedDate = task.estimatedDate && task.estimatedDate !== "-";
+        const hasEstimatedDate =
+          task.estimatedDate && task.estimatedDate !== "-";
         const popoverId = `estimatedTime-${task.id}`;
 
         return (
@@ -1154,144 +1041,17 @@ export const getWorkloadColumns = ({
       label: "Tags",
       width: "180px",
       align: "center",
-      render: (task: any) => {
-        const taskTags = task.tags || [];
-        const popoverId = `tags-${task.id}`;
-
-        return (
-          <Popover
-            open={openPopoverId === popoverId}
-            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
-          >
-            <PopoverTrigger asChild>
-              <button
-                className="w-full flex flex-wrap gap-1 justify-center items-center hover:opacity-80 transition-opacity cursor-pointer"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {taskTags.length === 0 ? (
-                  <span className="text-muted-foreground text-xs">+ Add</span>
-                ) : (
-                  taskTags.map((tag: any) => (
-                    <span
-                      key={tag.tag_id}
-                      className="px-2 py-1 rounded text-xs font-medium text-white cursor-pointer hover:opacity-90"
-                      style={{ backgroundColor: `#${tag.tag_slug}` }}
-                      title={tag.tag_name}
-                    >
-                      {tag.tag_name}
-                    </span>
-                  ))
-                )}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg flex flex-col"
-              align="center"
-            >
-              <div className="space-y-2 flex flex-col">
-                <h3 className="font-medium text-sm">Manage Tags</h3>
-                
-                {/* Current Tags */}
-                {taskTags.length > 0 && (
-                  <div className="space-y-1 border-b border-border pb-2">
-                    {taskTags.map((tag: any) => (
-                      <div
-                        key={tag.task_tag_id}
-                        className="flex items-center justify-between px-2 py-1 rounded hover:bg-muted"
-                      >
-                        <span
-                          className="px-2 py-1 rounded text-xs font-medium text-white"
-                          style={{ backgroundColor: `#${tag.tag_slug}` }}
-                        >
-                          {tag.tag_name}
-                        </span>
-                        <button
-                          onClick={async () => {
-                            try {
-                              // Remove tag by sending the tag to remove
-                              await tasksApi.updateTaskTags({
-                                id: task.id,
-                                tag_id: tag.tag_id,
-                              });
-                              
-                              // Update local state by removing the tag
-                              const updatedTags = taskTags.filter(
-                                (t: any) => t.tag_id !== tag.tag_id
-                              );
-                              onTagChange?.(task.id, updatedTags);
-                              toast.success("Tag removed");
-                            } catch (error) {
-                              console.error("Failed to remove tag:", error);
-                              toast.error("Failed to remove tag");
-                            }
-                          }}
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Available Tags to Add */}
-                {Array.isArray(tags) && tags.length > 0 && (
-                  <div className="space-y-1 border-b border-border pb-2">
-                    <p className="text-xs font-medium text-muted-foreground px-2">Available Tags:</p>
-                    {tags.map((cmsTag: any) => {
-                      const isAlreadyAdded = taskTags.some(
-                        (t: any) => t.tag_id === cmsTag.id
-                      );
-                      return (
-                        <button
-                          key={cmsTag.id}
-                          onClick={async () => {
-                            if (!isAlreadyAdded) {
-                              try {
-                                // Add tag by sending the tag ID
-                                await tasksApi.updateTaskTags({
-                                  id: task.id,
-                                  tag_id: cmsTag.id,
-                                });
-                                
-                                // Add tag to local state
-                                const newTag = {
-                                  task_tag_id: Date.now(), // Temporary ID
-                                  tag_id: cmsTag.id,
-                                  tag_name: cmsTag.name,
-                                  tag_slug: cmsTag.slug,
-                                  tag_is_active: cmsTag.is_active,
-                                  tagged_by: 2,
-                                  tagged_by_name: "Current User",
-                                  tagged_at: new Date().toISOString(),
-                                };
-                                const updatedTags = [...taskTags, newTag];
-                                onTagChange?.(task.id, updatedTags);
-                                toast.success("Tag added");
-                              } catch (error) {
-                                console.error("Failed to add tag:", error);
-                                toast.error("Failed to add tag");
-                              }
-                            }
-                          }}
-                          disabled={isAlreadyAdded}
-                          className={`w-full text-left px-2 py-1 rounded text-xs font-medium transition-colors ${
-                            isAlreadyAdded
-                              ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                              : "hover:bg-muted cursor-pointer"
-                          }`}
-                        >
-                          {cmsTag.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
-        );
-      },
+      render: (task: any) => (
+        <TagsColumnCell
+          task={task}
+          tags={tags}
+          openPopoverId={openPopoverId}
+          setOpenPopoverId={setOpenPopoverId}
+          onTagChange={onTagChange}
+          onTagCreated={onTagCreated}
+          boardId={boardId}
+        />
+      ),
     },
 
     {
@@ -1300,9 +1060,9 @@ export const getWorkloadColumns = ({
       width: "160px",
       align: "center",
       render: (task: any) => (
-        <Timer
+        <TimerCell
           taskId={task.id}
-          boardId={task.boardId}
+          trackedTimeSeconds={task.tracked_time_seconds || 0}
           activeTimerId={task.activeTimerId}
           onTimerStart={task.onTimerStart}
           onTimerConflict={task.onTimerConflict}

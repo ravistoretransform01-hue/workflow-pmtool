@@ -43,6 +43,8 @@ export interface TaskResponse {
   priority_label: string;
   subtasks_count: string | number;
   time_spent_hours: number;
+  tracked_time_seconds: number;
+  tracked_time_hours: number;
   is_overdue: boolean;
   // New estimation structure - object instead of string
   estimation: {

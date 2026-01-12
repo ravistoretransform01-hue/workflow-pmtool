@@ -110,6 +110,7 @@ export interface Task {
   assigned_to_id?: string | number;
   assigned_to_ids?: string[]; // Multiple assignees
   timeSpent?: string;
+  tracked_time_seconds?: number; // Tracked time in seconds from timer
   rating?: number; // Display rating as average number (1-5)
   ratingCount?: number; // Number of ratings
   ratings?: Array<{
@@ -653,6 +654,9 @@ export function WorkloadBoard({
     groups: false,
   });
 
+  // Done items filter state
+  const [showDoneItemsOnly, setShowDoneItemsOnly] = useState(false);
+
   // Column visibility state - load from localStorage
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
     () => {
@@ -778,6 +782,7 @@ export function WorkloadBoard({
             timeSpent: task.time_spent_hours
               ? `${task.time_spent_hours}h`
               : "0h",
+            tracked_time_seconds: task.tracked_time_seconds || 0,
 
             subitems: subtasks
               .filter((st) => String(st.parent_id) === String(task.id))
@@ -820,6 +825,7 @@ export function WorkloadBoard({
                   ? `${st.time_spent_hours}h`
                   : "0h",
                 group_id: String(task.group_id),
+                tracked_time_seconds: st.tracked_time_seconds || 0,
                 subitems: [],
               })),
           };
@@ -2290,7 +2296,8 @@ export function WorkloadBoard({
       taskFilters.statuses.size === 0 &&
       taskFilters.priorities.size === 0 &&
       taskFilters.labels.size === 0 &&
-      taskFilters.groups.size === 0
+      taskFilters.groups.size === 0 &&
+      !showDoneItemsOnly
     ) {
       return filteredGroups;
     }
@@ -2306,6 +2313,17 @@ export function WorkloadBoard({
       .map((group) => ({
         ...group,
         tasks: group.tasks.filter((task) => {
+          // Check done items filter
+          if (showDoneItemsOnly) {
+            // Find the "Done" status ID
+            const doneStatus = statuses.find(
+              (s) => s.name.toLowerCase() === "done"
+            );
+            if (!doneStatus || task.status_id !== String(doneStatus.id)) {
+              return false;
+            }
+          }
+
           // Check person filter
           if (taskFilters.persons.size > 0) {
             const hasMatchingPerson = task.assigned_to_ids?.some((id) =>
@@ -2731,14 +2749,20 @@ export function WorkloadBoard({
       statuses,
       priorities,
       members,
+      tags,
       onStatusChange: handleStatusChange,
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
       onEstimatedTimeChange: handleEstimatedTimeChange,
+      onTagChange: handleTagChange,
       openPopoverId,
       setOpenPopoverId,
+      boardId: parseInt(boardId, 10),
+      onTagCreated: (newTag) => {
+        setTags((prevTags) => [...prevTags, newTag]);
+      },
     });
 
     // Apply saved column order if available
@@ -2789,6 +2813,10 @@ export function WorkloadBoard({
       onTagChange: handleTagChange,
       openPopoverId,
       setOpenPopoverId,
+      boardId: parseInt(boardId, 10),
+      onTagCreated: (newTag) => {
+        setTags((prevTags) => [...prevTags, newTag]);
+      },
     });
 
     // Apply saved column order
@@ -2822,6 +2850,7 @@ export function WorkloadBoard({
     statuses,
     priorities,
     members,
+    tags,
     openPopoverId,
     visibleColumns,
     collapsedColumns,
@@ -2998,6 +3027,17 @@ export function WorkloadBoard({
                     className="pl-9 h-8 bg-background border-border w-48"
                   />
                 </div>
+
+                {/* Done Items Checkbox */}
+                <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={showDoneItemsOnly}
+                    onChange={(e) => setShowDoneItemsOnly(e.target.checked)}
+                    className="cursor-pointer"
+                  />
+                  <span className="text-sm font-medium">Done Items</span>
+                </label>
 
                 {/* Show/Hide Filter Popover */}
                 <Popover>

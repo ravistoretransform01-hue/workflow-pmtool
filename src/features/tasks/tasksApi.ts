@@ -25,6 +25,8 @@ const TASKS_ENDPOINTS = {
   CREATE_COMMENT: (taskId: string | number) => `/tasks/${taskId}/comments`,
   UPDATE_COMMENT: (taskId: string | number, commentId: string | number) => `/tasks/${taskId}/comments/${commentId}`,
   DELETE_COMMENT: (taskId: string | number, commentId: string | number) => `/tasks/${taskId}/comments/${commentId}`,
+  START_TIMER: `/tasks/time/start`,
+  STOP_TIMER: `/tasks/time/stop`,
 };
 
 export const tasksApi = {
@@ -313,6 +315,38 @@ export const tasksApi = {
       await axios.delete(TASKS_ENDPOINTS.DELETE_COMMENT(taskId, commentId));
     } catch (error) {
       console.error("Failed to delete comment:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Start timer for a task
+   */
+  startTimer: async (taskId: string | number): Promise<any> => {
+    try {
+      const response = await axios.post<any>(
+        TASKS_ENDPOINTS.START_TIMER,
+        { task_id: taskId }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to start timer:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Stop timer for a task
+   */
+  stopTimer: async (taskId: string | number): Promise<any> => {
+    try {
+      const response = await axios.post<any>(
+        TASKS_ENDPOINTS.STOP_TIMER,
+        { task_id: taskId }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to stop timer:", error);
       throw error;
     }
   },

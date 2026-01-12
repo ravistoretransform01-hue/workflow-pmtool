@@ -4,6 +4,7 @@ import type { CMSRequest, CMSResponse, Label } from "./types";
 const CMS_ENDPOINTS = {
   GET_CMS_DATA: `/cms`,
   CREATE_LABEL: `/labels`,
+  CREATE_TAG: `/tags`,
 };
 
 export const cmsApi = {
@@ -46,6 +47,28 @@ export const cmsApi = {
       return response.data;
     } catch (error) {
       console.error("Failed to create label:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new tag
+   */
+  createTag: async (payload: {
+    name: string;
+    slug: string;
+    organization_id: number;
+    board_id: number;
+  }): Promise<any> => {
+    try {
+      const response = await axios.post<any>(
+        CMS_ENDPOINTS.CREATE_TAG,
+        payload
+      );
+
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error("Failed to create tag:", error);
       throw error;
     }
   },
