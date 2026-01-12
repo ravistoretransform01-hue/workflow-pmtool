@@ -2746,14 +2746,20 @@ export function WorkloadBoard({
       statuses,
       priorities,
       members,
+      tags,
       onStatusChange: handleStatusChange,
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
       onEstimatedTimeChange: handleEstimatedTimeChange,
+      onTagChange: handleTagChange,
       openPopoverId,
       setOpenPopoverId,
+      boardId: parseInt(boardId, 10),
+      onTagCreated: (newTag) => {
+        setTags((prevTags) => [...prevTags, newTag]);
+      },
     });
 
     // Apply saved column order if available
@@ -2804,6 +2810,10 @@ export function WorkloadBoard({
       onTagChange: handleTagChange,
       openPopoverId,
       setOpenPopoverId,
+      boardId: parseInt(boardId, 10),
+      onTagCreated: (newTag) => {
+        setTags((prevTags) => [...prevTags, newTag]);
+      },
     });
 
     // Apply saved column order
@@ -2837,6 +2847,7 @@ export function WorkloadBoard({
     statuses,
     priorities,
     members,
+    tags,
     openPopoverId,
     visibleColumns,
     collapsedColumns,
