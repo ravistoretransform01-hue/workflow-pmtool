@@ -653,6 +653,9 @@ export function WorkloadBoard({
     groups: false,
   });
 
+  // Done items filter state
+  const [showDoneItemsOnly, setShowDoneItemsOnly] = useState(false);
+
   // Column visibility state - load from localStorage
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
     () => {
@@ -2290,7 +2293,8 @@ export function WorkloadBoard({
       taskFilters.statuses.size === 0 &&
       taskFilters.priorities.size === 0 &&
       taskFilters.labels.size === 0 &&
-      taskFilters.groups.size === 0
+      taskFilters.groups.size === 0 &&
+      !showDoneItemsOnly
     ) {
       return filteredGroups;
     }
@@ -2306,6 +2310,17 @@ export function WorkloadBoard({
       .map((group) => ({
         ...group,
         tasks: group.tasks.filter((task) => {
+          // Check done items filter
+          if (showDoneItemsOnly) {
+            // Find the "Done" status ID
+            const doneStatus = statuses.find(
+              (s) => s.name.toLowerCase() === "done"
+            );
+            if (!doneStatus || task.status_id !== String(doneStatus.id)) {
+              return false;
+            }
+          }
+
           // Check person filter
           if (taskFilters.persons.size > 0) {
             const hasMatchingPerson = task.assigned_to_ids?.some((id) =>
@@ -2998,6 +3013,17 @@ export function WorkloadBoard({
                     className="pl-9 h-8 bg-background border-border w-48"
                   />
                 </div>
+
+                {/* Done Items Checkbox */}
+                <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={showDoneItemsOnly}
+                    onChange={(e) => setShowDoneItemsOnly(e.target.checked)}
+                    className="cursor-pointer"
+                  />
+                  <span className="text-sm font-medium">Done Items</span>
+                </label>
 
                 {/* Show/Hide Filter Popover */}
                 <Popover>
