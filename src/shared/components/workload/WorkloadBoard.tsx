@@ -19,6 +19,7 @@ import type { Status, Priority } from "@/features/cms/types";
 import {
   LayoutDashboard,
   ArrowUpDown,
+  Eye,
   EyeOff,
   ChevronDown,
   ChevronRight,
@@ -32,6 +33,7 @@ import {
   ArrowRightLeft,
   Trash,
   Trash2,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
@@ -246,6 +248,44 @@ const calculateGroupProgress = (tasks: Task[]) => {
     estimatedTimeSeconds: totalEstimatedSeconds,
     percentage,
   };
+};
+
+// Helper function to format date range in compact format
+// Examples: "Jan 15 – Jan 23", "Jan 31 – Feb 15", "Dec 31, '26 – Jan 8, '27"
+const formatDateRange = (fromDate: string, toDate?: string): string => {
+  try {
+    const from = parseISO(fromDate);
+    const to = toDate ? parseISO(toDate) : from;
+    
+    const fromMonth = format(from, "MMM");
+    const fromDay = format(from, "d");
+    const fromYear = format(from, "yy");
+    
+    const toMonth = format(to, "MMM");
+    const toDay = format(to, "d");
+    const toYear = format(to, "yy");
+    
+    // If same date, just return single date
+    if (fromDate === toDate) {
+      return `${fromMonth} ${fromDay}, '${fromYear}`;
+    }
+    
+    // If same month and year, format as "Jan 14 – Jan 16"
+    if (fromMonth === toMonth && fromYear === toYear) {
+      return `${fromMonth} ${fromDay} – ${toMonth} ${toDay}`;
+    }
+    
+    // If same year, format as "Jan 31 – Feb 15"
+    if (fromYear === toYear) {
+      return `${fromMonth} ${fromDay} – ${toMonth} ${toDay}`;
+    }
+    
+    // Different years, format as "Dec 31, '26 – Jan 8, '27"
+    return `${fromMonth} ${fromDay}, '${fromYear} – ${toMonth} ${toDay}, '${toYear}`;
+  } catch (error) {
+    console.warn("Failed to format date range:", error);
+    return "-";
+  }
 };
 
 // Sortable Tab Component
@@ -529,6 +569,9 @@ export function WorkloadBoard({
   const [editingBoardName, setEditingBoardName] = useState(false);
   const [boardNameValue, setBoardNameValue] = useState(boardName);
 
+  // Ref for the main flex container (flex-1 flex flex-col)
+  const mainFlexContainerRef = useRef<HTMLDivElement>(null);
+
   // Compute user initials from localStorage `user_data` for avatar fallback
   const userInitials = useMemo(() => {
     try {
@@ -756,17 +799,11 @@ export function WorkloadBoard({
               ? task.estimation.estimated_date_to &&
                 task.estimation.estimated_date_to !==
                   task.estimation.estimated_date_from
-                ? `${format(
-                    parseISO(task.estimation.estimated_date_from),
-                    "dd MMM, yyyy"
-                  )}  -  ${format(
-                    parseISO(task.estimation.estimated_date_to),
-                    "dd MMM, yyyy"
-                  )}`
-                : format(
-                    parseISO(task.estimation.estimated_date_from),
-                    "dd MMM, yyyy"
+                ? formatDateRange(
+                    task.estimation.estimated_date_from,
+                    task.estimation.estimated_date_to
                   )
+                : formatDateRange(task.estimation.estimated_date_from)
               : task.due_date,
             estimatedHours: task.estimation?.approved_hours || "-",
             person: task.assignee?.name,
@@ -799,17 +836,11 @@ export function WorkloadBoard({
                   ? st.estimation.estimated_date_to &&
                     st.estimation.estimated_date_to !==
                       st.estimation.estimated_date_from
-                    ? `${format(
-                        parseISO(st.estimation.estimated_date_from),
-                        "dd MMM, yyyy"
-                      )}  -  ${format(
-                        parseISO(st.estimation.estimated_date_to),
-                        "dd MMM, yyyy"
-                      )}`
-                    : format(
-                        parseISO(st.estimation.estimated_date_from),
-                        "dd MMM, yyyy"
+                    ? formatDateRange(
+                        st.estimation.estimated_date_from,
+                        st.estimation.estimated_date_to
                       )
+                    : formatDateRange(st.estimation.estimated_date_from)
                   : st.due_date,
                 estimatedHours: st.estimation?.approved_hours || "-",
                 person: st.assignee?.name,
@@ -2033,18 +2064,10 @@ export function WorkloadBoard({
     fromDate: string | null,
     toDate?: string | null
   ) => {
-    // Format the date range display
+    // Format the date range display using the new formatDateRange function
     let dateDisplay = "-";
     if (fromDate) {
-      if (toDate && toDate !== fromDate) {
-        // Format as "13 Jan, 2026 - 14 Jan, 2026"
-        const fromFormatted = format(parseISO(fromDate), "dd MMM, yyyy");
-        const toFormatted = format(parseISO(toDate), "dd MMM, yyyy");
-        dateDisplay = `${fromFormatted} - ${toFormatted}`;
-      } else {
-        // Single date: "13 Jan, 2026"
-        dateDisplay = format(parseISO(fromDate), "dd MMM, yyyy");
-      }
+      dateDisplay = formatDateRange(fromDate, toDate || undefined);
     }
 
     setGroups((prevGroups) =>
@@ -3003,7 +3026,7 @@ export function WorkloadBoard({
       <div className="flex-1 overflow-auto">
         {/* Main Table View */}
         {activeTab === "Main Table" && (
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-x-auto" ref={mainFlexContainerRef}>
             {/* Toolbar */}
             <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap">
               {/* New Group Button */}
@@ -3042,9 +3065,10 @@ export function WorkloadBoard({
                 {/* Show/Hide Filter Popover */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="default" size="sm">
-                      Show/Hide
-                    </Button>
+                    <button className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+                      <Eye className="h-4 w-4" />
+                      Only Show
+                    </button>
                   </PopoverTrigger>
 
                   <PopoverContent align="start" className="w-64 max-h-96 p-0 bg-card border-2 border-primary/20 flex flex-col">
@@ -3372,10 +3396,9 @@ export function WorkloadBoard({
                 </Popover>
 
                 {/* Save Button */}
-                <Button
-                  variant="default"
-                  size="sm"
+                <button
                   disabled={!hasUnsavedChanges}
+                  className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => {
                     // Build the payload
                     const groupOrder: Record<string, string> = {};
@@ -3405,8 +3428,9 @@ export function WorkloadBoard({
                     // API call will be added here in the future
                   }}
                 >
+                  <Save className="h-4 w-4" />
                   Save View
-                </Button>
+                </button>
               </div>
 
               {/* Column Visibility Popover */}
@@ -4378,6 +4402,10 @@ export function WorkloadBoard({
                                           <button
                                             onClick={() => {
                                               setAddingItemToGroup(group.id);
+                                              // Scroll the main flex container to the right
+                                              if (mainFlexContainerRef.current) {
+                                                mainFlexContainerRef.current.scrollLeft = mainFlexContainerRef.current.scrollWidth;
+                                              }
                                             }}
                                             className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 "
                                           >

@@ -413,7 +413,7 @@ function EstimatedDatePicker({
     if (openPopoverId === popoverId) {
       setDateRange(getInitialDateRange());
     }
-  }, [openPopoverId, popoverId, task.estimation]);
+  }, [openPopoverId, popoverId, task.estimation, estimatedDate]);
 
   const handleDateRangeChange = (
     range: { from?: Date; to?: Date } | undefined
@@ -816,7 +816,7 @@ export const getWorkloadColumns = ({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 px-3 text-xs font-medium"
+                className="h-8 px-3 text-xs font-medium whitespace-nowrap"
                 style={{
                   backgroundColor: statusObj?.color_code || "#e5e7eb",
                   color: "white",
@@ -868,7 +868,7 @@ export const getWorkloadColumns = ({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 px-3 text-xs font-medium"
+                className="h-8 px-3 text-xs font-medium whitespace-nowrap"
                 style={{
                   backgroundColor: priorityObj?.color_code || "#e5e7eb",
                   color: "white",

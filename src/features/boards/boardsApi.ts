@@ -14,6 +14,11 @@ const BOARD_ENDPOINTS = {
   DELETE: "/boards",
 };
 
+const CACHE_CONTROL_HEADERS = {
+  'Cache-Control': 'no-cache, no-store, must-revalidate',
+  'Pragma': 'no-cache', 
+};
+
 export const boardsApi = {
   /**
    * Get all boards
@@ -21,7 +26,10 @@ export const boardsApi = {
   getBoards: async (): Promise<Board[]> => {
     try {
       const response = await api.get<GetBoardsResponse>(
-        BOARD_ENDPOINTS.GET_ALL
+        BOARD_ENDPOINTS.GET_ALL,
+        {
+          // headers: CACHE_CONTROL_HEADERS
+        }
       );
 
       // Handle the API response format
@@ -52,7 +60,9 @@ export const boardsApi = {
     data: CreateBoardRequest
   ): Promise<CreateBoardResponse> => {
     try {
-      const response = await api.post<any>(BOARD_ENDPOINTS.CREATE, data);
+      const response = await api.post<any>(BOARD_ENDPOINTS.CREATE, data, {
+        // headers: CACHE_CONTROL_HEADERS
+      });
       console.log("Raw API response:", response);
 
       // The API might return the board data directly or wrapped in a response object
@@ -95,7 +105,9 @@ export const boardsApi = {
    * Get board by ID
    */
   getBoardById: async (id: string): Promise<Board> => {
-    const response = await api.get<any>(BOARD_ENDPOINTS.GET_BY_ID(id));
+    const response = await api.get<any>(BOARD_ENDPOINTS.GET_BY_ID(id), {
+      // headers: CACHE_CONTROL_HEADERS
+    });
 
     // Handle the API response format: { code, status, data: { board_data } }
     if (response.data && response.data.data) {
@@ -120,6 +132,8 @@ export const boardsApi = {
     const response = await api.put<Board>(BOARD_ENDPOINTS.UPDATE, {
       id,
       ...data,
+    }, {
+      // headers: CACHE_CONTROL_HEADERS
     });
     return response.data;
   },
@@ -134,6 +148,7 @@ export const boardsApi = {
     try {
       await api.delete(BOARD_ENDPOINTS.DELETE, {
         data: { id: id },
+        // headers: CACHE_CONTROL_HEADERS
       });
     } catch (error) {
       console.error("Delete board API error:", error);
