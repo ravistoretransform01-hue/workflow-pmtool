@@ -645,6 +645,8 @@ export function WorkloadBoard({
   const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editTaskName, setEditTaskName] = useState("");
+  const [inlineEditingTaskId, setInlineEditingTaskId] = useState<string | null>(null);
+  const [inlineEditingTaskName, setInlineEditingTaskName] = useState("");
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
     Array<{ name: string; size: number; type: string; url: string }>
@@ -1165,6 +1167,42 @@ export function WorkloadBoard({
   const openTaskCard = (task: Task) => {
     setSelectedTaskId(task.id);
     setSheetTaskCardOpen(true);
+  };
+
+  const handleInlineEditTaskName = async (taskId: string, newName: string) => {
+    if (!newName.trim()) {
+      setInlineEditingTaskId(null);
+      setInlineEditingTaskName("");
+      return;
+    }
+
+    try {
+      // Call the API to update task name
+      await tasksApi.updateTask({
+        id: taskId,
+        board_id: parseInt(boardId, 10),
+        name: newName.trim(),
+      });
+
+      // Update local state
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) =>
+            task.id === taskId ? { ...task, name: newName.trim() } : task
+          ),
+        }))
+      );
+
+      setInlineEditingTaskId(null);
+      setInlineEditingTaskName("");
+      toast.success("Task name updated successfully");
+    } catch (error) {
+      console.error("Failed to update task name:", error);
+      toast.error("Failed to update task name");
+      setInlineEditingTaskId(null);
+      setInlineEditingTaskName("");
+    }
   };
 
   const addNewGroup = async () => {
@@ -2629,6 +2667,11 @@ export function WorkloadBoard({
         },
         onStatusCreated: handleStatusCreated,
         onPriorityCreated: handlePriorityCreated,
+        inlineEditingTaskId,
+        setInlineEditingTaskId,
+        inlineEditingTaskName,
+        setInlineEditingTaskName,
+        onInlineEditTaskName: handleInlineEditTaskName,
       });
 
       // Apply saved column order
@@ -2814,6 +2857,11 @@ export function WorkloadBoard({
       },
       onStatusCreated: handleStatusCreated,
       onPriorityCreated: handlePriorityCreated,
+      inlineEditingTaskId,
+      setInlineEditingTaskId,
+      inlineEditingTaskName,
+      setInlineEditingTaskName,
+      onInlineEditTaskName: handleInlineEditTaskName,
     });
 
     // Apply saved column order if available
@@ -2871,6 +2919,11 @@ export function WorkloadBoard({
       },
       onStatusCreated: handleStatusCreated,
       onPriorityCreated: handlePriorityCreated,
+      inlineEditingTaskId,
+      setInlineEditingTaskId,
+      inlineEditingTaskName,
+      setInlineEditingTaskName,
+      onInlineEditTaskName: handleInlineEditTaskName,
     });
 
     // Apply saved column order
@@ -2910,6 +2963,8 @@ export function WorkloadBoard({
     collapsedColumns,
     columnWidths,
     columnOrder,
+    inlineEditingTaskId,
+    inlineEditingTaskName,
   ]);
 
   // Track unsaved changes for layout
@@ -2938,6 +2993,7 @@ export function WorkloadBoard({
 
   // Synchronized horizontal scrolling for all group tables
   const tableScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [maxScrollWidth, setMaxScrollWidth] = useState(0);
 
   const handleTableScroll = (groupId: string, scrollLeft: number) => {
     // Scroll all other tables to the same position
@@ -2946,7 +3002,24 @@ export function WorkloadBoard({
         ref.scrollLeft = scrollLeft;
       }
     });
+    
+    // Update the unified scrollbar
+    const unifiedScrollbar = document.querySelector('[data-unified-scrollbar]') as HTMLDivElement;
+    if (unifiedScrollbar) {
+      unifiedScrollbar.scrollLeft = scrollLeft;
+    }
   };
+
+  // Calculate max scroll width from tables
+  useEffect(() => {
+    if (Object.keys(tableScrollRefs.current).length > 0) {
+      const firstTableRef = Object.values(tableScrollRefs.current)[0];
+      if (firstTableRef) {
+        const maxWidth = firstTableRef.scrollWidth;
+        setMaxScrollWidth(maxWidth);
+      }
+    }
+  }, [workloadColumns, groups]);
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -4483,6 +4556,30 @@ export function WorkloadBoard({
                 </SortableContext>
               </DndContext>
             </div>
+
+        {/* Unified Horizontal Scrollbar at Bottom */}
+        <div 
+          className="h-4 overflow-x-scroll border-t border-border bg-muted"
+          data-unified-scrollbar
+          ref={(el) => {
+            if (el && Object.keys(tableScrollRefs.current).length > 0) {
+              const firstTableRef = Object.values(tableScrollRefs.current)[0];
+              if (firstTableRef) {
+                el.scrollLeft = firstTableRef.scrollLeft;
+              }
+            }
+          }}
+          onScroll={(e) => {
+            const scrollLeft = e.currentTarget.scrollLeft;
+            Object.values(tableScrollRefs.current).forEach((ref) => {
+              if (ref) {
+                ref.scrollLeft = scrollLeft;
+              }
+            });
+          }}
+        >
+          <div style={{ width: `${maxScrollWidth}px`, height: "1px" }} />
+        </div>
         </div>
       )}
 
