@@ -2993,6 +2993,7 @@ export function WorkloadBoard({
 
   // Synchronized horizontal scrolling for all group tables
   const tableScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [maxScrollWidth, setMaxScrollWidth] = useState(0);
 
   const handleTableScroll = (groupId: string, scrollLeft: number) => {
     // Scroll all other tables to the same position
@@ -3001,7 +3002,24 @@ export function WorkloadBoard({
         ref.scrollLeft = scrollLeft;
       }
     });
+    
+    // Update the unified scrollbar
+    const unifiedScrollbar = document.querySelector('[data-unified-scrollbar]') as HTMLDivElement;
+    if (unifiedScrollbar) {
+      unifiedScrollbar.scrollLeft = scrollLeft;
+    }
   };
+
+  // Calculate max scroll width from tables
+  useEffect(() => {
+    if (Object.keys(tableScrollRefs.current).length > 0) {
+      const firstTableRef = Object.values(tableScrollRefs.current)[0];
+      if (firstTableRef) {
+        const maxWidth = firstTableRef.scrollWidth;
+        setMaxScrollWidth(maxWidth);
+      }
+    }
+  }, [workloadColumns, groups]);
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -4538,6 +4556,30 @@ export function WorkloadBoard({
                 </SortableContext>
               </DndContext>
             </div>
+
+        {/* Unified Horizontal Scrollbar at Bottom */}
+        <div 
+          className="h-4 overflow-x-scroll border-t border-border bg-muted"
+          data-unified-scrollbar
+          ref={(el) => {
+            if (el && Object.keys(tableScrollRefs.current).length > 0) {
+              const firstTableRef = Object.values(tableScrollRefs.current)[0];
+              if (firstTableRef) {
+                el.scrollLeft = firstTableRef.scrollLeft;
+              }
+            }
+          }}
+          onScroll={(e) => {
+            const scrollLeft = e.currentTarget.scrollLeft;
+            Object.values(tableScrollRefs.current).forEach((ref) => {
+              if (ref) {
+                ref.scrollLeft = scrollLeft;
+              }
+            });
+          }}
+        >
+          <div style={{ width: `${maxScrollWidth}px`, height: "1px" }} />
+        </div>
         </div>
       )}
 
