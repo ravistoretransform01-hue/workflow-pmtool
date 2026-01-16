@@ -4162,7 +4162,7 @@ export function WorkloadBoard({
                                         <React.Fragment key={task.id}>
                                           {/* ================= TASK ROW ================= */}
                                           <tr
-                                            className="border-t border-b border-border hover:bg-muted/40 cursor-pointer"
+                                            className="border-t border-b border-border hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
                                             onClick={() => {
                                               setSelectedTaskId(task.id);
                                               setSheetTaskCardOpen(true);
@@ -4240,7 +4240,7 @@ export function WorkloadBoard({
                                               return (
                                                 <tr
                                                   key={subtask.id}
-                                                  className="  hover:bg-muted/30 border-b border-border"
+                                                  className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 border-b border-border transition-colors"
                                                 >
                                                   <td
                                                     className="p-4 text-center border-r border-border"
