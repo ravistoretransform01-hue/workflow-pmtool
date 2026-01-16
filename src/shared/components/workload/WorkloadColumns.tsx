@@ -1195,6 +1195,11 @@ export const getWorkloadColumns = ({
   onTagCreated,
   onStatusCreated,
   onPriorityCreated,
+  inlineEditingTaskId,
+  setInlineEditingTaskId,
+  inlineEditingTaskName,
+  setInlineEditingTaskName,
+  onInlineEditTaskName,
 }: {
   expandedTasks: Record<string, boolean>;
   toggleTask: (taskId: string) => void;
@@ -1225,6 +1230,11 @@ export const getWorkloadColumns = ({
   onTagCreated?: (newTag: any) => void;
   onStatusCreated?: (newStatus: Status) => void;
   onPriorityCreated?: (newPriority: Priority) => void;
+  inlineEditingTaskId?: string | null;
+  setInlineEditingTaskId?: (id: string | null) => void;
+  inlineEditingTaskName?: string;
+  setInlineEditingTaskName?: (name: string) => void;
+  onInlineEditTaskName?: (taskId: string, newName: string) => void;
 }): Column[] => {
   // Create lookup maps for statuses and priorities
   const statusMap = new Map(statuses.map((s) => [s.id, s]));
@@ -1243,14 +1253,38 @@ export const getWorkloadColumns = ({
             <div className="flex items-center gap-2 pl-8 justify-between group">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground"> {"├"}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
-                  className="font-medium text-foreground hover:underline cursor-pointer"
-                >
-                  {task.name}
-                </button>
+                {inlineEditingTaskId === task.id ? (
+                  <Input
+                    className="h-6 text-sm border-0 focus:ring-0 focus:border-0"
+                    autoFocus
+                    value={inlineEditingTaskName}
+                    onChange={(e) => setInlineEditingTaskName?.(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && inlineEditingTaskName?.trim()) {
+                        onInlineEditTaskName?.(task.id, inlineEditingTaskName);
+                      }
+                      if (e.key === "Escape") {
+                        setInlineEditingTaskId?.(null);
+                        setInlineEditingTaskName?.("");
+                      }
+                    }}
+                    onBlur={() => {
+                      setInlineEditingTaskId?.(null);
+                      setInlineEditingTaskName?.("");
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setInlineEditingTaskId?.(task.id);
+                      setInlineEditingTaskName?.(task.name);
+                    }}
+                    className="font-medium text-foreground hover:underline cursor-pointer"
+                  >
+                    {task.name}
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
@@ -1294,14 +1328,38 @@ export const getWorkloadColumns = ({
                   )
                 }
               </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-                className="font-medium text-foreground hover:underline cursor-pointer"
-              >
-                {task.name}
-              </button>
+              {inlineEditingTaskId === task.id ? (
+                <Input
+                  className="h-6 text-sm border-0 focus:ring-0 focus:border-0"
+                  autoFocus
+                  value={inlineEditingTaskName}
+                  onChange={(e) => setInlineEditingTaskName?.(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && inlineEditingTaskName?.trim()) {
+                      onInlineEditTaskName?.(task.id, inlineEditingTaskName);
+                    }
+                    if (e.key === "Escape") {
+                      setInlineEditingTaskId?.(null);
+                      setInlineEditingTaskName?.("");
+                    }
+                  }}
+                  onBlur={() => {
+                    setInlineEditingTaskId?.(null);
+                    setInlineEditingTaskName?.("");
+                  }}
+                />
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setInlineEditingTaskId?.(task.id);
+                    setInlineEditingTaskName?.(task.name);
+                  }}
+                  className="font-medium text-foreground hover:underline cursor-pointer"
+                >
+                  {task.name}
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
