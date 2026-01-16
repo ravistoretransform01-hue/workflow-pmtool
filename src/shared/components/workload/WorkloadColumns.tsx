@@ -255,6 +255,7 @@ function RatingStars({
   setOpenPopoverId,
   onRatingChange,
   hasAssignee = false,
+  isDone = false,
 }: {
   task: any;
   rating: number;
@@ -264,12 +265,18 @@ function RatingStars({
   setOpenPopoverId?: (id: string | null) => void;
   onRatingChange?: (taskId: string, rating: number) => void;
   hasAssignee?: boolean;
+  isDone?: boolean;
 }) {
   const [hoveredRating, setHoveredRating] = useState(0);
 
   const handleRatingClick = (ratingValue: number) => {
     if (!hasAssignee) {
       toast.error("Please assign a person before rating");
+      setOpenPopoverId?.(null);
+      return;
+    }
+    if (!isDone) {
+      toast.error("Task must be marked as Done before rating");
       setOpenPopoverId?.(null);
       return;
     }
@@ -285,13 +292,17 @@ function RatingStars({
           toast.error("Please assign a person before rating");
           return;
         }
+        if (open && !isDone) {
+          toast.error("Task must be marked as Done before rating");
+          return;
+        }
         setOpenPopoverId?.(open ? popoverId : null);
       }}
     >
       <PopoverTrigger asChild>
         <button
           className={`w-full h-8 flex items-center justify-center gap-1 ${
-            !hasAssignee ? "opacity-50 cursor-not-allowed" : ""
+            !hasAssignee || !isDone ? "opacity-50 cursor-not-allowed" : ""
           }`}
           aria-label={`Rating ${rating}${
             ratingCount
@@ -302,11 +313,13 @@ function RatingStars({
           title={
             !hasAssignee
               ? "Assign a person first"
+              : !isDone
+              ? "Task must be marked as Done"
               : ratingCount
               ? `${ratingCount} rating${ratingCount !== 1 ? "s" : ""}`
               : "No ratings"
           }
-          disabled={!hasAssignee}
+          disabled={!hasAssignee || !isDone}
         >
           {[1, 2, 3, 4, 5].map((i) => (
             <svg
@@ -408,7 +421,7 @@ function EstimatedDatePicker({
         return { from, to };
       }
 
-      // Fallback: parse the formatted estimatedDate string (e.g., "15 Jan, 2026  -  19 Jan, 2026")
+      // Fallback: parse the formatted estimatedDate string (e.g., "Jan 14 – Jan 16" or "15 Jan, 2026  -  19 Jan, 2026")
       if (estimatedDate && estimatedDate !== "-") {
         const parts = estimatedDate.split("  -  ");
         if (parts.length === 2) {
@@ -416,18 +429,41 @@ function EstimatedDatePicker({
           try {
             const from = parse(parts[0].trim(), "dd MMM, yyyy", new Date());
             const to = parse(parts[1].trim(), "dd MMM, yyyy", new Date());
-            return { from, to };
+            if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+              return { from, to };
+            }
           } catch {
-            return undefined;
+            // Try alternative format
           }
-        } else if (parts.length === 1) {
-          // Single date format
+        }
+        
+        // Try new format: "Jan 14 – Jan 16"
+        const dashParts = estimatedDate.split("–");
+        if (dashParts.length === 2) {
           try {
-            const from = parse(parts[0].trim(), "dd MMM, yyyy", new Date());
-            return { from, to: from };
+            const fromStr = dashParts[0].trim();
+            const toStr = dashParts[1].trim();
+            
+            // Parse "Jan 14" format
+            const from = parse(fromStr, "MMM dd", new Date());
+            const to = parse(toStr, "MMM dd", new Date());
+            
+            if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+              return { from, to };
+            }
           } catch {
-            return undefined;
+            // Continue to next format
           }
+        }
+        
+        // Try single date format
+        try {
+          const from = parse(estimatedDate.trim(), "dd MMM, yyyy", new Date());
+          if (!isNaN(from.getTime())) {
+            return { from, to: from };
+          }
+        } catch {
+          // Continue
         }
       }
 
@@ -461,6 +497,8 @@ function EstimatedDatePicker({
     if (estimatedDate === "-") return "-";
     // estimatedDate already contains the full formatted range (e.g., "15 Jan, 2026 - 19 Jan, 2026")
     // so just return it as-is
+    console.log("Estimated Date:", estimatedDate);
+
     return estimatedDate;
   };
 
@@ -1476,6 +1514,7 @@ export const getWorkloadColumns = ({
         const ratingCount = task.ratingCount || 0;
         const popoverId = `rating-${task.id}`;
         const hasAssignee = task.assigned_to_ids && task.assigned_to_ids.length > 0;
+        const isDone = task.status === "Done" || task.status_id === "done";
 
         return (
           <RatingStars
@@ -1487,6 +1526,7 @@ export const getWorkloadColumns = ({
             setOpenPopoverId={setOpenPopoverId}
             onRatingChange={onRatingChange}
             hasAssignee={hasAssignee}
+            isDone={isDone}
           />
         );
       },
