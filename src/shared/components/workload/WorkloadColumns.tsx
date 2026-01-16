@@ -1478,8 +1478,15 @@ export const getWorkloadColumns = ({
         if (!estimatedHours || estimatedHours === "-" || estimatedHours === 0) {
           return (
             <div className="w-full px-2">
-              <Progress value={0} className="h-2" />
-              <span className="text-xs text-muted-foreground mt-1 block">0%</span>
+              <div className="relative">
+                <Progress value={0} className="h-6" style={{ ['--progress-bg' as any]: 'rgb(154, 154, 173)' } as React.CSSProperties} />
+                <style>{`
+                  .h-6 > div { background-color: rgb(154, 154, 173) !important; }
+                `}</style>
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
+                  0%
+                </span>
+              </div>
             </div>
           );
         }
@@ -1512,8 +1519,20 @@ export const getWorkloadColumns = ({
         
         return (
           <div className="w-full px-2">
-            <Progress value={percentage} className="h-2" />
-            <span className="text-xs text-muted-foreground mt-1 block">{percentage}%</span>
+            <div className="relative">
+              <div className="relative h-6 w-full overflow-hidden rounded-full bg-secondary">
+                <div 
+                  className="h-full transition-all"
+                  style={{ 
+                    width: `${percentage}%`,
+                    backgroundColor: 'rgb(154, 154, 173)'
+                  }}
+                />
+              </div>
+              <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
+                {percentage}%
+              </span>
+            </div>
           </div>
         );
       },
