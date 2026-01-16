@@ -3460,58 +3460,58 @@ export function WorkloadBoard({
                   <Save className="h-4 w-4" />
                   Save View
                 </button>
+
+                {/* Column Visibility Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Columns
+                    </Button>
+                  </PopoverTrigger>
+
+                  <PopoverContent align="end" className="w-56">
+                    <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
+                      Show/Hide Columns
+                    </div>
+                    <div className="border-t border-border my-2" />
+
+                    <div className="p-2 space-y-1">
+                      {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                        const columnLabel =
+                          {
+                            item: "Item",
+                            status: "Status",
+                            priority: "Priority",
+                            description: "Description",
+                            rating: "Rating",
+                            estimatedDate: "Estimated Date",
+                            estimatedTime: "Estimated Time",
+                            date: "Date",
+                            person: "Person",
+                            timer: "Timer",
+                            time: "Time Spent",
+                          }[columnId] || columnId;
+
+                        return (
+                          <label
+                            key={columnId}
+                            className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={visibleColumns[columnId] === true}
+                              onChange={() => toggleColumnVisibility(columnId)}
+                              className="cursor-pointer"
+                            />
+                            <span className="text-sm">{columnLabel}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
-
-              {/* Column Visibility Popover */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Columns
-                  </Button>
-                </PopoverTrigger>
-
-                <PopoverContent align="end" className="w-56">
-                  <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
-                    Show/Hide Columns
-                  </div>
-                  <div className="border-t border-border my-2" />
-
-                  <div className="p-2 space-y-1">
-                    {ALL_AVAILABLE_COLUMNS.map((columnId) => {
-                      const columnLabel =
-                        {
-                          item: "Item",
-                          status: "Status",
-                          priority: "Priority",
-                          description: "Description",
-                          rating: "Rating",
-                          estimatedDate: "Estimated Date",
-                          estimatedTime: "Estimated Time",
-                          date: "Date",
-                          person: "Person",
-                          timer: "Timer",
-                          time: "Time Spent",
-                        }[columnId] || columnId;
-
-                      return (
-                        <label
-                          key={columnId}
-                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns[columnId] === true}
-                            onChange={() => toggleColumnVisibility(columnId)}
-                            className="cursor-pointer"
-                          />
-                          <span className="text-sm">{columnLabel}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
             </div>
 
             {/* Task Groups */}
@@ -3767,9 +3767,23 @@ export function WorkloadBoard({
 
                                         {/* Label Dropdown */}
                                         <div className="space-y-2">
-                                          <label className="text-sm font-medium">
-                                            Label (Optional)
-                                          </label>
+                                          <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium">
+                                              Label (Optional)
+                                            </label>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0 hover:bg-primary/10"
+                                              onClick={() => {
+                                                setIsCreatingLabel(true);
+                                                setLabelDropdownOpen(false);
+                                              }}
+                                              title="Create New Label"
+                                            >
+                                              <span className="text-lg font-semibold">+</span>
+                                            </Button>
+                                          </div>
                                           {isCreatingLabel ? (
                                             <div className="space-y-2">
                                               <Input
@@ -3975,17 +3989,6 @@ export function WorkloadBoard({
                                                       </span>
                                                     </DropdownMenuItem>
                                                   ))}
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                  onClick={() => {
-                                                    setIsCreatingLabel(true);
-                                                    setLabelDropdownOpen(false);
-                                                  }}
-                                                >
-                                                  <span className="text-primary">
-                                                    + Add New Label
-                                                  </span>
-                                                </DropdownMenuItem>
                                               </DropdownMenuContent>
                                             </DropdownMenu>
                                           )}

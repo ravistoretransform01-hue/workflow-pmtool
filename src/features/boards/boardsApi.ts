@@ -14,10 +14,10 @@ const BOARD_ENDPOINTS = {
   DELETE: "/boards",
 };
 
-const CACHE_CONTROL_HEADERS = {
-  'Cache-Control': 'no-cache, no-store, must-revalidate',
-  'Pragma': 'no-cache', 
-};
+// const CACHE_CONTROL_HEADERS = {
+//   'Cache-Control': 'no-cache, no-store, must-revalidate',
+//   'Pragma': 'no-cache', 
+// };
 
 export const boardsApi = {
   /**
