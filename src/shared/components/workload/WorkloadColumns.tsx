@@ -1246,7 +1246,6 @@ export const getWorkloadColumns = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onOpenTaskCard?.(task);
                   }}
                   className="font-medium text-foreground hover:underline cursor-pointer"
                 >
@@ -1257,7 +1256,7 @@ export const getWorkloadColumns = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onEditTask?.(task, "name");
+                    onOpenTaskCard?.(task);
                   }}
                   className="p-1 hover:bg-muted rounded"
                 >
@@ -1298,7 +1297,6 @@ export const getWorkloadColumns = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onOpenTaskCard?.(task);
                 }}
                 className="font-medium text-foreground hover:underline cursor-pointer"
               >
@@ -1309,7 +1307,7 @@ export const getWorkloadColumns = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onEditTask?.(task, "name");
+                  onOpenTaskCard?.(task);
                 }}
                 className="p-1 hover:bg-muted rounded"
               >

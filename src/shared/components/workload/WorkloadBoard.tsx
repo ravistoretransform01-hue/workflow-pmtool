@@ -2912,8 +2912,6 @@ export function WorkloadBoard({
     columnOrder,
   ]);
 
-  const totalColumns = workloadColumns.length + 1;
-
   // Track unsaved changes for layout
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialGroupOrder, setInitialGroupOrder] = useState<string[]>([]);
