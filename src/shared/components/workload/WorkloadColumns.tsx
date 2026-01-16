@@ -254,6 +254,7 @@ function RatingStars({
   openPopoverId,
   setOpenPopoverId,
   onRatingChange,
+  hasAssignee = false,
 }: {
   task: any;
   rating: number;
@@ -262,17 +263,36 @@ function RatingStars({
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
   onRatingChange?: (taskId: string, rating: number) => void;
+  hasAssignee?: boolean;
 }) {
   const [hoveredRating, setHoveredRating] = useState(0);
+
+  const handleRatingClick = (ratingValue: number) => {
+    if (!hasAssignee) {
+      toast.error("Please assign a person before rating");
+      setOpenPopoverId?.(null);
+      return;
+    }
+    setOpenPopoverId?.(null);
+    onRatingChange?.(task.id, ratingValue);
+  };
 
   return (
     <Popover
       open={openPopoverId === popoverId}
-      onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+      onOpenChange={(open) => {
+        if (open && !hasAssignee) {
+          toast.error("Please assign a person before rating");
+          return;
+        }
+        setOpenPopoverId?.(open ? popoverId : null);
+      }}
     >
       <PopoverTrigger asChild>
         <button
-          className="w-full h-8 flex items-center justify-center gap-1"
+          className={`w-full h-8 flex items-center justify-center gap-1 ${
+            !hasAssignee ? "opacity-50 cursor-not-allowed" : ""
+          }`}
           aria-label={`Rating ${rating}${
             ratingCount
               ? ` (${ratingCount} rating${ratingCount !== 1 ? "s" : ""})`
@@ -280,10 +300,13 @@ function RatingStars({
           }`}
           onClick={(e) => e.stopPropagation()}
           title={
-            ratingCount
+            !hasAssignee
+              ? "Assign a person first"
+              : ratingCount
               ? `${ratingCount} rating${ratingCount !== 1 ? "s" : ""}`
               : "No ratings"
           }
+          disabled={!hasAssignee}
         >
           {[1, 2, 3, 4, 5].map((i) => (
             <svg
@@ -316,10 +339,7 @@ function RatingStars({
             {[1, 2, 3, 4, 5].map((i) => (
               <button
                 key={i}
-                onClick={() => {
-                  setOpenPopoverId?.(null);
-                  onRatingChange?.(task.id, i);
-                }}
+                onClick={() => handleRatingClick(i)}
                 onMouseEnter={() => setHoveredRating(i)}
                 onMouseLeave={() => setHoveredRating(0)}
                 className="p-1"
@@ -1381,6 +1401,7 @@ export const getWorkloadColumns = ({
         const rating = Number(task.rating) || 0;
         const ratingCount = task.ratingCount || 0;
         const popoverId = `rating-${task.id}`;
+        const hasAssignee = task.assigned_to_ids && task.assigned_to_ids.length > 0;
 
         return (
           <RatingStars
@@ -1391,6 +1412,7 @@ export const getWorkloadColumns = ({
             openPopoverId={openPopoverId}
             setOpenPopoverId={setOpenPopoverId}
             onRatingChange={onRatingChange}
+            hasAssignee={hasAssignee}
           />
         );
       },
@@ -1542,15 +1564,19 @@ export const getWorkloadColumns = ({
       label: "Timer",
       width: "160px",
       align: "center",
-      render: (task: any) => (
-        <TimerCell
-          taskId={task.id}
-          trackedTimeSeconds={task.tracked_time_seconds || 0}
-          activeTimerId={task.activeTimerId}
-          onTimerStart={task.onTimerStart}
-          onTimerConflict={task.onTimerConflict}
-        />
-      ),
+      render: (task: any) => {
+        const hasAssignee = task.assigned_to_ids && task.assigned_to_ids.length > 0;
+        return (
+          <TimerCell
+            taskId={task.id}
+            trackedTimeSeconds={task.tracked_time_seconds || 0}
+            activeTimerId={task.activeTimerId}
+            onTimerStart={task.onTimerStart}
+            onTimerConflict={task.onTimerConflict}
+            hasAssignee={hasAssignee}
+          />
+        );
+      },
     },
     {
       id: "time",
