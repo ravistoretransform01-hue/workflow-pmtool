@@ -198,7 +198,61 @@ export function TagsColumnCell({
         align="center"
       >
         <div className="flex flex-col h-full">
-          <h3 className="font-medium text-sm mb-2">Manage Tags</h3>
+          {/* Header with Manage Tags and + button */}
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-medium text-sm">Manage Tags</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 hover:bg-primary/10"
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              title="Create New Tag"
+            >
+              <span className="text-lg font-semibold">+</span>
+            </Button>
+          </div>
+
+          {/* Create New Tag Form (shown when + is clicked) */}
+          {showCreateForm && (
+            <div className="space-y-2 mb-2 pb-2 border-b border-primary/20">
+              <Input
+                placeholder="Tag name"
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                className="h-8 text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleCreateTag();
+                  } else if (e.key === "Escape") {
+                    setShowCreateForm(false);
+                    setNewTagName("");
+                  }
+                }}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 h-8 text-xs"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setNewTagName("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 h-8 text-xs"
+                  onClick={handleCreateTag}
+                  disabled={isCreatingTag || !newTagName.trim()}
+                >
+                  {isCreatingTag ? "Creating..." : "Create"}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Available Tags with Checkboxes */}
           <div className="flex-1 overflow-y-auto scrollbar-hide space-y-1">
@@ -229,59 +283,6 @@ export function TagsColumnCell({
             ) : (
               <div className="text-center py-4 text-sm text-muted-foreground">
                 No tags available
-              </div>
-            )}
-          </div>
-
-          {/* Create New Tag Section */}
-          <div className="border-t border-primary/20 mt-2 pt-2">
-            {!showCreateForm ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-                onClick={() => setShowCreateForm(true)}
-              >
-                + Create New Tag
-              </Button>
-            ) : (
-              <div className="space-y-2">
-                <Input
-                  placeholder="Tag name"
-                  value={newTagName}
-                  onChange={(e) => setNewTagName(e.target.value)}
-                  className="h-8 text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleCreateTag();
-                    } else if (e.key === "Escape") {
-                      setShowCreateForm(false);
-                      setNewTagName("");
-                    }
-                  }}
-                  autoFocus
-                />
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 h-8 text-xs"
-                    onClick={() => {
-                      setShowCreateForm(false);
-                      setNewTagName("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="flex-1 h-8 text-xs"
-                    onClick={handleCreateTag}
-                    disabled={isCreatingTag || !newTagName.trim()}
-                  >
-                    {isCreatingTag ? "Creating..." : "Create"}
-                  </Button>
-                </div>
               </div>
             )}
           </div>

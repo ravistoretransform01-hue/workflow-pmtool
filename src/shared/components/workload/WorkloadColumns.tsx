@@ -19,6 +19,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { Input } from "@/shared/components/ui/input";
+import { Progress } from "@/shared/components/ui/progress";
 import { format, parseISO, parse } from "date-fns";
 import { TagsColumnCell } from "./TagsColumnCell";
 import { TimerCell } from "./TimerCell";
@@ -828,21 +829,21 @@ export const getWorkloadColumns = ({
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg"
+              className="w-80 p-3 bg-card border border-border shadow-lg rounded-lg"
               align="center"
             >
-              <div className="space-y-1">
+              <div className="grid grid-cols-2 gap-2">
                 {statuses.map((status) => (
                   <button
                     key={status.id}
                     onClick={() => onStatusChange?.(task.id, status.id)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-accent transition-colors text-sm font-medium"
+                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg hover:opacity-80 transition-opacity text-sm font-medium"
+                    style={{
+                      backgroundColor: status.color_code,
+                      color: "white",
+                    }}
                   >
-                    <div
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: status.color_code }}
-                    />
-                    <span>{status.name}</span>
+                    <span className="text-center">{status.name}</span>
                   </button>
                 ))}
               </div>
@@ -880,21 +881,21 @@ export const getWorkloadColumns = ({
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg"
+              className="w-80 p-3 bg-card border border-border shadow-lg rounded-lg"
               align="center"
             >
-              <div className="space-y-1">
+              <div className="grid grid-cols-2 gap-2">
                 {priorities.map((priority) => (
                   <button
                     key={priority.id}
                     onClick={() => onPriorityChange?.(task.id, priority.id)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-accent transition-colors text-sm font-medium"
+                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg hover:opacity-80 transition-opacity text-sm font-medium"
+                    style={{
+                      backgroundColor: priority.color_code,
+                      color: "white",
+                    }}
                   >
-                    <div
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: priority.color_code }}
-                    />
-                    <span>{priority.name}</span>
+                    <span className="text-center">{priority.name}</span>
                   </button>
                 ))}
               </div>
@@ -1007,11 +1008,38 @@ export const getWorkloadColumns = ({
       },
     },
     {
-      id: "date",
-      label: "Date",
-      width: "160px",
+      id: "progress",
+      label: "Progress",
+      width: "180px",
       align: "center",
-      render: (task: any) => task.date ?? "-",
+      render: (task: any) => {
+        // Calculate progress based on tracked time vs estimated time
+        const trackedSeconds = task.tracked_time_seconds || 0;
+        const estimatedHours = task.estimatedHours;
+        
+        // If no estimated hours, show 0% progress
+        if (!estimatedHours || estimatedHours === "-" || estimatedHours === 0) {
+          return (
+            <div className="w-full px-2">
+              <Progress value={0} className="h-2" />
+              <span className="text-xs text-muted-foreground mt-1 block">0%</span>
+            </div>
+          );
+        }
+        
+        // Convert estimated hours to seconds
+        const estimatedSeconds = Number(estimatedHours) * 3600;
+        
+        // Calculate percentage (cap at 100%)
+        const percentage = Math.min(100, Math.round((trackedSeconds / estimatedSeconds) * 100));
+        
+        return (
+          <div className="w-full px-2">
+            <Progress value={percentage} className="h-2" />
+            <span className="text-xs text-muted-foreground mt-1 block">{percentage}%</span>
+          </div>
+        );
+      },
     },
     {
       id: "person",
