@@ -813,13 +813,21 @@ function StatusPopover({
         board_id: Number(bId),
       });
 
+      // Ensure status has required fields
+      const statusWithDefaults: any = {
+        id: newStatus.id || String(Date.now()),
+        name: newStatus.name,
+        color_code: newStatus.color_code,
+        status_order: String(newStatus.status_order) || "999",
+      };
+
       // Update localStorage cache
-      addStatusToCache(Number(bId), newStatus);
+      addStatusToCache(Number(bId), statusWithDefaults);
 
       setNewStatusName("");
       setNewStatusColor(PRESET_COLORS[0]);
       setShowCreateForm(false);
-      onStatusCreated?.(newStatus);
+      onStatusCreated?.(statusWithDefaults);
       toast.success("Status created successfully");
     } catch (error) {
       console.error("Failed to create status:", error);
@@ -1005,13 +1013,21 @@ function PriorityPopover({
         board_id: Number(bId),
       });
 
+      // Ensure priority has required fields
+      const priorityWithDefaults: any = {
+        id: newPriority.id || String(Date.now()),
+        name: newPriority.name,
+        color_code: newPriority.color_code,
+        priority_order: newPriority.priority_order || "999",
+      };
+
       // Update localStorage cache
-      addPriorityToCache(Number(bId), newPriority);
+      addPriorityToCache(Number(bId), priorityWithDefaults);
 
       setNewPriorityName("");
       setNewPriorityColor(PRESET_COLORS[0]);
       setShowCreateForm(false);
-      onPriorityCreated?.(newPriority);
+      onPriorityCreated?.(priorityWithDefaults);
       toast.success("Priority created successfully");
     } catch (error) {
       console.error("Failed to create priority:", error);

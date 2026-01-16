@@ -439,7 +439,9 @@ const SortableColumnHeader = ({
     <th
       ref={setNodeRef}
       style={{ ...style, width: column.width }}
-      className="p-4 font-medium border-r border-border last:border-r-0 bg-muted/30"
+      className={`p-4 font-medium border-r border-border last:border-r-0 ${
+        column.id === "item" ? "sticky left-12 z-10 bg-card" : "bg-muted/30"
+      }`}
       {...attributes}
     >
       <div
@@ -2936,6 +2938,18 @@ export function WorkloadBoard({
     setHasUnsavedChanges(groupsChanged || columnsChanged);
   }, [groups, workloadColumns, initialGroupOrder, initialColumnOrder]);
 
+  // Synchronized horizontal scrolling for all group tables
+  const tableScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const handleTableScroll = (groupId: string, scrollLeft: number) => {
+    // Scroll all other tables to the same position
+    Object.entries(tableScrollRefs.current).forEach(([id, ref]) => {
+      if (ref && id !== groupId) {
+        ref.scrollLeft = scrollLeft;
+      }
+    });
+  };
+
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Image resize styles */}
@@ -2975,8 +2989,8 @@ export function WorkloadBoard({
         }
       `}</style>
 
-      {/* Top Header */}
-      <div className="border-b border-border px-6 py-4">
+      {/* Top Header - FIXED, does not scroll */}
+      <div className="border-b border-border px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             {editingBoardName ? (
@@ -3051,13 +3065,11 @@ export function WorkloadBoard({
         </DndContext>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-auto">
-        {/* Main Table View */}
-        {activeTab === "Main Table" && (
-          <div className="flex-1 flex flex-col overflow-x-auto" ref={mainFlexContainerRef}>
-            {/* Toolbar */}
-            <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap">
+      {/* Main Table View */}
+      {activeTab === "Main Table" && (
+        <div className="flex flex-col flex-1 overflow-hidden" ref={mainFlexContainerRef}>
+          {/* Toolbar - FIXED */}
+          <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
               {/* New Group Button */}
               <Button
                 variant="default"
@@ -3094,7 +3106,7 @@ export function WorkloadBoard({
                 {/* Show/Hide Filter Popover */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+                    <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
                       <Eye className="h-4 w-4" />
                       Only Show
                     </button>
@@ -3427,7 +3439,7 @@ export function WorkloadBoard({
                 {/* Save Button */}
                 <button
                   disabled={!hasUnsavedChanges}
-                  className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => {
                     // Build the payload
                     const groupOrder: Record<string, string> = {};
@@ -3514,18 +3526,18 @@ export function WorkloadBoard({
               </div>
             </div>
 
-            {/* Task Groups */}
-            <div className="flex-1 overflow-auto px-6 py-4">
-              <DndContext
-                sensors={groupSensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleGroupDragEnd}
-              >
-                <SortableContext
-                  items={getFilteredGroups().map((g) => g.id)}
-                  strategy={verticalListSortingStrategy}
+            {/* Task Groups Container - ONLY scrollable element */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4">
+                <DndContext
+                  sensors={groupSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleGroupDragEnd}
                 >
-                  <div className="space-y-6">
+                  <SortableContext
+                    items={getFilteredGroups().map((g) => g.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-6">
                     {getFilteredGroups().length === 0 ? (
                       <div className="text-center py-12">
                         {mainTableSearchQuery.trim() ? (
@@ -4056,10 +4068,20 @@ export function WorkloadBoard({
 
                               {/* Task Table */}
                               {expandedGroups[group.id] && (
-                                <table
-                                  className="w-full"
-                                  style={{ tableLayout: "fixed" }}
+                                <div 
+                                  className="overflow-x-auto w-full scrollbar-hide"
+                                  ref={(el) => {
+                                    if (el) tableScrollRefs.current[group.id] = el;
+                                  }}
+                                  onScroll={(e) => {
+                                    const target = e.currentTarget as HTMLDivElement;
+                                    handleTableScroll(group.id, target.scrollLeft);
+                                  }}
                                 >
+                                  <table
+                                    className="w-full"
+                                    style={{ tableLayout: "fixed" }}
+                                  >
                                   {/* Table head */}
                                   {/* <thead className="border-b border-border bg-muted/30">
                                       <tr className="text-sm text-muted-foreground">
@@ -4095,7 +4117,7 @@ export function WorkloadBoard({
                                     >
                                       <thead className="border-b border-border bg-muted/30">
                                         <tr className="text-sm text-muted-foreground">
-                                          <th className="p-4 w-12 border-r border-border text-center">
+                                          <th className="p-4 w-12 border-r border-border text-center sticky left-0 z-10 bg-card">
                                             <input
                                               type="checkbox"
                                               checked={
@@ -4169,7 +4191,7 @@ export function WorkloadBoard({
                                             }}
                                           >
                                             <td
-                                              className="p-4 text-center border-r border-border"
+                                              className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
                                               onClick={(e) =>
                                                 e.stopPropagation()
                                               }
@@ -4196,7 +4218,8 @@ export function WorkloadBoard({
                                                   col.align === "center" &&
                                                     "text-center",
                                                   col.align === "left" &&
-                                                    "text-left"
+                                                    "text-left",
+                                                  col.id === "item" && "sticky left-12 z-10 bg-card"
                                                 )}
                                                 style={{ width: col.width }}
                                                 onClick={(e) =>
@@ -4243,7 +4266,7 @@ export function WorkloadBoard({
                                                   className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 border-b border-border transition-colors"
                                                 >
                                                   <td
-                                                    className="p-4 text-center border-r border-border"
+                                                    className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
                                                     onClick={(e) =>
                                                       e.stopPropagation()
                                                     }
@@ -4275,7 +4298,8 @@ export function WorkloadBoard({
                                                             "text-center",
                                                           col.align ===
                                                             "left" &&
-                                                            "text-left"
+                                                            "text-left",
+                                                          col.id === "item" && "sticky left-12 z-10 bg-card"
                                                         )}
                                                         onClick={(e) =>
                                                           e.stopPropagation()
@@ -4313,12 +4337,12 @@ export function WorkloadBoard({
                                           {/* ================= ADD SUBITEM ================= */}
                                           {expandedTasks[task.id] && (
                                             <tr>
-                                              <td className="p-4 text-center border-r border-border">
+                                              <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
                                                 {/* Empty Cell */}
                                               </td>
                                               <td
-                                                colSpan={totalColumns}
-                                                className="p-4 border-t border-border"
+                                                colSpan={2}
+                                                className="p-4 border-t border-border sticky left-12 z-10 bg-card"
                                               >
                                                 {addingSubitemToTask ===
                                                 task.id ? (
@@ -4397,12 +4421,12 @@ export function WorkloadBoard({
 
                                     {/* ================= ADD ITEM ROW ================= */}
                                     <tr>
-                                      <td className="p-4 text-center border-r border-border">
+                                      <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
                                         {/* Empty Cell */}
                                       </td>
                                       <td
-                                        colSpan={totalColumns}
-                                        className="p-4 border-t border-border"
+                                        colSpan={2}
+                                        className="p-4 border-t border-border sticky left-12 z-10 bg-card"
                                       >
                                         {addingItemToGroup === group.id ? (
                                           <Input
@@ -4450,6 +4474,7 @@ export function WorkloadBoard({
                                     </tr>
                                   </tbody>
                                 </table>
+                                </div>
                               )}
                             </div>
                           )}
@@ -4460,12 +4485,12 @@ export function WorkloadBoard({
                 </SortableContext>
               </DndContext>
             </div>
-          </div>
-        )}
+        </div>
+      )}
 
-        {/* Other Views */}
-        {activeTab !== "Main Table" && (
-          <div className="flex-1 overflow-auto p-6">
+      {/* Other Views */}
+      {activeTab !== "Main Table" && (
+        <div className="flex-1 overflow-auto p-6">
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Active Tab: {activeTab}</h2>
               <p className="text-sm text-muted-foreground">
@@ -4494,7 +4519,6 @@ export function WorkloadBoard({
             </div>
           </div>
         )}
-      </div>
 
       {/* ALL DIALOGS WILL GO HERE */}
       {/* New Group Dialog */}
