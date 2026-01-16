@@ -947,13 +947,14 @@ function StatusPopover({
                   onStatusChange?.(task.id, status.id);
                   setOpenPopoverId?.(null);
                 }}
-                className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg hover:opacity-80 transition-opacity text-sm font-medium"
+                title={status.name}
+                className="flex flex-col items-center gap-2 px-3 py-2 rounded-lg hover:opacity-80 transition-opacity text-sm font-medium overflow-hidden"
                 style={{
                   backgroundColor: status.color_code,
                   color: "white",
                 }}
               >
-                <span className="text-center">{status.name}</span>
+                <span className="text-center truncate w-full">{status.name}</span>
               </button>
             ))}
           </div>
@@ -1147,13 +1148,14 @@ function PriorityPopover({
                   onPriorityChange?.(task.id, priority.id);
                   setOpenPopoverId?.(null);
                 }}
-                className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg hover:opacity-80 transition-opacity text-sm font-medium"
+                title={priority.name}
+                className="flex flex-col items-center gap-2 px-3 py-2 rounded-lg hover:opacity-80 transition-opacity text-sm font-medium overflow-hidden"
                 style={{
                   backgroundColor: priority.color_code,
                   color: "white",
                 }}
               >
-                <span className="text-center">{priority.name}</span>
+                <span className="text-center truncate w-full">{priority.name}</span>
               </button>
             ))}
           </div>
