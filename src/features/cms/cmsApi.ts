@@ -5,6 +5,8 @@ const CMS_ENDPOINTS = {
   GET_CMS_DATA: `/cms`,
   CREATE_LABEL: `/labels`,
   CREATE_TAG: `/tags`,
+  CREATE_STATUS: `/task-status`,
+  CREATE_PRIORITY: `/task-priority`,
 };
 
 export const cmsApi = {
@@ -69,6 +71,50 @@ export const cmsApi = {
       return response.data.data || response.data;
     } catch (error) {
       console.error("Failed to create tag:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new status
+   */
+  createStatus: async (payload: {
+    name: string;
+    color_code: string;
+    organization_id: number;
+    board_id: number;
+  }): Promise<any> => {
+    try {
+      const response = await axios.post<any>(
+        CMS_ENDPOINTS.CREATE_STATUS,
+        payload
+      );
+
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error("Failed to create status:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new priority
+   */
+  createPriority: async (payload: {
+    name: string;
+    color_code: string;
+    organization_id: number;
+    board_id: number;
+  }): Promise<any> => {
+    try {
+      const response = await axios.post<any>(
+        CMS_ENDPOINTS.CREATE_PRIORITY,
+        payload
+      );
+
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error("Failed to create priority:", error);
       throw error;
     }
   },

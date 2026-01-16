@@ -1160,6 +1160,11 @@ export function WorkloadBoard({
     setCommentsPanelOpen(true);
   };
 
+  const openTaskCard = (task: Task) => {
+    setSelectedTaskId(task.id);
+    setSheetTaskCardOpen(true);
+  };
+
   const addNewGroup = async () => {
     setNewGroupDialogOpen(true);
     setNewGroupNameInput("");
@@ -2186,6 +2191,14 @@ export function WorkloadBoard({
     setOpenPopoverId(null);
   };
 
+  const handleStatusCreated = (newStatus: any) => {
+    setStatuses((prevStatuses) => [...prevStatuses, newStatus]);
+  };
+
+  const handlePriorityCreated = (newPriority: any) => {
+    setPriorities((prevPriorities) => [...prevPriorities, newPriority]);
+  };
+
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
     const updatedChecked: Record<string, boolean> = {
       [taskId]: checked,
@@ -2594,17 +2607,26 @@ export function WorkloadBoard({
         toggleTask,
         onOpenComments: openCommentsPanel,
         onEditTask: openEditTaskDialog,
+        onOpenTaskCard: openTaskCard,
         statuses,
         priorities,
         members,
+        tags,
         onStatusChange: handleStatusChange,
         onPriorityChange: handlePriorityChange,
         onPersonChange: handlePersonChange,
         onRatingChange: handleRatingChange,
         onEstimatedDateChange: handleEstimatedDateChange,
         onEstimatedTimeChange: handleEstimatedTimeChange,
+        onTagChange: handleTagChange,
         openPopoverId,
         setOpenPopoverId,
+        boardId: parseInt(boardId, 10),
+        onTagCreated: (newTag) => {
+          setTags((prevTags) => [...prevTags, newTag]);
+        },
+        onStatusCreated: handleStatusCreated,
+        onPriorityCreated: handlePriorityCreated,
       });
 
       // Apply saved column order
@@ -2770,6 +2792,7 @@ export function WorkloadBoard({
       toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
+      onOpenTaskCard: openTaskCard,
       statuses,
       priorities,
       members,
@@ -2787,6 +2810,8 @@ export function WorkloadBoard({
       onTagCreated: (newTag) => {
         setTags((prevTags) => [...prevTags, newTag]);
       },
+      onStatusCreated: handleStatusCreated,
+      onPriorityCreated: handlePriorityCreated,
     });
 
     // Apply saved column order if available
@@ -2824,6 +2849,7 @@ export function WorkloadBoard({
       toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
+      onOpenTaskCard: openTaskCard,
       statuses,
       priorities,
       members,
@@ -2841,6 +2867,8 @@ export function WorkloadBoard({
       onTagCreated: (newTag) => {
         setTags((prevTags) => [...prevTags, newTag]);
       },
+      onStatusCreated: handleStatusCreated,
+      onPriorityCreated: handlePriorityCreated,
     });
 
     // Apply saved column order

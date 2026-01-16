@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { getOrganizationId } from "@/lib/utils";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { cmsApi } from "@/features/cms/cmsApi";
+import { addTagToCache } from "@/features/cms/cmsStorage";
 import {
   Popover,
   PopoverContent,
@@ -73,6 +74,9 @@ export function TagsColumnCell({
         organization_id: orgId,
         board_id: Number(bId),
       });
+
+      // Update localStorage cache
+      addTagToCache(Number(bId), newTag);
 
       // Add the new tag to selected tags
       setSelectedTagIds((prev) => new Set([...prev, String(newTag.id)]));
