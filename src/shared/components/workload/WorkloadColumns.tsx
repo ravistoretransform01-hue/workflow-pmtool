@@ -550,18 +550,57 @@ function EstimatedTimePicker({
     hours: string | number | null
   ) => void;
 }) {
-  const [hours, setHours] = useState<string>(
-    estimatedHours && estimatedHours !== "-" ? String(estimatedHours) : ""
-  );
+  // Parse estimatedHours to extract hours and minutes
+  const parseEstimatedTime = (value: string | number) => {
+    if (!value || value === "-") return { hours: "", minutes: "" };
+    
+    const strValue = String(value);
+    // Check if it's in "02h 30m" format
+    const match = strValue.match(/(\d+)h\s*(\d+)m/);
+    if (match) {
+      return { hours: match[1], minutes: match[2] };
+    }
+    
+    // Check if it's in "2h" format
+    const hoursMatch = strValue.match(/(\d+)h/);
+    if (hoursMatch) {
+      return { hours: hoursMatch[1], minutes: "" };
+    }
+    
+    // Otherwise treat as decimal hours (e.g., "2.5" = 2h 30m)
+    const numValue = parseFloat(strValue);
+    if (!isNaN(numValue)) {
+      const hrs = Math.floor(numValue);
+      const mins = Math.round((numValue - hrs) * 60);
+      return { hours: hrs > 0 ? String(hrs) : "", minutes: mins > 0 ? String(mins) : "" };
+    }
+    
+    return { hours: "", minutes: "" };
+  };
 
-  // Update hours when estimatedHours changes
+  const initialTime = parseEstimatedTime(estimatedHours);
+  const [hours, setHours] = useState<string>(initialTime.hours);
+  const [minutes, setMinutes] = useState<string>(initialTime.minutes);
+
+  // Update hours and minutes when estimatedHours changes
   useEffect(() => {
     if (openPopoverId === popoverId) {
-      setHours(
-        estimatedHours && estimatedHours !== "-" ? String(estimatedHours) : ""
-      );
+      const parsed = parseEstimatedTime(estimatedHours);
+      setHours(parsed.hours);
+      setMinutes(parsed.minutes);
     }
   }, [openPopoverId, popoverId, estimatedHours]);
+
+  // Format display value for the button
+  const formatDisplayValue = () => {
+    if (estimatedHours === "-") return "-";
+    const strValue = String(estimatedHours);
+    // If already in "Xh Ym" format, return as is
+    if (strValue.match(/\d+h\s*\d+m/)) return strValue;
+    if (strValue.match(/\d+h/)) return strValue;
+    // Otherwise format as hours
+    return `${estimatedHours}h`;
+  };
 
   return (
     <Popover
@@ -583,7 +622,7 @@ function EstimatedTimePicker({
           }
           onClick={(e) => e.stopPropagation()}
         >
-          {estimatedHours === "-" ? "-" : `${estimatedHours}h`}
+          {formatDisplayValue()}
         </button>
       </PopoverTrigger>
       {hasEstimatedDate && (
@@ -593,7 +632,7 @@ function EstimatedTimePicker({
         >
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium text-sm">Estimated Time (Hours)</h3>
+              <h3 className="font-medium text-sm">Estimated Time</h3>
               <button
                 onClick={() => setOpenPopoverId?.(null)}
                 className="text-muted-foreground hover:text-foreground"
@@ -602,16 +641,37 @@ function EstimatedTimePicker({
               </button>
             </div>
 
-            <div className="space-y-2">
-              <Input
-                type="number"
-                placeholder="Enter hours"
-                value={hours}
-                onChange={(e) => setHours(e.target.value)}
-                className="h-8 text-sm"
-                min="0"
-                step="0.5"
-              />
+            <div className="flex gap-3 items-center">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Hours</label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={hours}
+                  onChange={(e) => setHours(e.target.value)}
+                  className="h-9 w-20 text-sm"
+                  min="0"
+                  max="999"
+                />
+              </div>
+              <span className="text-muted-foreground mt-5">:</span>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Minutes</label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={minutes}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    if (val >= 0 && val <= 59) {
+                      setMinutes(e.target.value);
+                    }
+                  }}
+                  className="h-9 w-20 text-sm"
+                  min="0"
+                  max="59"
+                />
+              </div>
             </div>
 
             <div className="flex gap-2 justify-end">
@@ -620,6 +680,7 @@ function EstimatedTimePicker({
                 size="sm"
                 onClick={() => {
                   setHours("");
+                  setMinutes("");
                   onEstimatedTimeChange?.(task.id, null);
                   setOpenPopoverId?.(null);
                 }}
@@ -630,7 +691,16 @@ function EstimatedTimePicker({
                 size="sm"
                 onClick={async () => {
                   try {
-                    const approvedHours = hours ? Number(hours) : null;
+                    const hrs = parseInt(hours) || 0;
+                    const mins = parseInt(minutes) || 0;
+                    
+                    // Format as "02h 30m" or just "2h" if no minutes
+                    let approvedHours: string | null = null;
+                    if (hrs > 0 || mins > 0) {
+                      const hrsStr = hrs.toString().padStart(2, '0');
+                      const minsStr = mins.toString().padStart(2, '0');
+                      approvedHours = mins > 0 ? `${hrsStr}h ${minsStr}m` : `${hrs}h`;
+                    }
 
                     // Call API to update approved hours
                     await tasksApi.updateEstimatedDate({
@@ -1027,11 +1097,31 @@ export const getWorkloadColumns = ({
           );
         }
         
-        // Convert estimated hours to seconds
-        const estimatedSeconds = Number(estimatedHours) * 3600;
+        // Parse estimated time to seconds
+        let estimatedSeconds = 0;
+        const strValue = String(estimatedHours);
+        
+        // Check if it's in "02h 30m" format
+        const match = strValue.match(/(\d+)h\s*(\d+)m/);
+        if (match) {
+          const hrs = parseInt(match[1]) || 0;
+          const mins = parseInt(match[2]) || 0;
+          estimatedSeconds = (hrs * 3600) + (mins * 60);
+        } else {
+          // Check if it's in "2h" format
+          const hoursMatch = strValue.match(/(\d+)h/);
+          if (hoursMatch) {
+            estimatedSeconds = parseInt(hoursMatch[1]) * 3600;
+          } else {
+            // Otherwise treat as numeric hours
+            estimatedSeconds = Number(estimatedHours) * 3600;
+          }
+        }
         
         // Calculate percentage (cap at 100%)
-        const percentage = Math.min(100, Math.round((trackedSeconds / estimatedSeconds) * 100));
+        const percentage = estimatedSeconds > 0 
+          ? Math.min(100, Math.round((trackedSeconds / estimatedSeconds) * 100))
+          : 0;
         
         return (
           <div className="w-full px-2">
