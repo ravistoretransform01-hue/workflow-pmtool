@@ -255,12 +255,26 @@ function saveToLocalStorage(boardId: number, cmsData: CMSData): void {
  */
 export function addStatusToCache(boardId: number, newStatus: Status): void {
   try {
-    const cachedData = getFromLocalStorage(boardId, true);
+    let cachedData = getFromLocalStorage(boardId, true);
+    
     if (cachedData) {
+      // Cache exists, add to it
       cachedData.statuses.push(newStatus);
       cachedData.timestamp = Date.now(); // Update timestamp
       saveToLocalStorage(boardId, cachedData);
       console.log(`Added new status to cache for board ${boardId}`);
+    } else {
+      // Cache doesn't exist, create a new one with just this status
+      const newCacheData: CMSData = {
+        statuses: [newStatus],
+        priorities: [],
+        members: [],
+        labels: [],
+        tags: [],
+        timestamp: Date.now(),
+      };
+      saveToLocalStorage(boardId, newCacheData);
+      console.log(`Created new cache with status for board ${boardId}`);
     }
   } catch (error) {
     console.error("Error adding status to cache:", error);
@@ -274,12 +288,25 @@ export function addStatusToCache(boardId: number, newStatus: Status): void {
  */
 export function addPriorityToCache(boardId: number, newPriority: Priority): void {
   try {
-    const cachedData = getFromLocalStorage(boardId, true);
+    let cachedData = getFromLocalStorage(boardId, true);
     if (cachedData) {
+      // Cache exists, add to it
       cachedData.priorities.push(newPriority);
       cachedData.timestamp = Date.now(); // Update timestamp
       saveToLocalStorage(boardId, cachedData);
       console.log(`Added new priority to cache for board ${boardId}`);
+    } else {
+      // Cache doesn't exist, create a new one with just this priority
+      const newCacheData: CMSData = {
+        statuses: [],
+        priorities: [newPriority],
+        members: [],
+        labels: [],
+        tags: [],
+        timestamp: Date.now(),
+      };
+      saveToLocalStorage(boardId, newCacheData);
+      console.log(`Created new cache with priority for board ${boardId}`);
     }
   } catch (error) {
     console.error("Error adding priority to cache:", error);
@@ -293,12 +320,25 @@ export function addPriorityToCache(boardId: number, newPriority: Priority): void
  */
 export function addTagToCache(boardId: number, newTag: Tag): void {
   try {
-    const cachedData = getFromLocalStorage(boardId, true);
+    let cachedData = getFromLocalStorage(boardId, true);
     if (cachedData) {
+      // Cache exists, add to it
       cachedData.tags.push(newTag);
       cachedData.timestamp = Date.now(); // Update timestamp
       saveToLocalStorage(boardId, cachedData);
       console.log(`Added new tag to cache for board ${boardId}`);
+    } else {
+      // Cache doesn't exist, create a new one with just this tag
+      const newCacheData: CMSData = {
+        statuses: [],
+        priorities: [],
+        members: [],
+        labels: [],
+        tags: [newTag],
+        timestamp: Date.now(),
+      };
+      saveToLocalStorage(boardId, newCacheData);
+      console.log(`Created new cache with tag for board ${boardId}`);
     }
   } catch (error) {
     console.error("Error adding tag to cache:", error);

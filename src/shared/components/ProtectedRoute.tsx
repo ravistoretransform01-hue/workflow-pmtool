@@ -58,10 +58,12 @@ function ProtectedRoute() {
     <SidebarProvider defaultOpen className="flex">
       <div className="min-h-screen flex w-full">
         <AppSidebar />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-auto">
-            <Outlet />
+          <main className="flex-1 overflow-hidden">
+            <div className="h-full w-full overflow-hidden">
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>
