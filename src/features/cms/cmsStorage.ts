@@ -247,3 +247,60 @@ function saveToLocalStorage(boardId: number, cmsData: CMSData): void {
     console.error("Error saving CMS data to localStorage:", error);
   }
 }
+
+/**
+ * Add a new status to localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param newStatus - New status to add
+ */
+export function addStatusToCache(boardId: number, newStatus: Status): void {
+  try {
+    const cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      cachedData.statuses.push(newStatus);
+      cachedData.timestamp = Date.now(); // Update timestamp
+      saveToLocalStorage(boardId, cachedData);
+      console.log(`Added new status to cache for board ${boardId}`);
+    }
+  } catch (error) {
+    console.error("Error adding status to cache:", error);
+  }
+}
+
+/**
+ * Add a new priority to localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param newPriority - New priority to add
+ */
+export function addPriorityToCache(boardId: number, newPriority: Priority): void {
+  try {
+    const cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      cachedData.priorities.push(newPriority);
+      cachedData.timestamp = Date.now(); // Update timestamp
+      saveToLocalStorage(boardId, cachedData);
+      console.log(`Added new priority to cache for board ${boardId}`);
+    }
+  } catch (error) {
+    console.error("Error adding priority to cache:", error);
+  }
+}
+
+/**
+ * Add a new tag to localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param newTag - New tag to add
+ */
+export function addTagToCache(boardId: number, newTag: Tag): void {
+  try {
+    const cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      cachedData.tags.push(newTag);
+      cachedData.timestamp = Date.now(); // Update timestamp
+      saveToLocalStorage(boardId, cachedData);
+      console.log(`Added new tag to cache for board ${boardId}`);
+    }
+  } catch (error) {
+    console.error("Error adding tag to cache:", error);
+  }
+}

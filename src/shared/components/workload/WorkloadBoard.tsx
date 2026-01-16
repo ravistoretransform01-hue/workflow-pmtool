@@ -19,6 +19,7 @@ import type { Status, Priority } from "@/features/cms/types";
 import {
   LayoutDashboard,
   ArrowUpDown,
+  Eye,
   EyeOff,
   ChevronDown,
   ChevronRight,
@@ -32,6 +33,7 @@ import {
   ArrowRightLeft,
   Trash,
   Trash2,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
@@ -172,6 +174,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "rating",
   "estimatedDate",
   "estimatedTime",
+  "progress",
   "person",
   "tags",
   "timer",
@@ -187,7 +190,7 @@ const ALL_AVAILABLE_COLUMNS = [
   "rating",
   "estimatedDate",
   "estimatedTime",
-  "date",
+  "progress",
   "person",
   "tags",
   "timer",
@@ -246,6 +249,44 @@ const calculateGroupProgress = (tasks: Task[]) => {
     estimatedTimeSeconds: totalEstimatedSeconds,
     percentage,
   };
+};
+
+// Helper function to format date range in compact format
+// Examples: "Jan 15 – Jan 23", "Jan 31 – Feb 15", "Dec 31, '26 – Jan 8, '27"
+const formatDateRange = (fromDate: string, toDate?: string): string => {
+  try {
+    const from = parseISO(fromDate);
+    const to = toDate ? parseISO(toDate) : from;
+    
+    const fromMonth = format(from, "MMM");
+    const fromDay = format(from, "d");
+    const fromYear = format(from, "yy");
+    
+    const toMonth = format(to, "MMM");
+    const toDay = format(to, "d");
+    const toYear = format(to, "yy");
+    
+    // If same date, just return single date
+    if (fromDate === toDate) {
+      return `${fromMonth} ${fromDay}, '${fromYear}`;
+    }
+    
+    // If same month and year, format as "Jan 14 – Jan 16"
+    if (fromMonth === toMonth && fromYear === toYear) {
+      return `${fromMonth} ${fromDay} – ${toMonth} ${toDay}`;
+    }
+    
+    // If same year, format as "Jan 31 – Feb 15"
+    if (fromYear === toYear) {
+      return `${fromMonth} ${fromDay} – ${toMonth} ${toDay}`;
+    }
+    
+    // Different years, format as "Dec 31, '26 – Jan 8, '27"
+    return `${fromMonth} ${fromDay}, '${fromYear} – ${toMonth} ${toDay}, '${toYear}`;
+  } catch (error) {
+    console.warn("Failed to format date range:", error);
+    return "-";
+  }
 };
 
 // Sortable Tab Component
@@ -529,6 +570,9 @@ export function WorkloadBoard({
   const [editingBoardName, setEditingBoardName] = useState(false);
   const [boardNameValue, setBoardNameValue] = useState(boardName);
 
+  // Ref for the main flex container (flex-1 flex flex-col)
+  const mainFlexContainerRef = useRef<HTMLDivElement>(null);
+
   // Compute user initials from localStorage `user_data` for avatar fallback
   const userInitials = useMemo(() => {
     try {
@@ -756,17 +800,11 @@ export function WorkloadBoard({
               ? task.estimation.estimated_date_to &&
                 task.estimation.estimated_date_to !==
                   task.estimation.estimated_date_from
-                ? `${format(
-                    parseISO(task.estimation.estimated_date_from),
-                    "dd MMM, yyyy"
-                  )}  -  ${format(
-                    parseISO(task.estimation.estimated_date_to),
-                    "dd MMM, yyyy"
-                  )}`
-                : format(
-                    parseISO(task.estimation.estimated_date_from),
-                    "dd MMM, yyyy"
+                ? formatDateRange(
+                    task.estimation.estimated_date_from,
+                    task.estimation.estimated_date_to
                   )
+                : formatDateRange(task.estimation.estimated_date_from)
               : task.due_date,
             estimatedHours: task.estimation?.approved_hours || "-",
             person: task.assignee?.name,
@@ -799,17 +837,11 @@ export function WorkloadBoard({
                   ? st.estimation.estimated_date_to &&
                     st.estimation.estimated_date_to !==
                       st.estimation.estimated_date_from
-                    ? `${format(
-                        parseISO(st.estimation.estimated_date_from),
-                        "dd MMM, yyyy"
-                      )}  -  ${format(
-                        parseISO(st.estimation.estimated_date_to),
-                        "dd MMM, yyyy"
-                      )}`
-                    : format(
-                        parseISO(st.estimation.estimated_date_from),
-                        "dd MMM, yyyy"
+                    ? formatDateRange(
+                        st.estimation.estimated_date_from,
+                        st.estimation.estimated_date_to
                       )
+                    : formatDateRange(st.estimation.estimated_date_from)
                   : st.due_date,
                 estimatedHours: st.estimation?.approved_hours || "-",
                 person: st.assignee?.name,
@@ -1126,6 +1158,11 @@ export function WorkloadBoard({
   const openCommentsPanel = (task: Task) => {
     setSelectedTaskId(task.id);
     setCommentsPanelOpen(true);
+  };
+
+  const openTaskCard = (task: Task) => {
+    setSelectedTaskId(task.id);
+    setSheetTaskCardOpen(true);
   };
 
   const addNewGroup = async () => {
@@ -2033,18 +2070,10 @@ export function WorkloadBoard({
     fromDate: string | null,
     toDate?: string | null
   ) => {
-    // Format the date range display
+    // Format the date range display using the new formatDateRange function
     let dateDisplay = "-";
     if (fromDate) {
-      if (toDate && toDate !== fromDate) {
-        // Format as "13 Jan, 2026 - 14 Jan, 2026"
-        const fromFormatted = format(parseISO(fromDate), "dd MMM, yyyy");
-        const toFormatted = format(parseISO(toDate), "dd MMM, yyyy");
-        dateDisplay = `${fromFormatted} - ${toFormatted}`;
-      } else {
-        // Single date: "13 Jan, 2026"
-        dateDisplay = format(parseISO(fromDate), "dd MMM, yyyy");
-      }
+      dateDisplay = formatDateRange(fromDate, toDate || undefined);
     }
 
     setGroups((prevGroups) =>
@@ -2160,6 +2189,14 @@ export function WorkloadBoard({
 
     // Close popover after update
     setOpenPopoverId(null);
+  };
+
+  const handleStatusCreated = (newStatus: any) => {
+    setStatuses((prevStatuses) => [...prevStatuses, newStatus]);
+  };
+
+  const handlePriorityCreated = (newPriority: any) => {
+    setPriorities((prevPriorities) => [...prevPriorities, newPriority]);
   };
 
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
@@ -2570,17 +2607,26 @@ export function WorkloadBoard({
         toggleTask,
         onOpenComments: openCommentsPanel,
         onEditTask: openEditTaskDialog,
+        onOpenTaskCard: openTaskCard,
         statuses,
         priorities,
         members,
+        tags,
         onStatusChange: handleStatusChange,
         onPriorityChange: handlePriorityChange,
         onPersonChange: handlePersonChange,
         onRatingChange: handleRatingChange,
         onEstimatedDateChange: handleEstimatedDateChange,
         onEstimatedTimeChange: handleEstimatedTimeChange,
+        onTagChange: handleTagChange,
         openPopoverId,
         setOpenPopoverId,
+        boardId: parseInt(boardId, 10),
+        onTagCreated: (newTag) => {
+          setTags((prevTags) => [...prevTags, newTag]);
+        },
+        onStatusCreated: handleStatusCreated,
+        onPriorityCreated: handlePriorityCreated,
       });
 
       // Apply saved column order
@@ -2746,6 +2792,7 @@ export function WorkloadBoard({
       toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
+      onOpenTaskCard: openTaskCard,
       statuses,
       priorities,
       members,
@@ -2763,6 +2810,8 @@ export function WorkloadBoard({
       onTagCreated: (newTag) => {
         setTags((prevTags) => [...prevTags, newTag]);
       },
+      onStatusCreated: handleStatusCreated,
+      onPriorityCreated: handlePriorityCreated,
     });
 
     // Apply saved column order if available
@@ -2800,6 +2849,7 @@ export function WorkloadBoard({
       toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
+      onOpenTaskCard: openTaskCard,
       statuses,
       priorities,
       members,
@@ -2817,6 +2867,8 @@ export function WorkloadBoard({
       onTagCreated: (newTag) => {
         setTags((prevTags) => [...prevTags, newTag]);
       },
+      onStatusCreated: handleStatusCreated,
+      onPriorityCreated: handlePriorityCreated,
     });
 
     // Apply saved column order
@@ -3003,7 +3055,7 @@ export function WorkloadBoard({
       <div className="flex-1 overflow-auto">
         {/* Main Table View */}
         {activeTab === "Main Table" && (
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-x-auto" ref={mainFlexContainerRef}>
             {/* Toolbar */}
             <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap">
               {/* New Group Button */}
@@ -3042,9 +3094,10 @@ export function WorkloadBoard({
                 {/* Show/Hide Filter Popover */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="default" size="sm">
-                      Show/Hide
-                    </Button>
+                    <button className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+                      <Eye className="h-4 w-4" />
+                      Only Show
+                    </button>
                   </PopoverTrigger>
 
                   <PopoverContent align="start" className="w-64 max-h-96 p-0 bg-card border-2 border-primary/20 flex flex-col">
@@ -3372,10 +3425,9 @@ export function WorkloadBoard({
                 </Popover>
 
                 {/* Save Button */}
-                <Button
-                  variant="default"
-                  size="sm"
+                <button
                   disabled={!hasUnsavedChanges}
+                  className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => {
                     // Build the payload
                     const groupOrder: Record<string, string> = {};
@@ -3405,60 +3457,61 @@ export function WorkloadBoard({
                     // API call will be added here in the future
                   }}
                 >
+                  <Save className="h-4 w-4" />
                   Save View
-                </Button>
+                </button>
+
+                {/* Column Visibility Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Columns
+                    </Button>
+                  </PopoverTrigger>
+
+                  <PopoverContent align="end" className="w-56">
+                    <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
+                      Show/Hide Columns
+                    </div>
+                    <div className="border-t border-border my-2" />
+
+                    <div className="p-2 space-y-1">
+                      {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                        const columnLabel =
+                          {
+                            item: "Item",
+                            status: "Status",
+                            priority: "Priority",
+                            description: "Description",
+                            rating: "Rating",
+                            estimatedDate: "Estimated Date",
+                            estimatedTime: "Estimated Time",
+                            date: "Date",
+                            person: "Person",
+                            timer: "Timer",
+                            time: "Time Spent",
+                          }[columnId] || columnId;
+
+                        return (
+                          <label
+                            key={columnId}
+                            className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={visibleColumns[columnId] === true}
+                              onChange={() => toggleColumnVisibility(columnId)}
+                              className="cursor-pointer"
+                            />
+                            <span className="text-sm">{columnLabel}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
-
-              {/* Column Visibility Popover */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Columns
-                  </Button>
-                </PopoverTrigger>
-
-                <PopoverContent align="end" className="w-56">
-                  <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
-                    Show/Hide Columns
-                  </div>
-                  <div className="border-t border-border my-2" />
-
-                  <div className="p-2 space-y-1">
-                    {ALL_AVAILABLE_COLUMNS.map((columnId) => {
-                      const columnLabel =
-                        {
-                          item: "Item",
-                          status: "Status",
-                          priority: "Priority",
-                          description: "Description",
-                          rating: "Rating",
-                          estimatedDate: "Estimated Date",
-                          estimatedTime: "Estimated Time",
-                          date: "Date",
-                          person: "Person",
-                          timer: "Timer",
-                          time: "Time Spent",
-                        }[columnId] || columnId;
-
-                      return (
-                        <label
-                          key={columnId}
-                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns[columnId] === true}
-                            onChange={() => toggleColumnVisibility(columnId)}
-                            className="cursor-pointer"
-                          />
-                          <span className="text-sm">{columnLabel}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
             </div>
 
             {/* Task Groups */}
@@ -3714,9 +3767,23 @@ export function WorkloadBoard({
 
                                         {/* Label Dropdown */}
                                         <div className="space-y-2">
-                                          <label className="text-sm font-medium">
-                                            Label (Optional)
-                                          </label>
+                                          <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium">
+                                              Label (Optional)
+                                            </label>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0 hover:bg-primary/10"
+                                              onClick={() => {
+                                                setIsCreatingLabel(true);
+                                                setLabelDropdownOpen(false);
+                                              }}
+                                              title="Create New Label"
+                                            >
+                                              <span className="text-lg font-semibold">+</span>
+                                            </Button>
+                                          </div>
                                           {isCreatingLabel ? (
                                             <div className="space-y-2">
                                               <Input
@@ -3922,17 +3989,6 @@ export function WorkloadBoard({
                                                       </span>
                                                     </DropdownMenuItem>
                                                   ))}
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                  onClick={() => {
-                                                    setIsCreatingLabel(true);
-                                                    setLabelDropdownOpen(false);
-                                                  }}
-                                                >
-                                                  <span className="text-primary">
-                                                    + Add New Label
-                                                  </span>
-                                                </DropdownMenuItem>
                                               </DropdownMenuContent>
                                             </DropdownMenu>
                                           )}
@@ -4106,7 +4162,7 @@ export function WorkloadBoard({
                                         <React.Fragment key={task.id}>
                                           {/* ================= TASK ROW ================= */}
                                           <tr
-                                            className="border-t border-b border-border hover:bg-muted/40 cursor-pointer"
+                                            className="border-t border-b border-border hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
                                             onClick={() => {
                                               setSelectedTaskId(task.id);
                                               setSheetTaskCardOpen(true);
@@ -4184,7 +4240,7 @@ export function WorkloadBoard({
                                               return (
                                                 <tr
                                                   key={subtask.id}
-                                                  className="  hover:bg-muted/30 border-b border-border"
+                                                  className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 border-b border-border transition-colors"
                                                 >
                                                   <td
                                                     className="p-4 text-center border-r border-border"
@@ -4378,6 +4434,10 @@ export function WorkloadBoard({
                                           <button
                                             onClick={() => {
                                               setAddingItemToGroup(group.id);
+                                              // Scroll the main flex container to the right
+                                              if (mainFlexContainerRef.current) {
+                                                mainFlexContainerRef.current.scrollLeft = mainFlexContainerRef.current.scrollWidth;
+                                              }
                                             }}
                                             className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 "
                                           >

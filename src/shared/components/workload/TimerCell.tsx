@@ -9,6 +9,7 @@ interface TimerCellProps {
   activeTimerId: string | null;
   onTimerStart: (taskId: string | null) => void;
   onTimerConflict?: (taskId: string) => void;
+  hasAssignee?: boolean;
 }
 
 export function TimerCell({
@@ -17,6 +18,7 @@ export function TimerCell({
   activeTimerId,
   onTimerStart,
   onTimerConflict,
+  hasAssignee = false,
 }: TimerCellProps) {
   const [seconds, setSeconds] = useState(trackedTimeSeconds);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +54,12 @@ export function TimerCell({
   };
 
   const handlePlayPause = async () => {
+    // Check if assignee exists before starting timer
+    if (!hasAssignee && !isRunning) {
+      toast.error("Please assign a person before starting the timer");
+      return;
+    }
+
     setIsLoading(true);
     try {
       if (isRunning) {
@@ -92,9 +100,15 @@ export function TimerCell({
     >
       <button
         onClick={handlePlayPause}
-        disabled={isLoading}
+        disabled={isLoading || (!hasAssignee && !isRunning)}
         className="p-2 hover:bg-muted rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        title={isRunning ? "Pause" : "Start"}
+        title={
+          !hasAssignee && !isRunning
+            ? "Assign a person first"
+            : isRunning
+            ? "Pause"
+            : "Start"
+        }
       >
         {isRunning ? (
           <Pause className="h-4 w-4 text-foreground" />
