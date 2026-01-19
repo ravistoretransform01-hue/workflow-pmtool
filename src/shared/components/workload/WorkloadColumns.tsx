@@ -22,10 +22,10 @@ import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { Input } from "@/shared/components/ui/input";
-import { Progress } from "@/shared/components/ui/progress";
 import { format, parseISO, parse } from "date-fns";
 import { TagsColumnCell } from "./TagsColumnCell";
 import { TimerCell } from "./TimerCell";
+import { ProgressBarCell } from "./ProgressBarCell";
 
 function stringToHslColor(str: string, s = 70, l = 55): string {
   let hash = 0;
@@ -421,37 +421,78 @@ function EstimatedDatePicker({
         return { from, to };
       }
 
-      // Fallback: parse the formatted estimatedDate string (e.g., "Jan 14 – Jan 16" or "15 Jan, 2026  -  19 Jan, 2026")
+      // Fallback: parse the formatted estimatedDate string
       if (estimatedDate && estimatedDate !== "-") {
-        const parts = estimatedDate.split("  -  ");
-        if (parts.length === 2) {
-          // Range format: "15 Jan, 2026  -  19 Jan, 2026"
+        // Try format: "15 Jan, 2026  -  19 Jan, 2026"
+        const doubleSpaceParts = estimatedDate.split("  -  ");
+        if (doubleSpaceParts.length === 2) {
           try {
-            const from = parse(parts[0].trim(), "dd MMM, yyyy", new Date());
-            const to = parse(parts[1].trim(), "dd MMM, yyyy", new Date());
+            const from = parse(doubleSpaceParts[0].trim(), "dd MMM, yyyy", new Date());
+            const to = parse(doubleSpaceParts[1].trim(), "dd MMM, yyyy", new Date());
             if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
               return { from, to };
             }
           } catch {
-            // Try alternative format
+            // Continue to next format
           }
         }
         
-        // Try new format: "Jan 14 – Jan 16"
-        const dashParts = estimatedDate.split("–");
-        if (dashParts.length === 2) {
+        // Try format: "Jan 19 - 30" (same month and year)
+        const singleDashParts = estimatedDate.split(" - ");
+        if (singleDashParts.length === 2) {
           try {
-            const fromStr = dashParts[0].trim();
-            const toStr = dashParts[1].trim();
+            const fromStr = singleDashParts[0].trim();
+            const toStr = singleDashParts[1].trim();
             
-            // Parse "Jan 14" format
-            const from = parse(fromStr, "MMM dd", new Date());
-            const to = parse(toStr, "MMM dd", new Date());
+            // Parse "Jan 19" and "30" format
+            const from = parse(fromStr, "MMM d", new Date());
+            const toDay = parseInt(toStr);
             
-            if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+            if (!isNaN(from.getTime()) && !isNaN(toDay)) {
+              const to = new Date(from);
+              to.setDate(toDay);
               return { from, to };
             }
           } catch {
+            // Continue to next format
+          }
+        }
+        
+        // Try format: "Jan 31 – Feb 15" or "Dec 31, '26 – Jan 8, '27" (with en-dash)
+        const enDashParts = estimatedDate.split("–");
+        if (enDashParts.length === 2) {
+          try {
+            let fromStr = enDashParts[0].trim();
+            let toStr = enDashParts[1].trim();
+            
+            // Check if format includes year with apostrophe (e.g., "Dec 30, '26")
+            const hasYearWithApostrophe = /,\s*'?\d{2}$/.test(fromStr) || /,\s*'?\d{2}$/.test(toStr);
+            
+            if (hasYearWithApostrophe) {
+              // Remove apostrophes and parse with full year format
+              fromStr = fromStr.replace(/'/g, "");
+              toStr = toStr.replace(/'/g, "");
+              
+              // Parse "Dec 30, 26" format - need to handle 2-digit year
+              // date-fns yy format interprets 00-68 as 2000-2068, 69-99 as 1969-1999
+              // So '26 becomes 2026 correctly
+              let from = parse(fromStr, "MMM d, yy", new Date());
+              let to = parse(toStr, "MMM d, yy", new Date());
+              
+              if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+                return { from, to };
+              }
+            } else {
+              // Format without year (e.g., "Jan 31 – Feb 15")
+              let from = parse(fromStr, "MMM d", new Date());
+              let to = parse(toStr, "MMM d", new Date());
+              
+              if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+                return { from, to };
+              }
+            }
+          } catch (error) {
+            console.warn("Failed to parse en-dash format:", error, { fromStr: enDashParts[0], toStr: enDashParts[1] });
             // Continue to next format
           }
         }
@@ -480,10 +521,20 @@ function EstimatedDatePicker({
     { from?: Date; to?: Date } | undefined
   >(getInitialDateRange());
 
+  // State to track which month to display in the calendar
+  const [displayMonth, setDisplayMonth] = useState<Date | undefined>(undefined);
+
   // Update dateRange when task.estimation changes (e.g., when popover opens)
   useEffect(() => {
     if (openPopoverId === popoverId) {
-      setDateRange(getInitialDateRange());
+      const range = getInitialDateRange();
+      setDateRange(range);
+      // Set display month to the start date of the range, or current month if no range
+      if (range?.from) {
+        setDisplayMonth(range.from);
+      } else {
+        setDisplayMonth(new Date());
+      }
     }
   }, [openPopoverId, popoverId, task.estimation, estimatedDate]);
 
@@ -539,6 +590,8 @@ function EstimatedDatePicker({
             disabled={(date) =>
               date < new Date(new Date().setHours(0, 0, 0, 0))
             }
+            month={displayMonth}
+            onMonthChange={setDisplayMonth}
           />
           <div className="flex gap-2 justify-end">
             <Button
@@ -722,7 +775,8 @@ function EstimatedTimePicker({
                   placeholder="0"
                   value={hours}
                   onChange={(e) => setHours(e.target.value)}
-                  className="h-9 w-20 text-sm"
+                  className="h-9 w-20 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  style={{ MozAppearance: 'textfield' }}
                   min="0"
                   max="999"
                 />
@@ -740,7 +794,8 @@ function EstimatedTimePicker({
                       setMinutes(e.target.value);
                     }
                   }}
-                  className="h-9 w-20 text-sm"
+                  className="h-9 w-20 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  style={{ MozAppearance: 'textfield' }}
                   min="0"
                   max="59"
                 />
@@ -1584,70 +1639,14 @@ export const getWorkloadColumns = ({
       width: "180px",
       align: "center",
       render: (task: any) => {
-        // Calculate progress based on tracked time vs estimated time
-        const trackedSeconds = task.tracked_time_seconds || 0;
-        const estimatedHours = task.estimatedHours;
-        
-        // If no estimated hours, show 0% progress
-        if (!estimatedHours || estimatedHours === "-" || estimatedHours === 0) {
-          return (
-            <div className="w-full px-2">
-              <div className="relative">
-                <Progress value={0} className="h-6" style={{ ['--progress-bg' as any]: 'rgb(154, 154, 173)' } as React.CSSProperties} />
-                <style>{`
-                  .h-6 > div { background-color: rgb(154, 154, 173) !important; }
-                `}</style>
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
-                  0%
-                </span>
-              </div>
-            </div>
-          );
-        }
-        
-        // Parse estimated time to seconds
-        let estimatedSeconds = 0;
-        const strValue = String(estimatedHours);
-        
-        // Check if it's in "02h 30m" format
-        const match = strValue.match(/(\d+)h\s*(\d+)m/);
-        if (match) {
-          const hrs = parseInt(match[1]) || 0;
-          const mins = parseInt(match[2]) || 0;
-          estimatedSeconds = (hrs * 3600) + (mins * 60);
-        } else {
-          // Check if it's in "2h" format
-          const hoursMatch = strValue.match(/(\d+)h/);
-          if (hoursMatch) {
-            estimatedSeconds = parseInt(hoursMatch[1]) * 3600;
-          } else {
-            // Otherwise treat as numeric hours
-            estimatedSeconds = Number(estimatedHours) * 3600;
-          }
-        }
-        
-        // Calculate percentage (cap at 100%)
-        const percentage = estimatedSeconds > 0 
-          ? Math.min(100, Math.round((trackedSeconds / estimatedSeconds) * 100))
-          : 0;
-        
+        const estimatedHours = task.estimatedHours ?? "-";
         return (
-          <div className="w-full px-2">
-            <div className="relative">
-              <div className="relative h-6 w-full overflow-hidden rounded-full bg-secondary">
-                <div 
-                  className="h-full transition-all"
-                  style={{ 
-                    width: `${percentage}%`,
-                    backgroundColor: 'rgb(154, 154, 173)'
-                  }}
-                />
-              </div>
-              <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
-                {percentage}%
-              </span>
-            </div>
-          </div>
+          <ProgressBarCell
+            taskId={task.id}
+            trackedTimeSeconds={task.tracked_time_seconds || 0}
+            activeTimerId={task.activeTimerId}
+            estimatedHours={estimatedHours}
+          />
         );
       },
     },
@@ -1699,6 +1698,7 @@ export const getWorkloadColumns = ({
       align: "center",
       render: (task: any) => {
         const hasAssignee = task.assigned_to_ids && task.assigned_to_ids.length > 0;
+        const estimatedHours = task.estimatedHours ?? "-";
         return (
           <TimerCell
             taskId={task.id}
@@ -1707,6 +1707,7 @@ export const getWorkloadColumns = ({
             onTimerStart={task.onTimerStart}
             onTimerConflict={task.onTimerConflict}
             hasAssignee={hasAssignee}
+            estimatedHours={estimatedHours}
           />
         );
       },
