@@ -252,7 +252,7 @@ const calculateGroupProgress = (tasks: Task[]) => {
 };
 
 // Helper function to format date range in compact format
-// Examples: "12 - 17 Jan", "Jan 31 – Feb 15", "Dec 31, '26 – Jan 8, '27"
+// Examples: "Jan 19 - 30", "Jan 31 – Feb 15", "Dec 31, '26 – Jan 8, '27"
 const formatDateRange = (fromDate: string, toDate?: string): string => {
   try {
     const from = parseISO(fromDate);
@@ -271,9 +271,9 @@ const formatDateRange = (fromDate: string, toDate?: string): string => {
       return `${fromMonth} ${fromDay}, '${fromYear}`;
     }
     
-    // If same month and year, format as "12 - 17 Jan"
+    // If same month and year, format as "Jan 19 - 30"
     if (fromMonth === toMonth && fromYear === toYear) {
-      return `${fromDay} - ${toDay} ${fromMonth}`;
+      return `${fromMonth} ${fromDay} - ${toDay}`;
     }
     
     // If same year, format as "Jan 31 – Feb 15"
