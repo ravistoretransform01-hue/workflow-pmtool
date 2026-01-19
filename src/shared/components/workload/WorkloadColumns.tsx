@@ -1569,7 +1569,10 @@ export const getWorkloadColumns = ({
         const ratingCount = task.ratingCount || 0;
         const popoverId = `rating-${task.id}`;
         const hasAssignee = task.assigned_to_ids && task.assigned_to_ids.length > 0;
-        const isDone = task.status === "Done" || task.status_id === "done";
+        
+        // Check if status is "Done" by looking up the status name from the map
+        const statusObj = statusMap.get(task.status_id);
+        const isDone = statusObj?.name === "Done";
 
         return (
           <RatingStars
@@ -1711,13 +1714,6 @@ export const getWorkloadColumns = ({
           />
         );
       },
-    },
-    {
-      id: "time",
-      label: "Time Spent",
-      width: "128px",
-      align: "center",
-      render: (task: any) => task.timeSpent ?? "-",
     },
   ];
 };
