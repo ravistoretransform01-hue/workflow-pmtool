@@ -10,7 +10,7 @@ interface TimePickerInputProps {
   placeholder?: string;
 }
 
-export function TimePickerInput({ value, onChange, onBlur, className, placeholder }: TimePickerInputProps) {
+export function TimePickerInput({ value, onChange, onBlur, className }: TimePickerInputProps) {
   // Parse the incoming value to get hour, minute, and period
   const parseTime = (timeStr: string): { hour: string; minute: string; period: "AM" | "PM" } => {
     if (!timeStr || timeStr === "-") {
