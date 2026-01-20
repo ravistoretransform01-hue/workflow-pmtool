@@ -6,6 +6,7 @@ import {
   Pencil,
   X,
   Search,
+  Clock,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
@@ -26,6 +27,7 @@ import { format, parseISO, parse } from "date-fns";
 import { TagsColumnCell } from "./TagsColumnCell";
 import { TimerCell } from "./TimerCell";
 import { ProgressBarCell } from "./ProgressBarCell";
+import { TimePickerInput } from "@/shared/components/TimePickerInput";
 
 function stringToHslColor(str: string, s = 70, l = 55): string {
   let hash = 0;
@@ -524,6 +526,11 @@ function EstimatedDatePicker({
   // State to track which month to display in the calendar
   const [displayMonth, setDisplayMonth] = useState<Date | undefined>(undefined);
 
+  // State for time inputs
+  const [showTimeInputs, setShowTimeInputs] = useState(false);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+
   // Update dateRange when task.estimation changes (e.g., when popover opens)
   useEffect(() => {
     if (openPopoverId === popoverId) {
@@ -570,6 +577,7 @@ function EstimatedDatePicker({
         align="center"
       >
         <div className="space-y-4">
+          {/* Header with title and clock button */}
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-sm">Select Date Range</h3>
             <button
@@ -579,6 +587,39 @@ function EstimatedDatePicker({
               <X className="h-4 w-4" />
             </button>
           </div>
+
+          {/* Time inputs - toggle with clock button */}
+          {showTimeInputs && (
+            <div className="p-4 border-y border-[#334155] space-y-4">
+              {/* Start Time */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white">Start Time</label>
+                <TimePickerInput
+                  value={startTime}
+                  onChange={(e) => setStartTime(e)}
+                  onBlur={() => {
+                    // Save when field loses focus
+                  }}
+                  placeholder="Type time (e.g., 10:00am)"
+                />
+              </div>
+
+              {/* End Time */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white">End Time</label>
+                <TimePickerInput
+                  value={endTime}
+                  onChange={(e) => setEndTime(e)}
+                  onBlur={() => {
+                    // Save when field loses focus
+                  }}
+                  placeholder="Type time (e.g., 11:00am)"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Calendar */}
           <Calendar
             mode="range"
             selected={
@@ -593,61 +634,72 @@ function EstimatedDatePicker({
             month={displayMonth}
             onMonthChange={setDisplayMonth}
           />
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-between items-center">
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setDateRange(undefined);
-                onEstimatedDateChange?.(task.id, null);
-                setOpenPopoverId?.(null);
-              }}
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowTimeInputs(!showTimeInputs)}
+              className={`h-8 w-8 p-0 text-white ${showTimeInputs ? "bg-primary" : "hover:bg-[#4b5563]"}`}
+              title="Toggle time inputs"
             >
-              Clear
+              <Clock className="h-5 w-5" />
             </Button>
-            <Button
-              size="sm"
-              onClick={async () => {
-                if (dateRange?.from) {
-                  const fromDate = format(dateRange.from, "yyyy-MM-dd");
-                  const toDate = dateRange.to
-                    ? format(dateRange.to, "yyyy-MM-dd")
-                    : fromDate;
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDateRange(undefined);
+                  onEstimatedDateChange?.(task.id, null);
+                  setOpenPopoverId?.(null);
+                }}
+              >
+                Clear
+              </Button>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (dateRange?.from) {
+                    const fromDate = format(dateRange.from, "yyyy-MM-dd");
+                    const toDate = dateRange.to
+                      ? format(dateRange.to, "yyyy-MM-dd")
+                      : fromDate;
 
-                  try {
-                    // Check if estimation already exists by checking if estimatedDate is not "-"
-                    const hasEstimation =
-                      estimatedDate && estimatedDate !== "-";
+                    try {
+                      // Check if estimation already exists by checking if estimatedDate is not "-"
+                      const hasEstimation =
+                        estimatedDate && estimatedDate !== "-";
 
-                    if (hasEstimation) {
-                      // Update existing estimation
-                      await tasksApi.updateEstimatedDate({
-                        task_id: task.id,
-                        estimated_date_from: fromDate,
-                        estimated_date_to: toDate,
-                      });
-                    } else {
-                      // Create new estimation
-                      await tasksApi.createEstimatedDate({
-                        task_id: task.id,
-                        estimated_date_from: fromDate,
-                        estimated_date_to: toDate,
-                      });
+                      if (hasEstimation) {
+                        // Update existing estimation
+                        await tasksApi.updateEstimatedDate({
+                          task_id: task.id,
+                          estimated_date_from: fromDate,
+                          estimated_date_to: toDate,
+                        });
+                      } else {
+                        // Create new estimation
+                        await tasksApi.createEstimatedDate({
+                          task_id: task.id,
+                          estimated_date_from: fromDate,
+                          estimated_date_to: toDate,
+                        });
+                      }
+
+                      // Update local state
+                      onEstimatedDateChange?.(task.id, fromDate, toDate);
+                      setOpenPopoverId?.(null);
+                      toast.success("Estimated date updated successfully");
+                    } catch (error) {
+                      console.error("Failed to update estimated date:", error);
+                      toast.error("Failed to update estimated date");
                     }
-
-                    // Update local state
-                    onEstimatedDateChange?.(task.id, fromDate, toDate);
-                    setOpenPopoverId?.(null);
-                    toast.success("Estimated date updated successfully");
-                  } catch (error) {
-                    console.error("Failed to update estimated date:", error);
-                    toast.error("Failed to update estimated date");
                   }
-                }
-              }}
-            >
-              Done
-            </Button>
+                }}
+              >
+                Done
+              </Button>
+            </div>
           </div>
         </div>
       </PopoverContent>
@@ -956,7 +1008,7 @@ function StatusPopover({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-80 p-3 bg-card border border-border shadow-lg rounded-lg"
+        className="w-max p-3 bg-card border border-border shadow-lg rounded-lg"
         align="center"
       >
         <div className="flex flex-col">
@@ -1041,7 +1093,7 @@ function StatusPopover({
                   setOpenPopoverId?.(null);
                 }}
                 title={status.name}
-                className="flex flex-col items-center gap-2 px-3 py-2 rounded-lg hover:opacity-80 transition-opacity text-sm font-medium overflow-hidden"
+                className="flex flex-col items-center gap-2 px-3 py-2 rounded-sm hover:opacity-80 transition-opacity text-sm font-medium overflow-hidden"
                 style={{
                   backgroundColor: status.color_code,
                   color: "white",
