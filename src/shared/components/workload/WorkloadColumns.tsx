@@ -966,7 +966,7 @@ function StatusPopover({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 hover:bg-primary/10"
+              className="h-6 w-6 p-0 hover:bg-primary"
               onClick={() => setShowCreateForm(!showCreateForm)}
               title="Create New Status"
             >
@@ -1167,7 +1167,7 @@ function PriorityPopover({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 hover:bg-primary/10"
+              className="h-6 w-6 p-0 hover:bg-primary"
               onClick={() => setShowCreateForm(!showCreateForm)}
               title="Create New Priority"
             >

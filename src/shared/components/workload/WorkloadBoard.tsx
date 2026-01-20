@@ -3890,7 +3890,7 @@ export function WorkloadBoard({
                                             <Button
                                               variant="ghost"
                                               size="sm"
-                                              className="h-6 w-6 p-0 hover:bg-primary/10"
+                                              className="h-6 w-6 p-0 hover:bg-primary"
                                               onClick={() => {
                                                 setIsCreatingLabel(true);
                                                 setLabelDropdownOpen(false);
