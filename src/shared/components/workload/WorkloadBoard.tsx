@@ -2994,6 +2994,8 @@ export function WorkloadBoard({
   // Synchronized horizontal scrolling for all group tables
   const tableScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [maxScrollWidth, setMaxScrollWidth] = useState(0);
+  const groupsContainerRef = useRef<HTMLDivElement | null>(null);
+  const [stickyGroupId, setStickyGroupId] = useState<string | null>(null);
 
   const handleTableScroll = (groupId: string, scrollLeft: number) => {
     // Scroll all other tables to the same position
@@ -3020,6 +3022,33 @@ export function WorkloadBoard({
       }
     }
   }, [workloadColumns, groups]);
+
+  // Handle scroll event to detect sticky group header
+  useEffect(() => {
+    const container = groupsContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      // Find which group header is currently at the top (sticky)
+      const groupHeaders = container.querySelectorAll('[data-group-header]');
+      let currentStickyGroupId: string | null = null;
+
+      groupHeaders.forEach((header) => {
+        const rect = header.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        
+        // Check if header is at the top of the container (sticky position)
+        if (rect.top <= containerRect.top + 1 && rect.bottom > containerRect.top) {
+          currentStickyGroupId = header.getAttribute('data-group-id');
+        }
+      });
+
+      setStickyGroupId(currentStickyGroupId);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
@@ -3598,7 +3627,7 @@ export function WorkloadBoard({
             </div>
 
             {/* Task Groups Container - ONLY scrollable element */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" ref={groupsContainerRef}>
                 <DndContext
                   sensors={groupSensors}
                   collisionDetection={closestCenter}
@@ -3608,7 +3637,7 @@ export function WorkloadBoard({
                     items={getFilteredGroups().map((g) => g.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    <div className="space-y-6">
+                    <div className="space-y-6 py-4">
                     {getFilteredGroups().length === 0 ? (
                       <div className="text-center py-12">
                         {mainTableSearchQuery.trim() ? (
@@ -3637,7 +3666,7 @@ export function WorkloadBoard({
                         <SortableGroupCard key={group.id} group={group}>
                           {(dragListeners, dragAttributes) => (
                             <div
-                              className="bg-card border border-border overflow-hidden flex-1 border-l-4"
+                              className="bg-card border border-border flex-1 border-l-4"
                               style={{
                                 borderLeftColor: group.color || "#3b82f6",
                               }}
@@ -3646,7 +3675,11 @@ export function WorkloadBoard({
                             >
                               {/* Group Header */}
 
-                              <div className="group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing">
+                              <div 
+                                className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-30 bg-muted border-b border-border ${stickyGroupId === group.id ? 'shadow-md' : ''}`}
+                                data-group-header
+                                data-group-id={group.id}
+                              >
                                 {/* Group Actions Dropdown */}
                                 <DropdownMenu
                                   open={groupDropdownOpen === group.id}
@@ -4186,7 +4219,7 @@ export function WorkloadBoard({
                                       items={workloadColumns.map((c) => c.id)}
                                       strategy={horizontalListSortingStrategy}
                                     >
-                                      <thead className="border-b border-border bg-muted/30">
+                                      <thead className="border-b border-border bg-muted/30   top-0 z-30">
                                         <tr className="text-sm text-muted-foreground">
                                           <th className="p-4 w-12 border-r border-border text-center sticky left-0 z-10 bg-card">
                                             <input
