@@ -55,15 +55,13 @@ function ProtectedRoute() {
 
  function ProtectedLayout() {
   return (
-    <SidebarProvider defaultOpen className="flex">
-      <div className="min-h-screen flex w-full">
+    <SidebarProvider defaultOpen className="flex h-screen overflow-hidden">
+      <div className="flex w-full h-full overflow-hidden">
         <AppSidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
           <Header />
           <main className="flex-1 overflow-hidden">
-            <div className="h-full w-full overflow-hidden">
-              <Outlet />
-            </div>
+            <Outlet />
           </main>
         </div>
       </div>

@@ -3022,7 +3022,7 @@ export function WorkloadBoard({
   }, [workloadColumns, groups]);
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-background overflow-hidden">
       {/* Image resize styles */}
       <style>{`
         .image-resize-wrapper:hover {
@@ -4559,7 +4559,7 @@ export function WorkloadBoard({
 
         {/* Unified Horizontal Scrollbar at Bottom */}
         <div 
-          className="h-4 overflow-x-scroll border-t border-border bg-muted"
+          className="h-5 overflow-x-scroll border-t border-border bg-muted flex-shrink-0"
           data-unified-scrollbar
           ref={(el) => {
             if (el && Object.keys(tableScrollRefs.current).length > 0) {
