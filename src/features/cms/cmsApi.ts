@@ -6,6 +6,7 @@ const CMS_ENDPOINTS = {
   CREATE_LABEL: `/labels`,
   CREATE_TAG: `/tags`,
   CREATE_STATUS: `/task-status`,
+  UPDATE_STATUS: `/task-status`,
   CREATE_PRIORITY: `/task-priority`,
 };
 
@@ -93,6 +94,29 @@ export const cmsApi = {
       return response.data.data || response.data;
     } catch (error) {
       console.error("Failed to create status:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update an existing status
+   */
+  updateStatus: async (payload: {
+    status_id: string;
+    name: string;
+    color_code: string;
+    organization_id?: number;
+    board_id?: number;
+  }): Promise<any> => {
+    try {
+      const response = await axios.put<any>(
+        CMS_ENDPOINTS.UPDATE_STATUS,
+        payload
+      );
+
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error("Failed to update status:", error);
       throw error;
     }
   },

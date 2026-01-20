@@ -6,11 +6,18 @@ import {
   Pencil,
   X,
   Search,
+  Clock,
+  Trash,
+  Palette,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { cmsApi } from "@/features/cms/cmsApi";
-import { addStatusToCache, addPriorityToCache } from "@/features/cms/cmsStorage";
+import {
+  addStatusToCache,
+  addPriorityToCache,
+  updateStatusInCache,
+} from "@/features/cms/cmsStorage";
 import { getOrganizationId } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -26,6 +33,7 @@ import { format, parseISO, parse } from "date-fns";
 import { TagsColumnCell } from "./TagsColumnCell";
 import { TimerCell } from "./TimerCell";
 import { ProgressBarCell } from "./ProgressBarCell";
+import { TimePickerInput } from "@/shared/components/TimePickerInput";
 
 function stringToHslColor(str: string, s = 70, l = 55): string {
   let hash = 0;
@@ -34,6 +42,97 @@ function stringToHslColor(str: string, s = 70, l = 55): string {
   }
   const h = Math.abs(hash) % 360;
   return `hsl(${h} ${s}% ${l}%)`;
+}
+
+// Reusable Color Picker Component
+function ColorPickerPopover({
+  color,
+  onColorChange,
+  isOpen,
+  onOpenChange,
+  size = "w-6 h-6",
+}: {
+  color: string;
+  onColorChange: (color: string) => void;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  size?: string;
+}) {
+  const [tempColor, setTempColor] = useState(color);
+
+  useEffect(() => {
+    setTempColor(color);
+  }, [color, isOpen]);
+
+  return (
+    <Popover open={isOpen} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <div
+          className={`relative ${size} rounded flex-shrink-0 cursor-pointer hover:opacity-80 border border-border flex items-center justify-center`}
+          style={{ backgroundColor: color }}
+          title="Click to change color"
+        >
+          <Palette className="h-3 w-3 text-white opacity-70 drop-shadow pointer-events-none" />
+        </div>
+      </PopoverTrigger>
+      <PopoverContent
+        className="p-3 bg-card border border-border shadow-lg rounded-lg"
+        style={{ width: "400px" }}
+        align="start"
+      >
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium">Select Color</h4>
+          {/* Preset Colors + Custom Color in Grid */}
+          <div className="grid grid-cols-4 gap-2">
+            {PRESET_COLORS.map((presetColor) => (
+              <button
+                key={presetColor}
+                onClick={() => {
+                  onColorChange(presetColor);
+                  onOpenChange(false);
+                }}
+                className={`h-10 rounded border-2 ${
+                  color === presetColor
+                    ? "border-foreground"
+                    : "border-transparent"
+                }`}
+                style={{ backgroundColor: presetColor }}
+                title={presetColor}
+              />
+            ))}
+            {/* Custom Color Picker Button */}
+            <div className="flex flex-col gap-1 items-center justify-center relative">
+              <input
+                type="color"
+                value={tempColor}
+                onChange={(e) => {
+                  setTempColor(e.target.value);
+                  onColorChange(e.target.value);
+                }}
+                className="w-full h-10 rounded cursor-pointer border border-border"
+              />
+              <Palette className="h-6 w-6 text-white absolute pointer-events-none" />
+            </div>
+          </div>
+          {/* Hex Input for Custom Color */}
+          <div className="flex gap-2 items-center">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">
+              Hex:
+            </label>
+            <Input
+              value={tempColor}
+              onChange={(e) => {
+                setTempColor(e.target.value);
+                onColorChange(e.target.value);
+              }}
+              className="h-8 text-xs flex-1"
+              placeholder="#000000"
+            />
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 // Preset colors for status and priority creation
@@ -46,6 +145,14 @@ const PRESET_COLORS = [
   "#ff8400", // orange
   "#ec4899", // pink
   "#10b981", // emerald
+  "#06b6d4", // cyan
+  "#8b5cf6", // violet
+  "#f59e0b", // amber
+  "#ef4444", // rose
+  "#14b8a6", // teal
+  "#6366f1", // indigo
+  "#f97316", // orange-600
+  // "#84cc16", // lime
 ];
 
 // Component for person selection with search
@@ -68,11 +175,11 @@ function PersonPopover({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [localSelected, setLocalSelected] = useState<string | null>(
-    selectedMemberIds?.[0] || null
+    selectedMemberIds?.[0] || null,
   );
 
   const filteredMembers = members.filter((member) =>
-    (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+    (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleMemberSelect = (memberId: string) => {
@@ -101,7 +208,7 @@ function PersonPopover({
             <div className="flex justify-center">
               {(() => {
                 const member = members.find(
-                  (m) => String(m.user_id) === String(localSelected)
+                  (m) => String(m.user_id) === String(localSelected),
                 );
                 if (!member) return null;
                 const name = (member?.name ?? "").trim();
@@ -113,7 +220,7 @@ function PersonPopover({
                   .join("")
                   .toUpperCase();
                 const bgColor = stringToHslColor(
-                  name || String(member?.user_id || "user")
+                  name || String(member?.user_id || "user"),
                 );
                 return (
                   <Avatar className="h-8 w-8 border-2 border-background">
@@ -188,7 +295,7 @@ function PersonPopover({
                   .toUpperCase();
 
                 const bgColor = stringToHslColor(
-                  name || String(member?.user_id || "user")
+                  name || String(member?.user_id || "user"),
                 );
 
                 const isSelected = localSelected === String(member.user_id);
@@ -314,10 +421,10 @@ function RatingStars({
             !hasAssignee
               ? "Assign a person first"
               : !isDone
-              ? "Task must be marked as Done"
-              : ratingCount
-              ? `${ratingCount} rating${ratingCount !== 1 ? "s" : ""}`
-              : "No ratings"
+                ? "Task must be marked as Done"
+                : ratingCount
+                  ? `${ratingCount} rating${ratingCount !== 1 ? "s" : ""}`
+                  : "No ratings"
           }
           disabled={!hasAssignee || !isDone}
         >
@@ -406,7 +513,7 @@ function EstimatedDatePicker({
   onEstimatedDateChange?: (
     taskId: string,
     fromDate: string | null,
-    toDate?: string | null
+    toDate?: string | null,
   ) => void;
 }) {
   // Initialize date range from task.estimation object or formatted estimatedDate string
@@ -427,8 +534,16 @@ function EstimatedDatePicker({
         const doubleSpaceParts = estimatedDate.split("  -  ");
         if (doubleSpaceParts.length === 2) {
           try {
-            const from = parse(doubleSpaceParts[0].trim(), "dd MMM, yyyy", new Date());
-            const to = parse(doubleSpaceParts[1].trim(), "dd MMM, yyyy", new Date());
+            const from = parse(
+              doubleSpaceParts[0].trim(),
+              "dd MMM, yyyy",
+              new Date(),
+            );
+            const to = parse(
+              doubleSpaceParts[1].trim(),
+              "dd MMM, yyyy",
+              new Date(),
+            );
             if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
               return { from, to };
             }
@@ -436,18 +551,18 @@ function EstimatedDatePicker({
             // Continue to next format
           }
         }
-        
+
         // Try format: "Jan 19 - 30" (same month and year)
         const singleDashParts = estimatedDate.split(" - ");
         if (singleDashParts.length === 2) {
           try {
             const fromStr = singleDashParts[0].trim();
             const toStr = singleDashParts[1].trim();
-            
+
             // Parse "Jan 19" and "30" format
             const from = parse(fromStr, "MMM d", new Date());
             const toDay = parseInt(toStr);
-            
+
             if (!isNaN(from.getTime()) && !isNaN(toDay)) {
               const to = new Date(from);
               to.setDate(toDay);
@@ -457,28 +572,29 @@ function EstimatedDatePicker({
             // Continue to next format
           }
         }
-        
+
         // Try format: "Jan 31 – Feb 15" or "Dec 31, '26 – Jan 8, '27" (with en-dash)
         const enDashParts = estimatedDate.split("–");
         if (enDashParts.length === 2) {
           try {
             let fromStr = enDashParts[0].trim();
             let toStr = enDashParts[1].trim();
-            
+
             // Check if format includes year with apostrophe (e.g., "Dec 30, '26")
-            const hasYearWithApostrophe = /,\s*'?\d{2}$/.test(fromStr) || /,\s*'?\d{2}$/.test(toStr);
-            
+            const hasYearWithApostrophe =
+              /,\s*'?\d{2}$/.test(fromStr) || /,\s*'?\d{2}$/.test(toStr);
+
             if (hasYearWithApostrophe) {
               // Remove apostrophes and parse with full year format
               fromStr = fromStr.replace(/'/g, "");
               toStr = toStr.replace(/'/g, "");
-              
+
               // Parse "Dec 30, 26" format - need to handle 2-digit year
               // date-fns yy format interprets 00-68 as 2000-2068, 69-99 as 1969-1999
               // So '26 becomes 2026 correctly
               let from = parse(fromStr, "MMM d, yy", new Date());
               let to = parse(toStr, "MMM d, yy", new Date());
-              
+
               if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
                 return { from, to };
               }
@@ -486,17 +602,20 @@ function EstimatedDatePicker({
               // Format without year (e.g., "Jan 31 – Feb 15")
               let from = parse(fromStr, "MMM d", new Date());
               let to = parse(toStr, "MMM d", new Date());
-              
+
               if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
                 return { from, to };
               }
             }
           } catch (error) {
-            console.warn("Failed to parse en-dash format:", error, { fromStr: enDashParts[0], toStr: enDashParts[1] });
+            console.warn("Failed to parse en-dash format:", error, {
+              fromStr: enDashParts[0],
+              toStr: enDashParts[1],
+            });
             // Continue to next format
           }
         }
-        
+
         // Try single date format
         try {
           const from = parse(estimatedDate.trim(), "dd MMM, yyyy", new Date());
@@ -524,6 +643,11 @@ function EstimatedDatePicker({
   // State to track which month to display in the calendar
   const [displayMonth, setDisplayMonth] = useState<Date | undefined>(undefined);
 
+  // State for time inputs
+  const [showTimeInputs, setShowTimeInputs] = useState(false);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+
   // Update dateRange when task.estimation changes (e.g., when popover opens)
   useEffect(() => {
     if (openPopoverId === popoverId) {
@@ -539,7 +663,7 @@ function EstimatedDatePicker({
   }, [openPopoverId, popoverId, task.estimation, estimatedDate]);
 
   const handleDateRangeChange = (
-    range: { from?: Date; to?: Date } | undefined
+    range: { from?: Date; to?: Date } | undefined,
   ) => {
     setDateRange(range);
   };
@@ -570,6 +694,7 @@ function EstimatedDatePicker({
         align="center"
       >
         <div className="space-y-4">
+          {/* Header with title and clock button */}
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-sm">Select Date Range</h3>
             <button
@@ -579,6 +704,43 @@ function EstimatedDatePicker({
               <X className="h-4 w-4" />
             </button>
           </div>
+
+          {/* Time inputs - toggle with clock button */}
+          {showTimeInputs && (
+            <div className="p-4 border-y border-[#334155] space-y-4">
+              {/* Start Time */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white">
+                  Start Time
+                </label>
+                <TimePickerInput
+                  value={startTime}
+                  onChange={(e) => setStartTime(e)}
+                  onBlur={() => {
+                    // Save when field loses focus
+                  }}
+                  placeholder="Type time (e.g., 10:00am)"
+                />
+              </div>
+
+              {/* End Time */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white">
+                  End Time
+                </label>
+                <TimePickerInput
+                  value={endTime}
+                  onChange={(e) => setEndTime(e)}
+                  onBlur={() => {
+                    // Save when field loses focus
+                  }}
+                  placeholder="Type time (e.g., 11:00am)"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Calendar */}
           <Calendar
             mode="range"
             selected={
@@ -593,61 +755,72 @@ function EstimatedDatePicker({
             month={displayMonth}
             onMonthChange={setDisplayMonth}
           />
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-between items-center">
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setDateRange(undefined);
-                onEstimatedDateChange?.(task.id, null);
-                setOpenPopoverId?.(null);
-              }}
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowTimeInputs(!showTimeInputs)}
+              className={`h-8 w-8 p-0 text-white ${showTimeInputs ? "bg-primary" : "hover:bg-[#4b5563]"}`}
+              title="Toggle time inputs"
             >
-              Clear
+              <Clock className="h-5 w-5" />
             </Button>
-            <Button
-              size="sm"
-              onClick={async () => {
-                if (dateRange?.from) {
-                  const fromDate = format(dateRange.from, "yyyy-MM-dd");
-                  const toDate = dateRange.to
-                    ? format(dateRange.to, "yyyy-MM-dd")
-                    : fromDate;
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDateRange(undefined);
+                  onEstimatedDateChange?.(task.id, null);
+                  setOpenPopoverId?.(null);
+                }}
+              >
+                Clear
+              </Button>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (dateRange?.from) {
+                    const fromDate = format(dateRange.from, "yyyy-MM-dd");
+                    const toDate = dateRange.to
+                      ? format(dateRange.to, "yyyy-MM-dd")
+                      : fromDate;
 
-                  try {
-                    // Check if estimation already exists by checking if estimatedDate is not "-"
-                    const hasEstimation =
-                      estimatedDate && estimatedDate !== "-";
+                    try {
+                      // Check if estimation already exists by checking if estimatedDate is not "-"
+                      const hasEstimation =
+                        estimatedDate && estimatedDate !== "-";
 
-                    if (hasEstimation) {
-                      // Update existing estimation
-                      await tasksApi.updateEstimatedDate({
-                        task_id: task.id,
-                        estimated_date_from: fromDate,
-                        estimated_date_to: toDate,
-                      });
-                    } else {
-                      // Create new estimation
-                      await tasksApi.createEstimatedDate({
-                        task_id: task.id,
-                        estimated_date_from: fromDate,
-                        estimated_date_to: toDate,
-                      });
+                      if (hasEstimation) {
+                        // Update existing estimation
+                        await tasksApi.updateEstimatedDate({
+                          task_id: task.id,
+                          estimated_date_from: fromDate,
+                          estimated_date_to: toDate,
+                        });
+                      } else {
+                        // Create new estimation
+                        await tasksApi.createEstimatedDate({
+                          task_id: task.id,
+                          estimated_date_from: fromDate,
+                          estimated_date_to: toDate,
+                        });
+                      }
+
+                      // Update local state
+                      onEstimatedDateChange?.(task.id, fromDate, toDate);
+                      setOpenPopoverId?.(null);
+                      toast.success("Estimated date updated successfully");
+                    } catch (error) {
+                      console.error("Failed to update estimated date:", error);
+                      toast.error("Failed to update estimated date");
                     }
-
-                    // Update local state
-                    onEstimatedDateChange?.(task.id, fromDate, toDate);
-                    setOpenPopoverId?.(null);
-                    toast.success("Estimated date updated successfully");
-                  } catch (error) {
-                    console.error("Failed to update estimated date:", error);
-                    toast.error("Failed to update estimated date");
                   }
-                }
-              }}
-            >
-              Done
-            </Button>
+                }}
+              >
+                Done
+              </Button>
+            </div>
           </div>
         </div>
       </PopoverContent>
@@ -673,34 +846,37 @@ function EstimatedTimePicker({
   setOpenPopoverId?: (id: string | null) => void;
   onEstimatedTimeChange?: (
     taskId: string,
-    hours: string | number | null
+    hours: string | number | null,
   ) => void;
 }) {
   // Parse estimatedHours to extract hours and minutes
   const parseEstimatedTime = (value: string | number) => {
     if (!value || value === "-") return { hours: "", minutes: "" };
-    
+
     const strValue = String(value);
     // Check if it's in "02h 30m" format
     const match = strValue.match(/(\d+)h\s*(\d+)m/);
     if (match) {
       return { hours: match[1], minutes: match[2] };
     }
-    
+
     // Check if it's in "2h" format
     const hoursMatch = strValue.match(/(\d+)h/);
     if (hoursMatch) {
       return { hours: hoursMatch[1], minutes: "" };
     }
-    
+
     // Otherwise treat as decimal hours (e.g., "2.5" = 2h 30m)
     const numValue = parseFloat(strValue);
     if (!isNaN(numValue)) {
       const hrs = Math.floor(numValue);
       const mins = Math.round((numValue - hrs) * 60);
-      return { hours: hrs > 0 ? String(hrs) : "", minutes: mins > 0 ? String(mins) : "" };
+      return {
+        hours: hrs > 0 ? String(hrs) : "",
+        minutes: mins > 0 ? String(mins) : "",
+      };
     }
-    
+
     return { hours: "", minutes: "" };
   };
 
@@ -776,7 +952,7 @@ function EstimatedTimePicker({
                   value={hours}
                   onChange={(e) => setHours(e.target.value)}
                   className="h-9 w-20 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  style={{ MozAppearance: 'textfield' }}
+                  style={{ MozAppearance: "textfield" }}
                   min="0"
                   max="999"
                 />
@@ -795,7 +971,7 @@ function EstimatedTimePicker({
                     }
                   }}
                   className="h-9 w-20 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  style={{ MozAppearance: 'textfield' }}
+                  style={{ MozAppearance: "textfield" }}
                   min="0"
                   max="59"
                 />
@@ -821,13 +997,14 @@ function EstimatedTimePicker({
                   try {
                     const hrs = parseInt(hours) || 0;
                     const mins = parseInt(minutes) || 0;
-                    
+
                     // Format as "02h 30m" or just "2h" if no minutes
                     let approvedHours: string | null = null;
                     if (hrs > 0 || mins > 0) {
-                      const hrsStr = hrs.toString().padStart(2, '0');
-                      const minsStr = mins.toString().padStart(2, '0');
-                      approvedHours = mins > 0 ? `${hrsStr}h ${minsStr}m` : `${hrs}h`;
+                      const hrsStr = hrs.toString().padStart(2, "0");
+                      const minsStr = mins.toString().padStart(2, "0");
+                      approvedHours =
+                        mins > 0 ? `${hrsStr}h ${minsStr}m` : `${hrs}h`;
                     }
 
                     // Call API to update approved hours
@@ -866,6 +1043,7 @@ function StatusPopover({
   setOpenPopoverId,
   onStatusChange,
   onStatusCreated,
+  onStatusesUpdated,
   boardId,
 }: {
   task: any;
@@ -876,12 +1054,41 @@ function StatusPopover({
   setOpenPopoverId?: (id: string | null) => void;
   onStatusChange?: (taskId: string, statusId: string) => void;
   onStatusCreated?: (newStatus: Status) => void;
+  onStatusesUpdated?: (updatedStatuses: Status[]) => void;
   boardId?: string | number;
 }) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newStatusName, setNewStatusName] = useState("");
   const [newStatusColor, setNewStatusColor] = useState(PRESET_COLORS[0]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editableStatuses, setEditableStatuses] = useState<
+    Array<{ id: string; name: string; color_code: string }>
+  >([]);
+  const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
+  const [createFormColorPickerOpen, setCreateFormColorPickerOpen] = useState(false);
+  const [displayStatuses, setDisplayStatuses] = useState<Status[]>([]);
+
+  // Initialize displayStatuses only when popover first opens (not on every statuses change)
+  useEffect(() => {
+    if (openPopoverId === popoverId && displayStatuses.length === 0) {
+      setDisplayStatuses([...statuses]);
+    }
+  }, [openPopoverId, popoverId]);
+
+  // Sync editableStatuses with statuses when edit mode is opened
+  useEffect(() => {
+    if (isEditMode) {
+      setEditableStatuses(statuses.map((s) => ({ ...s })));
+    }
+  }, [isEditMode, statuses]);
+
+  // Sync displayStatuses with editableStatuses when in edit mode for real-time updates
+  useEffect(() => {
+    if (isEditMode && editableStatuses.length > 0) {
+      setDisplayStatuses([...editableStatuses] as any);
+    }
+  }, [editableStatuses, isEditMode]);
 
   const handleCreateStatus = async () => {
     if (!newStatusName.trim()) {
@@ -916,6 +1123,9 @@ function StatusPopover({
 
       // Update localStorage cache
       addStatusToCache(Number(bId), statusWithDefaults);
+
+      // Add to display statuses immediately for real-time update
+      setDisplayStatuses((prev) => [...prev, statusWithDefaults]);
 
       setNewStatusName("");
       setNewStatusColor(PRESET_COLORS[0]);
@@ -956,101 +1166,296 @@ function StatusPopover({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-80 p-3 bg-card border border-border shadow-lg rounded-lg"
+        className="w-max p-3 bg-card border border-border shadow-lg rounded-lg"
         align="center"
       >
         <div className="flex flex-col">
-          {/* Header with + button */}
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-medium text-sm">Select Status</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 hover:bg-primary/10"
-              onClick={() => setShowCreateForm(!showCreateForm)}
-              title="Create New Status"
-            >
-              <span className="text-lg font-semibold">+</span>
-            </Button>
-          </div>
+          {!isEditMode ? (
+            <>
+              {/* Header with + button */}
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-sm">Select Status</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 hover:bg-primary"
+                  onClick={() => setShowCreateForm(!showCreateForm)}
+                  title="Create New Status"
+                >
+                  <span className="text-lg font-semibold">+</span>
+                </Button>
+              </div>
 
-          {/* Create Form */}
-          {showCreateForm && (
-            <div className="space-y-2 mb-2 pb-2 border-b border-border">
-              <Input
-                placeholder="Status name"
-                value={newStatusName}
-                onChange={(e) => setNewStatusName(e.target.value)}
-                className="h-8 text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleCreateStatus();
-                  } else if (e.key === "Escape") {
-                    setShowCreateForm(false);
-                    setNewStatusName("");
-                  }
-                }}
-                autoFocus
-              />
-              <div className="flex gap-1 flex-wrap">
-                {PRESET_COLORS.map((color) => (
+              {/* Create Form */}
+              {showCreateForm && (
+                <div className="space-y-2 mb-2 pb-2 border-b border-border">
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      placeholder="Status name"
+                      value={newStatusName}
+                      onChange={(e) => setNewStatusName(e.target.value)}
+                      className="h-8 text-sm flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleCreateStatus();
+                        } else if (e.key === "Escape") {
+                          setShowCreateForm(false);
+                          setNewStatusName("");
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <ColorPickerPopover
+                      color={newStatusColor}
+                      onColorChange={setNewStatusColor}
+                      isOpen={createFormColorPickerOpen}
+                      onOpenChange={setCreateFormColorPickerOpen}
+                      size="w-8 h-8"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 h-8 text-xs"
+                      onClick={() => {
+                        setShowCreateForm(false);
+                        setNewStatusName("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1 h-8 text-xs"
+                      onClick={handleCreateStatus}
+                      disabled={isCreating || !newStatusName.trim()}
+                    >
+                      {isCreating ? "Creating..." : "Create"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Status Grid */}
+              <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto scrollbar-hide mb-2">
+                {displayStatuses.map((status) => (
                   <button
-                    key={color}
-                    onClick={() => setNewStatusColor(color)}
-                    className={`w-6 h-6 rounded border-2 ${
-                      newStatusColor === color
-                        ? "border-foreground"
-                        : "border-transparent"
-                    }`}
-                    style={{ backgroundColor: color }}
-                    title={color}
-                  />
+                    key={status.id}
+                    onClick={() => {
+                      onStatusChange?.(task.id, status.id);
+                      setOpenPopoverId?.(null);
+                    }}
+                    title={status.name}
+                    className="flex flex-col items-center gap-2 px-3 py-2 rounded-sm hover:opacity-80 transition-opacity text-sm font-medium overflow-hidden"
+                    style={{
+                      backgroundColor: status.color_code,
+                      color: "white",
+                    }}
+                  >
+                    <span className="text-center truncate w-full">
+                      {status.name}
+                    </span>
+                  </button>
                 ))}
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 h-8 text-xs"
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    setNewStatusName("");
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="flex-1 h-8 text-xs"
-                  onClick={handleCreateStatus}
-                  disabled={isCreating || !newStatusName.trim()}
-                >
-                  {isCreating ? "Creating..." : "Create"}
-                </Button>
-              </div>
-            </div>
-          )}
 
-          {/* Status Grid */}
-          <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto scrollbar-hide">
-            {statuses.map((status) => (
-              <button
-                key={status.id}
+              {/* Edit Labels Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full h-8 text-xs"
                 onClick={() => {
-                  onStatusChange?.(task.id, status.id);
-                  setOpenPopoverId?.(null);
-                }}
-                title={status.name}
-                className="flex flex-col items-center gap-2 px-3 py-2 rounded-lg hover:opacity-80 transition-opacity text-sm font-medium overflow-hidden"
-                style={{
-                  backgroundColor: status.color_code,
-                  color: "white",
+                  setIsEditMode(true);
+                  setEditableStatuses(statuses.map((s) => ({ ...s })));
                 }}
               >
-                <span className="text-center truncate w-full">{status.name}</span>
-              </button>
-            ))}
-          </div>
+                Edit Labels
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* Edit Mode Header */}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium text-sm">Edit Status Labels</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => setIsEditMode(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Editable Status List - Grid Structure */}
+              <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto scrollbar-hide mb-3">
+                {editableStatuses.map((status, index) => (
+                  <div
+                    key={status.id}
+                    className="flex flex-row gap-2 items-center p-1 rounded border border-border"
+                  >
+                    {/* Color div with popover */}
+                    <ColorPickerPopover
+                      color={status.color_code}
+                      onColorChange={(newColor) => {
+                        const updated = [...editableStatuses];
+                        updated[index].color_code = newColor;
+                        setEditableStatuses(updated);
+                      }}
+                      isOpen={colorPickerOpen === status.id}
+                      onOpenChange={(open) => {
+                        setColorPickerOpen(open ? status.id : null);
+                      }}
+                    />
+
+                    <Input
+                      value={status.name}
+                      onChange={(e) => {
+                        const updated = [...editableStatuses];
+                        updated[index].name = e.target.value;
+                        setEditableStatuses(updated);
+                      }}
+                      className="h-8 text-sm flex-1"
+                      placeholder="Status name"
+                    />
+
+                    <button
+                      onClick={() => {
+                        const updated = editableStatuses.filter(
+                          (_, i) => i !== index,
+                        );
+                        setEditableStatuses(updated);
+                      }}
+                      className="p-1 hover:bg-destructive/20 rounded flex items-center justify-center gap-1 text-xs"
+                      title="Delete status"
+                    >
+                      <Trash className="h-3 w-3 text-destructive" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add New Status in Edit Mode */}
+              {/* <div className="space-y-2 mb-3 pb-3 border-b border-border">
+                <div className="flex gap-2 items-center">
+                  <Input
+                    value={newStatusForEdit}
+                    onChange={(e) => setNewStatusForEdit(e.target.value)}
+                    className="h-8 text-sm flex-1"
+                    placeholder="Add new status"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={() => {
+                      if (newStatusForEdit.trim()) {
+                        setEditableStatuses([
+                          ...editableStatuses,
+                          {
+                            id: `new-${Date.now()}`,
+                            name: newStatusForEdit.trim(),
+                            color_code: newStatusColorForEdit,
+                          },
+                        ]);
+                        setNewStatusForEdit("");
+                      }
+                    }}
+                  >
+                    +
+                  </Button>
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {PRESET_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setNewStatusColorForEdit(color)}
+                      className={`w-5 h-5 rounded border-2 ${
+                        newStatusColorForEdit === color
+                          ? "border-foreground"
+                          : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div> */}
+
+              {/* Done Button */}
+              <Button
+                size="sm"
+                className="w-full h-8 text-xs"
+                onClick={async () => {
+                  try {
+                    // Track original statuses for comparison
+                    const originalStatusMap = new Map(
+                      statuses.map((s) => [s.id, s]),
+                    );
+
+                    // Save all statuses (new and updated)
+                    for (const status of editableStatuses) {
+                      if (status.id.startsWith("new-")) {
+                        // Create new status
+                        const orgId = getOrganizationId();
+                        const bId = boardId;
+                        if (orgId && bId) {
+                          const newStatus = await cmsApi.createStatus({
+                            name: status.name,
+                            color_code: status.color_code,
+                            organization_id: orgId,
+                            board_id: Number(bId),
+                          });
+                          addStatusToCache(Number(bId), newStatus);
+                          onStatusCreated?.(newStatus);
+                        }
+                      } else {
+                        // Check if existing status was modified
+                        const originalStatus = originalStatusMap.get(status.id);
+                        if (
+                          originalStatus &&
+                          (originalStatus.name !== status.name ||
+                            originalStatus.color_code !== status.color_code)
+                        ) {
+                          // Update existing status
+                          const orgId = getOrganizationId();
+                          const bId = boardId;
+                          if (orgId && bId) {
+                            await cmsApi.updateStatus({
+                              status_id: status.id,
+                              name: status.name,
+                              color_code: status.color_code,
+                              organization_id: orgId,
+                              board_id: Number(bId),
+                            });
+                            // Update cache with the updated status
+                            updateStatusInCache(Number(bId), status as any);
+                            // Trigger UI update
+                            onStatusCreated?.(status as any);
+                          }
+                        }
+                      }
+                    }
+                    toast.success("Status labels updated successfully");
+                    // Reset edit mode and refresh the editable statuses list with updated values
+                    setIsEditMode(false);
+                    // Update editableStatuses to match the current state so originalStatusMap is accurate next time
+                    setEditableStatuses(editableStatuses.map((s) => ({ ...s })));
+                    // Update displayStatuses with the edited statuses
+                    setDisplayStatuses(editableStatuses as any);
+                    // Notify parent to refresh the statuses list
+                    onStatusesUpdated?.(editableStatuses as any);
+                  } catch (error) {
+                    console.error("Failed to update status labels:", error);
+                    toast.error("Failed to update status labels");
+                  }
+                }}
+              >
+                Done
+              </Button>
+            </>
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -1167,7 +1572,7 @@ function PriorityPopover({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 hover:bg-primary/10"
+              className="h-6 w-6 p-0 hover:bg-primary"
               onClick={() => setShowCreateForm(!showCreateForm)}
               title="Create New Priority"
             >
@@ -1248,7 +1653,9 @@ function PriorityPopover({
                   color: "white",
                 }}
               >
-                <span className="text-center truncate w-full">{priority.name}</span>
+                <span className="text-center truncate w-full">
+                  {priority.name}
+                </span>
               </button>
             ))}
           </div>
@@ -1312,11 +1719,11 @@ export const getWorkloadColumns = ({
   onEstimatedDateChange?: (
     taskId: string,
     fromDate: string | null,
-    toDate?: string | null
+    toDate?: string | null,
   ) => void;
   onEstimatedTimeChange?: (
     taskId: string,
-    hours: string | number | null
+    hours: string | number | null,
   ) => void;
   onTagChange?: (taskId: string, tags: any[]) => void;
   openPopoverId?: string | null;
@@ -1498,6 +1905,10 @@ export const getWorkloadColumns = ({
             setOpenPopoverId={setOpenPopoverId}
             onStatusChange={onStatusChange}
             onStatusCreated={onStatusCreated}
+            onStatusesUpdated={(updatedStatuses) => {
+              // Update the statuses state to reflect changes in the Select Status list
+              onStatusCreated?.(updatedStatuses[0]);
+            }}
             boardId={boardId}
           />
         );
@@ -1568,8 +1979,9 @@ export const getWorkloadColumns = ({
         const rating = Number(task.rating) || 0;
         const ratingCount = task.ratingCount || 0;
         const popoverId = `rating-${task.id}`;
-        const hasAssignee = task.assigned_to_ids && task.assigned_to_ids.length > 0;
-        
+        const hasAssignee =
+          task.assigned_to_ids && task.assigned_to_ids.length > 0;
+
         // Check if status is "Done" by looking up the status name from the map
         const statusObj = statusMap.get(task.status_id);
         const isDone = statusObj?.name === "Done";
@@ -1700,7 +2112,8 @@ export const getWorkloadColumns = ({
       width: "160px",
       align: "center",
       render: (task: any) => {
-        const hasAssignee = task.assigned_to_ids && task.assigned_to_ids.length > 0;
+        const hasAssignee =
+          task.assigned_to_ids && task.assigned_to_ids.length > 0;
         const estimatedHours = task.estimatedHours ?? "-";
         return (
           <TimerCell
