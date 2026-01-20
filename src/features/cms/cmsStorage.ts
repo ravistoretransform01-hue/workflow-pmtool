@@ -344,3 +344,26 @@ export function addTagToCache(boardId: number, newTag: Tag): void {
     console.error("Error adding tag to cache:", error);
   }
 }
+
+/**
+ * Update an existing status in localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param updatedStatus - Updated status object
+ */
+export function updateStatusInCache(boardId: number, updatedStatus: Status): void {
+  try {
+    let cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      // Find and update the status
+      const statusIndex = cachedData.statuses.findIndex((s) => s.id === updatedStatus.id);
+      if (statusIndex !== -1) {
+        cachedData.statuses[statusIndex] = updatedStatus;
+        cachedData.timestamp = Date.now(); // Update timestamp
+        saveToLocalStorage(boardId, cachedData);
+        console.log(`Updated status in cache for board ${boardId}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error updating status in cache:", error);
+  }
+}
