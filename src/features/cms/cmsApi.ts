@@ -8,6 +8,7 @@ const CMS_ENDPOINTS = {
   CREATE_STATUS: `/task-status`,
   UPDATE_STATUS: `/task-status`,
   CREATE_PRIORITY: `/task-priority`,
+  UPDATE_PRIORITY: `/task-priority`,
 };
 
 export const cmsApi = {
@@ -139,6 +140,29 @@ export const cmsApi = {
       return response.data.data || response.data;
     } catch (error) {
       console.error("Failed to create priority:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update an existing priority
+   */
+  updatePriority: async (payload: {
+    priority_id: string | number;
+    name: string;
+    color_code: string;
+    organization_id: number;
+    board_id: number;
+  }): Promise<any> => {
+    try {
+      const response = await axios.put<any>(
+        CMS_ENDPOINTS.UPDATE_PRIORITY,
+        payload
+      );
+
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error("Failed to update priority:", error);
       throw error;
     }
   },

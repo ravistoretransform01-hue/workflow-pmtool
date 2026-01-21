@@ -1836,115 +1836,7 @@ export function WorkloadBoard({
   //     toast.error("Failed to update status");
   //   }
   // };
-  const handleStatusChange = async (taskId: string, statusId: string) => {
-    try {
-      const boardIdNum = Number(boardId);
 
-      const payload: UpdateTaskRequest = {
-        id: taskId,
-        board_id: boardIdNum,
-        status_id: Number(statusId),
-      };
-
-      const updated = await tasksApi.updateTask(payload);
-
-      setGroups((prevGroups) =>
-        prevGroups.map((group) => ({
-          ...group,
-          tasks: group.tasks.map((task) => {
-            // ✅ parent task
-            if (task.id === taskId) {
-              return {
-                ...task,
-                status: updated.status_label,
-                status_id: String(updated.status_id),
-              };
-            }
-
-            // ✅ subtask
-            if (task.subitems?.length) {
-              return {
-                ...task,
-                subitems: task.subitems.map((sub) =>
-                  sub.id === taskId
-                    ? {
-                        ...sub,
-                        status: updated.status_label,
-                        status_id: String(updated.status_id),
-                      }
-                    : sub
-                ),
-              };
-            }
-
-            return task;
-          }),
-        }))
-      );
-
-      // Close popover after update
-      setOpenPopoverId(null);
-      toast.success("Status updated successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to update status");
-    }
-  };
-
-  const handlePriorityChange = async (taskId: string, priorityId: string) => {
-    try {
-      const boardIdNum = Number(boardId);
-
-      const payload: UpdateTaskRequest = {
-        id: taskId,
-        board_id: boardIdNum,
-        task_priority_id: Number(priorityId),
-      };
-
-      const updated = await tasksApi.updateTask(payload);
-
-      setGroups((prevGroups) =>
-        prevGroups.map((group) => ({
-          ...group,
-          tasks: group.tasks.map((task) => {
-            // ✅ parent task
-            if (task.id === taskId) {
-              return {
-                ...task,
-                priority: updated.priority_label,
-                priority_id: String(updated.task_priority_id),
-              };
-            }
-
-            // ✅ subtask
-            if (task.subitems?.length) {
-              return {
-                ...task,
-                subitems: task.subitems.map((sub) =>
-                  sub.id === taskId
-                    ? {
-                        ...sub,
-                        priority: updated.priority_label,
-                        priority_id: String(updated.task_priority_id),
-                      }
-                    : sub
-                ),
-              };
-            }
-
-            return task;
-          }),
-        }))
-      );
-
-      // Close popover after update
-      setOpenPopoverId(null);
-      toast.success("Priority updated successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to update priority");
-    }
-  };
 
   const handleRatingChange = async (taskId: string, rating: number) => {
     try {
@@ -2231,12 +2123,126 @@ export function WorkloadBoard({
     setOpenPopoverId(null);
   };
 
+  const handleStatusChange = async (taskId: string, statusId: string) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        status_id: Number(statusId),
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                status: updated.status_label,
+                status_id: String(updated.status_id),
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        status: updated.status_label,
+                        status_id: String(updated.status_id),
+                      }
+                    : sub
+                ),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      toast.success("Status updated successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update status");
+    }
+  };
+
+  const handlePriorityChange = async (taskId: string, priorityId: string) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        task_priority_id: Number(priorityId),
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                priority: updated.priority_label,
+                priority_id: String(updated.task_priority_id),
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        priority: updated.priority_label,
+                        priority_id: String(updated.task_priority_id),
+                      }
+                    : sub
+                ),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      toast.success("Priority updated successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update priority");
+    }
+  };
+
   const handleStatusCreated = (newStatus: any) => {
     setStatuses((prevStatuses) => [...prevStatuses, newStatus]);
   };
 
+  const handleStatusesUpdated = (updatedStatuses: Status[]) => {
+    setStatuses(updatedStatuses);
+  };
+
   const handlePriorityCreated = (newPriority: any) => {
     setPriorities((prevPriorities) => [...prevPriorities, newPriority]);
+  };
+
+  const handlePrioritiesUpdated = (updatedPriorities: Priority[]) => {
+    setPriorities(updatedPriorities);
   };
 
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
@@ -2856,7 +2862,9 @@ export function WorkloadBoard({
         setTags((prevTags) => [...prevTags, newTag]);
       },
       onStatusCreated: handleStatusCreated,
+      onStatusesUpdated: handleStatusesUpdated,
       onPriorityCreated: handlePriorityCreated,
+      onPrioritiesUpdated: handlePrioritiesUpdated,
       inlineEditingTaskId,
       setInlineEditingTaskId,
       inlineEditingTaskName,
@@ -2918,7 +2926,9 @@ export function WorkloadBoard({
         setTags((prevTags) => [...prevTags, newTag]);
       },
       onStatusCreated: handleStatusCreated,
+      onStatusesUpdated: handleStatusesUpdated,
       onPriorityCreated: handlePriorityCreated,
+      onPrioritiesUpdated: handlePrioritiesUpdated,
       inlineEditingTaskId,
       setInlineEditingTaskId,
       inlineEditingTaskName,

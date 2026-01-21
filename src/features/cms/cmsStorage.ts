@@ -367,3 +367,26 @@ export function updateStatusInCache(boardId: number, updatedStatus: Status): voi
     console.error("Error updating status in cache:", error);
   }
 }
+
+/**
+ * Update an existing priority in localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param updatedPriority - Updated priority object
+ */
+export function updatePriorityInCache(boardId: number, updatedPriority: Priority): void {
+  try {
+    let cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      // Find and update the priority
+      const priorityIndex = cachedData.priorities.findIndex((p) => p.id === updatedPriority.id);
+      if (priorityIndex !== -1) {
+        cachedData.priorities[priorityIndex] = updatedPriority;
+        cachedData.timestamp = Date.now(); // Update timestamp
+        saveToLocalStorage(boardId, cachedData);
+        console.log(`Updated priority in cache for board ${boardId}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error updating priority in cache:", error);
+  }
+}
