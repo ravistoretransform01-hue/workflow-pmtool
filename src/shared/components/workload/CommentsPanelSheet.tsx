@@ -213,7 +213,7 @@ export function CommentsPanelSheet({
                     onGifSelect={(gifUrl) =>
                       onUpdateTextChange(
                         updateText +
-                          `<img src="${gifUrl}" alt="GIF" style="max-width: 200px; border-radius: 8px;" />`
+                        `<img src="${gifUrl}" alt="GIF" style="max-width: 200px; border-radius: 8px;" />`
                       )
                     }
                   />
@@ -287,8 +287,8 @@ export function CommentsPanelSheet({
                         const visibleReplies = isExpanded
                           ? allThreadComments
                           : allThreadComments.length > 2
-                          ? [allThreadComments[allThreadComments.length - 1]]
-                          : allThreadComments;
+                            ? [allThreadComments[allThreadComments.length - 1]]
+                            : allThreadComments;
                         const hiddenCount =
                           allThreadComments.length - visibleReplies.length;
 
@@ -319,9 +319,9 @@ export function CommentsPanelSheet({
                                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
                                       {comment.created_at
                                         ? format(
-                                            new Date(comment.created_at),
-                                            "MMM d, h:mm a"
-                                          )
+                                          new Date(comment.created_at),
+                                          "MMM d, h:mm a"
+                                        )
                                         : ""}
                                     </span>
                                   </div>
@@ -396,7 +396,7 @@ export function CommentsPanelSheet({
                                 ) : (
                                   <>
                                     <div
-                                      className="text-sm text-foreground/90 leading-relaxed break-words pr-4"
+                                      className="text-sm text-foreground/90 leading-relaxed break-words pr-4 whitespace-pre-wrap"
                                       dangerouslySetInnerHTML={{
                                         __html: comment.content,
                                       }}
@@ -486,9 +486,9 @@ export function CommentsPanelSheet({
                                         <span className="text-[10px] text-muted-foreground italic">
                                           {reply.created_at
                                             ? format(
-                                                new Date(reply.created_at),
-                                                "MMM d, h:mm a"
-                                              )
+                                              new Date(reply.created_at),
+                                              "MMM d, h:mm a"
+                                            )
                                             : ""}
                                         </span>
                                       </div>
@@ -564,7 +564,7 @@ export function CommentsPanelSheet({
                                     ) : (
                                       <>
                                         <div
-                                          className="text-sm text-foreground/80 leading-relaxed break-words"
+                                          className="text-sm text-foreground/80 leading-relaxed break-words whitespace-pre-wrap"
                                           dangerouslySetInnerHTML={{
                                             __html: reply.content,
                                           }}
