@@ -49,6 +49,8 @@ export interface CMSResponse {
   members: Member[];
   labels: Label[];
   tags: Tag[];
+  user_columns?: any;
+  default_columns?: any;
 }
 
 export interface CMSRequest {

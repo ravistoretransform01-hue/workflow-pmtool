@@ -554,7 +554,7 @@ function EstimatedDatePicker({
     if (estimatedDate === "-") return "-";
     // estimatedDate already contains the full formatted range (e.g., "15 Jan, 2026 - 19 Jan, 2026")
     // so just return it as-is
-    console.log("Estimated Date:", estimatedDate);
+    // console.log("Estimated Date:", estimatedDate);
 
     return estimatedDate;
   };

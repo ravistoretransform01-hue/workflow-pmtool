@@ -9,6 +9,7 @@ const CMS_ENDPOINTS = {
   UPDATE_STATUS: `/task-status`,
   CREATE_PRIORITY: `/task-priority`,
   UPDATE_PRIORITY: `/task-priority`,
+  USER_GROUP_COLUMNS: `/user-group-columns`,
 };
 
 export const cmsApi = {
@@ -163,6 +164,28 @@ export const cmsApi = {
       return response.data.data || response.data;
     } catch (error) {
       console.error("Failed to update priority:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Save user group columns configuration
+   */
+  saveUserGroupColumns: async (payload: {
+    user_id: number;
+    group_id: number;
+    board_id: number;
+    columns: Record<string, any>;
+  }): Promise<any> => {
+    try {
+      const response = await axios.post<any>(
+        CMS_ENDPOINTS.USER_GROUP_COLUMNS,
+        payload
+      );
+
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error("Failed to save user group columns:", error);
       throw error;
     }
   },

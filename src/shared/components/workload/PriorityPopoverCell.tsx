@@ -18,23 +18,29 @@ import { Input } from "@/shared/components/ui/input";
 import { ColorPickerPopover } from "@/shared/components/workload/ColorPickerPopover";
 
 const PRESET_COLORS = [
-  "#16a249", // green
-  "#3c83f6", // blue
-  "#a855f7", // purple
-  "#dc2828", // red
-  "#facc14", // yellow
-  "#ff8400", // orange
-  "#ec4899", // pink
-  "#10b981", // emerald
-  "#06b6d4", // cyan
-  "#8b5cf6", // violet
-  "#f59e0b", // amber
-  "#ef4444", // rose
-  "#14b8a6", // teal
-  "#6366f1", // indigo
-  "#f97316", // orange-600
-  "#84cc16", // lime
+  "#16a249",
+  "#3c83f6",
+  "#a855f7",
+  "#dc2828",
+  "#facc14",
+  "#ff8400",
+  "#ec4899",
+  "#10b981",
+  "#06b6d4",
+  "#8b5cf6",
+  "#f59e0b",
+  "#ef4444",
+  "#14b8a6",
+  "#6366f1",
+  "#f97316",
+  "#84cc16",
 ];
+
+interface EditablePriority {
+  id: string;
+  name: string;
+  color_code: string;
+}
 
 interface PriorityPopoverCellProps {
   task: any;
@@ -61,87 +67,139 @@ export function PriorityPopoverCell({
   onPrioritiesUpdated,
   boardId,
 }: PriorityPopoverCellProps) {
+  const [isEditMode, setIsEditMode] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+
+  const [displayPriorities, setDisplayPriorities] = useState<Priority[]>([]);
+  const [editablePriorities, setEditablePriorities] = useState<EditablePriority[]>(
+    [],
+  );
+
   const [newPriorityName, setNewPriorityName] = useState("");
   const [newPriorityColor, setNewPriorityColor] = useState(PRESET_COLORS[0]);
   const [isCreating, setIsCreating] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editablePriorities, setEditablePriorities] = useState<
-    Array<{ id: string; name: string; color_code: string }>
-  >([]);
-  const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
-  const [createFormColorPickerOpen, setCreateFormColorPickerOpen] =
-    useState(false);
-  const [displayPriorities, setDisplayPriorities] = useState<Priority[]>([]);
 
-  // Initialize displayPriorities when popover opens
+  const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
+  const [createColorPickerOpen, setCreateColorPickerOpen] = useState(false);
+
+  /* ---------------------------------------------
+   * Initialize displayPriorities ONCE per open
+   * ------------------------------------------- */
   useEffect(() => {
-    if (openPopoverId === popoverId) {
+    if (openPopoverId === popoverId && displayPriorities.length === 0) {
       setDisplayPriorities([...priorities]);
     }
-  }, [openPopoverId, popoverId, priorities]);
+  }, [openPopoverId, popoverId, priorities, displayPriorities.length]);
 
-  // Sync editablePriorities with priorities when edit mode is opened
+  /* ---------------------------------------------
+   * Entering edit mode → derive editable state
+   * ------------------------------------------- */
   useEffect(() => {
     if (isEditMode) {
-      setEditablePriorities(priorities.map((p) => ({ ...p })));
+      setEditablePriorities(
+        displayPriorities.map((p) => ({
+          id: String(p.id),
+          name: p.name,
+          color_code: p.color_code,
+        })),
+      );
     }
-  }, [isEditMode, priorities]);
+  }, [isEditMode, displayPriorities]);
 
-  // Sync displayPriorities with editablePriorities when in edit mode for real-time updates
-  useEffect(() => {
-    if (isEditMode && editablePriorities.length > 0) {
-      setDisplayPriorities([...editablePriorities] as any);
-    }
-  }, [editablePriorities, isEditMode]);
-
+  /* ---------------------------------------------
+   * Create priority
+   * ------------------------------------------- */
   const handleCreatePriority = async () => {
     if (!newPriorityName.trim()) {
       toast.error("Priority name is required");
       return;
     }
 
+    const orgId = getOrganizationId();
+    if (!orgId || !boardId) {
+      toast.error("Missing board or organization");
+      return;
+    }
+
     setIsCreating(true);
     try {
-      const orgId = getOrganizationId();
-      const bId = boardId;
-
-      if (!orgId || !bId) {
-        toast.error("Organization or board information not found");
-        return;
-      }
-
-      const newPriority = await cmsApi.createPriority({
+      const created = await cmsApi.createPriority({
         name: newPriorityName.trim(),
         color_code: newPriorityColor,
         organization_id: orgId,
-        board_id: Number(bId),
+        board_id: Number(boardId),
       });
 
-      // Ensure priority has required fields
-      const priorityWithDefaults: any = {
-        id: newPriority.id || String(Date.now()),
-        name: newPriority.name,
-        color_code: newPriority.color_code,
-        priority_order: newPriority.priority_order || "999",
-      };
+      addPriorityToCache(Number(boardId), created);
 
-      // Update localStorage cache
-      addPriorityToCache(Number(bId), priorityWithDefaults);
-
-      // Add to display priorities immediately for real-time update
-      setDisplayPriorities((prev) => [...prev, priorityWithDefaults]);
+      setDisplayPriorities((prev) => [...prev, created]);
+      onPriorityCreated?.(created);
 
       setNewPriorityName("");
       setNewPriorityColor(PRESET_COLORS[0]);
       setShowCreateForm(false);
-      onPriorityCreated?.(priorityWithDefaults);
-      toast.success("Priority created successfully");
-    } catch (error) {
-      console.error("Failed to create priority:", error);
+
+      toast.success("Priority created");
+    } catch {
       toast.error("Failed to create priority");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  /* ---------------------------------------------
+   * Save edits
+   * ------------------------------------------- */
+  const handleSaveEdits = async () => {
+    try {
+      const orgId = getOrganizationId();
+      if (!orgId || !boardId) return;
+
+      for (const priority of editablePriorities) {
+        const original = displayPriorities.find(
+          (p) => String(p.id) === priority.id,
+        );
+
+        if (
+          original &&
+          (original.name !== priority.name ||
+            original.color_code !== priority.color_code)
+        ) {
+          await cmsApi.updatePriority({
+            priority_id: priority.id,
+            name: priority.name,
+            color_code: priority.color_code,
+            organization_id: orgId,
+            board_id: Number(boardId),
+          });
+
+          updatePriorityInCache(Number(boardId), priority as any);
+        }
+      }
+
+      const updated: Priority[] = editablePriorities.map((edited) => {
+        const original = displayPriorities.find(
+          (p) => String(p.id) === edited.id,
+        );
+
+        if (!original) {
+          throw new Error(`Priority not found: ${edited.id}`);
+        }
+
+        return {
+          ...original,
+          name: edited.name,
+          color_code: edited.color_code,
+        };
+      });
+
+      setDisplayPriorities(updated);
+      setIsEditMode(false);
+      onPrioritiesUpdated?.(updated);
+
+      toast.success("Priorities updated");
+    } catch {
+      toast.error("Failed to update priorities");
     }
   };
 
@@ -150,7 +208,6 @@ export function PriorityPopoverCell({
       open={openPopoverId === popoverId}
       onOpenChange={(open) => {
         if (!open) {
-          // When closing, reset edit mode and create form
           setIsEditMode(false);
           setShowCreateForm(false);
         }
@@ -159,273 +216,123 @@ export function PriorityPopoverCell({
     >
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
           size="sm"
-          className="h-8 px-3 text-xs font-medium whitespace-nowrap"
+          className="h-8 px-3 text-xs text-white"
           style={{
             backgroundColor: priorityObj?.color_code || "#e5e7eb",
-            color: "white",
             border: "none",
           }}
-          onClick={(e) => e.stopPropagation()}
         >
           {priorityObj?.name || "No Priority"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        className="w-max p-3 bg-card border border-border shadow-lg rounded-lg"
-        align="center"
-      >
-        <div
-          className="flex flex-col"
-          style={{
-            width: "500px",
-          }}
-        >
-          {!isEditMode ? (
-            <>
-              {/* Header with + button */}
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-sm">Select Priority</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 hover:bg-primary"
-                  onClick={() => setShowCreateForm(!showCreateForm)}
-                  title="Create New Priority"
-                >
-                  <span className="text-lg font-semibold">+</span>
+
+      <PopoverContent className="w-[500px] p-3">
+        {!isEditMode ? (
+          <>
+            {/* Header */}
+            <div className="flex justify-between mb-2">
+              <span className="text-sm font-medium">Select Priority</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowCreateForm((v) => !v)}
+              >
+                +
+              </Button>
+            </div>
+
+            {/* Create */}
+            {showCreateForm && (
+              <div className="flex gap-2 mb-2">
+                <Input
+                  value={newPriorityName}
+                  onChange={(e) => setNewPriorityName(e.target.value)}
+                  placeholder="Priority name"
+                />
+                <ColorPickerPopover
+                  color={newPriorityColor}
+                  onColorChange={setNewPriorityColor}
+                  isOpen={createColorPickerOpen}
+                  onOpenChange={setCreateColorPickerOpen}
+                />
+                <Button onClick={handleCreatePriority} disabled={isCreating}>
+                  Create
                 </Button>
               </div>
+            )}
 
-              {/* Create Form */}
-              {showCreateForm && (
-                <div className="space-y-2 mb-2 pb-2 border-b border-border">
-                  <div className="flex gap-2 items-center">
-                    <Input
-                      placeholder="Priority name"
-                      value={newPriorityName}
-                      onChange={(e) => setNewPriorityName(e.target.value)}
-                      className="h-8 text-sm flex-1"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleCreatePriority();
-                        } else if (e.key === "Escape") {
-                          setShowCreateForm(false);
-                          setNewPriorityName("");
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <ColorPickerPopover
-                      color={newPriorityColor}
-                      onColorChange={setNewPriorityColor}
-                      isOpen={createFormColorPickerOpen}
-                      onOpenChange={setCreateFormColorPickerOpen}
-                      size="w-8 h-8"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 h-8 text-xs"
-                      onClick={() => {
-                        setShowCreateForm(false);
-                        setNewPriorityName("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1 h-8 text-xs"
-                      onClick={handleCreatePriority}
-                      disabled={isCreating || !newPriorityName.trim()}
-                    >
-                      {isCreating ? "Creating..." : "Create"}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Priority Grid */}
-              <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto scrollbar-hide mb-2">
-                {displayPriorities.map((priority) => (
+            {/* List */}
+            <div className="max-h-72 overflow-y-auto scrollbar-hide">
+              <div className="grid grid-cols-2 gap-2 pr-1">
+                {displayPriorities.map((p) => (
                   <button
-                    key={priority.id}
+                    key={p.id}
                     onClick={() => {
-                      onPriorityChange?.(task.id, priority.id);
+                      onPriorityChange?.(task.id, String(p.id));
                       setOpenPopoverId?.(null);
                     }}
-                    title={priority.name}
-                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg hover:opacity-80 transition-opacity text-sm font-medium overflow-hidden"
-                    style={{
-                      backgroundColor: priority.color_code,
-                      color: "white",
-                    }}
+                    className="p-3 rounded text-white text-sm"
+                    style={{ backgroundColor: p.color_code }}
                   >
-                    <span className="text-center truncate w-full">
-                      {priority.name}
-                    </span>
+                    {p.name}
                   </button>
                 ))}
               </div>
+            </div>
 
-              {/* Edit Labels Button */}
+            <Button className="w-full mt-2" onClick={() => setIsEditMode(true)}>
+              Edit Labels
+            </Button>
+          </>
+        ) : (
+          <>
+            {/* Edit Header */}
+            <div className="flex justify-between mb-3">
+              <span className="text-sm font-medium">Edit Priority Labels</span>
               <Button
-                variant="outline"
                 size="sm"
-                className="w-full h-8 text-xs"
-                onClick={() => {
-                  setIsEditMode(true);
-                  setEditablePriorities(priorities.map((p) => ({ ...p })));
-                }}
+                variant="ghost"
+                onClick={() => setIsEditMode(false)}
               >
-                Edit Labels
+                <X className="h-4 w-4" />
               </Button>
-            </>
-          ) : (
-            <>
-              {/* Edit Mode Header */}
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium text-sm">Edit Priority Labels</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => setIsEditMode(false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
+            </div>
 
-              {/* Editable Priority List - Grid Structure */}
-              <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto scrollbar-hide mb-3">
-                {editablePriorities.map((priority, index) => (
-                  <div
-                    key={priority.id}
-                    className="flex flex-row gap-2 items-center p-1 rounded border border-border"
-                  >
-                    {/* Color div with popover */}
+            {/* Edit List */}
+            <div className="max-h-72 overflow-y-auto scrollbar-hide">
+              <div className="grid grid-cols-2 gap-2">
+                {editablePriorities.map((p, i) => (
+                  <div key={p.id} className="flex gap-2 items-center">
                     <ColorPickerPopover
-                      color={priority.color_code}
-                      onColorChange={(newColor: string) => {
-                        const updated = [...editablePriorities];
-                        updated[index].color_code = newColor;
-                        setEditablePriorities(updated);
+                      color={p.color_code}
+                      onColorChange={(c) => {
+                        const copy = [...editablePriorities];
+                        copy[i].color_code = c;
+                        setEditablePriorities(copy);
                       }}
-                      isOpen={colorPickerOpen === priority.id}
-                      onOpenChange={(open: boolean) => {
-                        setColorPickerOpen(open ? priority.id : null);
-                      }}
+                      isOpen={colorPickerOpen === p.id}
+                      onOpenChange={(o) => setColorPickerOpen(o ? p.id : null)}
                     />
-
                     <Input
-                      value={priority.name}
+                      value={p.name}
                       onChange={(e) => {
-                        const updated = [...editablePriorities];
-                        updated[index].name = e.target.value;
-                        setEditablePriorities(updated);
+                        const copy = [...editablePriorities];
+                        copy[i].name = e.target.value;
+                        setEditablePriorities(copy);
                       }}
-                      className="h-8 text-sm flex-1"
-                      placeholder="Priority name"
                     />
-
-                    <button
-                      onClick={() => {
-                        const updated = editablePriorities.filter(
-                          (_, i) => i !== index,
-                        );
-                        setEditablePriorities(updated);
-                      }}
-                      className="p-1 hover:bg-destructive/20 rounded flex items-center justify-center gap-1 text-xs"
-                      title="Delete priority"
-                    >
-                      <Trash className="h-3 w-3 text-destructive" />
-                    </button>
+                    <Trash className="h-4 w-4 text-destructive" />
                   </div>
                 ))}
               </div>
+            </div>
 
-              {/* Done Button */}
-              <Button
-                size="sm"
-                className="w-full h-8 text-xs"
-                onClick={async () => {
-                  try {
-                    // Track original priorities for comparison
-                    const originalPriorityMap = new Map(
-                      priorities.map((p) => [p.id, p]),
-                    );
-
-                    // Save all priorities (new and updated)
-                    for (const priority of editablePriorities) {
-                      if (priority.id.startsWith("new-")) {
-                        // Create new priority
-                        const orgId = getOrganizationId();
-                        const bId = boardId;
-                        if (orgId && bId) {
-                          const newPriority = await cmsApi.createPriority({
-                            name: priority.name,
-                            color_code: priority.color_code,
-                            organization_id: orgId,
-                            board_id: Number(bId),
-                          });
-                          addPriorityToCache(Number(bId), newPriority);
-                          onPriorityCreated?.(newPriority);
-                        }
-                      } else {
-                        // Check if existing priority was modified
-                        const originalPriority = originalPriorityMap.get(
-                          priority.id
-                        );
-                        if (
-                          originalPriority &&
-                          (originalPriority.name !== priority.name ||
-                            originalPriority.color_code !== priority.color_code)
-                        ) {
-                          // Update existing priority
-                          const orgId = getOrganizationId();
-                          const bId = boardId;
-                          if (orgId && bId) {
-                            await cmsApi.updatePriority({
-                              priority_id: priority.id,
-                              name: priority.name,
-                              color_code: priority.color_code,
-                              organization_id: orgId,
-                              board_id: Number(bId),
-                            });
-                            // Update cache
-                            updatePriorityInCache(Number(boardId), priority as any);
-                            // Trigger UI update
-                            onPriorityCreated?.(priority as any);
-                          }
-                        }
-                      }
-                    }
-                    toast.success("Priority labels updated successfully");
-                    // Reset edit mode and refresh the editable priorities list with updated values
-                    setIsEditMode(false);
-                    // Update editablePriorities to match the current state so originalPriorityMap is accurate next time
-                    setEditablePriorities(
-                      editablePriorities.map((p) => ({ ...p }))
-                    );
-                    // Update displayPriorities with the edited priorities
-                    setDisplayPriorities(editablePriorities as any);
-                    // Notify parent to refresh the priorities list
-                    onPrioritiesUpdated?.(editablePriorities as any);
-                  } catch (error) {
-                    console.error("Failed to update priority labels:", error);
-                    toast.error("Failed to update priority labels");
-                  }
-                }}
-              >
-                Done
-              </Button>
-            </>
-          )}
-        </div>
+            <Button className="w-full mt-3" onClick={handleSaveEdits}>
+              Done
+            </Button>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );

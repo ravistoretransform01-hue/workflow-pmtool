@@ -83,6 +83,7 @@ import { getWorkloadColumns } from "./WorkloadColumns";
 import { TaskCardDialog } from "./TaskCardDialog";
 import { CommentsPanelSheet } from "./CommentsPanelSheet";
 import type { TaskResponse, TaskComment } from "@/features/tasks/types";
+import { ProfileDialog } from "../ProfileDialog";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -223,21 +224,29 @@ const calculateGroupProgress = (tasks: Task[]) => {
   let totalTimeSpentSeconds = 0;
   let totalEstimatedSeconds = 0;
 
-  tasks.forEach((task) => {
-    // Parse time spent (e.g., "2h 30m" or "45m")
-    const timeSpentMatch = task.timeSpent?.match(/(\d+)h\s*(\d+)m|(\d+)m/);
-    if (timeSpentMatch) {
-      if (timeSpentMatch[1]) {
-        totalTimeSpentSeconds +=
-          parseInt(timeSpentMatch[1]) * 3600 + parseInt(timeSpentMatch[2]) * 60;
-      } else {
-        totalTimeSpentSeconds += parseInt(timeSpentMatch[3]) * 60;
+  const processTask = (task: Task) => {
+    // Add tracked time from this task
+    if (task.tracked_time_seconds) {
+      totalTimeSpentSeconds += task.tracked_time_seconds;
+    }
+
+    // Add estimated hours from this task (convert to seconds)
+    if (task.estimatedHours) {
+      const hours = typeof task.estimatedHours === 'string' 
+        ? parseFloat(task.estimatedHours) 
+        : task.estimatedHours;
+      if (!isNaN(hours)) {
+        totalEstimatedSeconds += hours * 3600;
       }
     }
 
-    // Parse estimated date/time if available (for now, we'll use a default)
-    // This would need to be extended based on your data structure
-  });
+    // Process subitems recursively
+    if (task.subitems && task.subitems.length > 0) {
+      task.subitems.forEach(processTask);
+    }
+  };
+
+  tasks.forEach(processTask);
 
   const percentage =
     totalEstimatedSeconds > 0
@@ -407,12 +416,18 @@ interface SortableColumnHeaderProps {
   column: any;
   onToggleCollapse?: () => void;
   onStartResize?: (columnId: string, e: React.PointerEvent) => void;
+  onColumnLabelChange?: (columnId: string, newLabel: string) => void;
 }
 const SortableColumnHeader = ({
   column,
   onToggleCollapse,
   onStartResize,
+  onColumnLabelChange,
 }: SortableColumnHeaderProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(column.label);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const {
     setNodeRef,
     attributes,
@@ -433,6 +448,41 @@ const SortableColumnHeader = ({
     transform: transform ? `translate3d(${transform.x}px, 0, 0)` : undefined,
     transition,
     opacity: isDragging ? 0.5 : 1,
+  };
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleSaveLabel = async (newLabel: string) => {
+    if (newLabel.trim() && newLabel !== column.label) {
+      try {
+        // Simulate API call
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        onColumnLabelChange?.(column.id, newLabel.trim());
+        // toast.success("Column renamed successfully");
+      } catch (error) {
+        console.error("Failed to rename column:", error);
+        toast.error("Failed to rename column");
+        setEditValue(column.label);
+      }
+    } else {
+      setEditValue(column.label);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSaveLabel(editValue);
+    } else if (e.key === "Escape") {
+      setEditValue(column.label);
+      setIsEditing(false);
+    }
   };
 
   return (
@@ -493,7 +543,32 @@ const SortableColumnHeader = ({
           </div>
         ) : (
           <>
-            <span className="flex-1 text-center">{column.label}</span>
+            {isEditing ? (
+              <div className="flex-1 flex items-center justify-center">
+                <Input
+                  ref={inputRef}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={() => handleSaveLabel(editValue)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-8 text-center text-sm bg-transparent border-0 focus:outline-none focus:ring-0"
+                  style={{ maxWidth: "264px" }}
+                  align="center"
+                />
+              </div>
+            ) : (
+              <span
+                className="flex-1 text-center cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditing(true);
+                }}
+                title="Click to edit column name"
+              >
+                {column.label}
+              </span>
+            )}
 
             {/* More menu icon – hover only */}
             <DropdownMenu>
@@ -623,6 +698,7 @@ export function WorkloadBoard({
     null
   );
   const [deleteGroupDialogOpen, setDeleteGroupDialogOpen] = useState(false);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -661,9 +737,16 @@ export function WorkloadBoard({
   // Timer state - track which task's timer is currently running
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
 
+  // Timer update trigger - used to force progress bar recalculation
+  const [timerUpdateTrigger, setTimerUpdateTrigger] = useState(0);
+
   // Timer conflict dialog state
   const [timerConflictDialogOpen, setTimerConflictDialogOpen] = useState(false);
   const [conflictingTaskName, setConflictingTaskName] = useState("");
+
+  // Column labels state - track custom column names
+  // NOTE: Labels are now stored directly in workloadColumns.label
+  // This state is kept for backward compatibility but not actively used
 
   // CMS Data states
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -986,6 +1069,17 @@ export function WorkloadBoard({
       setComments([]);
     }
   }, [commentsPanelOpen, selectedTaskId]);
+
+  // Update timer trigger every second when a timer is running to force progress bar recalculation
+  useEffect(() => {
+    if (!activeTimerId) return;
+    
+    const interval = setInterval(() => {
+      setTimerUpdateTrigger((prev) => prev + 1);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [activeTimerId]);
 
   // useEffect(() => {
   //   const loadGroupsAndTasks = async () => {
@@ -1402,6 +1496,57 @@ export function WorkloadBoard({
     setGroupToDelete(groupId);
     setDeleteGroupDialogOpen(true);
     setGroupDropdownOpen(null);
+  };
+
+  const handleColumnLabelChange = async (columnId: string, newLabel: string) => {
+    // Update workload columns with new label immediately
+    setWorkloadColumns((prev) =>
+      prev.map((col) =>
+        col.id === columnId ? { ...col, label: newLabel } : col
+      )
+    );
+
+    // Call API to save column configuration
+    try {
+      // Build the columns object for the API
+      const columnsPayload: Record<string, any> = {};
+      workloadColumns.forEach((col) => {
+        columnsPayload[col.id] = {
+          label: col.id === columnId ? newLabel : col.label,
+          visible: !collapsedColumns[col.id],
+          position: workloadColumns.indexOf(col) + 1,
+        };
+      });
+
+      // Build the full payload
+      const payload = {
+        user_id: 2, // TODO: Get from auth context
+        group_id: 92, // TODO: Get from current group
+        board_id: parseInt(boardId, 10),
+        columns: columnsPayload,
+      };
+
+      console.log("Column label update payload:", payload);
+
+      // Call API to save
+      const response = await cmsApi.saveUserGroupColumns(payload);
+      
+      // Update localStorage with the response columns data
+      const storagePayload = {
+        columnOrder: Object.keys(response.columns || columnsPayload),
+        columns: response.columns || columnsPayload,
+      };
+      
+      localStorage.setItem(
+        `workload-columns-${boardId}`,
+        JSON.stringify(storagePayload)
+      );
+
+      toast.success("Column renamed successfully");
+    } catch (error) {
+      console.error("Failed to rename column:", error);
+      toast.error("Failed to rename column");
+    }
   };
 
   const confirmDeleteGroup = async () => {
@@ -2572,12 +2717,28 @@ export function WorkloadBoard({
     const newWorkloadColumns = arrayMove(workloadColumns, oldIndex, newIndex);
     setWorkloadColumns(newWorkloadColumns);
 
-    // Update columnOrder state and persist
+    // Build the columns payload with labels
+    const columnsPayload: Record<string, any> = {};
+    newWorkloadColumns.forEach((col) => {
+      columnsPayload[col.id] = {
+        label: col.label,
+        visible: !collapsedColumns[col.id],
+        position: newWorkloadColumns.indexOf(col) + 1,
+      };
+    });
+
+    // Update columnOrder state and persist with full payload
     const newOrder = newWorkloadColumns.map((c) => c.id);
     setColumnOrder(newOrder);
+    
+    const storagePayload = {
+      columnOrder: newOrder,
+      columns: columnsPayload,
+    };
+    
     localStorage.setItem(
       `workload-columns-${boardId}`,
-      JSON.stringify(newOrder)
+      JSON.stringify(storagePayload)
     );
   };
 
@@ -2831,7 +2992,16 @@ export function WorkloadBoard({
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(`workload-columns-${boardId}`);
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Handle both old format (array) and new format (object with columnOrder)
+        if (Array.isArray(parsed)) {
+          return parsed;
+        } else if (parsed.columnOrder && Array.isArray(parsed.columnOrder)) {
+          return parsed.columnOrder;
+        }
+      }
+      return [];
     } catch {
       return [];
     }
@@ -2887,10 +3057,29 @@ export function WorkloadBoard({
       });
     }
 
-    // Apply collapsed state and persisted widths and filter visibility
+    // Load persisted column labels from localStorage
+    let savedLabels: Record<string, string> = {};
+    try {
+      const saved = localStorage.getItem(`workload-columns-${boardId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.columns && typeof parsed.columns === 'object') {
+          Object.entries(parsed.columns).forEach(([colId, colData]: [string, any]) => {
+            if (colData.label) {
+              savedLabels[colId] = colData.label;
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error loading saved column labels:", error);
+    }
+
+    // Apply collapsed state, persisted widths, persisted labels, and filter visibility
     return orderedColumns
       .map((col) => ({
         ...col,
+        label: savedLabels[col.id] || col.label, // Apply persisted label
         collapsed: !!collapsedColumns[col.id],
         width:
           columnWidths[col.id] ??
@@ -2951,11 +3140,30 @@ export function WorkloadBoard({
       });
     }
 
-    // Apply collapsed state and filter columns based on visibility and saved widths
+    // Load persisted column labels from localStorage
+    let savedLabels: Record<string, string> = {};
+    try {
+      const saved = localStorage.getItem(`workload-columns-${boardId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.columns && typeof parsed.columns === 'object') {
+          Object.entries(parsed.columns).forEach(([colId, colData]: [string, any]) => {
+            if (colData.label) {
+              savedLabels[colId] = colData.label;
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error loading saved column labels:", error);
+    }
+
+    // Apply collapsed state, persisted labels, and filter columns based on visibility and saved widths
     setWorkloadColumns(
       orderedColumns
         .map((col) => ({
           ...col,
+          label: savedLabels[col.id] || col.label, // Apply persisted label
           collapsed: !!collapsedColumns[col.id],
           width:
             columnWidths[col.id] ??
@@ -3060,6 +3268,11 @@ export function WorkloadBoard({
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
+
+  const handleOpenProfile = () => {
+    setProfileDialogOpen(true);
+  };
+
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
       {/* Image resize styles */}
@@ -3126,7 +3339,7 @@ export function WorkloadBoard({
             {/* Board Members Display */}
             <div className="flex items-center gap-2">
               <div className="flex items-center -space-x-2">
-                <Avatar className="w-8 h-8 border-2 border-background">
+                <Avatar className="w-8 h-8 border-2 border-background"   onClick={handleOpenProfile}>
                   <AvatarFallback className="bg-blue-500">
                     <span className="text-white text-xs font-semibold">
                       {userInitials}
@@ -3141,7 +3354,7 @@ export function WorkloadBoard({
               variant="outline"
               size="sm"
               onClick={() =>
-                navigate(`/workspace/${workspaceId}/board/${boardId}/dashboard`)
+                navigate(`/board/${boardId}/dashboard`)
               }
               className="h-8 px-3"
             >
@@ -3551,24 +3764,39 @@ export function WorkloadBoard({
                   disabled={!hasUnsavedChanges}
                   className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => {
-                    // Build the payload
+                    // Build the columns payload with labels
+                    const columnsPayload: Record<string, any> = {};
+                    workloadColumns.forEach((col) => {
+                      columnsPayload[col.id] = {
+                        label: col.label,
+                        visible: !collapsedColumns[col.id],
+                        position: workloadColumns.indexOf(col) + 1,
+                      };
+                    });
+
+                    // Build the group order payload
                     const groupOrder: Record<string, string> = {};
                     groups.forEach((group, index) => {
                       groupOrder[String(index + 1)] = group.id;
                     });
 
+                    // Build the column order payload
                     const columnOrder: Record<string, string> = {};
                     workloadColumns.forEach((col, index) => {
                       columnOrder[String(index + 1)] = col.id;
                     });
 
+                    // Build the full payload
                     const payload = {
+                      user_id: 12, // TODO: Get from auth context
+                      group_id: 92, // TODO: Get from current group
                       board_id: parseInt(boardId, 10),
                       group_order: groupOrder,
                       column_order: columnOrder,
+                      columns: columnsPayload,
                     };
 
-                    console.log("Save payload:", payload);
+                    console.log("Save View payload:", payload);
 
                     // Update initial order to mark changes as saved
                     setInitialGroupOrder(groups.map((g) => g.id));
@@ -3594,7 +3822,7 @@ export function WorkloadBoard({
 
                   <PopoverContent align="end" className="w-56">
                     <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
-                      Show/Hide Columns
+                      Columns
                     </div>
                     <div className="border-t border-border my-2" />
 
@@ -4155,16 +4383,21 @@ export function WorkloadBoard({
 
                                 {/* Group Progress Bar - Time Spent vs Estimated Time */}
                                 {(() => {
+                                  // Use timerUpdateTrigger to force recalculation when timer updates
                                   const progress = calculateGroupProgress(
                                     group.tasks
                                   );
+                                  // Access timerUpdateTrigger to create dependency
+                                  void timerUpdateTrigger;
                                   return (
-                                    <div className="flex items-center gap-2 flex-1 ml-4">
-                                      <Progress
-                                        value={progress.percentage}
-                                        className="h-2 flex-1 max-w-[200px]"
-                                      />
-                                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                    <div className="flex items-center gap-3 flex-1 ml-4">
+                                      <div className="flex-1 max-w-[250px]">
+                                        <Progress
+                                          value={progress.percentage}
+                                          className="h-2"
+                                        />
+                                      </div>
+                                      <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
                                         {formatSecondsToTime(
                                           progress.timeSpentSeconds
                                         )}{" "}
@@ -4277,6 +4510,7 @@ export function WorkloadBoard({
                                                 toggleCollapseColumn(col.id)
                                               }
                                               onStartResize={startColumnResize}
+                                              onColumnLabelChange={handleColumnLabelChange}
                                             />
                                           ))}
                                         </tr>
@@ -4722,6 +4956,9 @@ export function WorkloadBoard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/*  Profile Details Dialog */}
+      <ProfileDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
 
       {/* Delete Group Confirmation Dialog */}
       <Dialog
