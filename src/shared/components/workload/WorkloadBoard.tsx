@@ -83,6 +83,7 @@ import { getWorkloadColumns } from "./WorkloadColumns";
 import { TaskCardDialog } from "./TaskCardDialog";
 import { CommentsPanelSheet } from "./CommentsPanelSheet";
 import type { TaskResponse, TaskComment } from "@/features/tasks/types";
+import { ProfileDialog } from "../ProfileDialog";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -623,6 +624,7 @@ export function WorkloadBoard({
     null
   );
   const [deleteGroupDialogOpen, setDeleteGroupDialogOpen] = useState(false);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -3060,6 +3062,11 @@ export function WorkloadBoard({
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
+
+  const handleOpenProfile = () => {
+    setProfileDialogOpen(true);
+  };
+
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
       {/* Image resize styles */}
@@ -3126,7 +3133,7 @@ export function WorkloadBoard({
             {/* Board Members Display */}
             <div className="flex items-center gap-2">
               <div className="flex items-center -space-x-2">
-                <Avatar className="w-8 h-8 border-2 border-background">
+                <Avatar className="w-8 h-8 border-2 border-background"   onClick={handleOpenProfile}>
                   <AvatarFallback className="bg-blue-500">
                     <span className="text-white text-xs font-semibold">
                       {userInitials}
@@ -4722,6 +4729,9 @@ export function WorkloadBoard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/*  Profile Details Dialog */}
+      <ProfileDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
 
       {/* Delete Group Confirmation Dialog */}
       <Dialog
