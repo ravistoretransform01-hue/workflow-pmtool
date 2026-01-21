@@ -40,6 +40,15 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
     };
 
     saveToLocalStorage(payload.board_id, cmsData);
+    
+    // Also store user_columns and default_columns separately
+    if (apiResponse.user_columns) {
+      saveUserColumnsToLocalStorage(payload.board_id, apiResponse.user_columns);
+    }
+    if (apiResponse.default_columns) {
+      saveDefaultColumnsToLocalStorage(payload.board_id, apiResponse.default_columns);
+    }
+    
     return cmsData;
   } catch (error) {
     console.error("Error fetching CMS data:", error);
@@ -388,5 +397,74 @@ export function updatePriorityInCache(boardId: number, updatedPriority: Priority
     }
   } catch (error) {
     console.error("Error updating priority in cache:", error);
+  }
+}
+
+
+/**
+ * Get user columns configuration from localStorage
+ * @param boardId - Board ID to get columns for
+ * @returns User columns configuration or null
+ */
+export function getUserColumnsFromCache(boardId: number): any {
+  try {
+    const storageKey = `user_columns_board_${boardId}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error reading user columns from localStorage:", error);
+    return null;
+  }
+}
+
+/**
+ * Get default columns configuration from localStorage
+ * @param boardId - Board ID to get columns for
+ * @returns Default columns configuration or null
+ */
+export function getDefaultColumnsFromCache(boardId: number): any {
+  try {
+    const storageKey = `default_columns_board_${boardId}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error reading default columns from localStorage:", error);
+    return null;
+  }
+}
+
+/**
+ * Save user columns configuration to localStorage
+ * @param boardId - Board ID to save columns for
+ * @param userColumns - User columns configuration
+ */
+function saveUserColumnsToLocalStorage(boardId: number, userColumns: any): void {
+  try {
+    const storageKey = `user_columns_board_${boardId}`;
+    localStorage.setItem(storageKey, JSON.stringify(userColumns));
+    console.log(`User columns saved to localStorage for board ${boardId}`);
+  } catch (error) {
+    console.error("Error saving user columns to localStorage:", error);
+  }
+}
+
+/**
+ * Save default columns configuration to localStorage
+ * @param boardId - Board ID to save columns for
+ * @param defaultColumns - Default columns configuration
+ */
+function saveDefaultColumnsToLocalStorage(boardId: number, defaultColumns: any): void {
+  try {
+    const storageKey = `default_columns_board_${boardId}`;
+    localStorage.setItem(storageKey, JSON.stringify(defaultColumns));
+    console.log(`Default columns saved to localStorage for board ${boardId}`);
+  } catch (error) {
+    console.error("Error saving default columns to localStorage:", error);
   }
 }
