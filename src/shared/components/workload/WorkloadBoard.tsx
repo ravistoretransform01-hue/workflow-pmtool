@@ -3141,7 +3141,7 @@ export function WorkloadBoard({
               variant="outline"
               size="sm"
               onClick={() =>
-                navigate(`/workspace/${workspaceId}/board/${boardId}/dashboard`)
+                navigate(`/board/${boardId}/dashboard`)
               }
               className="h-8 px-3"
             >
