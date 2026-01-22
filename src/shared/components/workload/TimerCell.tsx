@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Play, Pause } from "lucide-react";
 import { toast } from "sonner";
 import { tasksApi } from "@/features/tasks/tasksApi";
+import { TimeTrackingLogDialog } from "./TimeTrackingLogDialog";
 
 interface TimerCellProps {
   taskId: string;
@@ -11,6 +12,7 @@ interface TimerCellProps {
   onTimerConflict?: (taskId: string) => void;
   hasAssignee?: boolean;
   estimatedHours?: string | number;
+  taskName?: string;
 }
 
 export function TimerCell({
@@ -21,9 +23,11 @@ export function TimerCell({
   onTimerConflict,
   hasAssignee = false,
   estimatedHours = "-",
+  taskName = "Task",
 }: TimerCellProps) {
   const [seconds, setSeconds] = useState(trackedTimeSeconds);
   const [isLoading, setIsLoading] = useState(false);
+  const [showTimeLog, setShowTimeLog] = useState(false);
   const isRunning = activeTimerId === taskId;
 
   // Update seconds when trackedTimeSeconds prop changes (e.g., on page refresh)
@@ -132,30 +136,43 @@ export function TimerCell({
   };
 
   return (
-    <div
-      className={`flex items-center justify-center gap-2 w-full h-full ${bgColor} rounded`}
-    >
-      <button
-        onClick={handlePlayPause}
-        disabled={isLoading || (!hasAssignee && !isRunning)}
-        className="p-2 hover:bg-muted rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        title={
-          !hasAssignee && !isRunning
-            ? "Assign a person first"
-            : isRunning
-            ? "Pause"
-            : "Start"
-        }
+    <>
+      <div
+        className={`flex items-center justify-center gap-2 w-full h-full ${bgColor} rounded`}
       >
-        {isRunning ? (
-          <Pause className="h-4 w-4 text-white" />
-        ) : (
-          <Play className="h-4 w-4 text-white" />
-        )}
-      </button>
-      <div className="rounded px-3 py-1 min-w-14 text-center">
-        <span className="text-sm font-medium text-white">{formatTime(seconds)}</span>
+        <button
+          onClick={handlePlayPause}
+          disabled={isLoading || (!hasAssignee && !isRunning)}
+          className="p-2 hover:bg-muted rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title={
+            !hasAssignee && !isRunning
+              ? "Assign a person first"
+              : isRunning
+              ? "Pause"
+              : "Start"
+          }
+        >
+          {isRunning ? (
+            <Pause className="h-4 w-4 text-white" />
+          ) : (
+            <Play className="h-4 w-4 text-white" />
+          )}
+        </button>
+        <button
+          onClick={() => setShowTimeLog(true)}
+          className="rounded px-3 py-1 min-w-14 text-center hover:opacity-80 transition-opacity cursor-pointer"
+          title="View time tracking log"
+        >
+          <span className="text-sm font-medium text-white">{formatTime(seconds)}</span>
+        </button>
       </div>
-    </div>
+
+      <TimeTrackingLogDialog
+        open={showTimeLog}
+        onOpenChange={setShowTimeLog}
+        taskId={taskId}
+        taskName={taskName}
+      />
+    </>
   );
 }

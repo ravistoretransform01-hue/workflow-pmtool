@@ -7,6 +7,7 @@ import type {
   TaskComment,
   CreateCommentRequest,
   UpdateCommentRequest,
+  TimeEntriesResponse,
 } from "./types";
 
 const TASKS_ENDPOINTS = {
@@ -347,6 +348,21 @@ export const tasksApi = {
       return response.data.data;
     } catch (error) {
       console.error("Failed to stop timer:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get time entries for a task
+   */
+  getTimeEntries: async (taskId: string | number): Promise<TimeEntriesResponse["data"]> => {
+    try {
+      const response = await axios.get<TimeEntriesResponse>(
+        `/tasks/time/entries?task_id=${taskId}`
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to fetch time entries:", error);
       throw error;
     }
   },
