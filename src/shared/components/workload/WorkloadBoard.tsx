@@ -2491,10 +2491,17 @@ export function WorkloadBoard({
         await tasksApi.deleteTask(taskId);
       }
 
-      // Update local state
+      // Update local state - filter both parent tasks and subtasks
       const updatedGroups = groups.map((group) => ({
         ...group,
-        tasks: group.tasks.filter((task) => !checkedTaskIds.includes(task.id)),
+        tasks: group.tasks
+          .filter((task) => !checkedTaskIds.includes(task.id))
+          .map((task) => ({
+            ...task,
+            subitems: task.subitems?.filter(
+              (subitem) => !checkedTaskIds.includes(subitem.id)
+            ),
+          })),
       }));
 
       setGroups(updatedGroups);
