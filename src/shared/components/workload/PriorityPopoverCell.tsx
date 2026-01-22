@@ -263,8 +263,8 @@ export function PriorityPopoverCell({
             )}
 
             {/* List */}
-            <div className="max-h-72 overflow-y-auto scrollbar-hide">
-              <div className="grid grid-cols-2 gap-2 pr-1">
+            <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-2">
+              <div className="grid grid-cols-2 gap-2 p-2">
                 {displayPriorities.map((p) => (
                   <button
                     key={p.id}
@@ -272,7 +272,7 @@ export function PriorityPopoverCell({
                       onPriorityChange?.(task.id, String(p.id));
                       setOpenPopoverId?.(null);
                     }}
-                    className="p-3 rounded text-white text-sm"
+                    className="p-3 rounded text-white text-sm hover:opacity-90 transition-opacity"
                     style={{ backgroundColor: p.color_code }}
                   >
                     {p.name}
@@ -281,7 +281,7 @@ export function PriorityPopoverCell({
               </div>
             </div>
 
-            <Button className="w-full mt-2" onClick={() => setIsEditMode(true)}>
+            <Button className="w-full" onClick={() => setIsEditMode(true)} variant="outline" size="sm">
               Edit Labels
             </Button>
           </>
@@ -300,10 +300,10 @@ export function PriorityPopoverCell({
             </div>
 
             {/* Edit List */}
-            <div className="max-h-72 overflow-y-auto scrollbar-hide">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-2">
+              <div className="grid grid-cols-2 gap-2 p-2">
                 {editablePriorities.map((p, i) => (
-                  <div key={p.id} className="flex gap-2 items-center">
+                  <div key={p.id} className="flex gap-2 items-center p-2 border border-border rounded">
                     <ColorPickerPopover
                       color={p.color_code}
                       onColorChange={(c) => {
@@ -321,14 +321,22 @@ export function PriorityPopoverCell({
                         copy[i].name = e.target.value;
                         setEditablePriorities(copy);
                       }}
+                      className="h-8 text-sm flex-1"
                     />
-                    <Trash className="h-4 w-4 text-destructive" />
+                    <Trash className="h-4 w-4 text-destructive cursor-pointer" />
                   </div>
                 ))}
               </div>
             </div>
 
-            <Button className="w-full mt-3" onClick={handleSaveEdits}>
+            <Button 
+              className="w-full" 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSaveEdits();
+              }}
+              size="sm"
+            >
               Done
             </Button>
           </>
