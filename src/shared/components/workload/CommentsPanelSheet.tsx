@@ -37,6 +37,33 @@ import {
 } from "lucide-react";
 import type { TaskComment } from "@/features/tasks/types";
 
+// Helper to render markdown-ish content
+const renderFormattedContent = (content: string) => {
+  if (!content) return { __html: "" };
+
+  // Escape HTML first to prevent XSS from the raw text
+  let safeContent = content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+  // Restore Bold
+  safeContent = safeContent.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+  // Restore Italic
+  safeContent = safeContent.replace(/_(.*?)_/g, "<em>$1</em>");
+
+  // Restore Strike
+  safeContent = safeContent.replace(/~~(.*?)~~/g, "<strike>$1</strike>");
+
+  // Newlines
+  safeContent = safeContent.replace(/\n/g, "<br />");
+
+  return { __html: safeContent };
+};
+
 interface CommentsPanelSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -213,7 +240,7 @@ export function CommentsPanelSheet({
                     onGifSelect={(gifUrl) =>
                       onUpdateTextChange(
                         updateText +
-                          `<img src="${gifUrl}" alt="GIF" style="max-width: 200px; border-radius: 8px;" />`
+                        `<img src="${gifUrl}" alt="GIF" style="max-width: 200px; border-radius: 8px;" />`
                       )
                     }
                   />
@@ -287,8 +314,8 @@ export function CommentsPanelSheet({
                         const visibleReplies = isExpanded
                           ? allThreadComments
                           : allThreadComments.length > 2
-                          ? [allThreadComments[allThreadComments.length - 1]]
-                          : allThreadComments;
+                            ? [allThreadComments[allThreadComments.length - 1]]
+                            : allThreadComments;
                         const hiddenCount =
                           allThreadComments.length - visibleReplies.length;
 
@@ -319,9 +346,9 @@ export function CommentsPanelSheet({
                                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
                                       {comment.created_at
                                         ? format(
-                                            new Date(comment.created_at),
-                                            "MMM d, h:mm a"
-                                          )
+                                          new Date(comment.created_at),
+                                          "MMM d, h:mm a"
+                                        )
                                         : ""}
                                     </span>
                                   </div>
@@ -397,9 +424,7 @@ export function CommentsPanelSheet({
                                   <>
                                     <div
                                       className="text-sm text-foreground/90 leading-relaxed break-words pr-4"
-                                      dangerouslySetInnerHTML={{
-                                        __html: comment.content,
-                                      }}
+                                      dangerouslySetInnerHTML={renderFormattedContent(comment.content)}
                                     />
 
                                     <div className="pt-0.5 flex items-center gap-4">
@@ -486,9 +511,9 @@ export function CommentsPanelSheet({
                                         <span className="text-[10px] text-muted-foreground italic">
                                           {reply.created_at
                                             ? format(
-                                                new Date(reply.created_at),
-                                                "MMM d, h:mm a"
-                                              )
+                                              new Date(reply.created_at),
+                                              "MMM d, h:mm a"
+                                            )
                                             : ""}
                                         </span>
                                       </div>
@@ -565,9 +590,7 @@ export function CommentsPanelSheet({
                                       <>
                                         <div
                                           className="text-sm text-foreground/80 leading-relaxed break-words"
-                                          dangerouslySetInnerHTML={{
-                                            __html: reply.content,
-                                          }}
+                                          dangerouslySetInnerHTML={renderFormattedContent(reply.content)}
                                         />
                                         <div className="pt-0.5 flex items-center gap-4">
                                           <Button

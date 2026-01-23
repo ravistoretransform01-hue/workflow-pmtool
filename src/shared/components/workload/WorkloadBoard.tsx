@@ -238,8 +238,8 @@ const calculateGroupProgress = (tasks: Task[]) => {
 
     // Add estimated hours from this task (convert to seconds)
     if (task.estimatedHours) {
-      const hours = typeof task.estimatedHours === 'string' 
-        ? parseFloat(task.estimatedHours) 
+      const hours = typeof task.estimatedHours === 'string'
+        ? parseFloat(task.estimatedHours)
         : task.estimatedHours;
       if (!isNaN(hours)) {
         totalEstimatedSeconds += hours * 3600;
@@ -272,30 +272,30 @@ const formatDateRange = (fromDate: string, toDate?: string): string => {
   try {
     const from = parseISO(fromDate);
     const to = toDate ? parseISO(toDate) : from;
-    
+
     const fromMonth = format(from, "MMM");
     const fromDay = format(from, "d");
     const fromYear = format(from, "yy");
-    
+
     const toMonth = format(to, "MMM");
     const toDay = format(to, "d");
     const toYear = format(to, "yy");
-    
+
     // If same date, just return single date
     if (fromDate === toDate) {
       return `${fromMonth} ${fromDay}, '${fromYear}`;
     }
-    
+
     // If same month and year, format as "Jan 19 - 30"
     if (fromMonth === toMonth && fromYear === toYear) {
       return `${fromMonth} ${fromDay} - ${toDay}`;
     }
-    
+
     // If same year, format as "Jan 31 – Feb 15"
     if (fromYear === toYear) {
       return `${fromMonth} ${fromDay} – ${toMonth} ${toDay}`;
     }
-    
+
     // Different years, format as "Dec 31, '26 – Jan 8, '27"
     return `${fromMonth} ${fromDay}, '${fromYear} – ${toMonth} ${toDay}, '${toYear}`;
   } catch (error) {
@@ -401,11 +401,10 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     <button
       ref={setNodeRef}
       style={style}
-      className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
-        activeTab === tab
-          ? "text-primary border-b-primary"
-          : "text-muted-foreground border-b-transparent hover:text-foreground"
-      }`}
+      className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap ${activeTab === tab
+        ? "text-primary border-b-primary"
+        : "text-muted-foreground border-b-transparent hover:text-foreground"
+        }`}
       onClick={() => onTabClick(tab)}
       {...attributes}
       {...listeners}
@@ -423,12 +422,14 @@ interface SortableColumnHeaderProps {
   onToggleCollapse?: () => void;
   onStartResize?: (columnId: string, e: React.PointerEvent) => void;
   onColumnLabelChange?: (columnId: string, newLabel: string) => void;
+  onSort?: (direction: "asc" | "desc") => void;
 }
 const SortableColumnHeader = ({
   column,
   onToggleCollapse,
   onStartResize,
   onColumnLabelChange,
+  onSort,
 }: SortableColumnHeaderProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(column.label);
@@ -502,18 +503,16 @@ const SortableColumnHeader = ({
     <th
       ref={setNodeRef}
       style={{ ...style, width: column.width }}
-      className={`p-4 font-medium border-r border-border last:border-r-0 ${
-        column.id === "item" ? "sticky left-12 z-10 bg-card" : "bg-muted/30"
-      }`}
+      className={`p-4 font-medium border-r border-border last:border-r-0 ${column.id === "item" ? "sticky left-12 z-10 bg-card" : "bg-muted/30"
+        }`}
       {...attributes}
     >
       <div
         {...(!column.fixed ? listeners : {})}
-        className={`relative group flex items-center justify-between ${
-          column.fixed
-            ? "cursor-default opacity-80"
-            : "cursor-grab active:cursor-grabbing"
-        }`}
+        className={`relative group flex items-center justify-between ${column.fixed
+          ? "cursor-default opacity-80"
+          : "cursor-grab active:cursor-grabbing"
+          }`}
       >
         {/* Resizer handle (right edge) */}
         {!column.fixed && !column.collapsed && (
@@ -604,10 +603,10 @@ const SortableColumnHeader = ({
                     <span>Sort</span>
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => {}}>
+                    <DropdownMenuItem onClick={() => onSort?.("asc")}>
                       Sort ascending
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => {}}>
+                    <DropdownMenuItem onClick={() => onSort?.("desc")}>
                       Sort descending
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
@@ -633,11 +632,11 @@ const SortableColumnHeader = ({
                   <span>Filter</span>
                 </DropdownMenuItem> */}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => {}}>
+                <DropdownMenuItem onClick={() => { }}>
                   <Lock className="h-4 w-4 mr-2" />
                   <span>Lock column</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {}}>
+                <DropdownMenuItem onClick={() => { }}>
                   <Trash className="h-4 w-4 mr-2 text-destructive" />
                   <span>Delete</span> {/* delete column */}
                 </DropdownMenuItem>
@@ -899,11 +898,11 @@ export function WorkloadBoard({
             estimatedDate: task.estimation?.estimated_date_from
               ? task.estimation.estimated_date_to &&
                 task.estimation.estimated_date_to !==
-                  task.estimation.estimated_date_from
+                task.estimation.estimated_date_from
                 ? formatDateRange(
-                    task.estimation.estimated_date_from,
-                    task.estimation.estimated_date_to
-                  )
+                  task.estimation.estimated_date_from,
+                  task.estimation.estimated_date_to
+                )
                 : formatDateRange(task.estimation.estimated_date_from)
               : task.due_date,
             estimatedHours: task.estimation?.approved_hours || "-",
@@ -936,11 +935,11 @@ export function WorkloadBoard({
                 estimatedDate: st.estimation?.estimated_date_from
                   ? st.estimation.estimated_date_to &&
                     st.estimation.estimated_date_to !==
-                      st.estimation.estimated_date_from
+                    st.estimation.estimated_date_from
                     ? formatDateRange(
-                        st.estimation.estimated_date_from,
-                        st.estimation.estimated_date_to
-                      )
+                      st.estimation.estimated_date_from,
+                      st.estimation.estimated_date_to
+                    )
                     : formatDateRange(st.estimation.estimated_date_from)
                   : st.due_date,
                 estimatedHours: st.estimation?.approved_hours || "-",
@@ -1105,11 +1104,11 @@ export function WorkloadBoard({
   // Update timer trigger every second when a timer is running to force progress bar recalculation
   useEffect(() => {
     if (!activeTimerId) return;
-    
+
     const interval = setInterval(() => {
       setTimerUpdateTrigger((prev) => prev + 1);
     }, 1000);
-    
+
     return () => clearInterval(interval);
   }, [activeTimerId]);
 
@@ -1329,6 +1328,62 @@ export function WorkloadBoard({
       setInlineEditingTaskId(null);
       setInlineEditingTaskName("");
     }
+  };
+
+  const handleSortGroupItems = (
+    groupId: string,
+    columnId: string,
+    direction: "asc" | "desc"
+  ) => {
+    setGroups((prevGroups) =>
+      prevGroups.map((group) => {
+        if (group.id !== groupId) return group;
+
+        const sortedTasks = [...group.tasks].sort((a, b) => {
+          let valA: string | number = "";
+          let valB: string | number = "";
+
+          switch (columnId) {
+            case "item":
+              valA = a.name?.toLowerCase() || "";
+              valB = b.name?.toLowerCase() || "";
+              break;
+            case "status":
+              valA = a.status || "";
+              valB = b.status || "";
+              break;
+            case "priority":
+              valA = a.priority || "";
+              valB = b.priority || "";
+              break;
+            case "person":
+              valA = a.person || "";
+              valB = b.person || "";
+              break;
+            case "rating":
+              valA = a.rating || 0;
+              valB = b.rating || 0;
+              break;
+            case "estimatedDate":
+              valA = a.estimatedDate || "";
+              valB = b.estimatedDate || "";
+              break;
+            case "estimatedTime":
+              valA = Number(a.estimatedHours) || 0;
+              valB = Number(b.estimatedHours) || 0;
+              break;
+            default:
+              return 0;
+          }
+
+          if (valA < valB) return direction === "asc" ? -1 : 1;
+          if (valA > valB) return direction === "asc" ? 1 : -1;
+          return 0;
+        });
+
+        return { ...group, tasks: sortedTasks };
+      })
+    );
   };
 
   const addNewGroup = async () => {
@@ -2090,11 +2145,11 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) =>
                   sub.id === taskId
                     ? {
-                        ...sub,
-                        rating: ratingValue,
-                        ratingCount: updated.rating_count || 0,
-                        ratings: updated.ratings,
-                      }
+                      ...sub,
+                      rating: ratingValue,
+                      ratingCount: updated.rating_count || 0,
+                      ratings: updated.ratings,
+                    }
                     : sub
                 ),
               };
@@ -2216,10 +2271,10 @@ export function WorkloadBoard({
               subitems: task.subitems.map((sub) =>
                 sub.id === taskId
                   ? {
-                      ...sub,
-                      estimatedDate: dateDisplay,
-                      estimatedDateEnd: toDate || null,
-                    }
+                    ...sub,
+                    estimatedDate: dateDisplay,
+                    estimatedDateEnd: toDate || null,
+                  }
                   : sub
               ),
             };
@@ -2257,9 +2312,9 @@ export function WorkloadBoard({
               subitems: task.subitems.map((sub) =>
                 sub.id === taskId
                   ? {
-                      ...sub,
-                      estimatedHours: hours || "-",
-                    }
+                    ...sub,
+                    estimatedHours: hours || "-",
+                  }
                   : sub
               ),
             };
@@ -2294,9 +2349,9 @@ export function WorkloadBoard({
               subitems: task.subitems.map((sub) =>
                 sub.id === taskId
                   ? {
-                      ...sub,
-                      tags,
-                    }
+                    ...sub,
+                    tags,
+                  }
                   : sub
               ),
             };
@@ -2343,10 +2398,10 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) =>
                   sub.id === taskId
                     ? {
-                        ...sub,
-                        status: updated.status_label,
-                        status_id: String(updated.status_id),
-                      }
+                      ...sub,
+                      status: updated.status_label,
+                      status_id: String(updated.status_id),
+                    }
                     : sub
                 ),
               };
@@ -2396,10 +2451,10 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) =>
                   sub.id === taskId
                     ? {
-                        ...sub,
-                        priority: updated.priority_label,
-                        priority_id: String(updated.task_priority_id),
-                      }
+                      ...sub,
+                      priority: updated.priority_label,
+                      priority_id: String(updated.task_priority_id),
+                    }
                     : sub
                 ),
               };
@@ -2632,6 +2687,40 @@ export function WorkloadBoard({
       .filter((group) => group.tasks.length > 0); // Only show groups with matching tasks
   };
 
+  const processHtmlContent = (html: string) => {
+    if (!html) return "";
+
+    let processed = html;
+
+    // Handle bold (including with attributes)
+    processed = processed.replace(/<b\b[^>]*>(.*?)<\/b>/gi, "**$1**");
+    processed = processed.replace(/<strong\b[^>]*>(.*?)<\/strong>/gi, "**$1**");
+
+    // Handle italic
+    processed = processed.replace(/<i\b[^>]*>(.*?)<\/i>/gi, "_$1_");
+    processed = processed.replace(/<em\b[^>]*>(.*?)<\/em>/gi, "_$1_");
+
+    // Handle strike
+    processed = processed.replace(/<s\b[^>]*>(.*?)<\/s>/gi, "~~$1~~");
+    processed = processed.replace(/<strike\b[^>]*>(.*?)<\/strike>/gi, "~~$1~~");
+
+    // Handle Lists
+    processed = processed.replace(/<\/li>/gi, ""); // remove closing li
+    processed = processed.replace(/<li\b[^>]*>/gi, "\n- "); // replace opening li with newline dash
+    processed = processed.replace(/<\/?(ul|ol)\b[^>]*>/gi, "\n"); // remove ul/ol tags but add newline
+
+    // Handle BR
+    processed = processed.replace(/<br\s*\/?>/gi, "\n");
+
+    // Handle Blocks (div, p, etc)
+    // Replace opening block tags with newlines
+    processed = processed.replace(/<(div|p|h[1-6]|blockquote)( [^>]*)?>/gi, "\n");
+    // Replace closing block tags with newlines
+    processed = processed.replace(/<\/(div|p|h[1-6]|blockquote)>/gi, "\n");
+
+    return processed;
+  };
+
   const saveUpdate = async () => {
     if (!updateText.trim() || !selectedTaskId) {
       return;
@@ -2639,7 +2728,7 @@ export function WorkloadBoard({
 
     try {
       const payload = {
-        content: updateText,
+        content: processHtmlContent(updateText),
         parent_id: replyingTo ? Number(replyingTo.id) : null,
         is_internal: 0,
       };
@@ -2673,7 +2762,7 @@ export function WorkloadBoard({
 
     try {
       const payload = {
-        content: replyText,
+        content: processHtmlContent(replyText),
         parent_id: Number(parentId),
         is_internal: 0,
       };
@@ -2715,7 +2804,7 @@ export function WorkloadBoard({
       const updatedComment = await tasksApi.updateComment(
         selectedTaskId,
         commentId,
-        { content }
+        { content: processHtmlContent(content) }
       );
       setComments((prev) =>
         prev.map((c) =>
@@ -2799,7 +2888,7 @@ export function WorkloadBoard({
           `board-collapsed-columns-${boardId}`,
           JSON.stringify(updated)
         );
-      } catch {}
+      } catch { }
 
       // Update columnWidths and prevColumnWidths synchronously so the UI reflects the collapsed width immediately.
       const currentWidth = columnWidths[columnId];
@@ -2843,14 +2932,14 @@ export function WorkloadBoard({
           `board-column-widths-${boardId}`,
           JSON.stringify(updatedColumnWidths)
         );
-      } catch {}
+      } catch { }
 
       try {
         localStorage.setItem(
           `board-prev-column-widths-${boardId}`,
           JSON.stringify(updatedPrevWidths)
         );
-      } catch {}
+      } catch { }
 
       setPrevColumnWidths(updatedPrevWidths);
       setColumnWidths(updatedColumnWidths);
@@ -2954,7 +3043,7 @@ export function WorkloadBoard({
             `board-collapsed-columns-${boardId}`,
             JSON.stringify(updated)
           );
-        } catch {}
+        } catch { }
         return;
       }
 
@@ -2966,7 +3055,7 @@ export function WorkloadBoard({
             `board-column-widths-${boardId}`,
             JSON.stringify(updated)
           );
-        } catch {}
+        } catch { }
 
         return updated;
       });
@@ -2989,7 +3078,7 @@ export function WorkloadBoard({
     // capture pointer to the element if available
     try {
       (e.target as Element).setPointerCapture?.((e as any).pointerId);
-    } catch {}
+    } catch { }
   };
 
   // const workloadColumns = getWorkloadColumns({
@@ -3254,7 +3343,7 @@ export function WorkloadBoard({
         ref.scrollLeft = scrollLeft;
       }
     });
-    
+
     // Update the unified scrollbar
     const unifiedScrollbar = document.querySelector('[data-unified-scrollbar]') as HTMLDivElement;
     if (unifiedScrollbar) {
@@ -3286,7 +3375,7 @@ export function WorkloadBoard({
       groupHeaders.forEach((header) => {
         const rect = header.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
-        
+
         // Check if header is at the top of the container (sticky position)
         if (rect.top <= containerRect.top + 1 && rect.bottom > containerRect.top) {
           currentStickyGroupId = header.getAttribute('data-group-id');
@@ -3371,7 +3460,7 @@ export function WorkloadBoard({
             {/* Board Members Display */}
             <div className="flex items-center gap-2">
               <div className="flex items-center -space-x-2">
-                <Avatar className="w-8 h-8 border-2 border-background"   onClick={handleOpenProfile}>
+                <Avatar className="w-8 h-8 border-2 border-background" onClick={handleOpenProfile}>
                   <AvatarFallback className="bg-blue-500">
                     <span className="text-white text-xs font-semibold">
                       {userInitials}
@@ -3425,350 +3514,345 @@ export function WorkloadBoard({
         <div className="flex flex-col flex-1 overflow-hidden" ref={mainFlexContainerRef}>
           {/* Toolbar - FIXED */}
           <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
-              {/* New Group Button */}
-              <Button
-                variant="default"
-                size="sm"
-                onClick={addNewGroup}
-                disabled={isLoadingGroups}
-              >
-                New Group
-              </Button>
-              {/* Search and Filters */}
-              <div className="flex items-center gap-3 flex-1">
-                {/* Search */}
-                <div className="relative max-w-xs">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
-                  <Input
-                    placeholder="Search items..."
-                    value={mainTableSearchQuery}
-                    onChange={(e) => setMainTableSearchQuery(e.target.value)}
-                    className="pl-9 h-8 bg-background border-border w-48"
-                  />
-                </div>
+            {/* New Group Button */}
+            <Button
+              variant="default"
+              size="sm"
+              onClick={addNewGroup}
+              disabled={isLoadingGroups}
+            >
+              New Group
+            </Button>
+            {/* Search and Filters */}
+            <div className="flex items-center gap-3 flex-1">
+              {/* Search */}
+              <div className="relative max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+                <Input
+                  placeholder="Search items..."
+                  value={mainTableSearchQuery}
+                  onChange={(e) => setMainTableSearchQuery(e.target.value)}
+                  className="pl-9 h-8 bg-background border-border w-48"
+                />
+              </div>
 
-                {/* Done Items Checkbox */}
-                <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={showDoneItemsOnly}
-                    onChange={(e) => setShowDoneItemsOnly(e.target.checked)}
-                    className="cursor-pointer"
-                  />
-                  <span className="text-sm font-medium">Done Items</span>
-                </label>
+              {/* Done Items Checkbox */}
+              <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showDoneItemsOnly}
+                  onChange={(e) => setShowDoneItemsOnly(e.target.checked)}
+                  className="cursor-pointer"
+                />
+                <span className="text-sm font-medium">Done Items</span>
+              </label>
 
-                {/* Show/Hide Filter Popover */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
-                      <Eye className="h-4 w-4" />
-                      Only Show
-                    </button>
-                  </PopoverTrigger>
+              {/* Show/Hide Filter Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
+                    <Eye className="h-4 w-4" />
+                    Only Show
+                  </button>
+                </PopoverTrigger>
 
-                  <PopoverContent align="start" className="w-64 max-h-96 p-0 bg-card border-2 border-primary/20 flex flex-col">
-                    <div className="space-y-1 overflow-y-auto flex-1 p-2 scrollbar-hide">
-                      {/* Person Filter Dropdown */}
-                      <div className="border border-primary/30 rounded-md bg-background">
-                        <button
-                          onClick={() =>
-                            setOpenFilterDropdowns((prev) => ({
-                              ...prev,
-                              persons: !prev.persons,
-                            }))
-                          }
-                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
-                        >
-                          <span className="text-sm font-medium">Person</span>
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform ${
-                              openFilterDropdowns.persons ? "rotate-180" : ""
+                <PopoverContent align="start" className="w-64 max-h-96 p-0 bg-card border-2 border-primary/20 flex flex-col">
+                  <div className="space-y-1 overflow-y-auto flex-1 p-2 scrollbar-hide">
+                    {/* Person Filter Dropdown */}
+                    <div className="border border-primary/30 rounded-md bg-background">
+                      <button
+                        onClick={() =>
+                          setOpenFilterDropdowns((prev) => ({
+                            ...prev,
+                            persons: !prev.persons,
+                          }))
+                        }
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      >
+                        <span className="text-sm font-medium">Person</span>
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${openFilterDropdowns.persons ? "rotate-180" : ""
                             }`}
-                          />
-                        </button>
-                        {openFilterDropdowns.persons && (
-                          <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                            {members.map((member) => (
-                              <label
-                                key={member.user_id}
-                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={taskFilters.persons.has(
-                                    String(member.user_id)
-                                  )}
-                                  onChange={(e) => {
-                                    const newPersons = new Set(
-                                      taskFilters.persons
-                                    );
-                                    if (e.target.checked) {
-                                      newPersons.add(String(member.user_id));
-                                    } else {
-                                      newPersons.delete(String(member.user_id));
-                                    }
-                                    setTaskFilters({
-                                      ...taskFilters,
-                                      persons: newPersons,
-                                    });
-                                  }}
-                                  className="cursor-pointer"
-                                />
-                                <span>{member.name}</span>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Status Filter Dropdown */}
-                      <div className="border border-primary/30 rounded-md bg-background">
-                        <button
-                          onClick={() =>
-                            setOpenFilterDropdowns((prev) => ({
-                              ...prev,
-                              statuses: !prev.statuses,
-                            }))
-                          }
-                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
-                        >
-                          <span className="text-sm font-medium">Status</span>
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform ${
-                              openFilterDropdowns.statuses ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-                        {openFilterDropdowns.statuses && (
-                          <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                            {statuses.map((status) => (
-                              <label
-                                key={status.id}
-                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={taskFilters.statuses.has(
-                                    String(status.id)
-                                  )}
-                                  onChange={(e) => {
-                                    const newStatuses = new Set(
-                                      taskFilters.statuses
-                                    );
-                                    if (e.target.checked) {
-                                      newStatuses.add(String(status.id));
-                                    } else {
-                                      newStatuses.delete(String(status.id));
-                                    }
-                                    setTaskFilters({
-                                      ...taskFilters,
-                                      statuses: newStatuses,
-                                    });
-                                  }}
-                                  className="cursor-pointer"
-                                />
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-3 h-3 rounded-full"
-                                    style={{
-                                      backgroundColor: status.color_code,
-                                    }}
-                                  />
-                                  <span>{status.name}</span>
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Priority Filter Dropdown */}
-                      <div className="border border-primary/30 rounded-md bg-background">
-                        <button
-                          onClick={() =>
-                            setOpenFilterDropdowns((prev) => ({
-                              ...prev,
-                              priorities: !prev.priorities,
-                            }))
-                          }
-                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
-                        >
-                          <span className="text-sm font-medium">Priority</span>
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform ${
-                              openFilterDropdowns.priorities ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-                        {openFilterDropdowns.priorities && (
-                          <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                            {priorities.map((priority) => (
-                              <label
-                                key={priority.id}
-                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={taskFilters.priorities.has(
-                                    String(priority.id)
-                                  )}
-                                  onChange={(e) => {
-                                    const newPriorities = new Set(
-                                      taskFilters.priorities
-                                    );
-                                    if (e.target.checked) {
-                                      newPriorities.add(String(priority.id));
-                                    } else {
-                                      newPriorities.delete(String(priority.id));
-                                    }
-                                    setTaskFilters({
-                                      ...taskFilters,
-                                      priorities: newPriorities,
-                                    });
-                                  }}
-                                  className="cursor-pointer"
-                                />
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-3 h-3 rounded-full"
-                                    style={{
-                                      backgroundColor: priority.color_code,
-                                    }}
-                                  />
-                                  <span>{priority.name}</span>
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Label Filter Dropdown */}
-                      <div className="border border-primary/30 rounded-md bg-background">
-                        <button
-                          onClick={() =>
-                            setOpenFilterDropdowns((prev) => ({
-                              ...prev,
-                              labels: !prev.labels,
-                            }))
-                          }
-                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
-                        >
-                          <span className="text-sm font-medium">Label</span>
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform ${
-                              openFilterDropdowns.labels ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-                        {openFilterDropdowns.labels && (
-                          <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                            {labels.map((label) => (
-                              <label
-                                key={label.id}
-                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={taskFilters.labels.has(
-                                    String(label.id)
-                                  )}
-                                  onChange={(e) => {
-                                    const newLabels = new Set(
-                                      taskFilters.labels
-                                    );
-                                    if (e.target.checked) {
-                                      newLabels.add(String(label.id));
-                                    } else {
-                                      newLabels.delete(String(label.id));
-                                    }
-                                    setTaskFilters({
-                                      ...taskFilters,
-                                      labels: newLabels,
-                                    });
-                                  }}
-                                  className="cursor-pointer"
-                                />
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-3 h-3 rounded-full"
-                                    style={{
-                                      backgroundColor: label.label_color,
-                                    }}
-                                  />
-                                  <span>{label.label_name}</span>
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Group Filter Dropdown */}
-                      <div className="border border-primary/30 rounded-md bg-background">
-                        <button
-                          onClick={() =>
-                            setOpenFilterDropdowns((prev) => ({
-                              ...prev,
-                              groups: !prev.groups,
-                            }))
-                          }
-                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
-                        >
-                          <span className="text-sm font-medium">Group</span>
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform ${
-                              openFilterDropdowns.groups ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-                        {openFilterDropdowns.groups && (
-                          <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                            {groups.map((group) => (
-                              <label
-                                key={group.id}
-                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={taskFilters.groups.has(group.id)}
-                                  onChange={(e) => {
-                                    const newGroups = new Set(
-                                      taskFilters.groups
-                                    );
-                                    if (e.target.checked) {
-                                      newGroups.add(group.id);
-                                    } else {
-                                      newGroups.delete(group.id);
-                                    }
-                                    setTaskFilters({
-                                      ...taskFilters,
-                                      groups: newGroups,
-                                    });
-                                  }}
-                                  className="cursor-pointer"
-                                />
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-3 h-3 rounded-full"
-                                    style={{ backgroundColor: group.color }}
-                                  />
-                                  <span>{group.name}</span>
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                        />
+                      </button>
+                      {openFilterDropdowns.persons && (
+                        <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                          {members.map((member) => (
+                            <label
+                              key={member.user_id}
+                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={taskFilters.persons.has(
+                                  String(member.user_id)
+                                )}
+                                onChange={(e) => {
+                                  const newPersons = new Set(
+                                    taskFilters.persons
+                                  );
+                                  if (e.target.checked) {
+                                    newPersons.add(String(member.user_id));
+                                  } else {
+                                    newPersons.delete(String(member.user_id));
+                                  }
+                                  setTaskFilters({
+                                    ...taskFilters,
+                                    persons: newPersons,
+                                  });
+                                }}
+                                className="cursor-pointer"
+                              />
+                              <span>{member.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Clear Filters Button - Fixed at bottom */}
-                    {(taskFilters.persons.size > 0 ||
-                      taskFilters.statuses.size > 0 ||
-                      taskFilters.priorities.size > 0 ||
-                      taskFilters.labels.size > 0 ||
-                      taskFilters.groups.size > 0) && (
+                    {/* Status Filter Dropdown */}
+                    <div className="border border-primary/30 rounded-md bg-background">
+                      <button
+                        onClick={() =>
+                          setOpenFilterDropdowns((prev) => ({
+                            ...prev,
+                            statuses: !prev.statuses,
+                          }))
+                        }
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      >
+                        <span className="text-sm font-medium">Status</span>
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${openFilterDropdowns.statuses ? "rotate-180" : ""
+                            }`}
+                        />
+                      </button>
+                      {openFilterDropdowns.statuses && (
+                        <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                          {statuses.map((status) => (
+                            <label
+                              key={status.id}
+                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={taskFilters.statuses.has(
+                                  String(status.id)
+                                )}
+                                onChange={(e) => {
+                                  const newStatuses = new Set(
+                                    taskFilters.statuses
+                                  );
+                                  if (e.target.checked) {
+                                    newStatuses.add(String(status.id));
+                                  } else {
+                                    newStatuses.delete(String(status.id));
+                                  }
+                                  setTaskFilters({
+                                    ...taskFilters,
+                                    statuses: newStatuses,
+                                  });
+                                }}
+                                className="cursor-pointer"
+                              />
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-3 h-3 rounded-full"
+                                  style={{
+                                    backgroundColor: status.color_code,
+                                  }}
+                                />
+                                <span>{status.name}</span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Priority Filter Dropdown */}
+                    <div className="border border-primary/30 rounded-md bg-background">
+                      <button
+                        onClick={() =>
+                          setOpenFilterDropdowns((prev) => ({
+                            ...prev,
+                            priorities: !prev.priorities,
+                          }))
+                        }
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      >
+                        <span className="text-sm font-medium">Priority</span>
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${openFilterDropdowns.priorities ? "rotate-180" : ""
+                            }`}
+                        />
+                      </button>
+                      {openFilterDropdowns.priorities && (
+                        <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                          {priorities.map((priority) => (
+                            <label
+                              key={priority.id}
+                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={taskFilters.priorities.has(
+                                  String(priority.id)
+                                )}
+                                onChange={(e) => {
+                                  const newPriorities = new Set(
+                                    taskFilters.priorities
+                                  );
+                                  if (e.target.checked) {
+                                    newPriorities.add(String(priority.id));
+                                  } else {
+                                    newPriorities.delete(String(priority.id));
+                                  }
+                                  setTaskFilters({
+                                    ...taskFilters,
+                                    priorities: newPriorities,
+                                  });
+                                }}
+                                className="cursor-pointer"
+                              />
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-3 h-3 rounded-full"
+                                  style={{
+                                    backgroundColor: priority.color_code,
+                                  }}
+                                />
+                                <span>{priority.name}</span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Label Filter Dropdown */}
+                    <div className="border border-primary/30 rounded-md bg-background">
+                      <button
+                        onClick={() =>
+                          setOpenFilterDropdowns((prev) => ({
+                            ...prev,
+                            labels: !prev.labels,
+                          }))
+                        }
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      >
+                        <span className="text-sm font-medium">Label</span>
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${openFilterDropdowns.labels ? "rotate-180" : ""
+                            }`}
+                        />
+                      </button>
+                      {openFilterDropdowns.labels && (
+                        <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                          {labels.map((label) => (
+                            <label
+                              key={label.id}
+                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={taskFilters.labels.has(
+                                  String(label.id)
+                                )}
+                                onChange={(e) => {
+                                  const newLabels = new Set(
+                                    taskFilters.labels
+                                  );
+                                  if (e.target.checked) {
+                                    newLabels.add(String(label.id));
+                                  } else {
+                                    newLabels.delete(String(label.id));
+                                  }
+                                  setTaskFilters({
+                                    ...taskFilters,
+                                    labels: newLabels,
+                                  });
+                                }}
+                                className="cursor-pointer"
+                              />
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-3 h-3 rounded-full"
+                                  style={{
+                                    backgroundColor: label.label_color,
+                                  }}
+                                />
+                                <span>{label.label_name}</span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Group Filter Dropdown */}
+                    <div className="border border-primary/30 rounded-md bg-background">
+                      <button
+                        onClick={() =>
+                          setOpenFilterDropdowns((prev) => ({
+                            ...prev,
+                            groups: !prev.groups,
+                          }))
+                        }
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      >
+                        <span className="text-sm font-medium">Group</span>
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${openFilterDropdowns.groups ? "rotate-180" : ""
+                            }`}
+                        />
+                      </button>
+                      {openFilterDropdowns.groups && (
+                        <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                          {groups.map((group) => (
+                            <label
+                              key={group.id}
+                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={taskFilters.groups.has(group.id)}
+                                onChange={(e) => {
+                                  const newGroups = new Set(
+                                    taskFilters.groups
+                                  );
+                                  if (e.target.checked) {
+                                    newGroups.add(group.id);
+                                  } else {
+                                    newGroups.delete(group.id);
+                                  }
+                                  setTaskFilters({
+                                    ...taskFilters,
+                                    groups: newGroups,
+                                  });
+                                }}
+                                className="cursor-pointer"
+                              />
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-3 h-3 rounded-full"
+                                  style={{ backgroundColor: group.color }}
+                                />
+                                <span>{group.name}</span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Clear Filters Button - Fixed at bottom */}
+                  {(taskFilters.persons.size > 0 ||
+                    taskFilters.statuses.size > 0 ||
+                    taskFilters.priorities.size > 0 ||
+                    taskFilters.labels.size > 0 ||
+                    taskFilters.groups.size > 0) && (
                       <div className="border-t border-primary/20 bg-primary/5 p-2 shrink-0">
                         <Button
                           variant="outline"
@@ -3962,522 +4046,520 @@ export function WorkloadBoard({
                             >
                               {/* Group Header */}
 
-                              <div 
-                                className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-30 bg-muted border-b border-border ${stickyGroupId === group.id ? 'shadow-md' : ''}`}
-                                data-group-header
-                                data-group-id={group.id}
+                            <div
+                              className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-30 bg-muted border-b border-border ${stickyGroupId === group.id ? 'shadow-md' : ''}`}
+                              data-group-header
+                              data-group-id={group.id}
+                            >
+                              {/* Group Actions Dropdown */}
+                              <DropdownMenu
+                                open={groupDropdownOpen === group.id}
+                                onOpenChange={(open) =>
+                                  setGroupDropdownOpen(open ? group.id : null)
+                                }
                               >
-                                {/* Group Actions Dropdown */}
-                                <DropdownMenu
-                                  open={groupDropdownOpen === group.id}
-                                  onOpenChange={(open) =>
-                                    setGroupDropdownOpen(open ? group.id : null)
-                                  }
-                                >
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
-                                    >
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent
-                                    align="end"
-                                    className="w-56"
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
                                   >
-                                    <DropdownMenuItem
-                                      onClick={() => toggleGroup(group.id)}
-                                    >
-                                      {expandedGroups[group.id] ? (
-                                        <>
-                                          <Minimize2 className="h-4 w-4 mr-2" />
-                                          Collapse this group
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Maximize2 className="h-4 w-4 mr-2" />
-                                          Expand this group
-                                        </>
-                                      )}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => collapseAllGroups()}
-                                    >
-                                      <Minimize2 className="h-4 w-4 mr-2" />
-                                      Collapse all groups
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => expandAllGroups()}
-                                    >
-                                      <Maximize2 className="h-4 w-4 mr-2" />
-                                      Expand all groups
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuSeparator />
-
-                                    <DropdownMenuItem
-                                      className="text-red-400 cursor-pointer"
-                                      onClick={() => deleteGroup(group.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Delete group
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-
-                                <button
-                                  onClick={() => toggleGroup(group.id)}
-                                  className="flex items-center gap-2"
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-56"
                                 >
-                                  {expandedGroups[group.id] ? (
-                                    <ChevronDown
-                                      className="h-5 w-5 text-primary"
-                                      style={{
-                                        color: group.color || "#3b82f6",
-                                      }}
-                                    />
-                                  ) : (
-                                    <ChevronRight
-                                      className="h-5 w-5 text-muted-foreground"
-                                      style={{
-                                        color: group.color || "#3b82f6",
-                                      }}
-                                    />
-                                  )}
-                                </button>
+                                  <DropdownMenuItem
+                                    onClick={() => toggleGroup(group.id)}
+                                  >
+                                    {expandedGroups[group.id] ? (
+                                      <>
+                                        <Minimize2 className="h-4 w-4 mr-2" />
+                                        Collapse this group
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Maximize2 className="h-4 w-4 mr-2" />
+                                        Expand this group
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => collapseAllGroups()}
+                                  >
+                                    <Minimize2 className="h-4 w-4 mr-2" />
+                                    Collapse all groups
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => expandAllGroups()}
+                                  >
+                                    <Maximize2 className="h-4 w-4 mr-2" />
+                                    Expand all groups
+                                  </DropdownMenuItem>
 
-                                <span
-                                  className="font-semibold text-lg text-primary"
-                                  style={{
-                                    color: group.color || "#3b82f6",
-                                  }}
-                                >
-                                  {groupNames[group.id] || group.name}
-                                </span>
+                                  <DropdownMenuSeparator />
 
-                                {/* Label Chip (optional) */}
-                                {groupLabels[group.id] &&
-                                  (() => {
-                                    // Find the label object to get its color
-                                    const labelObj = labels.find(
-                                      (l) =>
-                                        l.label_name === groupLabels[group.id]
-                                    );
-                                    const labelColor =
-                                      labelObj?.label_color ||
-                                      groupLabelColors[group.id] ||
-                                      "#3b82f6";
-                                    return (
-                                      <div
-                                        className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
-                                        style={{
-                                          backgroundColor: labelColor,
-                                        }}
-                                      >
-                                        {groupLabels[group.id]}
-                                      </div>
-                                    );
-                                  })()}
-                                {/* edit group button */}
-                                <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
-                                  <Popover
-                                    open={
-                                      editGroupDialogOpen &&
-                                      editingGroupId === group.id
-                                    }
-                                    onOpenChange={(open) => {
-                                      if (open) {
-                                        editGroup(group.id);
-                                      } else {
-                                        setEditGroupDialogOpen(false);
-                                        setEditingGroupId(null);
-                                      }
+                                  <DropdownMenuItem
+                                    className="text-red-400 cursor-pointer"
+                                    onClick={() => deleteGroup(group.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete group
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+
+                              <button
+                                onClick={() => toggleGroup(group.id)}
+                                className="flex items-center gap-2"
+                              >
+                                {expandedGroups[group.id] ? (
+                                  <ChevronDown
+                                    className="h-5 w-5 text-primary"
+                                    style={{
+                                      color: group.color || "#3b82f6",
                                     }}
-                                  >
-                                    <PopoverTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => editGroup(group.id)}
-                                        className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
-                                      >
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent
-                                      className="w-80 p-4"
-                                      align="start"
-                                    >
-                                      <div className="space-y-4">
-                                        <div>
-                                          <h3 className="font-semibold text-sm mb-3">
-                                            Edit Group
-                                          </h3>
-                                        </div>
+                                  />
+                                ) : (
+                                  <ChevronRight
+                                    className="h-5 w-5 text-muted-foreground"
+                                    style={{
+                                      color: group.color || "#3b82f6",
+                                    }}
+                                  />
+                                )}
+                              </button>
 
-                                        {/* Color Picker */}
-                                        <div className="space-y-2">
-                                          <label className="text-sm font-medium">
-                                            Color
-                                          </label>
-                                          <div className="flex gap-2">
-                                            {PRESET_COLORS.map((color) => (
-                                              <button
-                                                key={color}
-                                                className={`h-10 w-10 rounded-lg transition-all border-2 ${
-                                                  editGroupColorInput === color
-                                                    ? "border-foreground scale-110"
-                                                    : "border-transparent hover:scale-105"
-                                                }`}
-                                                style={{
-                                                  backgroundColor: color,
-                                                }}
-                                                onClick={() =>
-                                                  setEditGroupColorInput(color)
-                                                }
-                                              />
-                                            ))}
-                                          </div>
-                                        </div>
+                              <span
+                                className="font-semibold text-lg text-primary"
+                                style={{
+                                  color: group.color || "#3b82f6",
+                                }}
+                              >
+                                {groupNames[group.id] || group.name}
+                              </span>
 
-                                        {/* Group Name Input */}
-                                        <div className="space-y-2">
-                                          <label
-                                            htmlFor="edit-group-name"
-                                            className="text-sm font-medium"
-                                          >
-                                            Group Name
-                                          </label>
-                                          <Input
-                                            id="edit-group-name"
-                                            placeholder="Enter group name..."
-                                            value={editGroupNameInput}
-                                            onChange={(e) =>
-                                              setEditGroupNameInput(
-                                                e.target.value
-                                              )
-                                            }
-                                            onKeyDown={(e) => {
-                                              if (e.key === "Enter") {
-                                                handleUpdateGroup();
-                                              }
-                                            }}
-                                            autoFocus
-                                          />
-                                        </div>
-
-                                        {/* Label Dropdown */}
-                                        <div className="space-y-2">
-                                          <div className="flex items-center justify-between">
-                                            <label className="text-sm font-medium">
-                                              Label (Optional)
-                                            </label>
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-6 w-6 p-0 hover:bg-primary"
-                                              onClick={() => {
-                                                setIsCreatingLabel(true);
-                                                setLabelDropdownOpen(false);
-                                              }}
-                                              title="Create New Label"
-                                            >
-                                              <span className="text-lg font-semibold">+</span>
-                                            </Button>
-                                          </div>
-                                          {isCreatingLabel ? (
-                                            <div className="space-y-2">
-                                              <Input
-                                                placeholder="Label name..."
-                                                value={newLabelName}
-                                                onChange={(e) =>
-                                                  setNewLabelName(
-                                                    e.target.value
-                                                  )
-                                                }
-                                                className="h-8 text-sm"
-                                              />
-                                              <div className="flex gap-2">
-                                                {PRESET_COLORS.map((color) => (
-                                                  <button
-                                                    key={color}
-                                                    className={`h-8 w-8 rounded-lg transition-all border-2 ${
-                                                      newLabelColor === color
-                                                        ? "border-foreground scale-110"
-                                                        : "border-transparent hover:scale-105"
-                                                    }`}
-                                                    style={{
-                                                      backgroundColor: color,
-                                                    }}
-                                                    onClick={() =>
-                                                      setNewLabelColor(color)
-                                                    }
-                                                  />
-                                                ))}
-                                              </div>
-                                              <div className="flex gap-2">
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  className="flex-1 h-8"
-                                                  onClick={() => {
-                                                    setIsCreatingLabel(false);
-                                                    setNewLabelName("");
-                                                    setNewLabelColor("#FF0000");
-                                                    setLabelDropdownOpen(true);
-                                                  }}
-                                                >
-                                                  Cancel
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  className="flex-1 h-8"
-                                                  onClick={async () => {
-                                                    if (newLabelName.trim()) {
-                                                      try {
-                                                        const organizationIdNum =
-                                                          getOrganizationId();
-                                                        const boardIdNum =
-                                                          Number(boardId);
-
-                                                        if (
-                                                          organizationIdNum ===
-                                                          null
-                                                        ) {
-                                                          toast.error(
-                                                            "Organization not found"
-                                                          );
-                                                          return;
-                                                        }
-
-                                                        // Call API to create label
-                                                        const createdLabel =
-                                                          await cmsApi.createLabel(
-                                                            {
-                                                              label_name:
-                                                                newLabelName.trim(),
-                                                              label_color:
-                                                                newLabelColor,
-                                                              organization_id:
-                                                                organizationIdNum,
-                                                              board_id:
-                                                                boardIdNum,
-                                                            }
-                                                          );
-
-                                                        // Add new label to the list
-                                                        setLabels(
-                                                          (prevLabels) => [
-                                                            ...prevLabels,
-                                                            createdLabel,
-                                                          ]
-                                                        );
-                                                        setEditGroupLabelInput(
-                                                          createdLabel.label_name
-                                                        );
-                                                        setEditGroupLabelColorInput(
-                                                          createdLabel.label_color
-                                                        );
-
-                                                        // Reset form and exit creation mode
-                                                        setNewLabelName("");
-                                                        setNewLabelColor(
-                                                          "#FF0000"
-                                                        );
-                                                        setIsCreatingLabel(
-                                                          false
-                                                        );
-
-                                                        // Reopen dropdown to show the new label
-                                                        setLabelDropdownOpen(
-                                                          true
-                                                        );
-
-                                                        toast.success(
-                                                          "Label created successfully"
-                                                        );
-                                                      } catch (error) {
-                                                        console.error(
-                                                          "Failed to create label:",
-                                                          error
-                                                        );
-                                                        toast.error(
-                                                          "Failed to create label"
-                                                        );
-                                                      }
-                                                    }
-                                                  }}
-                                                >
-                                                  Create
-                                                </Button>
-                                              </div>
-                                            </div>
-                                          ) : (
-                                            <DropdownMenu
-                                              open={labelDropdownOpen}
-                                              onOpenChange={
-                                                setLabelDropdownOpen
-                                              }
-                                            >
-                                              <DropdownMenuTrigger asChild>
-                                                <Button
-                                                  variant="outline"
-                                                  className="w-full justify-start text-left font-normal"
-                                                >
-                                                  {editGroupLabelInput ? (
-                                                    <div className="flex items-center gap-2">
-                                                      <div
-                                                        className="w-3 h-3 rounded-full flex-shrink-0"
-                                                        style={{
-                                                          backgroundColor:
-                                                            editGroupLabelColorInput,
-                                                        }}
-                                                      />
-                                                      <span>
-                                                        {editGroupLabelInput}
-                                                      </span>
-                                                    </div>
-                                                  ) : (
-                                                    <span className="text-muted-foreground">
-                                                      Select a label...
-                                                    </span>
-                                                  )}
-                                                </Button>
-                                              </DropdownMenuTrigger>
-                                              <DropdownMenuContent
-                                                className="w-56 max-h-64 overflow-y-auto"
-                                                align="start"
-                                              >
-                                                <DropdownMenuItem
-                                                  onClick={() => {
-                                                    setEditGroupLabelInput("");
-                                                    setEditGroupLabelColorInput(
-                                                      "#3b82f6"
-                                                    );
-                                                  }}
-                                                >
-                                                  <span className="text-muted-foreground">
-                                                    No Label
-                                                  </span>
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                {Array.isArray(labels) &&
-                                                  labels.map((label) => (
-                                                    <DropdownMenuItem
-                                                      key={`label-${label.id}`}
-                                                      onClick={() => {
-                                                        setEditGroupLabelInput(
-                                                          label.label_name
-                                                        );
-                                                        setEditGroupLabelColorInput(
-                                                          label.label_color
-                                                        );
-                                                        setLabelDropdownOpen(
-                                                          false
-                                                        );
-                                                      }}
-                                                      className="flex items-center gap-2"
-                                                    >
-                                                      <div
-                                                        className="w-3 h-3 rounded-full flex-shrink-0"
-                                                        style={{
-                                                          backgroundColor:
-                                                            label.label_color,
-                                                        }}
-                                                      />
-                                                      <span>
-                                                        {label.label_name}
-                                                      </span>
-                                                    </DropdownMenuItem>
-                                                  ))}
-                                              </DropdownMenuContent>
-                                            </DropdownMenu>
-                                          )}
-                                        </div>
-
-                                        {/* Action Buttons */}
-                                        <div className="flex gap-2 justify-end pt-2">
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                              setEditGroupDialogOpen(false);
-                                              setEditingGroupId(null);
-                                              setEditGroupNameInput("");
-                                              setEditGroupColorInput("#3b82f6");
-                                              setEditGroupLabelInput("");
-                                              setEditGroupLabelColorInput(
-                                                "#3b82f6"
-                                              );
-                                            }}
-                                          >
-                                            Cancel
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            onClick={() => {
-                                              handleUpdateGroup();
-                                              setEditGroupDialogOpen(false);
-                                            }}
-                                          >
-                                            Update
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    </PopoverContent>
-                                  </Popover>
-                                </div>
-
-                                {/* Group Progress Bar - Time Spent vs Estimated Time */}
-                                {(() => {
-                                  // Use timerUpdateTrigger to force recalculation when timer updates
-                                  const progress = calculateGroupProgress(
-                                    group.tasks
+                              {/* Label Chip (optional) */}
+                              {groupLabels[group.id] &&
+                                (() => {
+                                  // Find the label object to get its color
+                                  const labelObj = labels.find(
+                                    (l) =>
+                                      l.label_name === groupLabels[group.id]
                                   );
-                                  // Access timerUpdateTrigger to create dependency
-                                  void timerUpdateTrigger;
+                                  const labelColor =
+                                    labelObj?.label_color ||
+                                    groupLabelColors[group.id] ||
+                                    "#3b82f6";
                                   return (
-                                    <div className="flex items-center gap-3 flex-1 ml-4">
-                                      <div className="flex-1 max-w-[250px]">
-                                        <Progress
-                                          value={progress.percentage}
-                                          className="h-2"
-                                        />
-                                      </div>
-                                      <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
-                                        {formatSecondsToTime(
-                                          progress.timeSpentSeconds
-                                        )}{" "}
-                                        /{" "}
-                                        {progress.estimatedTimeSeconds > 0
-                                          ? formatSecondsToTime(
-                                              progress.estimatedTimeSeconds
-                                            )
-                                          : "—"}
-                                      </span>
+                                    <div
+                                      className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
+                                      style={{
+                                        backgroundColor: labelColor,
+                                      }}
+                                    >
+                                      {groupLabels[group.id]}
                                     </div>
                                   );
                                 })()}
-                              </div>
-
-                              {/* Task Table */}
-                              {expandedGroups[group.id] && (
-                                <div 
-                                  className="overflow-x-auto w-full scrollbar-hide"
-                                  ref={(el) => {
-                                    if (el) tableScrollRefs.current[group.id] = el;
-                                  }}
-                                  onScroll={(e) => {
-                                    const target = e.currentTarget as HTMLDivElement;
-                                    handleTableScroll(group.id, target.scrollLeft);
+                              {/* edit group button */}
+                              <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
+                                <Popover
+                                  open={
+                                    editGroupDialogOpen &&
+                                    editingGroupId === group.id
+                                  }
+                                  onOpenChange={(open) => {
+                                    if (open) {
+                                      editGroup(group.id);
+                                    } else {
+                                      setEditGroupDialogOpen(false);
+                                      setEditingGroupId(null);
+                                    }
                                   }}
                                 >
-                                  <table
-                                    className="w-full"
-                                    style={{ tableLayout: "fixed" }}
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => editGroup(group.id)}
+                                      className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    className="w-80 p-4"
+                                    align="start"
                                   >
+                                    <div className="space-y-4">
+                                      <div>
+                                        <h3 className="font-semibold text-sm mb-3">
+                                          Edit Group
+                                        </h3>
+                                      </div>
+
+                                      {/* Color Picker */}
+                                      <div className="space-y-2">
+                                        <label className="text-sm font-medium">
+                                          Color
+                                        </label>
+                                        <div className="flex gap-2">
+                                          {PRESET_COLORS.map((color) => (
+                                            <button
+                                              key={color}
+                                              className={`h-10 w-10 rounded-lg transition-all border-2 ${editGroupColorInput === color
+                                                ? "border-foreground scale-110"
+                                                : "border-transparent hover:scale-105"
+                                                }`}
+                                              style={{
+                                                backgroundColor: color,
+                                              }}
+                                              onClick={() =>
+                                                setEditGroupColorInput(color)
+                                              }
+                                            />
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      {/* Group Name Input */}
+                                      <div className="space-y-2">
+                                        <label
+                                          htmlFor="edit-group-name"
+                                          className="text-sm font-medium"
+                                        >
+                                          Group Name
+                                        </label>
+                                        <Input
+                                          id="edit-group-name"
+                                          placeholder="Enter group name..."
+                                          value={editGroupNameInput}
+                                          onChange={(e) =>
+                                            setEditGroupNameInput(
+                                              e.target.value
+                                            )
+                                          }
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                              handleUpdateGroup();
+                                            }
+                                          }}
+                                          autoFocus
+                                        />
+                                      </div>
+
+                                      {/* Label Dropdown */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <label className="text-sm font-medium">
+                                            Label (Optional)
+                                          </label>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 w-6 p-0 hover:bg-primary"
+                                            onClick={() => {
+                                              setIsCreatingLabel(true);
+                                              setLabelDropdownOpen(false);
+                                            }}
+                                            title="Create New Label"
+                                          >
+                                            <span className="text-lg font-semibold">+</span>
+                                          </Button>
+                                        </div>
+                                        {isCreatingLabel ? (
+                                          <div className="space-y-2">
+                                            <Input
+                                              placeholder="Label name..."
+                                              value={newLabelName}
+                                              onChange={(e) =>
+                                                setNewLabelName(
+                                                  e.target.value
+                                                )
+                                              }
+                                              className="h-8 text-sm"
+                                            />
+                                            <div className="flex gap-2">
+                                              {PRESET_COLORS.map((color) => (
+                                                <button
+                                                  key={color}
+                                                  className={`h-8 w-8 rounded-lg transition-all border-2 ${newLabelColor === color
+                                                    ? "border-foreground scale-110"
+                                                    : "border-transparent hover:scale-105"
+                                                    }`}
+                                                  style={{
+                                                    backgroundColor: color,
+                                                  }}
+                                                  onClick={() =>
+                                                    setNewLabelColor(color)
+                                                  }
+                                                />
+                                              ))}
+                                            </div>
+                                            <div className="flex gap-2">
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="flex-1 h-8"
+                                                onClick={() => {
+                                                  setIsCreatingLabel(false);
+                                                  setNewLabelName("");
+                                                  setNewLabelColor("#FF0000");
+                                                  setLabelDropdownOpen(true);
+                                                }}
+                                              >
+                                                Cancel
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                className="flex-1 h-8"
+                                                onClick={async () => {
+                                                  if (newLabelName.trim()) {
+                                                    try {
+                                                      const organizationIdNum =
+                                                        getOrganizationId();
+                                                      const boardIdNum =
+                                                        Number(boardId);
+
+                                                      if (
+                                                        organizationIdNum ===
+                                                        null
+                                                      ) {
+                                                        toast.error(
+                                                          "Organization not found"
+                                                        );
+                                                        return;
+                                                      }
+
+                                                      // Call API to create label
+                                                      const createdLabel =
+                                                        await cmsApi.createLabel(
+                                                          {
+                                                            label_name:
+                                                              newLabelName.trim(),
+                                                            label_color:
+                                                              newLabelColor,
+                                                            organization_id:
+                                                              organizationIdNum,
+                                                            board_id:
+                                                              boardIdNum,
+                                                          }
+                                                        );
+
+                                                      // Add new label to the list
+                                                      setLabels(
+                                                        (prevLabels) => [
+                                                          ...prevLabels,
+                                                          createdLabel,
+                                                        ]
+                                                      );
+                                                      setEditGroupLabelInput(
+                                                        createdLabel.label_name
+                                                      );
+                                                      setEditGroupLabelColorInput(
+                                                        createdLabel.label_color
+                                                      );
+
+                                                      // Reset form and exit creation mode
+                                                      setNewLabelName("");
+                                                      setNewLabelColor(
+                                                        "#FF0000"
+                                                      );
+                                                      setIsCreatingLabel(
+                                                        false
+                                                      );
+
+                                                      // Reopen dropdown to show the new label
+                                                      setLabelDropdownOpen(
+                                                        true
+                                                      );
+
+                                                      toast.success(
+                                                        "Label created successfully"
+                                                      );
+                                                    } catch (error) {
+                                                      console.error(
+                                                        "Failed to create label:",
+                                                        error
+                                                      );
+                                                      toast.error(
+                                                        "Failed to create label"
+                                                      );
+                                                    }
+                                                  }
+                                                }}
+                                              >
+                                                Create
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <DropdownMenu
+                                            open={labelDropdownOpen}
+                                            onOpenChange={
+                                              setLabelDropdownOpen
+                                            }
+                                          >
+                                            <DropdownMenuTrigger asChild>
+                                              <Button
+                                                variant="outline"
+                                                className="w-full justify-start text-left font-normal"
+                                              >
+                                                {editGroupLabelInput ? (
+                                                  <div className="flex items-center gap-2">
+                                                    <div
+                                                      className="w-3 h-3 rounded-full flex-shrink-0"
+                                                      style={{
+                                                        backgroundColor:
+                                                          editGroupLabelColorInput,
+                                                      }}
+                                                    />
+                                                    <span>
+                                                      {editGroupLabelInput}
+                                                    </span>
+                                                  </div>
+                                                ) : (
+                                                  <span className="text-muted-foreground">
+                                                    Select a label...
+                                                  </span>
+                                                )}
+                                              </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent
+                                              className="w-56 max-h-64 overflow-y-auto"
+                                              align="start"
+                                            >
+                                              <DropdownMenuItem
+                                                onClick={() => {
+                                                  setEditGroupLabelInput("");
+                                                  setEditGroupLabelColorInput(
+                                                    "#3b82f6"
+                                                  );
+                                                }}
+                                              >
+                                                <span className="text-muted-foreground">
+                                                  No Label
+                                                </span>
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                              {Array.isArray(labels) &&
+                                                labels.map((label) => (
+                                                  <DropdownMenuItem
+                                                    key={`label-${label.id}`}
+                                                    onClick={() => {
+                                                      setEditGroupLabelInput(
+                                                        label.label_name
+                                                      );
+                                                      setEditGroupLabelColorInput(
+                                                        label.label_color
+                                                      );
+                                                      setLabelDropdownOpen(
+                                                        false
+                                                      );
+                                                    }}
+                                                    className="flex items-center gap-2"
+                                                  >
+                                                    <div
+                                                      className="w-3 h-3 rounded-full flex-shrink-0"
+                                                      style={{
+                                                        backgroundColor:
+                                                          label.label_color,
+                                                      }}
+                                                    />
+                                                    <span>
+                                                      {label.label_name}
+                                                    </span>
+                                                  </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        )}
+                                      </div>
+
+                                      {/* Action Buttons */}
+                                      <div className="flex gap-2 justify-end pt-2">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setEditGroupDialogOpen(false);
+                                            setEditingGroupId(null);
+                                            setEditGroupNameInput("");
+                                            setEditGroupColorInput("#3b82f6");
+                                            setEditGroupLabelInput("");
+                                            setEditGroupLabelColorInput(
+                                              "#3b82f6"
+                                            );
+                                          }}
+                                        >
+                                          Cancel
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          onClick={() => {
+                                            handleUpdateGroup();
+                                            setEditGroupDialogOpen(false);
+                                          }}
+                                        >
+                                          Update
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+
+                              {/* Group Progress Bar - Time Spent vs Estimated Time */}
+                              {(() => {
+                                // Use timerUpdateTrigger to force recalculation when timer updates
+                                const progress = calculateGroupProgress(
+                                  group.tasks
+                                );
+                                // Access timerUpdateTrigger to create dependency
+                                void timerUpdateTrigger;
+                                return (
+                                  <div className="flex items-center gap-3 flex-1 ml-4">
+                                    <div className="flex-1 max-w-[250px]">
+                                      <Progress
+                                        value={progress.percentage}
+                                        className="h-2"
+                                      />
+                                    </div>
+                                    <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
+                                      {formatSecondsToTime(
+                                        progress.timeSpentSeconds
+                                      )}{" "}
+                                      /{" "}
+                                      {progress.estimatedTimeSeconds > 0
+                                        ? formatSecondsToTime(
+                                          progress.estimatedTimeSeconds
+                                        )
+                                        : "—"}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Task Table */}
+                            {expandedGroups[group.id] && (
+                              <div
+                                className="overflow-x-auto w-full scrollbar-hide"
+                                ref={(el) => {
+                                  if (el) tableScrollRefs.current[group.id] = el;
+                                }}
+                                onScroll={(e) => {
+                                  const target = e.currentTarget as HTMLDivElement;
+                                  handleTableScroll(group.id, target.scrollLeft);
+                                }}
+                              >
+                                <table
+                                  className="w-full"
+                                  style={{ tableLayout: "fixed" }}
+                                >
                                   {/* Table head */}
                                   {/* <thead className="border-b border-border bg-muted/30">
                                       <tr className="text-sm text-muted-foreground">
@@ -4560,6 +4642,13 @@ export function WorkloadBoard({
                                               }
                                               onStartResize={startColumnResize}
                                               onColumnLabelChange={handleColumnLabelChange}
+                                              onSort={(direction) =>
+                                                handleSortGroupItems(
+                                                  group.id,
+                                                  col.id,
+                                                  direction
+                                                )
+                                              }
                                             />
                                           ))}
                                         </tr>
@@ -4613,9 +4702,9 @@ export function WorkloadBoard({
                                                 className={cn(
                                                   "p-4 border-r border-border last:border-r-0",
                                                   col.align === "center" &&
-                                                    "text-center",
+                                                  "text-center",
                                                   col.align === "left" &&
-                                                    "text-left",
+                                                  "text-left",
                                                   col.id === "item" && "sticky left-12 z-10 bg-card"
                                                 )}
                                                 style={{ width: col.width }}
@@ -4672,7 +4761,7 @@ export function WorkloadBoard({
                                                       type="checkbox"
                                                       checked={
                                                         checkedTasks[
-                                                          subtask.id
+                                                        subtask.id
                                                         ] || false
                                                       }
                                                       onChange={(e) =>
@@ -4691,11 +4780,11 @@ export function WorkloadBoard({
                                                         className={cn(
                                                           "p-4 border-r border-border last:border-r-0",
                                                           col.align ===
-                                                            "center" &&
-                                                            "text-center",
+                                                          "center" &&
+                                                          "text-center",
                                                           col.align ===
-                                                            "left" &&
-                                                            "text-left",
+                                                          "left" &&
+                                                          "text-left",
                                                           col.id === "item" && "sticky left-12 z-10 bg-card"
                                                         )}
                                                         onClick={(e) =>
@@ -4742,7 +4831,7 @@ export function WorkloadBoard({
                                                 className="p-4 border-t border-border sticky left-12 z-10 bg-card"
                                               >
                                                 {addingSubitemToTask ===
-                                                task.id ? (
+                                                  task.id ? (
                                                   <div className="flex items-center gap-2 pl-8">
                                                     <span className="text-muted-foreground">
                                                       └
@@ -4871,75 +4960,75 @@ export function WorkloadBoard({
                                     </tr>
                                   </tbody>
                                 </table>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </SortableGroupCard>
-                      ))
-                    )}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </SortableGroupCard>
+                    ))
+                  )}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
 
-        {/* Unified Horizontal Scrollbar at Bottom */}
-        <div 
-          className="h-5 overflow-x-scroll border-t border-border bg-muted flex-shrink-0"
-          data-unified-scrollbar
-          ref={(el) => {
-            if (el && Object.keys(tableScrollRefs.current).length > 0) {
-              const firstTableRef = Object.values(tableScrollRefs.current)[0];
-              if (firstTableRef) {
-                el.scrollLeft = firstTableRef.scrollLeft;
+          {/* Unified Horizontal Scrollbar at Bottom */}
+          <div
+            className="h-5 overflow-x-scroll border-t border-border bg-muted flex-shrink-0"
+            data-unified-scrollbar
+            ref={(el) => {
+              if (el && Object.keys(tableScrollRefs.current).length > 0) {
+                const firstTableRef = Object.values(tableScrollRefs.current)[0];
+                if (firstTableRef) {
+                  el.scrollLeft = firstTableRef.scrollLeft;
+                }
               }
-            }
-          }}
-          onScroll={(e) => {
-            const scrollLeft = e.currentTarget.scrollLeft;
-            Object.values(tableScrollRefs.current).forEach((ref) => {
-              if (ref) {
-                ref.scrollLeft = scrollLeft;
-              }
-            });
-          }}
-        >
-          <div style={{ width: `${maxScrollWidth}px`, height: "1px" }} />
-        </div>
+            }}
+            onScroll={(e) => {
+              const scrollLeft = e.currentTarget.scrollLeft;
+              Object.values(tableScrollRefs.current).forEach((ref) => {
+                if (ref) {
+                  ref.scrollLeft = scrollLeft;
+                }
+              });
+            }}
+          >
+            <div style={{ width: `${maxScrollWidth}px`, height: "1px" }} />
+          </div>
         </div>
       )}
 
       {/* Other Views */}
       {activeTab !== "Main Table" && (
         <div className="flex-1 overflow-auto p-6">
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold">Active Tab: {activeTab}</h2>
-              <p className="text-sm text-muted-foreground">
-                Workspace: {workspaceName}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Board ID: {boardId}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Workspace ID: {workspaceId}
-              </p>
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Active Tab: {activeTab}</h2>
+            <p className="text-sm text-muted-foreground">
+              Workspace: {workspaceName}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Board ID: {boardId}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Workspace ID: {workspaceId}
+            </p>
 
-              <div className="mt-6 p-4 bg-muted rounded-lg">
-                <h3 className="font-semibold mb-2">Available Tabs:</h3>
-                <div className="flex flex-wrap gap-2">
-                  {viewTabs.map((tab) => (
-                    <span
-                      key={tab}
-                      className="px-2 py-1 bg-background rounded text-sm"
-                    >
-                      {tab}
-                    </span>
-                  ))}
-                </div>
+            <div className="mt-6 p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold mb-2">Available Tabs:</h3>
+              <div className="flex flex-wrap gap-2">
+                {viewTabs.map((tab) => (
+                  <span
+                    key={tab}
+                    className="px-2 py-1 bg-background rounded text-sm"
+                  >
+                    {tab}
+                  </span>
+                ))}
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
       {/* ALL DIALOGS WILL GO HERE */}
       {/* New Group Dialog */}
@@ -4955,11 +5044,10 @@ export function WorkloadBoard({
                 {PRESET_COLORS.map((color) => (
                   <button
                     key={color}
-                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
-                      newGroupColorInput === color
-                        ? "border-foreground scale-110"
-                        : "border-transparent hover:scale-105"
-                    }`}
+                    className={`h-10 w-10 rounded-lg transition-all border-2 ${newGroupColorInput === color
+                      ? "border-foreground scale-110"
+                      : "border-transparent hover:scale-105"
+                      }`}
                     style={{ backgroundColor: color }}
                     onClick={() => setNewGroupColorInput(color)}
                   />
