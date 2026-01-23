@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { cmsApi } from "@/features/cms/cmsApi";
-import { getCMSData, clearCMSCache } from "@/features/cms/cmsStorage";
+import { getCMSData, clearCMSCache, getUserColumnsFromCache } from "@/features/cms/cmsStorage";
 import type {
   CreateTaskRequest,
   UpdateTaskRequest,
@@ -37,6 +37,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
+import {
+  updateColumnLabel,
+  updateFullColumnConfiguration,
+  getColumnConfiguration,
+  mergeColumnConfigWithAPI,
+} from "@/lib/columnPersistence";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
@@ -450,6 +456,13 @@ const SortableColumnHeader = ({
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
+  // Sync editValue when column.label changes (e.g., from localStorage or parent state)
+  useEffect(() => {
+    if (!isEditing) {
+      setEditValue(column.label);
+    }
+  }, [column.label, isEditing]);
 
   // Focus input when entering edit mode
   useEffect(() => {
@@ -1039,6 +1052,25 @@ export function WorkloadBoard({
         setMembers(cmsData.members || []);
         setLabels(cmsData.labels || []);
         setTags(cmsData.tags || []);
+
+        // Sync user_columns from CMS API with columnPersistence
+        // This ensures custom column labels and positions from the server are loaded on initial mount
+        const userColumns = getUserColumnsFromCache(boardIdNum);
+        if (userColumns?.columns) {
+          console.log("Syncing user_columns from CMS API to columnPersistence:", userColumns);
+          mergeColumnConfigWithAPI(boardIdNum, userColumns.columns);
+
+          // Update columnOrder to reflect the positions from the API
+          // Sort columns by position to get the correct order
+          const sortedColumnIds = Object.entries(userColumns.columns)
+            .sort(([, a]: [string, any], [, b]: [string, any]) => (a.position || 0) - (b.position || 0))
+            .map(([colId]) => colId);
+
+          if (sortedColumnIds.length > 0) {
+            setColumnOrder(sortedColumnIds);
+            console.log("Updated columnOrder from API positions:", sortedColumnIds);
+          }
+        }
       } catch (err) {
         console.error("Failed to load CMS data:", err);
         // Don't show toast error as CMS data is optional
@@ -1554,14 +1586,23 @@ export function WorkloadBoard({
   };
 
   const handleColumnLabelChange = async (columnId: string, newLabel: string) => {
-    // Update workload columns with new label immediately
+    // Persist the new label to localStorage immediately
+    const success = updateColumnLabel(parseInt(boardId, 10), columnId, newLabel);
+
+    if (!success) {
+      console.error("Failed to persist column label to localStorage");
+      toast.error("Failed to save column label");
+      return;
+    }
+
+    // Update workload columns with new label immediately (for UI feedback)
     setWorkloadColumns((prev) =>
       prev.map((col) =>
         col.id === columnId ? { ...col, label: newLabel } : col
       )
     );
 
-    // Call API to save column configuration
+    // Call API to save column configuration (async, non-blocking)
     try {
       // Build the columns object for the API
       const columnsPayload: Record<string, any> = {};
@@ -1586,21 +1627,23 @@ export function WorkloadBoard({
       // Call API to save
       const response = await cmsApi.saveUserGroupColumns(payload);
 
-      // Update localStorage with the response columns data
-      const storagePayload = {
-        columnOrder: Object.keys(response.columns || columnsPayload),
-        columns: response.columns || columnsPayload,
-      };
-
-      localStorage.setItem(
-        `workload-columns-${boardId}`,
-        JSON.stringify(storagePayload)
-      );
+      // Merge API response with localStorage to ensure consistency
+      if (response.columns) {
+        const newOrder = workloadColumns.map((c) => c.id);
+        updateFullColumnConfiguration(
+          parseInt(boardId, 10),
+          newOrder,
+          response.columns
+        );
+      }
 
       toast.success("Column renamed successfully");
     } catch (error) {
-      console.error("Failed to rename column:", error);
-      toast.error("Failed to rename column");
+      console.error("Failed to update column on server:", error);
+      console.warn(
+        "Column label saved locally but API sync failed. Will retry on next sync."
+      );
+      // Don't show error to user since we already saved locally
     }
   };
 
@@ -2503,10 +2546,17 @@ export function WorkloadBoard({
         await tasksApi.deleteTask(taskId);
       }
 
-      // Update local state
+      // Update local state - filter both parent tasks and subtasks
       const updatedGroups = groups.map((group) => ({
         ...group,
-        tasks: group.tasks.filter((task) => !checkedTaskIds.includes(task.id)),
+        tasks: group.tasks
+          .filter((task) => !checkedTaskIds.includes(task.id))
+          .map((task) => ({
+            ...task,
+            subitems: task.subitems?.filter(
+              (subitem) => !checkedTaskIds.includes(subitem.id)
+            ),
+          })),
       }));
 
       setGroups(updatedGroups);
@@ -2816,18 +2866,15 @@ export function WorkloadBoard({
       };
     });
 
-    // Update columnOrder state and persist with full payload
+    // Update columnOrder state
     const newOrder = newWorkloadColumns.map((c) => c.id);
     setColumnOrder(newOrder);
 
-    const storagePayload = {
-      columnOrder: newOrder,
-      columns: columnsPayload,
-    };
-
-    localStorage.setItem(
-      `workload-columns-${boardId}`,
-      JSON.stringify(storagePayload)
+    // Persist using the new utility
+    updateFullColumnConfiguration(
+      parseInt(boardId, 10),
+      newOrder,
+      columnsPayload
     );
   };
 
@@ -3080,17 +3127,8 @@ export function WorkloadBoard({
   // Track column order separately to preserve it across updates
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem(`workload-columns-${boardId}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Handle both old format (array) and new format (object with columnOrder)
-        if (Array.isArray(parsed)) {
-          return parsed;
-        } else if (parsed.columnOrder && Array.isArray(parsed.columnOrder)) {
-          return parsed.columnOrder;
-        }
-      }
-      return [];
+      const config = getColumnConfiguration(parseInt(boardId, 10));
+      return config?.columnOrder || [];
     } catch {
       return [];
     }
@@ -3146,19 +3184,16 @@ export function WorkloadBoard({
       });
     }
 
-    // Load persisted column labels from localStorage
+    // Load persisted column labels from localStorage using the new utility
     let savedLabels: Record<string, string> = {};
     try {
-      const saved = localStorage.getItem(`workload-columns-${boardId}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.columns && typeof parsed.columns === 'object') {
-          Object.entries(parsed.columns).forEach(([colId, colData]: [string, any]) => {
-            if (colData.label) {
-              savedLabels[colId] = colData.label;
-            }
-          });
-        }
+      const config = getColumnConfiguration(parseInt(boardId, 10));
+      if (config?.columns) {
+        Object.entries(config.columns).forEach(([colId, colData]) => {
+          if (colData.label) {
+            savedLabels[colId] = colData.label;
+          }
+        });
       }
     } catch (error) {
       console.error("Error loading saved column labels:", error);
@@ -3229,19 +3264,16 @@ export function WorkloadBoard({
       });
     }
 
-    // Load persisted column labels from localStorage
+    // Load persisted column labels from localStorage using the new utility
     let savedLabels: Record<string, string> = {};
     try {
-      const saved = localStorage.getItem(`workload-columns-${boardId}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.columns && typeof parsed.columns === 'object') {
-          Object.entries(parsed.columns).forEach(([colId, colData]: [string, any]) => {
-            if (colData.label) {
-              savedLabels[colId] = colData.label;
-            }
-          });
-        }
+      const config = getColumnConfiguration(parseInt(boardId, 10));
+      if (config?.columns) {
+        Object.entries(config.columns).forEach(([colId, colData]) => {
+          if (colData.label) {
+            savedLabels[colId] = colData.label;
+          }
+        });
       }
     } catch (error) {
       console.error("Error loading saved column labels:", error);
@@ -3840,143 +3872,114 @@ export function WorkloadBoard({
                         </Button>
                       </div>
                     )}
-                </PopoverContent>
-              </Popover>
+                  </PopoverContent>
+                </Popover>
 
-              {/* Save Button */}
-              <button
-                disabled={!hasUnsavedChanges}
-                className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => {
-                  // Build the columns payload with labels
-                  const columnsPayload: Record<string, any> = {};
-                  workloadColumns.forEach((col) => {
-                    columnsPayload[col.id] = {
-                      label: col.label,
-                      visible: !collapsedColumns[col.id],
-                      position: workloadColumns.indexOf(col) + 1,
-                    };
-                  });
+                {/* Save Button */}
+                <button
+                  disabled={!hasUnsavedChanges}
+                  className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={async () => {
+                    try {
+                      // Build the columns payload with labels and positions
+                      const columnsPayload: Record<string, any> = {};
+                      workloadColumns.forEach((col) => {
+                        columnsPayload[col.id] = {
+                          label: col.label,
+                          visible: !collapsedColumns[col.id],
+                          position: workloadColumns.indexOf(col) + 1,
+                        };
+                      });
 
-                  // Build the group order payload
-                  const groupOrder: Record<string, string> = {};
-                  groups.forEach((group, index) => {
-                    groupOrder[String(index + 1)] = group.id;
-                  });
+                      // Build the group order payload
+                      const groupOrder: Record<string, string> = {};
+                      groups.forEach((group, index) => {
+                        groupOrder[String(index + 1)] = group.id;
+                      });
 
-                  // Build the column order payload
-                  const columnOrder: Record<string, string> = {};
-                  workloadColumns.forEach((col, index) => {
-                    columnOrder[String(index + 1)] = col.id;
-                  });
+                      // Build the column order payload
+                      const columnOrder: Record<string, string> = {};
+                      workloadColumns.forEach((col, index) => {
+                        columnOrder[String(index + 1)] = col.id;
+                      });
 
-                  // Build the full payload
-                  const payload = {
-                    user_id: 12, // TODO: Get from auth context
-                    group_id: 92, // TODO: Get from current group
-                    board_id: parseInt(boardId, 10),
-                    group_order: groupOrder,
-                    column_order: columnOrder,
-                    columns: columnsPayload,
-                  };
+                      // Build the full payload
+                      const payload = {
+                        user_id: 2, // TODO: Get from auth context
+                        group_id: 92, // TODO: Get from current group
+                        board_id: parseInt(boardId, 10),
+                        group_order: groupOrder,
+                        column_order: columnOrder,
+                        columns: columnsPayload,
+                      };
 
-                  console.log("Save View payload:", payload);
+                      console.log("Save View payload:", payload);
 
-                  // Update initial order to mark changes as saved
-                  setInitialGroupOrder(groups.map((g) => g.id));
-                  setInitialColumnOrder(workloadColumns.map((c) => c.id));
-                  setHasUnsavedChanges(false);
+                      // Call the API to save the layout
+                      const response = await cmsApi.saveUserGroupColumns(payload);
+                      
+                      // Update localStorage with the response to ensure sync
+                      if (response.columns) {
+                        const newOrder = workloadColumns.map((c) => c.id);
+                        updateFullColumnConfiguration(
+                          parseInt(boardId, 10),
+                          newOrder,
+                          response.columns
+                        );
+                      }
 
-                  toast.success("Layout saved successfully");
-                  // API call will be added here in the future
-                }}
-              >
-                <Save className="h-4 w-4" />
-                Save View
-              </button>
+                      // Update initial order to mark changes as saved
+                      setInitialGroupOrder(groups.map((g) => g.id));
+                      setInitialColumnOrder(workloadColumns.map((c) => c.id));
+                      setHasUnsavedChanges(false);
 
-              {/* Column Visibility Popover */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Columns
-                  </Button>
-                </PopoverTrigger>
+                      toast.success("Layout saved successfully");
+                    } catch (error) {
+                      console.error("Failed to save layout:", error);
+                      toast.error("Failed to save layout");
+                    }
+                  }}
+                >
+                  <Save className="h-4 w-4" />
+                  Save View
+                </button>
 
-                <PopoverContent align="end" className="w-56">
-                  <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
-                    Columns
-                  </div>
-                  <div className="border-t border-border my-2" />
+                {/* Column Visibility Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Columns
+                    </Button>
+                  </PopoverTrigger>
 
-                  <div className="p-2 space-y-1">
-                    {ALL_AVAILABLE_COLUMNS.map((columnId) => {
-                      const columnLabel =
-                        {
-                          item: "Item",
-                          status: "Status",
-                          priority: "Priority",
-                          description: "Description",
-                          rating: "Rating",
-                          estimatedDate: "Estimated Date",
-                          estimatedTime: "Estimated Time",
-                          date: "Date",
-                          person: "Person",
-                          timer: "Timer",
-                          time: "Time Spent",
-                        }[columnId] || columnId;
+                  <PopoverContent align="end" className="w-56">
+                    <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
+                      Columns
+                    </div>
+                    <div className="border-t border-border my-2" />
 
-                      return (
-                        <label
-                          key={columnId}
-                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns[columnId] === true}
-                            onChange={() => toggleColumnVisibility(columnId)}
-                            className="cursor-pointer"
-                          />
-                          <span className="text-sm">{columnLabel}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
+                    <div className="p-2 space-y-1">
+                      {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                        const columnLabel =
+                          {
+                            item: "Item",
+                            status: "Status",
+                            priority: "Priority",
+                            description: "Description",
+                            rating: "Rating",
+                            estimatedDate: "Estimated Date",
+                            estimatedTime: "Estimated Time",
+                            date: "Date",
+                            person: "Person",
+                            timer: "Timer",
+                            time: "Time Spent",
+                          }[columnId] || columnId;
 
-          {/* Task Groups Container - ONLY scrollable element */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" ref={groupsContainerRef}>
-            <DndContext
-              sensors={groupSensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleGroupDragEnd}
-            >
-              <SortableContext
-                items={getFilteredGroups().map((g) => g.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-6 py-4">
-                  {getFilteredGroups().length === 0 ? (
-                    <div className="text-center py-12">
-                      {mainTableSearchQuery.trim() ? (
-                        <>
-                          <p className="text-muted-foreground mb-4">
-                            No items found matching "{mainTableSearchQuery}"
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-muted-foreground mb-4">
-                            No groups yet. Create one to get started.
-                          </p>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={addNewGroup}
+                        return (
+                          <label
+                            key={columnId}
+                            className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
                           >
                             Create First Group
                           </Button>
