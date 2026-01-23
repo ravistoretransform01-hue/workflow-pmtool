@@ -90,6 +90,13 @@ import { TaskCardDialog } from "./TaskCardDialog";
 import { CommentsPanelSheet } from "./CommentsPanelSheet";
 import type { TaskResponse, TaskComment } from "@/features/tasks/types";
 import { ProfileDialog } from "../ProfileDialog";
+import {
+  useTaskState,
+  usePopoverState,
+  useTaskTimer,
+  useColumnPersistence,
+  useTaskFilters,
+} from "./hooks";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -656,11 +663,31 @@ export function WorkloadBoard({
   workspaceName,
 }: WorkloadBoardProps) {
   const navigate = useNavigate();
+  
+  // Initialize hooks for state management
+  const taskState = useTaskState();
+  const popoverState = usePopoverState();
+  const timerState = useTaskTimer();
+  const columnState = useColumnPersistence(boardId);
+  const filterState = useTaskFilters();
+
+  // Local state for board-specific UI
   const [editingBoardName, setEditingBoardName] = useState(false);
   const [boardNameValue, setBoardNameValue] = useState(boardName);
 
   // Ref for the main flex container (flex-1 flex flex-col)
   const mainFlexContainerRef = useRef<HTMLDivElement>(null);
+
+  // Local state for task card and comments
+  const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
+  const [sheetTaskCardOpen, setSheetTaskCardOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
+  const [editTaskName, setEditTaskName] = useState("");
+  const [updateText, setUpdateText] = useState("");
+  const [updateFiles, setUpdateFiles] = useState<
+    Array<{ name: string; size: number; type: string; url: string }>
+  >([]);
 
   // Compute user initials from localStorage `user_data` for avatar fallback
   const userInitials = useMemo(() => {
@@ -723,34 +750,26 @@ export function WorkloadBoard({
     null
   );
   const [newSubitemName, setNewSubitemName] = useState("");
-  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>(
-    {}
-  );
-  const [checkedTasks, setCheckedTasks] = useState<Record<string, boolean>>({});
-  const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
-  const [sheetTaskCardOpen, setSheetTaskCardOpen] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [editTaskName, setEditTaskName] = useState("");
-  const [inlineEditingTaskId, setInlineEditingTaskId] = useState<string | null>(null);
-  const [inlineEditingTaskName, setInlineEditingTaskName] = useState("");
-  const [updateText, setUpdateText] = useState("");
-  const [updateFiles, setUpdateFiles] = useState<
-    Array<{ name: string; size: number; type: string; url: string }>
-  >([]);
-  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  // Local state for task-related UI (managed by useTaskState hook)
+  // expandedTasks, checkedTasks, editingTask, inlineEditingTaskId, inlineEditingTaskName
+  // are now accessed via: taskState.expandedTasks, taskState.checkedTasks, etc.
+
+  // Local state for popover (managed by usePopoverState hook)
+  // openPopoverId is now accessed via: popoverState.openPopoverId
+
+  // Local state for timer (managed by useTaskTimer hook)
+  // activeTimerId, timerUpdateTrigger are now accessed via: timerState.activeTimerId, timerState.timerUpdateTrigger
+
+  // Local state for column persistence (managed by useColumnPersistence hook)
+  // visibleColumns, viewTabs are now accessed via: columnState.visibleColumns, columnState.viewTabs
+
+  // Local state for task filters (managed by useTaskFilters hook)
+  // taskFilters, openFilterDropdowns, showDoneItemsOnly are now accessed via: filterState.taskFilters, etc.
 
   // Comments state
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [replyingTo, setReplyingTo] = useState<TaskComment | null>(null);
-
-  // Timer state - track which task's timer is currently running
-  const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
-
-  // Timer update trigger - used to force progress bar recalculation
-  const [timerUpdateTrigger, setTimerUpdateTrigger] = useState(0);
 
   // Timer conflict dialog state
   const [timerConflictDialogOpen, setTimerConflictDialogOpen] = useState(false);
@@ -1103,14 +1122,14 @@ export function WorkloadBoard({
 
   // Update timer trigger every second when a timer is running to force progress bar recalculation
   useEffect(() => {
-    if (!activeTimerId) return;
+    if (!timerState.activeTimerId) return;
 
     const interval = setInterval(() => {
-      setTimerUpdateTrigger((prev) => prev + 1);
+      timerState.triggerTimerUpdate();
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeTimerId]);
+  }, [timerState.activeTimerId, timerState]);
 
   // useEffect(() => {
   //   const loadGroupsAndTasks = async () => {
@@ -1296,8 +1315,7 @@ export function WorkloadBoard({
 
   const handleInlineEditTaskName = async (taskId: string, newName: string) => {
     if (!newName.trim()) {
-      setInlineEditingTaskId(null);
-      setInlineEditingTaskName("");
+      taskState.cancelInlineEdit();
       return;
     }
 
@@ -1319,14 +1337,12 @@ export function WorkloadBoard({
         }))
       );
 
-      setInlineEditingTaskId(null);
-      setInlineEditingTaskName("");
+      taskState.finishInlineEdit();
       toast.success("Task name updated successfully");
     } catch (error) {
       console.error("Failed to update task name:", error);
       toast.error("Failed to update task name");
-      setInlineEditingTaskId(null);
-      setInlineEditingTaskName("");
+      taskState.cancelInlineEdit();
     }
   };
 
@@ -1904,7 +1920,7 @@ export function WorkloadBoard({
     task: Task,
     focus: "name" | "description" = "name"
   ) => {
-    setEditingTask(task);
+    taskState.setEditingTask(task);
     setEditTaskName(task.name);
     setEditTaskDialogFocus(focus);
     setEditTaskDialogOpen(true);
@@ -1927,7 +1943,7 @@ export function WorkloadBoard({
   }, [editTaskDialogOpen, editTaskDialogFocus]);
 
   const handleUpdateTask = async () => {
-    if (!editingTask || !editTaskName.trim()) {
+    if (!taskState.editingTask || !editTaskName.trim()) {
       return;
     }
 
@@ -1936,10 +1952,10 @@ export function WorkloadBoard({
 
       // Call API to update task
       const payload: UpdateTaskRequest = {
-        id: editingTask.id,
+        id: taskState.editingTask.id,
         board_id: boardIdNum,
         name: editTaskName.trim(),
-        description: editingTask.description,
+        description: taskState.editingTask.description,
       };
 
       const updatedTaskResponse = await tasksApi.updateTask(payload);
@@ -1969,7 +1985,7 @@ export function WorkloadBoard({
       const updatedGroups = groups.map((group) => ({
         ...group,
         tasks: group.tasks.map((task) => {
-          if (task.id === editingTask.id) {
+          if (task.id === taskState.editingTask?.id) {
             return {
               ...task,
               name: updatedTaskResponse.name,
@@ -1988,7 +2004,7 @@ export function WorkloadBoard({
           return {
             ...task,
             subitems: task.subitems?.map((subitem) => {
-              if (subitem.id === editingTask.id) {
+              if (subitem.id === taskState.editingTask?.id) {
                 return {
                   ...subitem,
                   name: updatedTaskResponse.name,
@@ -2011,7 +2027,7 @@ export function WorkloadBoard({
 
       setGroups(updatedGroups);
       setEditTaskDialogOpen(false);
-      setEditingTask(null);
+      taskState.setEditingTask(null);
       setEditTaskName("");
       toast.success("Task updated successfully");
     } catch (error) {
@@ -2161,7 +2177,7 @@ export function WorkloadBoard({
       );
 
       // Close popover after update
-      setOpenPopoverId(null);
+      popoverState.closePopover();
       toast.success("Rating updated successfully");
     } catch (err) {
       console.error(err);
@@ -2286,7 +2302,7 @@ export function WorkloadBoard({
     );
 
     // Close popover after update
-    setOpenPopoverId(null);
+    popoverState.closePopover();
   };
 
   const handleEstimatedTimeChange = (
@@ -2326,7 +2342,7 @@ export function WorkloadBoard({
     );
 
     // Close popover after update
-    setOpenPopoverId(null);
+    popoverState.closePopover();
   };
 
   const handleTagChange = (taskId: string, tags: any[]) => {
@@ -2363,7 +2379,7 @@ export function WorkloadBoard({
     );
 
     // Close popover after update
-    setOpenPopoverId(null);
+    popoverState.closePopover();
   };
 
   const handleStatusChange = async (taskId: string, statusId: string) => {
@@ -2504,14 +2520,18 @@ export function WorkloadBoard({
       });
     });
 
-    setCheckedTasks((prev) => ({
+    taskState.setCheckedTasks((prev) => ({
       ...prev,
       ...updatedChecked,
     }));
   };
 
-  const handleTimerStart = (taskId: string) => {
-    setActiveTimerId(taskId);
+  const handleTimerStart = (taskId: string | null) => {
+    if (taskId === null) {
+      timerState.stopTimer();
+    } else {
+      timerState.startTimer(taskId);
+    }
   };
 
   const handleTimerConflict = (conflictingTaskId: string) => {
@@ -2534,7 +2554,7 @@ export function WorkloadBoard({
   };
 
   const deleteCheckedTasks = async () => {
-    const checkedTaskIds = Object.entries(checkedTasks)
+    const checkedTaskIds = Object.entries(taskState.checkedTasks)
       .filter(([, checked]) => checked)
       .map(([id]) => id);
 
@@ -2560,7 +2580,7 @@ export function WorkloadBoard({
       }));
 
       setGroups(updatedGroups);
-      setCheckedTasks({});
+      taskState.clearCheckedTasks();
       toast.success(`${checkedTaskIds.length} task(s) deleted successfully`);
     } catch (error) {
       console.error("Failed to delete tasks:", error);
@@ -2819,22 +2839,14 @@ export function WorkloadBoard({
   };
 
   // NEW : Start
+  // Note: toggleTask is now provided by taskState hook
+  // This local function is kept for backward compatibility but delegates to the hook
   const toggleTask = (taskId: string) => {
-    setExpandedTasks((prev) => ({
-      ...prev,
-      [taskId]: !prev[taskId],
-    }));
+    taskState.toggleTask(taskId);
   };
 
   const toggleColumnVisibility = (columnId: string) => {
-    setVisibleColumns((prev) => {
-      const updated = { ...prev, [columnId]: !prev[columnId] };
-      localStorage.setItem(
-        `board-visible-columns-${boardId}`,
-        JSON.stringify(updated)
-      );
-      return updated;
-    });
+    columnState.toggleColumnVisibility(columnId);
   };
 
   const handleColumnDragEnd = (event: DragEndEvent) => {
@@ -2946,8 +2958,8 @@ export function WorkloadBoard({
 
       // Recompute columns with new collapsed state and widths, preserving column order
       const allColumns = getWorkloadColumns({
-        expandedTasks,
-        toggleTask,
+        expandedTasks: taskState.expandedTasks,
+        toggleTask: taskState.toggleTask,
         onOpenComments: openCommentsPanel,
         onEditTask: openEditTaskDialog,
         onOpenTaskCard: openTaskCard,
@@ -2962,19 +2974,22 @@ export function WorkloadBoard({
         onEstimatedDateChange: handleEstimatedDateChange,
         onEstimatedTimeChange: handleEstimatedTimeChange,
         onTagChange: handleTagChange,
-        openPopoverId,
-        setOpenPopoverId,
+        openPopoverId: popoverState.openPopoverId,
+        setOpenPopoverId: popoverState.setOpenPopoverId,
         boardId: parseInt(boardId, 10),
         onTagCreated: (newTag) => {
           setTags((prevTags) => [...prevTags, newTag]);
         },
         onStatusCreated: handleStatusCreated,
         onPriorityCreated: handlePriorityCreated,
-        inlineEditingTaskId,
-        setInlineEditingTaskId,
-        inlineEditingTaskName,
-        setInlineEditingTaskName,
+        inlineEditingTaskId: taskState.inlineEditingTaskId,
+        setInlineEditingTaskId: taskState.setInlineEditingTaskId,
+        inlineEditingTaskName: taskState.inlineEditingTaskName,
+        setInlineEditingTaskName: taskState.setInlineEditingTaskName,
         onInlineEditTaskName: handleInlineEditTaskName,
+        activeTimerId: timerState.activeTimerId,
+        onTimerStart: handleTimerStart,
+        onTimerConflict: handleTimerConflict,
       });
 
       // Apply saved column order
@@ -3136,8 +3151,8 @@ export function WorkloadBoard({
 
   const [workloadColumns, setWorkloadColumns] = useState(() => {
     const allColumns = getWorkloadColumns({
-      expandedTasks,
-      toggleTask,
+      expandedTasks: taskState.expandedTasks,
+      toggleTask: taskState.toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
       onOpenTaskCard: openTaskCard,
@@ -3152,8 +3167,8 @@ export function WorkloadBoard({
       onEstimatedDateChange: handleEstimatedDateChange,
       onEstimatedTimeChange: handleEstimatedTimeChange,
       onTagChange: handleTagChange,
-      openPopoverId,
-      setOpenPopoverId,
+      openPopoverId: popoverState.openPopoverId,
+      setOpenPopoverId: popoverState.setOpenPopoverId,
       boardId: parseInt(boardId, 10),
       onTagCreated: (newTag) => {
         setTags((prevTags) => [...prevTags, newTag]);
@@ -3162,11 +3177,14 @@ export function WorkloadBoard({
       onStatusesUpdated: handleStatusesUpdated,
       onPriorityCreated: handlePriorityCreated,
       onPrioritiesUpdated: handlePrioritiesUpdated,
-      inlineEditingTaskId,
-      setInlineEditingTaskId,
-      inlineEditingTaskName,
-      setInlineEditingTaskName,
+      inlineEditingTaskId: taskState.inlineEditingTaskId,
+      setInlineEditingTaskId: taskState.setInlineEditingTaskId,
+      inlineEditingTaskName: taskState.inlineEditingTaskName,
+      setInlineEditingTaskName: taskState.setInlineEditingTaskName,
       onInlineEditTaskName: handleInlineEditTaskName,
+      activeTimerId: timerState.activeTimerId,
+      onTimerStart: handleTimerStart,
+      onTimerConflict: handleTimerConflict,
     });
 
     // Apply saved column order if available
@@ -3209,15 +3227,15 @@ export function WorkloadBoard({
           columnWidths[col.id] ??
           (collapsedColumns[col.id] ? COLLAPSED_WIDTH : col.width),
       }))
-      .filter((col) => visibleColumns[col.id] === true);
+      .filter((col) => columnState.visibleColumns[col.id] === true);
   });
 
   // Update workloadColumns when CMS data, visibility, or popover state changes
   // Preserve column order by using columnOrder state
   useEffect(() => {
     const allColumns = getWorkloadColumns({
-      expandedTasks,
-      toggleTask,
+      expandedTasks: taskState.expandedTasks,
+      toggleTask: taskState.toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
       onOpenTaskCard: openTaskCard,
@@ -3232,8 +3250,8 @@ export function WorkloadBoard({
       onEstimatedDateChange: handleEstimatedDateChange,
       onEstimatedTimeChange: handleEstimatedTimeChange,
       onTagChange: handleTagChange,
-      openPopoverId,
-      setOpenPopoverId,
+      openPopoverId: popoverState.openPopoverId,
+      setOpenPopoverId: popoverState.setOpenPopoverId,
       boardId: parseInt(boardId, 10),
       onTagCreated: (newTag) => {
         setTags((prevTags) => [...prevTags, newTag]);
@@ -3242,11 +3260,14 @@ export function WorkloadBoard({
       onStatusesUpdated: handleStatusesUpdated,
       onPriorityCreated: handlePriorityCreated,
       onPrioritiesUpdated: handlePrioritiesUpdated,
-      inlineEditingTaskId,
-      setInlineEditingTaskId,
-      inlineEditingTaskName,
-      setInlineEditingTaskName,
+      inlineEditingTaskId: taskState.inlineEditingTaskId,
+      setInlineEditingTaskId: taskState.setInlineEditingTaskId,
+      inlineEditingTaskName: taskState.inlineEditingTaskName,
+      setInlineEditingTaskName: taskState.setInlineEditingTaskName,
       onInlineEditTaskName: handleInlineEditTaskName,
+      activeTimerId: timerState.activeTimerId,
+      onTimerStart: handleTimerStart,
+      onTimerConflict: handleTimerConflict,
     });
 
     // Apply saved column order
@@ -3290,20 +3311,21 @@ export function WorkloadBoard({
             columnWidths[col.id] ??
             (collapsedColumns[col.id] ? COLLAPSED_WIDTH : col.width),
         }))
-        .filter((col) => visibleColumns[col.id] === true)
+        .filter((col) => columnState.visibleColumns[col.id] === true)
     );
   }, [
     statuses,
     priorities,
     members,
     tags,
-    openPopoverId,
-    visibleColumns,
+    popoverState.openPopoverId,
+    columnState.visibleColumns,
     collapsedColumns,
     columnWidths,
     columnOrder,
-    inlineEditingTaskId,
-    inlineEditingTaskName,
+    taskState.inlineEditingTaskId,
+    taskState.inlineEditingTaskName,
+    timerState.activeTimerId,
   ]);
 
   // Track unsaved changes for layout
@@ -4519,7 +4541,7 @@ export function WorkloadBoard({
                                   group.tasks
                                 );
                                 // Access timerUpdateTrigger to create dependency
-                                void timerUpdateTrigger;
+                                void timerState.timerUpdateTrigger;
                                 return (
                                   <div className="flex items-center gap-3 flex-1 ml-4">
                                     <div className="flex-1 max-w-[250px]">
@@ -4602,7 +4624,7 @@ export function WorkloadBoard({
                                                 group.tasks.length > 0 &&
                                                 group.tasks.every(
                                                   (task) =>
-                                                    checkedTasks[task.id] ||
+                                                    taskState.checkedTasks[task.id] ||
                                                     false
                                                 )
                                               }
@@ -4625,7 +4647,7 @@ export function WorkloadBoard({
                                                     );
                                                   }
                                                 });
-                                                setCheckedTasks((prev) => ({
+                                                taskState.setCheckedTasks((prev) => ({
                                                   ...prev,
                                                   ...updatedChecked,
                                                 }));
@@ -4662,7 +4684,7 @@ export function WorkloadBoard({
                                       const taskWithProps = {
                                         ...task,
                                         boardId: boardId,
-                                        activeTimerId: activeTimerId,
+                                        activeTimerId: timerState.activeTimerId,
                                         onTimerStart: handleTimerStart,
                                         onTimerConflict: handleTimerConflict,
                                       };
@@ -4685,7 +4707,7 @@ export function WorkloadBoard({
                                               <input
                                                 type="checkbox"
                                                 checked={
-                                                  checkedTasks[task.id] || false
+                                                  taskState.checkedTasks[task.id] || false
                                                 }
                                                 onChange={(e) =>
                                                   handleTaskCheckChange(
@@ -4736,12 +4758,12 @@ export function WorkloadBoard({
                                           </tr>
 
                                           {/* ================= SUBITEM ROWS ================= */}
-                                          {expandedTasks[task.id] &&
+                                          {taskState.expandedTasks[task.id] &&
                                             task.subitems?.map((subtask) => {
                                               const subtaskWithProps = {
                                                 ...subtask,
                                                 boardId: boardId,
-                                                activeTimerId: activeTimerId,
+                                                activeTimerId: timerState.activeTimerId,
                                                 onTimerStart: handleTimerStart,
                                                 onTimerConflict:
                                                   handleTimerConflict,
@@ -4760,7 +4782,7 @@ export function WorkloadBoard({
                                                     <input
                                                       type="checkbox"
                                                       checked={
-                                                        checkedTasks[
+                                                        taskState.checkedTasks[
                                                         subtask.id
                                                         ] || false
                                                       }
@@ -4821,7 +4843,7 @@ export function WorkloadBoard({
                                             })}
 
                                           {/* ================= ADD SUBITEM ================= */}
-                                          {expandedTasks[task.id] && (
+                                          {taskState.expandedTasks[task.id] && (
                                             <tr>
                                               <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
                                                 {/* Empty Cell */}
@@ -4876,7 +4898,7 @@ export function WorkloadBoard({
                                                 ) : (
                                                   <button
                                                     onClick={() => {
-                                                      setExpandedTasks(
+                                                      taskState.setExpandedTasks(
                                                         (prev) => ({
                                                           ...prev,
                                                           [task.id]: true,
@@ -5177,11 +5199,11 @@ export function WorkloadBoard({
               <textarea
                 id="edit-task-description"
                 placeholder="Enter task description..."
-                value={editingTask?.description || ""}
+                value={taskState.editingTask?.description || ""}
                 onChange={(e) => {
-                  if (editingTask) {
-                    setEditingTask({
-                      ...editingTask,
+                  if (taskState.editingTask) {
+                    taskState.setEditingTask({
+                      ...taskState.editingTask,
                       description: e.target.value,
                     });
                   }
@@ -5197,7 +5219,7 @@ export function WorkloadBoard({
               variant="outline"
               onClick={() => {
                 setEditTaskDialogOpen(false);
-                setEditingTask(null);
+                taskState.setEditingTask(null);
                 setEditTaskName("");
               }}
             >
@@ -5258,14 +5280,14 @@ export function WorkloadBoard({
       />
 
       {/* Bulk Actions Toolbar */}
-      {Object.values(checkedTasks).some((checked) => checked) && (
+      {Object.values(taskState.checkedTasks).some((checked) => checked) && (
         <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50 py-4 px-6">
           <div className="max-w-[1400px] mx-auto flex items-center justify-between">
             <div className="flex items-center gap-8">
               <div className="flex items-center gap-2">
                 <div className="bg-primary rounded-full w-8 h-8 flex items-center justify-center text-white font-semibold text-sm">
                   {
-                    Object.values(checkedTasks).filter((checked) => checked)
+                    Object.values(taskState.checkedTasks).filter((checked) => checked)
                       .length
                   }
                 </div>
@@ -5286,7 +5308,7 @@ export function WorkloadBoard({
             </div>
 
             <button
-              onClick={() => setCheckedTasks({})}
+              onClick={() => taskState.clearCheckedTasks()}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Clear
