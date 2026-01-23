@@ -3981,24 +3981,70 @@ export function WorkloadBoard({
                             key={columnId}
                             className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
                           >
-                            Create First Group
-                          </Button>
-                        </>
-                      )}
+                            <input
+                              type="checkbox"
+                              checked={visibleColumns[columnId] === true}
+                              onChange={() => toggleColumnVisibility(columnId)}
+                              className="cursor-pointer"
+                            />
+                            <span className="text-sm">{columnLabel}</span>
+                          </label>
+                        );
+                      })}
                     </div>
-                  ) : (
-                    getFilteredGroups().map((group) => (
-                      <SortableGroupCard key={group.id} group={group}>
-                        {(dragListeners, dragAttributes) => (
-                          <div
-                            className="bg-card border border-border flex-1 border-l-4"
-                            style={{
-                              borderLeftColor: group.color || "#3b82f6",
-                            }}
-                            {...dragAttributes}
-                            {...dragListeners}
-                          >
-                            {/* Group Header */}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            {/* Task Groups Container - ONLY scrollable element */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" ref={groupsContainerRef}>
+                <DndContext
+                  sensors={groupSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleGroupDragEnd}
+                >
+                  <SortableContext
+                    items={getFilteredGroups().map((g) => g.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-6 py-4">
+                    {getFilteredGroups().length === 0 ? (
+                      <div className="text-center py-12">
+                        {mainTableSearchQuery.trim() ? (
+                          <>
+                            <p className="text-muted-foreground mb-4">
+                              No items found matching "{mainTableSearchQuery}"
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-muted-foreground mb-4">
+                              No groups yet. Create one to get started.
+                            </p>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={addNewGroup}
+                            >
+                              Create First Group
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      getFilteredGroups().map((group) => (
+                        <SortableGroupCard key={group.id} group={group}>
+                          {(dragListeners, dragAttributes) => (
+                            <div
+                              className="bg-card border border-border flex-1 border-l-4"
+                              style={{
+                                borderLeftColor: group.color || "#3b82f6",
+                              }}
+                              {...dragAttributes}
+                              {...dragListeners}
+                            >
+                              {/* Group Header */}
 
                             <div
                               className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-30 bg-muted border-b border-border ${stickyGroupId === group.id ? 'shadow-md' : ''}`}
