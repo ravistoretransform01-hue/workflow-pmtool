@@ -18,7 +18,6 @@ import type {
 import type { Status, Priority } from "@/features/cms/types";
 import {
   LayoutDashboard,
-  ArrowUpDown,
   Eye,
   EyeOff,
   ChevronDown,
@@ -27,13 +26,9 @@ import {
   MoreHorizontal,
   Maximize2,
   Minimize2,
-  Lock,
-  GripVertical,
-  Pencil,
-  ArrowRightLeft,
-  Trash,
   Trash2,
   Save,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
@@ -60,9 +55,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 } from "@/shared/components/ui/dropdown-menu";
 import {
   Popover,
@@ -97,6 +89,7 @@ import {
   useColumnPersistence,
   useTaskFilters,
 } from "./hooks";
+import { SortableColumnHeader } from "./components/ColumnHeader";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -162,38 +155,6 @@ export interface Task {
   }>;
   subitems?: Task[];
 }
-
-const DEFAULT_TABS = [
-  "Main Table",
-  "List",
-  "Kanban",
-  "Calendar",
-  "Workload",
-  "Time",
-  "Recurring",
-  "Completed",
-  "Gantt",
-  "SOP",
-  "Doc",
-  "Updates",
-  "Dashboard",
-];
-
-// Default visible columns - all columns visible by default
-const DEFAULT_VISIBLE_COLUMNS = [
-  "item",
-  "status",
-  "priority",
-  "description",
-  "rating",
-  "estimatedDate",
-  "estimatedTime",
-  "progress",
-  "person",
-  "tags",
-  "timer",
-  "time",
-];
 
 // All available columns (for the dropdown menu)
 const ALL_AVAILABLE_COLUMNS = [
@@ -420,240 +381,7 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
   );
 }
 
-// =======================
-// Sortable Column Header
-// =======================
-interface SortableColumnHeaderProps {
-  column: any;
-  onToggleCollapse?: () => void;
-  onStartResize?: (columnId: string, e: React.PointerEvent) => void;
-  onColumnLabelChange?: (columnId: string, newLabel: string) => void;
-  onSort?: (direction: "asc" | "desc") => void;
-}
-const SortableColumnHeader = ({
-  column,
-  onToggleCollapse,
-  onStartResize,
-  onColumnLabelChange,
-  onSort,
-}: SortableColumnHeaderProps) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(column.label);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  const {
-    setNodeRef,
-    attributes,
-    listeners,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: column.id,
-    disabled: column.fixed,
-    data: {
-      type: "column",
-      isFixed: column.fixed,
-    },
-  });
-
-  const style = {
-    transform: transform ? `translate3d(${transform.x}px, 0, 0)` : undefined,
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  // Sync editValue when column.label changes (e.g., from localStorage or parent state)
-  useEffect(() => {
-    if (!isEditing) {
-      setEditValue(column.label);
-    }
-  }, [column.label, isEditing]);
-
-  // Focus input when entering edit mode
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
-
-  const handleSaveLabel = async (newLabel: string) => {
-    if (newLabel.trim() && newLabel !== column.label) {
-      try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        onColumnLabelChange?.(column.id, newLabel.trim());
-        // toast.success("Column renamed successfully");
-      } catch (error) {
-        console.error("Failed to rename column:", error);
-        toast.error("Failed to rename column");
-        setEditValue(column.label);
-      }
-    } else {
-      setEditValue(column.label);
-    }
-    setIsEditing(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleSaveLabel(editValue);
-    } else if (e.key === "Escape") {
-      setEditValue(column.label);
-      setIsEditing(false);
-    }
-  };
-
-  return (
-    <th
-      ref={setNodeRef}
-      style={{ ...style, width: column.width }}
-      className={`p-4 font-medium border-r border-border last:border-r-0 ${column.id === "item" ? "sticky left-12 z-10 bg-card" : "bg-muted/30"
-        }`}
-      {...attributes}
-    >
-      <div
-        {...(!column.fixed ? listeners : {})}
-        className={`relative group flex items-center justify-between ${column.fixed
-          ? "cursor-default opacity-80"
-          : "cursor-grab active:cursor-grabbing"
-          }`}
-      >
-        {/* Resizer handle (right edge) */}
-        {!column.fixed && !column.collapsed && (
-          <div
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              onStartResize?.(column.id, e);
-            }}
-            role="separator"
-            aria-orientation="vertical"
-            className="absolute right-0 top-0 h-12 w-4 -mr-6 cursor-col-resize z-40"
-            title={`Resize ${column.label}`}
-          />
-        )}
-        <GripVertical
-          className="h-4 w-4
-                  opacity-0
-                  group-hover:opacity-100
-                  transition-opacity
-                  duration-150
-                  cursor-grab active:cursor-grabbing"
-        />
-
-        {column.collapsed ? (
-          <div className="flex items-center justify-center w-full">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleCollapse?.();
-              }}
-              aria-label={`Expand ${column.label}`}
-              title={`Expand ${column.label}`}
-            >
-              <ArrowRightLeft className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <>
-            {isEditing ? (
-              <div className="flex-1 flex items-center justify-center">
-                <Input
-                  ref={inputRef}
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onBlur={() => handleSaveLabel(editValue)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="h-8 text-center text-sm bg-transparent border-0 focus:outline-none focus:ring-0"
-                  style={{ maxWidth: "264px" }}
-                  align="center"
-                />
-              </div>
-            ) : (
-              <span
-                className="flex-1 text-center cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditing(true);
-                }}
-                title="Click to edit column name"
-              >
-                {column.label}
-              </span>
-            )}
-
-            {/* More menu icon – hover only */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="
-                  h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity
-                  "
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <ArrowUpDown className="h-4 w-4 mr-2" />
-                    <span>Sort</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => onSort?.("asc")}>
-                      Sort ascending
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onSort?.("desc")}>
-                      Sort descending
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuItem
-                  onClick={() => onToggleCollapse?.()}
-                  disabled={column.fixed}
-                >
-                  {column.collapsed ? (
-                    <>
-                      <Maximize2 className="h-4 w-4 mr-2" />
-                      <span>Expand</span>
-                    </>
-                  ) : (
-                    <>
-                      <Minimize2 className="h-4 w-4 mr-2" />
-                      <span>Collapse</span>
-                    </>
-                  )}
-                </DropdownMenuItem>
-                {/* <DropdownMenuItem onClick={() => {}}>
-                  <Filter className="h-4 w-4 mr-2" />
-                  <span>Filter</span>
-                </DropdownMenuItem> */}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => { }}>
-                  <Lock className="h-4 w-4 mr-2" />
-                  <span>Lock column</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { }}>
-                  <Trash className="h-4 w-4 mr-2 text-destructive" />
-                  <span>Delete</span> {/* delete column */}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </>
-        )}
-      </div>
-    </th>
-  );
-};
 
 export function WorkloadBoard({
   boardName,
@@ -749,22 +477,6 @@ export function WorkloadBoard({
     null
   );
   const [newSubitemName, setNewSubitemName] = useState("");
-  // Local state for task-related UI (managed by useTaskState hook)
-  // expandedTasks, checkedTasks, editingTask, inlineEditingTaskId, inlineEditingTaskName
-  // are now accessed via: taskState.expandedTasks, taskState.checkedTasks, etc.
-
-  // Local state for popover (managed by usePopoverState hook)
-  // openPopoverId is now accessed via: popoverState.openPopoverId
-
-  // Local state for timer (managed by useTaskTimer hook)
-  // activeTimerId, timerUpdateTrigger are now accessed via: timerState.activeTimerId, timerState.timerUpdateTrigger
-
-  // Local state for column persistence (managed by useColumnPersistence hook)
-  // visibleColumns, viewTabs are now accessed via: columnState.visibleColumns, columnState.viewTabs
-
-  // Local state for task filters (managed by useTaskFilters hook)
-  // taskFilters, openFilterDropdowns, showDoneItemsOnly are now accessed via: filterState.taskFilters, etc.
-
   // Comments state
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
@@ -773,10 +485,6 @@ export function WorkloadBoard({
   // Timer conflict dialog state
   const [timerConflictDialogOpen, setTimerConflictDialogOpen] = useState(false);
   const [conflictingTaskName, setConflictingTaskName] = useState("");
-
-  // Column labels state - track custom column names
-  // NOTE: Labels are now stored directly in workloadColumns.label
-  // This state is kept for backward compatibility but not actively used
 
   // CMS Data states
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -790,33 +498,6 @@ export function WorkloadBoard({
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#FF0000");
   const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
-
-  // Task filters state
-  const [taskFilters, setTaskFilters] = useState<{
-    persons: Set<string>;
-    statuses: Set<string>;
-    priorities: Set<string>;
-    labels: Set<string>;
-    groups: Set<string>;
-  }>({
-    persons: new Set(),
-    statuses: new Set(),
-    priorities: new Set(),
-    labels: new Set(),
-    groups: new Set(),
-  });
-
-  // Filter dropdown open state
-  const [openFilterDropdowns, setOpenFilterDropdowns] = useState<Record<string, boolean>>({
-    persons: false,
-    statuses: false,
-    priorities: false,
-    labels: false,
-    groups: false,
-  });
-
-  // Done items filter state
-  const [showDoneItemsOnly, setShowDoneItemsOnly] = useState(false);
 
   // Fetch groups from API on component mount
   useEffect(() => {
@@ -2609,12 +2290,12 @@ export function WorkloadBoard({
 
     // Apply attribute filters (Person, Status, Priority, Label, Group)
     if (
-      taskFilters.persons.size === 0 &&
-      taskFilters.statuses.size === 0 &&
-      taskFilters.priorities.size === 0 &&
-      taskFilters.labels.size === 0 &&
-      taskFilters.groups.size === 0 &&
-      !showDoneItemsOnly
+      filterState.taskFilters.persons.size === 0 &&
+      filterState.taskFilters.statuses.size === 0 &&
+      filterState.taskFilters.priorities.size === 0 &&
+      filterState.taskFilters.labels.size === 0 &&
+      filterState.taskFilters.groups.size === 0 &&
+      !filterState.showDoneItemsOnly
     ) {
       return filteredGroups;
     }
@@ -2622,8 +2303,8 @@ export function WorkloadBoard({
     return filteredGroups
       .filter((group) => {
         // Filter by group if group filter is active
-        if (taskFilters.groups.size > 0) {
-          return taskFilters.groups.has(group.id);
+        if (filterState.taskFilters.groups.size > 0) {
+          return filterState.taskFilters.groups.has(group.id);
         }
         return true;
       })
@@ -2631,7 +2312,7 @@ export function WorkloadBoard({
         ...group,
         tasks: group.tasks.filter((task) => {
           // Check done items filter
-          if (showDoneItemsOnly) {
+          if (filterState.showDoneItemsOnly) {
             // Find the "Done" status ID
             const doneStatus = statuses.find(
               (s) => s.name.toLowerCase() === "done"
@@ -2642,27 +2323,27 @@ export function WorkloadBoard({
           }
 
           // Check person filter
-          if (taskFilters.persons.size > 0) {
+          if (filterState.taskFilters.persons.size > 0) {
             const hasMatchingPerson = task.assigned_to_ids?.some((id) =>
-              taskFilters.persons.has(String(id))
+              filterState.taskFilters.persons.has(String(id))
             );
             if (!hasMatchingPerson) return false;
           }
 
           // Check status filter
-          if (taskFilters.statuses.size > 0) {
-            if (!taskFilters.statuses.has(task.status_id || "")) return false;
+          if (filterState.taskFilters.statuses.size > 0) {
+            if (!filterState.taskFilters.statuses.has(task.status_id || "")) return false;
           }
 
           // Check priority filter
-          if (taskFilters.priorities.size > 0) {
-            if (!taskFilters.priorities.has(task.priority_id || ""))
+          if (filterState.taskFilters.priorities.size > 0) {
+            if (!filterState.taskFilters.priorities.has(task.priority_id || ""))
               return false;
           }
 
           // Check label filter
-          if (taskFilters.labels.size > 0) {
-            if (!taskFilters.labels.has(task.label_id || "")) return false;
+          if (filterState.taskFilters.labels.size > 0) {
+            if (!filterState.taskFilters.labels.has(task.label_id || "")) return false;
           }
 
           return true;
@@ -2804,10 +2485,6 @@ export function WorkloadBoard({
 
   // NEW : Start
   // Note: toggleTask is now provided by taskState hook
-  // This local function is kept for backward compatibility but delegates to the hook
-  const toggleTask = (taskId: string) => {
-    taskState.toggleTask(taskId);
-  };
 
   const toggleColumnVisibility = (columnId: string) => {
     columnState.toggleColumnVisibility(columnId);
@@ -3526,8 +3203,8 @@ export function WorkloadBoard({
               <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
                 <input
                   type="checkbox"
-                  checked={showDoneItemsOnly}
-                  onChange={(e) => setShowDoneItemsOnly(e.target.checked)}
+                  checked={filterState.showDoneItemsOnly}
+                  onChange={(e) => filterState.setShowDoneItemsOnly(e.target.checked)}
                   className="cursor-pointer"
                 />
                 <span className="text-sm font-medium">Done Items</span>
@@ -3548,20 +3225,17 @@ export function WorkloadBoard({
                     <div className="border border-primary/30 rounded-md bg-background">
                       <button
                         onClick={() =>
-                          setOpenFilterDropdowns((prev) => ({
-                            ...prev,
-                            persons: !prev.persons,
-                          }))
+                          filterState.toggleFilterDropdown("persons")
                         }
                         className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
                       >
                         <span className="text-sm font-medium">Person</span>
                         <ChevronDown
-                          className={`h-4 w-4 transition-transform ${openFilterDropdowns.persons ? "rotate-180" : ""
+                          className={`h-4 w-4 transition-transform ${filterState.openFilterDropdowns.persons ? "rotate-180" : ""
                             }`}
                         />
                       </button>
-                      {openFilterDropdowns.persons && (
+                      {filterState.openFilterDropdowns.persons && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
                           {members.map((member) => (
                             <label
@@ -3570,20 +3244,20 @@ export function WorkloadBoard({
                             >
                               <input
                                 type="checkbox"
-                                checked={taskFilters.persons.has(
+                                checked={filterState.taskFilters.persons.has(
                                   String(member.user_id)
                                 )}
                                 onChange={(e) => {
                                   const newPersons = new Set(
-                                    taskFilters.persons
+                                    filterState.taskFilters.persons
                                   );
                                   if (e.target.checked) {
                                     newPersons.add(String(member.user_id));
                                   } else {
                                     newPersons.delete(String(member.user_id));
                                   }
-                                  setTaskFilters({
-                                    ...taskFilters,
+                                  filterState.setTaskFilters({
+                                    ...filterState.taskFilters,
                                     persons: newPersons,
                                   });
                                 }}
@@ -3600,20 +3274,17 @@ export function WorkloadBoard({
                     <div className="border border-primary/30 rounded-md bg-background">
                       <button
                         onClick={() =>
-                          setOpenFilterDropdowns((prev) => ({
-                            ...prev,
-                            statuses: !prev.statuses,
-                          }))
+                          filterState.toggleFilterDropdown("statuses")
                         }
                         className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
                       >
                         <span className="text-sm font-medium">Status</span>
                         <ChevronDown
-                          className={`h-4 w-4 transition-transform ${openFilterDropdowns.statuses ? "rotate-180" : ""
+                          className={`h-4 w-4 transition-transform ${filterState.openFilterDropdowns.statuses ? "rotate-180" : ""
                             }`}
                         />
                       </button>
-                      {openFilterDropdowns.statuses && (
+                      {filterState.openFilterDropdowns.statuses && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
                           {statuses.map((status) => (
                             <label
@@ -3622,20 +3293,20 @@ export function WorkloadBoard({
                             >
                               <input
                                 type="checkbox"
-                                checked={taskFilters.statuses.has(
+                                checked={filterState.taskFilters.statuses.has(
                                   String(status.id)
                                 )}
                                 onChange={(e) => {
                                   const newStatuses = new Set(
-                                    taskFilters.statuses
+                                    filterState.taskFilters.statuses
                                   );
                                   if (e.target.checked) {
                                     newStatuses.add(String(status.id));
                                   } else {
                                     newStatuses.delete(String(status.id));
                                   }
-                                  setTaskFilters({
-                                    ...taskFilters,
+                                  filterState.setTaskFilters({
+                                    ...filterState.taskFilters,
                                     statuses: newStatuses,
                                   });
                                 }}
@@ -3660,20 +3331,17 @@ export function WorkloadBoard({
                     <div className="border border-primary/30 rounded-md bg-background">
                       <button
                         onClick={() =>
-                          setOpenFilterDropdowns((prev) => ({
-                            ...prev,
-                            priorities: !prev.priorities,
-                          }))
+                          filterState.toggleFilterDropdown("priorities")
                         }
                         className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
                       >
                         <span className="text-sm font-medium">Priority</span>
                         <ChevronDown
-                          className={`h-4 w-4 transition-transform ${openFilterDropdowns.priorities ? "rotate-180" : ""
+                          className={`h-4 w-4 transition-transform ${filterState.openFilterDropdowns.priorities ? "rotate-180" : ""
                             }`}
                         />
                       </button>
-                      {openFilterDropdowns.priorities && (
+                      {filterState.openFilterDropdowns.priorities && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
                           {priorities.map((priority) => (
                             <label
@@ -3682,20 +3350,20 @@ export function WorkloadBoard({
                             >
                               <input
                                 type="checkbox"
-                                checked={taskFilters.priorities.has(
+                                checked={filterState.taskFilters.priorities.has(
                                   String(priority.id)
                                 )}
                                 onChange={(e) => {
                                   const newPriorities = new Set(
-                                    taskFilters.priorities
+                                    filterState.taskFilters.priorities
                                   );
                                   if (e.target.checked) {
                                     newPriorities.add(String(priority.id));
                                   } else {
                                     newPriorities.delete(String(priority.id));
                                   }
-                                  setTaskFilters({
-                                    ...taskFilters,
+                                  filterState.setTaskFilters({
+                                    ...filterState.taskFilters,
                                     priorities: newPriorities,
                                   });
                                 }}
@@ -3720,20 +3388,17 @@ export function WorkloadBoard({
                     <div className="border border-primary/30 rounded-md bg-background">
                       <button
                         onClick={() =>
-                          setOpenFilterDropdowns((prev) => ({
-                            ...prev,
-                            labels: !prev.labels,
-                          }))
+                          filterState.toggleFilterDropdown("labels")
                         }
                         className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
                       >
                         <span className="text-sm font-medium">Label</span>
                         <ChevronDown
-                          className={`h-4 w-4 transition-transform ${openFilterDropdowns.labels ? "rotate-180" : ""
+                          className={`h-4 w-4 transition-transform ${filterState.openFilterDropdowns.labels ? "rotate-180" : ""
                             }`}
                         />
                       </button>
-                      {openFilterDropdowns.labels && (
+                      {filterState.openFilterDropdowns.labels && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
                           {labels.map((label) => (
                             <label
@@ -3742,20 +3407,20 @@ export function WorkloadBoard({
                             >
                               <input
                                 type="checkbox"
-                                checked={taskFilters.labels.has(
+                                checked={filterState.taskFilters.labels.has(
                                   String(label.id)
                                 )}
                                 onChange={(e) => {
                                   const newLabels = new Set(
-                                    taskFilters.labels
+                                    filterState.taskFilters.labels
                                   );
                                   if (e.target.checked) {
                                     newLabels.add(String(label.id));
                                   } else {
                                     newLabels.delete(String(label.id));
                                   }
-                                  setTaskFilters({
-                                    ...taskFilters,
+                                  filterState.setTaskFilters({
+                                    ...filterState.taskFilters,
                                     labels: newLabels,
                                   });
                                 }}
@@ -3780,20 +3445,17 @@ export function WorkloadBoard({
                     <div className="border border-primary/30 rounded-md bg-background">
                       <button
                         onClick={() =>
-                          setOpenFilterDropdowns((prev) => ({
-                            ...prev,
-                            groups: !prev.groups,
-                          }))
+                          filterState.toggleFilterDropdown("groups")
                         }
                         className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
                       >
                         <span className="text-sm font-medium">Group</span>
                         <ChevronDown
-                          className={`h-4 w-4 transition-transform ${openFilterDropdowns.groups ? "rotate-180" : ""
+                          className={`h-4 w-4 transition-transform ${filterState.openFilterDropdowns.groups ? "rotate-180" : ""
                             }`}
                         />
                       </button>
-                      {openFilterDropdowns.groups && (
+                      {filterState.openFilterDropdowns.groups && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
                           {groups.map((group) => (
                             <label
@@ -3802,18 +3464,18 @@ export function WorkloadBoard({
                             >
                               <input
                                 type="checkbox"
-                                checked={taskFilters.groups.has(group.id)}
+                                checked={filterState.taskFilters.groups.has(group.id)}
                                 onChange={(e) => {
                                   const newGroups = new Set(
-                                    taskFilters.groups
+                                    filterState.taskFilters.groups
                                   );
                                   if (e.target.checked) {
                                     newGroups.add(group.id);
                                   } else {
                                     newGroups.delete(group.id);
                                   }
-                                  setTaskFilters({
-                                    ...taskFilters,
+                                  filterState.setTaskFilters({
+                                    ...filterState.taskFilters,
                                     groups: newGroups,
                                   });
                                 }}
@@ -3834,24 +3496,18 @@ export function WorkloadBoard({
                   </div>
 
                   {/* Clear Filters Button - Fixed at bottom */}
-                  {(taskFilters.persons.size > 0 ||
-                    taskFilters.statuses.size > 0 ||
-                    taskFilters.priorities.size > 0 ||
-                    taskFilters.labels.size > 0 ||
-                    taskFilters.groups.size > 0) && (
+                  {(filterState.taskFilters.persons.size > 0 ||
+                    filterState.taskFilters.statuses.size > 0 ||
+                    filterState.taskFilters.priorities.size > 0 ||
+                    filterState.taskFilters.labels.size > 0 ||
+                    filterState.taskFilters.groups.size > 0) && (
                       <div className="border-t border-primary/20 bg-primary/5 p-2 shrink-0">
                         <Button
                           variant="outline"
                           size="sm"
                           className="w-full"
                           onClick={() => {
-                            setTaskFilters({
-                              persons: new Set(),
-                              statuses: new Set(),
-                              priorities: new Set(),
-                              labels: new Set(),
-                              groups: new Set(),
-                            });
+                            filterState.clearFilters();
                           }}
                         >
                           Clear All Filters
@@ -4628,10 +4284,10 @@ export function WorkloadBoard({
                                               }
                                               onStartResize={startColumnResize}
                                               onColumnLabelChange={handleColumnLabelChange}
-                                              onSort={(direction) =>
+                                              onSort={(columnId: string, direction: "asc" | "desc") =>
                                                 handleSortGroupItems(
                                                   group.id,
-                                                  col.id,
+                                                  columnId,
                                                   direction
                                                 )
                                               }
