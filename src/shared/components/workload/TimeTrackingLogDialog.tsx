@@ -205,6 +205,7 @@ export function TimeTrackingLogDialog({
   // Fetch time entries when dialog opens
   useEffect(() => {
     if (open) {
+      setShowManualSession(false);
       fetchTimeEntries();
     }
   }, [open, taskId]);
