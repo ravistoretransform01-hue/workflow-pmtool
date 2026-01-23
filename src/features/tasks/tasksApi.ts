@@ -28,6 +28,8 @@ const TASKS_ENDPOINTS = {
   DELETE_COMMENT: (taskId: string | number, commentId: string | number) => `/tasks/${taskId}/comments/${commentId}`,
   START_TIMER: `/tasks/time/start`,
   STOP_TIMER: `/tasks/time/stop`,
+  GET_TIME_ENTRIES: `/tasks/time/entries`,
+  ADD_MANUAL_TIME_ENTRY: `/tasks/time/manual`,
 };
 
 export const tasksApi = {
@@ -363,6 +365,39 @@ export const tasksApi = {
       return response.data.data;
     } catch (error) {
       console.error("Failed to fetch time entries:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Add a manual time entry for a task
+   */
+  addManualTimeEntry: async (payload: {
+    task_id: string | number;
+    start_time: string;
+    end_time: string;
+    note?: string;
+  }): Promise<any> => {
+    try {
+      const response = await axios.post<any>(
+        TASKS_ENDPOINTS.ADD_MANUAL_TIME_ENTRY,
+        payload
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to add manual time entry:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a time entry
+   */
+  deleteTimeEntry: async (entryId: string | number): Promise<void> => {
+    try {
+      await axios.delete(`/tasks/time/entries/${entryId}`);
+    } catch (error) {
+      console.error("Failed to delete time entry:", error);
       throw error;
     }
   },

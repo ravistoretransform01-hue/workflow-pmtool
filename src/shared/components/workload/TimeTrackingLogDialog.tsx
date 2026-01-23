@@ -281,61 +281,128 @@ export function TimeTrackingLogDialog({
     }
   };
 
-  const handleDeleteLog = (id: string) => {
-    setTimeLogs((prev) => prev.filter((log) => log.id !== id));
+  const handleDeleteLog = async (id: string) => {
+    try {
+      await tasksApi.deleteTimeEntry(id);
+      setTimeLogs((prev) => prev.filter((log) => log.id !== id));
+      toast.success("Time entry deleted successfully");
+    } catch (error) {
+      console.error("Failed to delete time entry:", error);
+      toast.error("Failed to delete time entry");
+    }
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
     if (confirm("Are you sure you want to clear all time logs?")) {
-      setTimeLogs([]);
+      try {
+        // Delete all time entries
+        await Promise.all(timeLogs.map((log) => tasksApi.deleteTimeEntry(log.id)));
+        setTimeLogs([]);
+        toast.success("All time entries deleted successfully");
+      } catch (error) {
+        console.error("Failed to clear time logs:", error);
+        toast.error("Failed to clear time logs");
+      }
     }
   };
 
   const handleExportToExcel = () => {
-    // Placeholder for future Excel export functionality
-    console.log("Export to Excel clicked for task:", taskId);
+    // Create CSV content
+    const headers = ["User", "Date", "Start Time", "End Time", "Duration"];
+    const rows = timeLogs.map((log) => [
+      log.user.name,
+      log.date,
+      log.startTime,
+      log.endTime,
+      log.duration,
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `time-tracking-${taskId}-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+    toast.success("Exported to CSV");
   };
 
   const handleAddSession = () => {
-    // Convert time string (e.g., "12:00 PM") to 24-hour format
-    const convertTo24Hour = (timeStr: string): string => {
+    // Convert local time to UTC
+    const convertLocalToUTC = (dateStr: string, timeStr: string): string => {
+      // Parse the local time
       const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (!match) return "00:00:00";
+      if (!match) return "";
 
       let hours = parseInt(match[1]);
-      const minutes = match[2];
+      const minutes = parseInt(match[2]);
       const period = match[3].toUpperCase();
 
+      // Convert to 24-hour format
       if (period === "PM" && hours !== 12) {
         hours += 12;
       } else if (period === "AM" && hours === 12) {
         hours = 0;
       }
 
-      return `${String(hours).padStart(2, "0")}:${minutes}:00`;
+      // Create a local date object
+      const [year, month, day] = dateStr.split("-").map(Number);
+      const localDate = new Date(year, month - 1, day, hours, minutes, 0);
+
+      // Convert to UTC by getting the offset and adjusting
+      const utcDate = new Date(
+        localDate.getTime() - localDate.getTimezoneOffset() * 60000
+      );
+
+      // Format as "YYYY-MM-DD HH:mm:ss" in UTC
+      const utcYear = utcDate.getUTCFullYear();
+      const utcMonth = String(utcDate.getUTCMonth() + 1).padStart(2, "0");
+      const utcDay = String(utcDate.getUTCDate()).padStart(2, "0");
+      const utcHours = String(utcDate.getUTCHours()).padStart(2, "0");
+      const utcMinutes = String(utcDate.getUTCMinutes()).padStart(2, "0");
+      const utcSeconds = String(utcDate.getUTCSeconds()).padStart(2, "0");
+
+      return `${utcYear}-${utcMonth}-${utcDay} ${utcHours}:${utcMinutes}:${utcSeconds}`;
     };
 
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-    const startTimeFormatted = convertTo24Hour(startTime);
-    const endTimeFormatted = convertTo24Hour(endTime);
+    const startTimeUTC = convertLocalToUTC(dateStr, startTime);
+    const endTimeUTC = convertLocalToUTC(dateStr, endTime);
 
     const payload = {
-      taskId,
-      start_time: `${dateStr} ${startTimeFormatted}`,
-      end_time: `${dateStr} ${endTimeFormatted}`,
-      tag: tag || undefined,
+      task_id: taskId,
+      start_time: startTimeUTC,
+      end_time: endTimeUTC,
+      note: tag || undefined,
     };
 
-    console.log("Add session:", payload);
-    toast.success("Session added successfully");
-    // Reset form and go back to time logs view
-    setShowManualSession(false);
-    setSelectedDate(new Date());
-    setStartTime("12:00 PM");
-    setEndTime("01:00 PM");
-    setTag("");
-    // Refresh the time logs list
-    fetchTimeEntries();
+    // Call API to add manual time entry
+    (async () => {
+      try {
+        setIsLoading(true);
+        await tasksApi.addManualTimeEntry(payload);
+        toast.success("Session added successfully");
+        // Reset form and go back to time logs view
+        setShowManualSession(false);
+        setSelectedDate(new Date());
+        setStartTime("12:00 PM");
+        setEndTime("01:00 PM");
+        setTag("");
+        // Refresh the time logs list
+        await fetchTimeEntries();
+      } catch (error) {
+        console.error("Failed to add session:", error);
+        toast.error("Failed to add session");
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   };
 
   const handleBackToLogs = () => {
@@ -476,6 +543,7 @@ export function TimeTrackingLogDialog({
                   variant="ghost"
                   size="sm"
                   onClick={handleClear}
+                  disabled
                   className="h-8 px-3 text-sm font-medium text-foreground hover:bg-muted"
                 >
                   Clear
