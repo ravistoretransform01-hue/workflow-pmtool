@@ -96,8 +96,9 @@ export const getWorkloadColumns = ({
   onTimerConflict,
 }: ColumnDefinitionProps): Column[] => {
   // Create lookup maps for statuses and priorities
-  const statusMap = new Map(statuses.map((s) => [s.id, s]));
-  const priorityMap = new Map(priorities.map((p) => [p.id, p]));
+  // Ensure keys are strings to match task.status_id (which is stored as string)
+  const statusMap = new Map(statuses.map((s) => [String(s.id), s]));
+  const priorityMap = new Map(priorities.map((p) => [String(p.id), p]));
 
   return [
     {

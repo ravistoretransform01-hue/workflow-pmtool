@@ -3,6 +3,7 @@ export interface Status {
   name: string;
   color_code: string;
   status_order: string;
+  required_rating: number | string;
 }
 
 export interface Priority {

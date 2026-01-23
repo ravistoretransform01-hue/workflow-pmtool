@@ -30,7 +30,7 @@ import {
   Save,
   Pencil,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getCurrentUserId } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
 import {
   updateColumnLabel,
@@ -1277,8 +1277,8 @@ export function WorkloadBoard({
 
       // Build the full payload
       const payload = {
-        user_id: 2, // TODO: Get from auth context
-        group_id: 92, // TODO: Get from current group
+        user_id: getCurrentUserId(),  
+        organization_id: getOrganizationId(),  
         board_id: parseInt(boardId, 10),
         columns: columnsPayload,
       };
@@ -1680,67 +1680,6 @@ export function WorkloadBoard({
       toast.error("Failed to update task");
     }
   };
-
-  // const handleStatusChange = async (taskId: string, statusId: string) => {
-  //   try {
-  //     const boardIdNum = parseInt(boardId, 10);
-
-  //     // Call API to update task status
-  //     const payload: UpdateTaskRequest = {
-  //       id: taskId,
-  //       board_id: boardIdNum,
-  //       status_id: parseInt(statusId, 10),
-  //     };
-
-  //     const updatedTaskResponse = await tasksApi.updateTask(payload);
-
-  //     // Update local state with API response - simpler approach
-  //     const updatedGroups = groups.map((group) => {
-  //       const updatedTasks = group.tasks.map((task) => {
-  //         // Update parent task if it matches
-  //         if (task.id === taskId) {
-  //           return {
-  //             ...task,
-  //             status: updatedTaskResponse.status_label,
-  //             status_id: String(updatedTaskResponse.status_id),
-  //           };
-  //         }
-
-  //         // Update subitem if it matches
-  //         if (task.subitems && task.subitems.length > 0) {
-  //           const updatedSubitems = task.subitems.map((subitem) => {
-  //             if (subitem.id === taskId) {
-  //               return {
-  //                 ...subitem,
-  //                 status: updatedTaskResponse.status_label,
-  //                 status_id: String(updatedTaskResponse.status_id),
-  //               };
-  //             }
-  //             return subitem;
-  //           });
-  //           return {
-  //             ...task,
-  //             subitems: updatedSubitems,
-  //           };
-  //         }
-
-  //         return task;
-  //       });
-
-  //       return {
-  //         ...group,
-  //         tasks: updatedTasks,
-  //       };
-  //     });
-
-  //     setGroups(updatedGroups);
-  //     toast.success("Status updated successfully");
-  //   } catch (error) {
-  //     console.error("Failed to update status:", error);
-  //     toast.error("Failed to update status");
-  //   }
-  // };
-
 
   const handleRatingChange = async (taskId: string, rating: number) => {
     try {
@@ -2955,6 +2894,7 @@ export function WorkloadBoard({
         .filter((col) => columnState.visibleColumns[col.id] === true)
     );
   }, [
+    groups,
     statuses,
     priorities,
     members,
@@ -3547,8 +3487,8 @@ export function WorkloadBoard({
 
                       // Build the full payload
                       const payload = {
-                        user_id: 2, // TODO: Get from auth context
-                        group_id: 92, // TODO: Get from current group
+                        user_id: getCurrentUserId(),  
+                        organization_id: getOrganizationId(),  
                         board_id: parseInt(boardId, 10),
                         group_order: groupOrder,
                         column_order: columnOrder,

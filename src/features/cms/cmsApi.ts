@@ -173,7 +173,7 @@ export const cmsApi = {
    */
   saveUserGroupColumns: async (payload: {
     user_id: number | null;
-    group_id?: number;
+    organization_id: number | null;
     board_id: number;
     columns: Record<string, any>;
   }): Promise<any> => {
