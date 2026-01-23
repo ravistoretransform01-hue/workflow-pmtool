@@ -1,4 +1,3 @@
-import React from "react";
 import { ChevronDown, ChevronRight, MoreHorizontal, Minimize2, Maximize2, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -9,7 +8,7 @@ import {
   DropdownMenuSeparator,
 } from "@/shared/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
-import type { TaskGroup, Task } from "../WorkloadBoard";
+import type { TaskGroup } from "../WorkloadBoard";
 import { useTaskState, usePopoverState, useTaskTimer, useColumnPersistence, useTaskFilters } from "../hooks";
 
 interface GroupListProps {
@@ -50,13 +49,11 @@ export function GroupList({
   groups,
   expandedGroups,
   groupNames,
-  groupColors,
   groupLabels,
   groupLabelColors,
   labels,
   onGroupToggle,
   onDeleteGroup,
-  onEditGroup,
   onCollapseAllGroups,
   onExpandAllGroups,
   groupDropdownOpen,

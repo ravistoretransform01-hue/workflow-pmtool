@@ -1,6 +1,6 @@
 import React from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Button } from "@/shared/components/ui/button";
 import type { TaskGroup } from "../WorkloadBoard";
 import { useTaskState, usePopoverState, useTaskTimer, useColumnPersistence, useTaskFilters } from "../hooks";
@@ -24,15 +24,15 @@ interface TaskTableProps {
 }
 
 export function TaskTable({
-  groups,
-  expandedGroups,
-  expandedTasks,
-  taskState,
-  popoverState,
-  timerState,
-  columnState,
-  filterState,
-  workloadColumns,
+  // groups,
+  // expandedGroups,
+  // expandedTasks,
+  // taskState,
+  // popoverState,
+  // timerState,
+  // columnState,
+  // filterState,
+  // workloadColumns,
   mainTableSearchQuery,
   getFilteredGroups,
   onGroupDragEnd,
