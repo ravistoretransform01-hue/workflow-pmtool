@@ -40,6 +40,15 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
     };
 
     saveToLocalStorage(payload.board_id, cmsData);
+    
+    // Also store user_columns and default_columns separately
+    if (apiResponse.user_columns) {
+      saveUserColumnsToLocalStorage(payload.board_id, apiResponse.user_columns);
+    }
+    if (apiResponse.default_columns) {
+      saveDefaultColumnsToLocalStorage(payload.board_id, apiResponse.default_columns);
+    }
+    
     return cmsData;
   } catch (error) {
     console.error("Error fetching CMS data:", error);
@@ -245,5 +254,217 @@ function saveToLocalStorage(boardId: number, cmsData: CMSData): void {
     console.log(`CMS data saved to localStorage for board ${boardId}`);
   } catch (error) {
     console.error("Error saving CMS data to localStorage:", error);
+  }
+}
+
+/**
+ * Add a new status to localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param newStatus - New status to add
+ */
+export function addStatusToCache(boardId: number, newStatus: Status): void {
+  try {
+    let cachedData = getFromLocalStorage(boardId, true);
+    
+    if (cachedData) {
+      // Cache exists, add to it
+      cachedData.statuses.push(newStatus);
+      cachedData.timestamp = Date.now(); // Update timestamp
+      saveToLocalStorage(boardId, cachedData);
+      console.log(`Added new status to cache for board ${boardId}`);
+    } else {
+      // Cache doesn't exist, create a new one with just this status
+      const newCacheData: CMSData = {
+        statuses: [newStatus],
+        priorities: [],
+        members: [],
+        labels: [],
+        tags: [],
+        timestamp: Date.now(),
+      };
+      saveToLocalStorage(boardId, newCacheData);
+      console.log(`Created new cache with status for board ${boardId}`);
+    }
+  } catch (error) {
+    console.error("Error adding status to cache:", error);
+  }
+}
+
+/**
+ * Add a new priority to localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param newPriority - New priority to add
+ */
+export function addPriorityToCache(boardId: number, newPriority: Priority): void {
+  try {
+    let cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      // Cache exists, add to it
+      cachedData.priorities.push(newPriority);
+      cachedData.timestamp = Date.now(); // Update timestamp
+      saveToLocalStorage(boardId, cachedData);
+      console.log(`Added new priority to cache for board ${boardId}`);
+    } else {
+      // Cache doesn't exist, create a new one with just this priority
+      const newCacheData: CMSData = {
+        statuses: [],
+        priorities: [newPriority],
+        members: [],
+        labels: [],
+        tags: [],
+        timestamp: Date.now(),
+      };
+      saveToLocalStorage(boardId, newCacheData);
+      console.log(`Created new cache with priority for board ${boardId}`);
+    }
+  } catch (error) {
+    console.error("Error adding priority to cache:", error);
+  }
+}
+
+/**
+ * Add a new tag to localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param newTag - New tag to add
+ */
+export function addTagToCache(boardId: number, newTag: Tag): void {
+  try {
+    let cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      // Cache exists, add to it
+      cachedData.tags.push(newTag);
+      cachedData.timestamp = Date.now(); // Update timestamp
+      saveToLocalStorage(boardId, cachedData);
+      console.log(`Added new tag to cache for board ${boardId}`);
+    } else {
+      // Cache doesn't exist, create a new one with just this tag
+      const newCacheData: CMSData = {
+        statuses: [],
+        priorities: [],
+        members: [],
+        labels: [],
+        tags: [newTag],
+        timestamp: Date.now(),
+      };
+      saveToLocalStorage(boardId, newCacheData);
+      console.log(`Created new cache with tag for board ${boardId}`);
+    }
+  } catch (error) {
+    console.error("Error adding tag to cache:", error);
+  }
+}
+
+/**
+ * Update an existing status in localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param updatedStatus - Updated status object
+ */
+export function updateStatusInCache(boardId: number, updatedStatus: Status): void {
+  try {
+    let cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      // Find and update the status
+      const statusIndex = cachedData.statuses.findIndex((s) => s.id === updatedStatus.id);
+      if (statusIndex !== -1) {
+        cachedData.statuses[statusIndex] = updatedStatus;
+        cachedData.timestamp = Date.now(); // Update timestamp
+        saveToLocalStorage(boardId, cachedData);
+        console.log(`Updated status in cache for board ${boardId}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error updating status in cache:", error);
+  }
+}
+
+/**
+ * Update an existing priority in localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param updatedPriority - Updated priority object
+ */
+export function updatePriorityInCache(boardId: number, updatedPriority: Priority): void {
+  try {
+    let cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      // Find and update the priority
+      const priorityIndex = cachedData.priorities.findIndex((p) => p.id === updatedPriority.id);
+      if (priorityIndex !== -1) {
+        cachedData.priorities[priorityIndex] = updatedPriority;
+        cachedData.timestamp = Date.now(); // Update timestamp
+        saveToLocalStorage(boardId, cachedData);
+        console.log(`Updated priority in cache for board ${boardId}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error updating priority in cache:", error);
+  }
+}
+
+
+/**
+ * Get user columns configuration from localStorage
+ * @param boardId - Board ID to get columns for
+ * @returns User columns configuration or null
+ */
+export function getUserColumnsFromCache(boardId: number): any {
+  try {
+    const storageKey = `user_columns_board_${boardId}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error reading user columns from localStorage:", error);
+    return null;
+  }
+}
+
+/**
+ * Get default columns configuration from localStorage
+ * @param boardId - Board ID to get columns for
+ * @returns Default columns configuration or null
+ */
+export function getDefaultColumnsFromCache(boardId: number): any {
+  try {
+    const storageKey = `default_columns_board_${boardId}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error reading default columns from localStorage:", error);
+    return null;
+  }
+}
+
+/**
+ * Save user columns configuration to localStorage
+ * @param boardId - Board ID to save columns for
+ * @param userColumns - User columns configuration
+ */
+function saveUserColumnsToLocalStorage(boardId: number, userColumns: any): void {
+  try {
+    const storageKey = `user_columns_board_${boardId}`;
+    localStorage.setItem(storageKey, JSON.stringify(userColumns));
+    console.log(`User columns saved to localStorage for board ${boardId}`);
+  } catch (error) {
+    console.error("Error saving user columns to localStorage:", error);
+  }
+}
+
+/**
+ * Save default columns configuration to localStorage
+ * @param boardId - Board ID to save columns for
+ * @param defaultColumns - Default columns configuration
+ */
+function saveDefaultColumnsToLocalStorage(boardId: number, defaultColumns: any): void {
+  try {
+    const storageKey = `default_columns_board_${boardId}`;
+    localStorage.setItem(storageKey, JSON.stringify(defaultColumns));
+    console.log(`Default columns saved to localStorage for board ${boardId}`);
+  } catch (error) {
+    console.error("Error saving default columns to localStorage:", error);
   }
 }

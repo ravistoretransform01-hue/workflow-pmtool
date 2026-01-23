@@ -1,8 +1,20 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 import { BarChart3, Users, FolderKanban, ArrowRight } from "lucide-react";
 
 const LandingPage = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  // Redirect to home if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/home");
+    }
+  }, [isAuthenticated, navigate]);
+
   return (
     <div className="min-h-screen w-full bg-gradient-dark flex items-center justify-center">
       {/* Hero Section */}

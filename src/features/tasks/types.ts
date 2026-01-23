@@ -43,6 +43,8 @@ export interface TaskResponse {
   priority_label: string;
   subtasks_count: string | number;
   time_spent_hours: number;
+  tracked_time_seconds: number;
+  tracked_time_hours: number;
   is_overdue: boolean;
   // New estimation structure - object instead of string
   estimation: {
@@ -188,4 +190,36 @@ export interface GetTasksRequest {
   board_id?: number;
   group_id?: number;
   parent_id?: number | null;
+}
+
+
+// Time Entry Types
+export interface TimeEntry {
+  id: string;
+  task_id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  start_time: string;
+  end_time: string;
+  is_manual: boolean;
+  is_running: boolean;
+  status: string;
+  status_label: string;
+  note: string | null;
+  elapsed_seconds: number;
+  elapsed_hours: number;
+  created_at: string;
+}
+
+export interface TimeEntriesResponse {
+  code: number;
+  status: string;
+  data: {
+    task_id: string;
+    entries: TimeEntry[];
+    total_seconds: number;
+    total_hours: number;
+    entry_count: number;
+  };
 }

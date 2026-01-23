@@ -34,7 +34,7 @@ export function TaskCardDialog({
   statuses = [],
   priorities = [],
   members = [],
-  onStatusChange,
+  // onStatusChange,
   onPriorityChange,
   onPersonChange,
   onRatingChange,
@@ -64,7 +64,7 @@ export function TaskCardDialog({
     statuses,
     priorities,
     members,
-    onStatusChange,
+    // onStatusChange,
     onPriorityChange,
     onPersonChange,
     onRatingChange,
@@ -75,7 +75,7 @@ export function TaskCardDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border max-w-5xl p-0 h-[85vh] max-h-[800px] flex flex-col" hideCloseButton>
+      <DialogContent className="bg-card border-border max-w-5xl p-0 h-[85vh] max-h-[800px] flex flex-col overflow-visible" hideCloseButton>
         {/* Header */}
         <DialogTitle className="flex items-center justify-between px-6 py-3 border-b border-border">
           <div>
@@ -90,26 +90,26 @@ export function TaskCardDialog({
         </DialogTitle>
 
         {/* Content */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-visible">
           {/* Left: Fields */}
-          <div className="w-1/2 border-r border-border overflow-auto p-3 pt-2">
-            <div className="space-y-2">
+          <div className="w-1/2 border-r border-border overflow-y-auto p-3 pt-2">
+            <div className="space-y-3">
               {/* Status */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm">
+              <div className="flex items-center gap-4 bg-muted/40 rounded-lg p-3 hover:bg-muted/60 transition-colors">
+                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm font-medium">
                   Status
                 </div>
-                <div className="flex-1">
-                  {columns.find(c => c.id === "status")?.render(displayTask)}
+                <div className="flex-1 flex justify-center">
+                  {columns.find(c => c.id === "status")?.render(displayTask)} 
                 </div>
               </div>
 
               {/* Priority */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm">
+              <div className="flex items-center gap-4 bg-muted/40 rounded-lg hover:bg-muted/60 transition-colors">
+                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm font-medium">
                   Priority
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 flex justify-center">
                   {columns.find(c => c.id === "priority")?.render(displayTask)}
                 </div>
               </div>
@@ -117,31 +117,31 @@ export function TaskCardDialog({
               
 
               {/* People */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm">
+              <div className="flex items-center gap-4 bg-muted/40 rounded-lg p-3 hover:bg-muted/60 transition-colors">
+                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm font-medium">
                   People
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 flex justify-center">
                   {columns.find(c => c.id === "person")?.render(displayTask)}
                 </div>
               </div>
 
               {/* Estimated Date */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm">
+              <div className="flex items-center gap-4 bg-muted/40 rounded-lg p-3 hover:bg-muted/60 transition-colors">
+                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm font-medium">
                   Timeline
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 flex justify-center">
                   {columns.find(c => c.id === "estimatedDate")?.render(displayTask)}
                 </div>
               </div>
 
               {/* Rating */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm">
+              <div className="flex items-center gap-4 bg-muted/40 rounded-lg p-3 hover:bg-muted/60 transition-colors">
+                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm font-medium">
                   Rating
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 flex justify-center">
                   {columns.find(c => c.id === "rating")?.render(displayTask)}
                 </div>
               </div>

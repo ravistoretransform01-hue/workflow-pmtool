@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { cmsApi } from "@/features/cms/cmsApi";
-import { getCMSData, clearCMSCache } from "@/features/cms/cmsStorage";
+import { getCMSData, clearCMSCache, getUserColumnsFromCache } from "@/features/cms/cmsStorage";
 import type {
   CreateTaskRequest,
   UpdateTaskRequest,
@@ -18,8 +18,8 @@ import type {
 import type { Status, Priority } from "@/features/cms/types";
 import {
   LayoutDashboard,
-
   ArrowUpDown,
+  Eye,
   EyeOff,
   ChevronDown,
   ChevronRight,
@@ -27,26 +27,26 @@ import {
   MoreHorizontal,
   Maximize2,
   Minimize2,
-  AtSign,
-  Home,
-  RefreshCcw,
-  Activity,
-  Trash2,
-  Trash,
   Lock,
   GripVertical,
   Pencil,
   ArrowRightLeft,
-  X,
-  MessageCirclePlus,
+  Trash,
+  Trash2,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
+import {
+  updateColumnLabel,
+  updateFullColumnConfiguration,
+  getColumnConfiguration,
+  mergeColumnConfigWithAPI,
+} from "@/lib/columnPersistence";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Progress } from "@/shared/components/ui/progress";
-import { MentionRichTextEditor } from "@/shared/components/MentionRichTextEditor";
 import {
   Dialog,
   DialogContent,
@@ -65,18 +65,10 @@ import {
   DropdownMenuSubContent,
 } from "@/shared/components/ui/dropdown-menu";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/shared/components/ui/sheet";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/components/ui/tabs";
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/shared/components/ui/popover";
 import {
   DndContext,
   closestCenter,
@@ -92,13 +84,12 @@ import {
   horizontalListSortingStrategy,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { GifPicker } from "../GifPicker";
-import { FileUploadDropdown } from "../FileUploadDropdown";
-import { EmojiPicker } from "../EmojiPicker";
 import { getOrganizationId } from "@/lib/utils";
 import { getWorkloadColumns } from "./WorkloadColumns";
 import { TaskCardDialog } from "./TaskCardDialog";
+import { CommentsPanelSheet } from "./CommentsPanelSheet";
 import type { TaskResponse, TaskComment } from "@/features/tasks/types";
+import { ProfileDialog } from "../ProfileDialog";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -128,6 +119,7 @@ export interface Task {
   assigned_to_id?: string | number;
   assigned_to_ids?: string[]; // Multiple assignees
   timeSpent?: string;
+  tracked_time_seconds?: number; // Tracked time in seconds from timer
   rating?: number; // Display rating as average number (1-5)
   ratingCount?: number; // Number of ratings
   ratings?: Array<{
@@ -189,6 +181,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "rating",
   "estimatedDate",
   "estimatedTime",
+  "progress",
   "person",
   "tags",
   "timer",
@@ -204,7 +197,7 @@ const ALL_AVAILABLE_COLUMNS = [
   "rating",
   "estimatedDate",
   "estimatedTime",
-  "date",
+  "progress",
   "person",
   "tags",
   "timer",
@@ -237,21 +230,29 @@ const calculateGroupProgress = (tasks: Task[]) => {
   let totalTimeSpentSeconds = 0;
   let totalEstimatedSeconds = 0;
 
-  tasks.forEach((task) => {
-    // Parse time spent (e.g., "2h 30m" or "45m")
-    const timeSpentMatch = task.timeSpent?.match(/(\d+)h\s*(\d+)m|(\d+)m/);
-    if (timeSpentMatch) {
-      if (timeSpentMatch[1]) {
-        totalTimeSpentSeconds +=
-          parseInt(timeSpentMatch[1]) * 3600 + parseInt(timeSpentMatch[2]) * 60;
-      } else {
-        totalTimeSpentSeconds += parseInt(timeSpentMatch[3]) * 60;
+  const processTask = (task: Task) => {
+    // Add tracked time from this task
+    if (task.tracked_time_seconds) {
+      totalTimeSpentSeconds += task.tracked_time_seconds;
+    }
+
+    // Add estimated hours from this task (convert to seconds)
+    if (task.estimatedHours) {
+      const hours = typeof task.estimatedHours === 'string' 
+        ? parseFloat(task.estimatedHours) 
+        : task.estimatedHours;
+      if (!isNaN(hours)) {
+        totalEstimatedSeconds += hours * 3600;
       }
     }
 
-    // Parse estimated date/time if available (for now, we'll use a default)
-    // This would need to be extended based on your data structure
-  });
+    // Process subitems recursively
+    if (task.subitems && task.subitems.length > 0) {
+      task.subitems.forEach(processTask);
+    }
+  };
+
+  tasks.forEach(processTask);
 
   const percentage =
     totalEstimatedSeconds > 0
@@ -263,6 +264,44 @@ const calculateGroupProgress = (tasks: Task[]) => {
     estimatedTimeSeconds: totalEstimatedSeconds,
     percentage,
   };
+};
+
+// Helper function to format date range in compact format
+// Examples: "Jan 19 - 30", "Jan 31 – Feb 15", "Dec 31, '26 – Jan 8, '27"
+const formatDateRange = (fromDate: string, toDate?: string): string => {
+  try {
+    const from = parseISO(fromDate);
+    const to = toDate ? parseISO(toDate) : from;
+    
+    const fromMonth = format(from, "MMM");
+    const fromDay = format(from, "d");
+    const fromYear = format(from, "yy");
+    
+    const toMonth = format(to, "MMM");
+    const toDay = format(to, "d");
+    const toYear = format(to, "yy");
+    
+    // If same date, just return single date
+    if (fromDate === toDate) {
+      return `${fromMonth} ${fromDay}, '${fromYear}`;
+    }
+    
+    // If same month and year, format as "Jan 19 - 30"
+    if (fromMonth === toMonth && fromYear === toYear) {
+      return `${fromMonth} ${fromDay} - ${toDay}`;
+    }
+    
+    // If same year, format as "Jan 31 – Feb 15"
+    if (fromYear === toYear) {
+      return `${fromMonth} ${fromDay} – ${toMonth} ${toDay}`;
+    }
+    
+    // Different years, format as "Dec 31, '26 – Jan 8, '27"
+    return `${fromMonth} ${fromDay}, '${fromYear} – ${toMonth} ${toDay}, '${toYear}`;
+  } catch (error) {
+    console.warn("Failed to format date range:", error);
+    return "-";
+  }
 };
 
 // Sortable Tab Component
@@ -362,10 +401,11 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     <button
       ref={setNodeRef}
       style={style}
-      className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap ${activeTab === tab
-        ? "text-primary border-b-primary"
-        : "text-muted-foreground border-b-transparent hover:text-foreground"
-        }`}
+      className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
+        activeTab === tab
+          ? "text-primary border-b-primary"
+          : "text-muted-foreground border-b-transparent hover:text-foreground"
+      }`}
       onClick={() => onTabClick(tab)}
       {...attributes}
       {...listeners}
@@ -382,8 +422,18 @@ interface SortableColumnHeaderProps {
   column: any;
   onToggleCollapse?: () => void;
   onStartResize?: (columnId: string, e: React.PointerEvent) => void;
+  onColumnLabelChange?: (columnId: string, newLabel: string) => void;
 }
-const SortableColumnHeader = ({ column, onToggleCollapse, onStartResize }: SortableColumnHeaderProps) => {
+const SortableColumnHeader = ({
+  column,
+  onToggleCollapse,
+  onStartResize,
+  onColumnLabelChange,
+}: SortableColumnHeaderProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(column.label);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const {
     setNodeRef,
     attributes,
@@ -406,19 +456,64 @@ const SortableColumnHeader = ({ column, onToggleCollapse, onStartResize }: Sorta
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Sync editValue when column.label changes (e.g., from localStorage or parent state)
+  useEffect(() => {
+    if (!isEditing) {
+      setEditValue(column.label);
+    }
+  }, [column.label, isEditing]);
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleSaveLabel = async (newLabel: string) => {
+    if (newLabel.trim() && newLabel !== column.label) {
+      try {
+        // Simulate API call
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        onColumnLabelChange?.(column.id, newLabel.trim());
+        // toast.success("Column renamed successfully");
+      } catch (error) {
+        console.error("Failed to rename column:", error);
+        toast.error("Failed to rename column");
+        setEditValue(column.label);
+      }
+    } else {
+      setEditValue(column.label);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSaveLabel(editValue);
+    } else if (e.key === "Escape") {
+      setEditValue(column.label);
+      setIsEditing(false);
+    }
+  };
+
   return (
     <th
       ref={setNodeRef}
       style={{ ...style, width: column.width }}
-      className="p-4 font-medium border-r border-border last:border-r-0 bg-muted/30"
+      className={`p-4 font-medium border-r border-border last:border-r-0 ${
+        column.id === "item" ? "sticky left-12 z-10 bg-card" : "bg-muted/30"
+      }`}
       {...attributes}
     >
       <div
         {...(!column.fixed ? listeners : {})}
-        className={`relative group flex items-center justify-between ${column.fixed
-          ? "cursor-default opacity-80"
-          : "cursor-grab active:cursor-grabbing"
-          }`}
+        className={`relative group flex items-center justify-between ${
+          column.fixed
+            ? "cursor-default opacity-80"
+            : "cursor-grab active:cursor-grabbing"
+        }`}
       >
         {/* Resizer handle (right edge) */}
         {!column.fixed && !column.collapsed && (
@@ -461,7 +556,32 @@ const SortableColumnHeader = ({ column, onToggleCollapse, onStartResize }: Sorta
           </div>
         ) : (
           <>
-            <span className="flex-1 text-center">{column.label}</span>
+            {isEditing ? (
+              <div className="flex-1 flex items-center justify-center">
+                <Input
+                  ref={inputRef}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={() => handleSaveLabel(editValue)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-8 text-center text-sm bg-transparent border-0 focus:outline-none focus:ring-0"
+                  style={{ maxWidth: "264px" }}
+                  align="center"
+                />
+              </div>
+            ) : (
+              <span
+                className="flex-1 text-center cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditing(true);
+                }}
+                title="Click to edit column name"
+              >
+                {column.label}
+              </span>
+            )}
 
             {/* More menu icon – hover only */}
             <DropdownMenu>
@@ -484,15 +604,18 @@ const SortableColumnHeader = ({ column, onToggleCollapse, onStartResize }: Sorta
                     <span>Sort</span>
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
-                    <DropdownMenuItem onClick={() => { }}>
+                    <DropdownMenuItem onClick={() => {}}>
                       Sort ascending
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { }}>
+                    <DropdownMenuItem onClick={() => {}}>
                       Sort descending
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
-                <DropdownMenuItem onClick={() => onToggleCollapse?.()} disabled={column.fixed}>
+                <DropdownMenuItem
+                  onClick={() => onToggleCollapse?.()}
+                  disabled={column.fixed}
+                >
                   {column.collapsed ? (
                     <>
                       <Maximize2 className="h-4 w-4 mr-2" />
@@ -510,11 +633,11 @@ const SortableColumnHeader = ({ column, onToggleCollapse, onStartResize }: Sorta
                   <span>Filter</span>
                 </DropdownMenuItem> */}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => { }}>
+                <DropdownMenuItem onClick={() => {}}>
                   <Lock className="h-4 w-4 mr-2" />
                   <span>Lock column</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { }}>
+                <DropdownMenuItem onClick={() => {}}>
                   <Trash className="h-4 w-4 mr-2 text-destructive" />
                   <span>Delete</span> {/* delete column */}
                 </DropdownMenuItem>
@@ -537,13 +660,17 @@ export function WorkloadBoard({
   const [editingBoardName, setEditingBoardName] = useState(false);
   const [boardNameValue, setBoardNameValue] = useState(boardName);
 
+  // Ref for the main flex container (flex-1 flex flex-col)
+  const mainFlexContainerRef = useRef<HTMLDivElement>(null);
+
   // Compute user initials from localStorage `user_data` for avatar fallback
   const userInitials = useMemo(() => {
     try {
       const raw = localStorage.getItem("user_data");
       if (!raw) return "U";
       const parsed = JSON.parse(raw) as any;
-      const name = (parsed?.name as string) || (parsed?.username as string) || "";
+      const name =
+        (parsed?.name as string) || (parsed?.username as string) || "";
       const trimmed = name.trim();
       if (!trimmed) return "U";
       return trimmed.charAt(0).toUpperCase();
@@ -564,7 +691,9 @@ export function WorkloadBoard({
   // Optional: group label text and label background color (persisted per board)
   // Labels are stored server-side via the groups API; keep in-memory state and seed from API on load
   const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
-  const [groupLabelColors, setGroupLabelColors] = useState<Record<string, string>>({});
+  const [groupLabelColors, setGroupLabelColors] = useState<
+    Record<string, string>
+  >({});
 
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupNameInput, setNewGroupNameInput] = useState("");
@@ -575,12 +704,14 @@ export function WorkloadBoard({
 
   // Edit dialog optional label fields
   const [editGroupLabelInput, setEditGroupLabelInput] = useState<string>("");
-  const [editGroupLabelColorInput, setEditGroupLabelColorInput] = useState<string>("#3b82f6");
+  const [editGroupLabelColorInput, setEditGroupLabelColorInput] =
+    useState<string>("#3b82f6");
   const [newGroupColorInput, setNewGroupColorInput] = useState("#3b82f6");
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<string | null>(
     null
   );
   const [deleteGroupDialogOpen, setDeleteGroupDialogOpen] = useState(false);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
@@ -603,6 +734,8 @@ export function WorkloadBoard({
   const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editTaskName, setEditTaskName] = useState("");
+  const [inlineEditingTaskId, setInlineEditingTaskId] = useState<string | null>(null);
+  const [inlineEditingTaskName, setInlineEditingTaskName] = useState("");
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
     Array<{ name: string; size: number; type: string; url: string }>
@@ -613,18 +746,20 @@ export function WorkloadBoard({
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [replyingTo, setReplyingTo] = useState<TaskComment | null>(null);
-  const [inlineReplyId, setInlineReplyId] = useState<string | number | null>(null);
-  const [inlineReplyText, setInlineReplyText] = useState("");
-  const [expandedThreads, setExpandedThreads] = useState<Record<string | number, boolean>>({});
-  const [editingCommentId, setEditingCommentId] = useState<string | number | null>(null);
-  const [editCommentText, setEditCommentText] = useState("");
 
   // Timer state - track which task's timer is currently running
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
 
+  // Timer update trigger - used to force progress bar recalculation
+  const [timerUpdateTrigger, setTimerUpdateTrigger] = useState(0);
+
   // Timer conflict dialog state
   const [timerConflictDialogOpen, setTimerConflictDialogOpen] = useState(false);
   const [conflictingTaskName, setConflictingTaskName] = useState("");
+
+  // Column labels state - track custom column names
+  // NOTE: Labels are now stored directly in workloadColumns.label
+  // This state is kept for backward compatibility but not actively used
 
   // CMS Data states
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -638,6 +773,33 @@ export function WorkloadBoard({
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#FF0000");
   const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
+
+  // Task filters state
+  const [taskFilters, setTaskFilters] = useState<{
+    persons: Set<string>;
+    statuses: Set<string>;
+    priorities: Set<string>;
+    labels: Set<string>;
+    groups: Set<string>;
+  }>({
+    persons: new Set(),
+    statuses: new Set(),
+    priorities: new Set(),
+    labels: new Set(),
+    groups: new Set(),
+  });
+
+  // Filter dropdown open state
+  const [openFilterDropdowns, setOpenFilterDropdowns] = useState<Record<string, boolean>>({
+    persons: false,
+    statuses: false,
+    priorities: false,
+    labels: false,
+    groups: false,
+  });
+
+  // Done items filter state
+  const [showDoneItemsOnly, setShowDoneItemsOnly] = useState(false);
 
   // Column visibility state - load from localStorage
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
@@ -707,13 +869,19 @@ export function WorkloadBoard({
           const extractRating = (taskData: any): number | undefined => {
             if (!taskData) return undefined;
             // Use average_rating if available, otherwise check old format
-            if (typeof taskData.average_rating === 'number' && taskData.average_rating !== null) {
+            if (
+              typeof taskData.average_rating === "number" &&
+              taskData.average_rating !== null
+            ) {
               return Math.round(taskData.average_rating);
             }
-            if (typeof taskData.rating === 'object' && 'rating' in taskData.rating) {
+            if (
+              typeof taskData.rating === "object" &&
+              "rating" in taskData.rating
+            ) {
               return Number(taskData.rating.rating);
             }
-            if (typeof taskData.rating === 'number') {
+            if (typeof taskData.rating === "number") {
               return taskData.rating;
             }
             return undefined;
@@ -729,20 +897,30 @@ export function WorkloadBoard({
             priority_id: String(task.task_priority_id),
             // Handle new estimation object structure
             estimatedDate: task.estimation?.estimated_date_from
-              ? (task.estimation.estimated_date_to && task.estimation.estimated_date_to !== task.estimation.estimated_date_from
-                ? `${format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(task.estimation.estimated_date_to), "dd MMM, yyyy")}`
-                : format(parseISO(task.estimation.estimated_date_from), "dd MMM, yyyy"))
+              ? task.estimation.estimated_date_to &&
+                task.estimation.estimated_date_to !==
+                  task.estimation.estimated_date_from
+                ? formatDateRange(
+                    task.estimation.estimated_date_from,
+                    task.estimation.estimated_date_to
+                  )
+                : formatDateRange(task.estimation.estimated_date_from)
               : task.due_date,
             estimatedHours: task.estimation?.approved_hours || "-",
             person: task.assignee?.name,
             assigned_to_id: task.assigned_to,
-            assigned_to_ids: task.assignees?.map((a) => String(a.user_id)) || (task.assigned_to ? [String(task.assigned_to)] : []),
+            assigned_to_ids:
+              task.assignees?.map((a) => String(a.user_id)) ||
+              (task.assigned_to ? [String(task.assigned_to)] : []),
             rating: extractRating(task),
             ratingCount: task.rating_count || 0,
             ratings: task.ratings,
             tags: task.tags || [],
             group_id: String(task.group_id),
-            timeSpent: task.time_spent_hours ? `${task.time_spent_hours}h` : "0h",
+            timeSpent: task.time_spent_hours
+              ? `${task.time_spent_hours}h`
+              : "0h",
+            tracked_time_seconds: task.tracked_time_seconds || 0,
 
             subitems: subtasks
               .filter((st) => String(st.parent_id) === String(task.id))
@@ -756,20 +934,30 @@ export function WorkloadBoard({
                 priority_id: String(st.task_priority_id),
                 // Handle new estimation object structure
                 estimatedDate: st.estimation?.estimated_date_from
-                  ? (st.estimation.estimated_date_to && st.estimation.estimated_date_to !== st.estimation.estimated_date_from
-                    ? `${format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy")}  -  ${format(parseISO(st.estimation.estimated_date_to), "dd MMM, yyyy")}`
-                    : format(parseISO(st.estimation.estimated_date_from), "dd MMM, yyyy"))
+                  ? st.estimation.estimated_date_to &&
+                    st.estimation.estimated_date_to !==
+                      st.estimation.estimated_date_from
+                    ? formatDateRange(
+                        st.estimation.estimated_date_from,
+                        st.estimation.estimated_date_to
+                      )
+                    : formatDateRange(st.estimation.estimated_date_from)
                   : st.due_date,
                 estimatedHours: st.estimation?.approved_hours || "-",
                 person: st.assignee?.name,
                 assigned_to_id: st.assigned_to,
-                assigned_to_ids: st.assignees?.map((a) => String(a.user_id)) || (st.assigned_to ? [String(st.assigned_to)] : []),
+                assigned_to_ids:
+                  st.assignees?.map((a) => String(a.user_id)) ||
+                  (st.assigned_to ? [String(st.assigned_to)] : []),
                 rating: extractRating(st),
                 ratingCount: st.rating_count || 0,
                 ratings: st.ratings,
                 tags: st.tags || [],
-                timeSpent: st.time_spent_hours ? `${st.time_spent_hours}h` : "0h",
+                timeSpent: st.time_spent_hours
+                  ? `${st.time_spent_hours}h`
+                  : "0h",
                 group_id: String(task.group_id),
+                tracked_time_seconds: st.tracked_time_seconds || 0,
                 subitems: [],
               })),
           };
@@ -865,6 +1053,25 @@ export function WorkloadBoard({
         setMembers(cmsData.members || []);
         setLabels(cmsData.labels || []);
         setTags(cmsData.tags || []);
+
+        // Sync user_columns from CMS API with columnPersistence
+        // This ensures custom column labels and positions from the server are loaded on initial mount
+        const userColumns = getUserColumnsFromCache(boardIdNum);
+        if (userColumns?.columns) {
+          console.log("Syncing user_columns from CMS API to columnPersistence:", userColumns);
+          mergeColumnConfigWithAPI(boardIdNum, userColumns.columns);
+
+          // Update columnOrder to reflect the positions from the API
+          // Sort columns by position to get the correct order
+          const sortedColumnIds = Object.entries(userColumns.columns)
+            .sort(([, a]: [string, any], [, b]: [string, any]) => (a.position || 0) - (b.position || 0))
+            .map(([colId]) => colId);
+
+          if (sortedColumnIds.length > 0) {
+            setColumnOrder(sortedColumnIds);
+            console.log("Updated columnOrder from API positions:", sortedColumnIds);
+          }
+        }
       } catch (err) {
         console.error("Failed to load CMS data:", err);
         // Don't show toast error as CMS data is optional
@@ -894,6 +1101,17 @@ export function WorkloadBoard({
       setComments([]);
     }
   }, [commentsPanelOpen, selectedTaskId]);
+
+  // Update timer trigger every second when a timer is running to force progress bar recalculation
+  useEffect(() => {
+    if (!activeTimerId) return;
+    
+    const interval = setInterval(() => {
+      setTimerUpdateTrigger((prev) => prev + 1);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [activeTimerId]);
 
   // useEffect(() => {
   //   const loadGroupsAndTasks = async () => {
@@ -1057,9 +1275,11 @@ export function WorkloadBoard({
   const getTaskById = (taskId: string | null): Task | null => {
     if (!taskId) return null;
     for (const group of groups) {
-      const task = group.tasks.find(t => t.id === taskId);
+      const task = group.tasks.find((t) => t.id === taskId);
       if (task) return task;
-      const subitem = group.tasks.flatMap(t => t.subitems || []).find(s => s.id === taskId);
+      const subitem = group.tasks
+        .flatMap((t) => t.subitems || [])
+        .find((s) => s.id === taskId);
       if (subitem) return subitem;
     }
     return null;
@@ -1068,6 +1288,47 @@ export function WorkloadBoard({
   const openCommentsPanel = (task: Task) => {
     setSelectedTaskId(task.id);
     setCommentsPanelOpen(true);
+  };
+
+  const openTaskCard = (task: Task) => {
+    setSelectedTaskId(task.id);
+    setSheetTaskCardOpen(true);
+  };
+
+  const handleInlineEditTaskName = async (taskId: string, newName: string) => {
+    if (!newName.trim()) {
+      setInlineEditingTaskId(null);
+      setInlineEditingTaskName("");
+      return;
+    }
+
+    try {
+      // Call the API to update task name
+      await tasksApi.updateTask({
+        id: taskId,
+        board_id: parseInt(boardId, 10),
+        name: newName.trim(),
+      });
+
+      // Update local state
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) =>
+            task.id === taskId ? { ...task, name: newName.trim() } : task
+          ),
+        }))
+      );
+
+      setInlineEditingTaskId(null);
+      setInlineEditingTaskName("");
+      toast.success("Task name updated successfully");
+    } catch (error) {
+      console.error("Failed to update task name:", error);
+      toast.error("Failed to update task name");
+      setInlineEditingTaskId(null);
+      setInlineEditingTaskName("");
+    }
   };
 
   const addNewGroup = async () => {
@@ -1123,10 +1384,16 @@ export function WorkloadBoard({
       setGroupColors({ ...groupColors, [String(newGroup.id)]: newGroup.color });
       // Seed any server-provided label info
       if (newGroup.label) {
-        setGroupLabels({ ...groupLabels, [String(newGroup.id)]: newGroup.label });
+        setGroupLabels({
+          ...groupLabels,
+          [String(newGroup.id)]: newGroup.label,
+        });
       }
       if (newGroup.label_color) {
-        setGroupLabelColors({ ...groupLabelColors, [String(newGroup.id)]: newGroup.label_color });
+        setGroupLabelColors({
+          ...groupLabelColors,
+          [String(newGroup.id)]: newGroup.label_color,
+        });
       }
 
       setExpandedGroups({ ...expandedGroups, [String(newGroup.id)]: true });
@@ -1153,9 +1420,7 @@ export function WorkloadBoard({
     setEditGroupNameInput(groupNames[groupId] || group.name);
     setEditGroupColorInput(groupColors[groupId] || group.color);
     // Prefer in-memory label state; fallback to server-provided group label
-    setEditGroupLabelInput(
-      groupLabels[groupId] ?? (group as any).label ?? ""
-    );
+    setEditGroupLabelInput(groupLabels[groupId] ?? (group as any).label ?? "");
     setEditGroupLabelColorInput(
       groupLabelColors[groupId] ?? (group as any).label_color ?? "#3b82f6"
     );
@@ -1203,9 +1468,16 @@ export function WorkloadBoard({
         });
       }
 
-      if (res && typeof res.label_color !== "undefined" && res.label_color !== null) {
+      if (
+        res &&
+        typeof res.label_color !== "undefined" &&
+        res.label_color !== null
+      ) {
         const labelColorVal = res.label_color as string;
-        setGroupLabelColors((prev) => ({ ...prev, [editingGroupId]: labelColorVal }));
+        setGroupLabelColors((prev) => ({
+          ...prev,
+          [editingGroupId]: labelColorVal,
+        }));
       } else {
         setGroupLabelColors((prev) => {
           const copy = { ...prev };
@@ -1256,6 +1528,68 @@ export function WorkloadBoard({
     setGroupToDelete(groupId);
     setDeleteGroupDialogOpen(true);
     setGroupDropdownOpen(null);
+  };
+
+  const handleColumnLabelChange = async (columnId: string, newLabel: string) => {
+    // Persist the new label to localStorage immediately
+    const success = updateColumnLabel(parseInt(boardId, 10), columnId, newLabel);
+
+    if (!success) {
+      console.error("Failed to persist column label to localStorage");
+      toast.error("Failed to save column label");
+      return;
+    }
+
+    // Update workload columns with new label immediately (for UI feedback)
+    setWorkloadColumns((prev) =>
+      prev.map((col) =>
+        col.id === columnId ? { ...col, label: newLabel } : col
+      )
+    );
+
+    // Call API to save column configuration (async, non-blocking)
+    try {
+      // Build the columns object for the API
+      const columnsPayload: Record<string, any> = {};
+      workloadColumns.forEach((col) => {
+        columnsPayload[col.id] = {
+          label: col.id === columnId ? newLabel : col.label,
+          visible: !collapsedColumns[col.id],
+          position: workloadColumns.indexOf(col) + 1,
+        };
+      });
+
+      // Build the full payload
+      const payload = {
+        user_id: 2, // TODO: Get from auth context
+        group_id: 92, // TODO: Get from current group
+        board_id: parseInt(boardId, 10),
+        columns: columnsPayload,
+      };
+
+      console.log("Column label update payload:", payload);
+
+      // Call API to save
+      const response = await cmsApi.saveUserGroupColumns(payload);
+
+      // Merge API response with localStorage to ensure consistency
+      if (response.columns) {
+        const newOrder = workloadColumns.map((c) => c.id);
+        updateFullColumnConfiguration(
+          parseInt(boardId, 10),
+          newOrder,
+          response.columns
+        );
+      }
+
+      toast.success("Column renamed successfully");
+    } catch (error) {
+      console.error("Failed to update column on server:", error);
+      console.warn(
+        "Column label saved locally but API sync failed. Will retry on next sync."
+      );
+      // Don't show error to user since we already saved locally
+    }
   };
 
   const confirmDeleteGroup = async () => {
@@ -1503,13 +1837,18 @@ export function WorkloadBoard({
   };
 
   // Which field to focus when opening the edit dialog
-  const [editTaskDialogFocus, setEditTaskDialogFocus] = useState<"name" | "description">("name");
+  const [editTaskDialogFocus, setEditTaskDialogFocus] = useState<
+    "name" | "description"
+  >("name");
 
   // Refs to inputs inside the edit dialog
   const editNameRef = useRef<HTMLInputElement | null>(null);
   const editDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const openEditTaskDialog = (task: Task, focus: "name" | "description" = "name") => {
+  const openEditTaskDialog = (
+    task: Task,
+    focus: "name" | "description" = "name"
+  ) => {
     setEditingTask(task);
     setEditTaskName(task.name);
     setEditTaskDialogFocus(focus);
@@ -1553,13 +1892,19 @@ export function WorkloadBoard({
       // Extract numeric rating from average_rating field
       const extractRating = (taskData: any): number | undefined => {
         if (!taskData) return undefined;
-        if (typeof taskData.average_rating === 'number' && taskData.average_rating !== null) {
+        if (
+          typeof taskData.average_rating === "number" &&
+          taskData.average_rating !== null
+        ) {
           return Math.round(taskData.average_rating);
         }
-        if (typeof taskData.rating === 'object' && 'rating' in taskData.rating) {
+        if (
+          typeof taskData.rating === "object" &&
+          "rating" in taskData.rating
+        ) {
           return Number(taskData.rating.rating);
         }
-        if (typeof taskData.rating === 'number') {
+        if (typeof taskData.rating === "number") {
           return taskData.rating;
         }
         return undefined;
@@ -1679,6 +2024,293 @@ export function WorkloadBoard({
   //     toast.error("Failed to update status");
   //   }
   // };
+
+
+  const handleRatingChange = async (taskId: string, rating: number) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      // Get the currently assigned member ID (first assignee)
+      let assigneeId = 0;
+      for (const group of groups) {
+        const task = group.tasks.find((t) => t.id === taskId);
+        if (task) {
+          assigneeId = task.assigned_to_ids?.[0]
+            ? Number(task.assigned_to_ids[0])
+            : 0;
+          break;
+        }
+        const subitem = group.tasks
+          .flatMap((t) => t.subitems || [])
+          .find((s) => s.id === taskId);
+        if (subitem) {
+          assigneeId = subitem.assigned_to_ids?.[0]
+            ? Number(subitem.assigned_to_ids[0])
+            : 0;
+          break;
+        }
+      }
+
+      console.log("assigneeId", assigneeId);
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        rating: {
+          rating: Number(rating),
+          assignee_id: assigneeId,
+        },
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      // Extract numeric rating from average_rating field
+      const ratingValue = updated.average_rating
+        ? Math.round(updated.average_rating)
+        : Number(rating);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                rating: ratingValue,
+                ratingCount: updated.rating_count || 0,
+                ratings: updated.ratings,
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        rating: ratingValue,
+                        ratingCount: updated.rating_count || 0,
+                        ratings: updated.ratings,
+                      }
+                    : sub
+                ),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      // Close popover after update
+      setOpenPopoverId(null);
+      toast.success("Rating updated successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update rating");
+    }
+  };
+
+  const handlePersonChange = async (taskId: string, memberIds: string[]) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      // Filter out null/undefined values and convert to numbers
+      const validMemberIds = memberIds
+        .filter((id) => id && id !== "null" && id !== "undefined")
+        .map((id) => Number(id));
+
+      // Send the update with assignees array
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        assignees: validMemberIds,
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      // Extract assignee IDs from the response
+      const assigneeIds =
+        updated.assignees?.map((a) => String(a.user_id)) || [];
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                person: updated.assignees?.[0]?.name || updated.assignee?.name,
+                assigned_to_id:
+                  updated.assignees?.[0]?.user_id ||
+                  String(updated.assigned_to),
+                assigned_to_ids: assigneeIds,
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) => {
+                  if (sub.id === taskId) {
+                    return {
+                      ...sub,
+                      person:
+                        updated.assignees?.[0]?.name || updated.assignee?.name,
+                      assigned_to_id:
+                        updated.assignees?.[0]?.user_id ||
+                        String(updated.assigned_to),
+                      assigned_to_ids: assigneeIds,
+                    };
+                  }
+                  return sub;
+                }),
+              };
+            }
+
+            return task;
+          }),
+        }))
+      );
+
+      toast.success("Person assigned successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to assign person");
+    }
+  };
+
+  const handleEstimatedDateChange = (
+    taskId: string,
+    fromDate: string | null,
+    toDate?: string | null
+  ) => {
+    // Format the date range display using the new formatDateRange function
+    let dateDisplay = "-";
+    if (fromDate) {
+      dateDisplay = formatDateRange(fromDate, toDate || undefined);
+    }
+
+    setGroups((prevGroups) =>
+      prevGroups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => {
+          // ✅ parent task
+          if (task.id === taskId) {
+            return {
+              ...task,
+              estimatedDate: dateDisplay,
+              estimatedDateEnd: toDate || null,
+            };
+          }
+
+          // ✅ subtask
+          if (task.subitems?.length) {
+            return {
+              ...task,
+              subitems: task.subitems.map((sub) =>
+                sub.id === taskId
+                  ? {
+                      ...sub,
+                      estimatedDate: dateDisplay,
+                      estimatedDateEnd: toDate || null,
+                    }
+                  : sub
+              ),
+            };
+          }
+
+          return task;
+        }),
+      }))
+    );
+
+    // Close popover after update
+    setOpenPopoverId(null);
+  };
+
+  const handleEstimatedTimeChange = (
+    taskId: string,
+    hours: string | number | null
+  ) => {
+    setGroups((prevGroups) =>
+      prevGroups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => {
+          // ✅ parent task
+          if (task.id === taskId) {
+            return {
+              ...task,
+              estimatedHours: hours || "-",
+            };
+          }
+
+          // ✅ subtask
+          if (task.subitems?.length) {
+            return {
+              ...task,
+              subitems: task.subitems.map((sub) =>
+                sub.id === taskId
+                  ? {
+                      ...sub,
+                      estimatedHours: hours || "-",
+                    }
+                  : sub
+              ),
+            };
+          }
+
+          return task;
+        }),
+      }))
+    );
+
+    // Close popover after update
+    setOpenPopoverId(null);
+  };
+
+  const handleTagChange = (taskId: string, tags: any[]) => {
+    setGroups((prevGroups) =>
+      prevGroups.map((group) => ({
+        ...group,
+        tasks: group.tasks.map((task) => {
+          // ✅ parent task
+          if (task.id === taskId) {
+            return {
+              ...task,
+              tags,
+            };
+          }
+
+          // ✅ subtask
+          if (task.subitems?.length) {
+            return {
+              ...task,
+              subitems: task.subitems.map((sub) =>
+                sub.id === taskId
+                  ? {
+                      ...sub,
+                      tags,
+                    }
+                  : sub
+              ),
+            };
+          }
+
+          return task;
+        }),
+      }))
+    );
+
+    // Close popover after update
+    setOpenPopoverId(null);
+  };
+
   const handleStatusChange = async (taskId: string, statusId: string) => {
     try {
       const boardIdNum = Number(boardId);
@@ -1711,10 +2343,10 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) =>
                   sub.id === taskId
                     ? {
-                      ...sub,
-                      status: updated.status_label,
-                      status_id: String(updated.status_id),
-                    }
+                        ...sub,
+                        status: updated.status_label,
+                        status_id: String(updated.status_id),
+                      }
                     : sub
                 ),
               };
@@ -1725,8 +2357,6 @@ export function WorkloadBoard({
         }))
       );
 
-      // Close popover after update
-      setOpenPopoverId(null);
       toast.success("Status updated successfully");
     } catch (err) {
       console.error(err);
@@ -1766,10 +2396,10 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) =>
                   sub.id === taskId
                     ? {
-                      ...sub,
-                      priority: updated.priority_label,
-                      priority_id: String(updated.task_priority_id),
-                    }
+                        ...sub,
+                        priority: updated.priority_label,
+                        priority_id: String(updated.task_priority_id),
+                      }
                     : sub
                 ),
               };
@@ -1780,8 +2410,6 @@ export function WorkloadBoard({
         }))
       );
 
-      // Close popover after update
-      setOpenPopoverId(null);
       toast.success("Priority updated successfully");
     } catch (err) {
       console.error(err);
@@ -1789,279 +2417,20 @@ export function WorkloadBoard({
     }
   };
 
-  const handleRatingChange = async (taskId: string, rating: number) => {
-    try {
-      const boardIdNum = Number(boardId);
-
-      // Get the currently assigned member ID (first assignee)
-      let assigneeId = 0;
-      for (const group of groups) {
-        const task = group.tasks.find(t => t.id === taskId);
-        if (task) {
-          assigneeId = task.assigned_to_ids?.[0] ? Number(task.assigned_to_ids[0]) : 0;
-          break;
-        }
-        const subitem = group.tasks.flatMap(t => t.subitems || []).find(s => s.id === taskId);
-        if (subitem) {
-          assigneeId = subitem.assigned_to_ids?.[0] ? Number(subitem.assigned_to_ids[0]) : 0;
-          break;
-        }
-      }
-
-
-      console.log("assigneeId", assigneeId)
-
-      const payload: UpdateTaskRequest = {
-        id: taskId,
-        board_id: boardIdNum,
-        rating: {
-          rating: Number(rating),
-          assignee_id: assigneeId,
-        },
-      };
-
-      const updated = await tasksApi.updateTask(payload);
-
-      // Extract numeric rating from average_rating field
-      const ratingValue = updated.average_rating
-        ? Math.round(updated.average_rating)
-        : Number(rating);
-
-      setGroups((prevGroups) =>
-        prevGroups.map((group) => ({
-          ...group,
-          tasks: group.tasks.map((task) => {
-            // ✅ parent task
-            if (task.id === taskId) {
-              return {
-                ...task,
-                rating: ratingValue,
-                ratingCount: updated.rating_count || 0,
-                ratings: updated.ratings,
-              };
-            }
-
-            // ✅ subtask
-            if (task.subitems?.length) {
-              return {
-                ...task,
-                subitems: task.subitems.map((sub) =>
-                  sub.id === taskId
-                    ? {
-                      ...sub,
-                      rating: ratingValue,
-                      ratingCount: updated.rating_count || 0,
-                      ratings: updated.ratings,
-                    }
-                    : sub
-                ),
-              };
-            }
-
-            return task;
-          }),
-        }))
-      );
-
-      // Close popover after update
-      setOpenPopoverId(null);
-      toast.success("Rating updated successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to update rating");
-    }
+  const handleStatusCreated = (newStatus: any) => {
+    setStatuses((prevStatuses) => [...prevStatuses, newStatus]);
   };
 
-  const handlePersonChange = async (taskId: string, memberIds: string[]) => {
-    try {
-      const boardIdNum = Number(boardId);
-
-      // Filter out null/undefined values and convert to numbers
-      const validMemberIds = memberIds
-        .filter((id) => id && id !== "null" && id !== "undefined")
-        .map((id) => Number(id));
-
-      // Send the update with assignees array
-      const payload: UpdateTaskRequest = {
-        id: taskId,
-        board_id: boardIdNum,
-        assignees: validMemberIds,
-      };
-
-      const updated = await tasksApi.updateTask(payload);
-
-      // Extract assignee IDs from the response
-      const assigneeIds = updated.assignees?.map((a) => String(a.user_id)) || [];
-
-      setGroups((prevGroups) =>
-        prevGroups.map((group) => ({
-          ...group,
-          tasks: group.tasks.map((task) => {
-            // ✅ parent task
-            if (task.id === taskId) {
-              return {
-                ...task,
-                person: updated.assignees?.[0]?.name || updated.assignee?.name,
-                assigned_to_id: updated.assignees?.[0]?.user_id || String(updated.assigned_to),
-                assigned_to_ids: assigneeIds,
-              };
-            }
-
-            // ✅ subtask
-            if (task.subitems?.length) {
-              return {
-                ...task,
-                subitems: task.subitems.map((sub) => {
-                  if (sub.id === taskId) {
-                    return {
-                      ...sub,
-                      person: updated.assignees?.[0]?.name || updated.assignee?.name,
-                      assigned_to_id: updated.assignees?.[0]?.user_id || String(updated.assigned_to),
-                      assigned_to_ids: assigneeIds,
-                    };
-                  }
-                  return sub;
-                }),
-              };
-            }
-
-            return task;
-          }),
-        }))
-      );
-
-      toast.success("Person assigned successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to assign person");
-    }
+  const handleStatusesUpdated = (updatedStatuses: Status[]) => {
+    setStatuses(updatedStatuses);
   };
 
-  const handleEstimatedDateChange = (taskId: string, fromDate: string | null, toDate?: string | null) => {
-    // Format the date range display
-    let dateDisplay = "-";
-    if (fromDate) {
-      if (toDate && toDate !== fromDate) {
-        // Format as "13 Jan, 2026 - 14 Jan, 2026"
-        const fromFormatted = format(parseISO(fromDate), "dd MMM, yyyy");
-        const toFormatted = format(parseISO(toDate), "dd MMM, yyyy");
-        dateDisplay = `${fromFormatted} - ${toFormatted}`;
-      } else {
-        // Single date: "13 Jan, 2026"
-        dateDisplay = format(parseISO(fromDate), "dd MMM, yyyy");
-      }
-    }
-
-    setGroups((prevGroups) =>
-      prevGroups.map((group) => ({
-        ...group,
-        tasks: group.tasks.map((task) => {
-          // ✅ parent task
-          if (task.id === taskId) {
-            return {
-              ...task,
-              estimatedDate: dateDisplay,
-              estimatedDateEnd: toDate || null,
-            };
-          }
-
-          // ✅ subtask
-          if (task.subitems?.length) {
-            return {
-              ...task,
-              subitems: task.subitems.map((sub) =>
-                sub.id === taskId
-                  ? {
-                    ...sub,
-                    estimatedDate: dateDisplay,
-                    estimatedDateEnd: toDate || null,
-                  }
-                  : sub
-              ),
-            };
-          }
-
-          return task;
-        }),
-      }))
-    );
-
-    // Close popover after update
-    setOpenPopoverId(null);
+  const handlePriorityCreated = (newPriority: any) => {
+    setPriorities((prevPriorities) => [...prevPriorities, newPriority]);
   };
 
-  const handleEstimatedTimeChange = (taskId: string, hours: string | number | null) => {
-    setGroups((prevGroups) =>
-      prevGroups.map((group) => ({
-        ...group,
-        tasks: group.tasks.map((task) => {
-          // ✅ parent task
-          if (task.id === taskId) {
-            return {
-              ...task,
-              estimatedHours: hours || "-",
-            };
-          }
-
-          // ✅ subtask
-          if (task.subitems?.length) {
-            return {
-              ...task,
-              subitems: task.subitems.map((sub) =>
-                sub.id === taskId
-                  ? {
-                    ...sub,
-                    estimatedHours: hours || "-",
-                  }
-                  : sub
-              ),
-            };
-          }
-
-          return task;
-        }),
-      }))
-    );
-
-    // Close popover after update
-    setOpenPopoverId(null);
-  };
-
-  const handleTagChange = (taskId: string, tags: any[]) => {
-    setGroups((prevGroups) =>
-      prevGroups.map((group) => ({
-        ...group,
-        tasks: group.tasks.map((task) => {
-          // ✅ parent task
-          if (task.id === taskId) {
-            return {
-              ...task,
-              tags,
-            };
-          }
-
-          // ✅ subtask
-          if (task.subitems?.length) {
-            return {
-              ...task,
-              subitems: task.subitems.map((sub) =>
-                sub.id === taskId
-                  ? {
-                    ...sub,
-                    tags,
-                  }
-                  : sub
-              ),
-            };
-          }
-
-          return task;
-        }),
-      }))
-    );
-
-    // Close popover after update
-    setOpenPopoverId(null);
+  const handlePrioritiesUpdated = (updatedPriorities: Priority[]) => {
+    setPriorities(updatedPriorities);
   };
 
   const handleTaskCheckChange = (taskId: string, checked: boolean) => {
@@ -2122,10 +2491,17 @@ export function WorkloadBoard({
         await tasksApi.deleteTask(taskId);
       }
 
-      // Update local state
+      // Update local state - filter both parent tasks and subtasks
       const updatedGroups = groups.map((group) => ({
         ...group,
-        tasks: group.tasks.filter((task) => !checkedTaskIds.includes(task.id)),
+        tasks: group.tasks
+          .filter((task) => !checkedTaskIds.includes(task.id))
+          .map((task) => ({
+            ...task,
+            subitems: task.subitems?.filter(
+              (subitem) => !checkedTaskIds.includes(subitem.id)
+            ),
+          })),
       }));
 
       setGroups(updatedGroups);
@@ -2148,46 +2524,112 @@ export function WorkloadBoard({
   const getFilteredGroups = () => {
     const query = mainTableSearchQuery.trim().toLowerCase();
 
-    if (!query) return groups;
+    let filteredGroups = groups;
 
-    return groups
-      .map((group) => {
-        const groupMatches = group.name.toLowerCase().includes(query);
+    // Apply search filter
+    if (query) {
+      filteredGroups = groups
+        .map((group) => {
+          const groupMatches = group.name.toLowerCase().includes(query);
 
-        const filteredTasks = group.tasks
-          .map((task) => {
-            const taskMatches = task.name.toLowerCase().includes(query);
+          const filteredTasks = group.tasks
+            .map((task) => {
+              const taskMatches = task.name.toLowerCase().includes(query);
 
-            const filteredSubitems =
-              task.subitems?.filter((sub) =>
-                sub.name.toLowerCase().includes(query)
-              ) || [];
+              const filteredSubitems =
+                task.subitems?.filter((sub) =>
+                  sub.name.toLowerCase().includes(query)
+                ) || [];
 
-            // keep task if task OR any subitem matches
-            if (taskMatches || filteredSubitems.length > 0) {
-              return {
-                ...task,
-                subitems: filteredSubitems,
-              };
-            }
+              // keep task if task OR any subitem matches
+              if (taskMatches || filteredSubitems.length > 0) {
+                return {
+                  ...task,
+                  subitems: filteredSubitems,
+                };
+              }
 
-            return null;
-          })
-          .filter(Boolean) as Task[];
+              return null;
+            })
+            .filter(Boolean) as Task[];
 
-        // keep group if:
-        // - group name matches
-        // - OR any task/subitem matches
-        if (groupMatches || filteredTasks.length > 0) {
-          return {
-            ...group,
-            tasks: groupMatches ? group.tasks : filteredTasks,
-          };
+          // keep group if:
+          // - group name matches
+          // - OR any task/subitem matches
+          if (groupMatches || filteredTasks.length > 0) {
+            return {
+              ...group,
+              tasks: groupMatches ? group.tasks : filteredTasks,
+            };
+          }
+
+          return null;
+        })
+        .filter(Boolean) as TaskGroup[];
+    }
+
+    // Apply attribute filters (Person, Status, Priority, Label, Group)
+    if (
+      taskFilters.persons.size === 0 &&
+      taskFilters.statuses.size === 0 &&
+      taskFilters.priorities.size === 0 &&
+      taskFilters.labels.size === 0 &&
+      taskFilters.groups.size === 0 &&
+      !showDoneItemsOnly
+    ) {
+      return filteredGroups;
+    }
+
+    return filteredGroups
+      .filter((group) => {
+        // Filter by group if group filter is active
+        if (taskFilters.groups.size > 0) {
+          return taskFilters.groups.has(group.id);
         }
-
-        return null;
+        return true;
       })
-      .filter(Boolean) as TaskGroup[];
+      .map((group) => ({
+        ...group,
+        tasks: group.tasks.filter((task) => {
+          // Check done items filter
+          if (showDoneItemsOnly) {
+            // Find the "Done" status ID
+            const doneStatus = statuses.find(
+              (s) => s.name.toLowerCase() === "done"
+            );
+            if (!doneStatus || task.status_id !== String(doneStatus.id)) {
+              return false;
+            }
+          }
+
+          // Check person filter
+          if (taskFilters.persons.size > 0) {
+            const hasMatchingPerson = task.assigned_to_ids?.some((id) =>
+              taskFilters.persons.has(String(id))
+            );
+            if (!hasMatchingPerson) return false;
+          }
+
+          // Check status filter
+          if (taskFilters.statuses.size > 0) {
+            if (!taskFilters.statuses.has(task.status_id || "")) return false;
+          }
+
+          // Check priority filter
+          if (taskFilters.priorities.size > 0) {
+            if (!taskFilters.priorities.has(task.priority_id || ""))
+              return false;
+          }
+
+          // Check label filter
+          if (taskFilters.labels.size > 0) {
+            if (!taskFilters.labels.has(task.label_id || "")) return false;
+          }
+
+          return true;
+        }),
+      }))
+      .filter((group) => group.tasks.length > 0); // Only show groups with matching tasks
   };
 
   const saveUpdate = async () => {
@@ -2204,10 +2646,12 @@ export function WorkloadBoard({
 
       const newComment = await tasksApi.createComment(selectedTaskId, payload);
 
-      // Update local state 
+      // Update local state
       setComments((prev) => [newComment, ...prev]);
 
-      toast.success(replyingTo ? "Reply saved successfully" : "Update saved successfully");
+      toast.success(
+        replyingTo ? "Reply saved successfully" : "Update saved successfully"
+      );
 
       // Reset the form
       setUpdateText("");
@@ -2219,28 +2663,27 @@ export function WorkloadBoard({
     }
   };
 
-  const saveInlineReply = async (parentId: string | number) => {
-    if (!inlineReplyText.trim() || !selectedTaskId) {
+  const saveInlineReply = async (
+    parentId: string | number,
+    replyText: string
+  ) => {
+    if (!replyText.trim() || !selectedTaskId) {
       return;
     }
 
     try {
       const payload = {
-        content: inlineReplyText,
+        content: replyText,
         parent_id: Number(parentId),
         is_internal: 0,
       };
 
       const newComment = await tasksApi.createComment(selectedTaskId, payload);
 
-      // Update local state 
+      // Update local state
       setComments((prev) => [...prev, newComment]);
 
       toast.success("Reply saved successfully");
-
-      // Reset the form
-      setInlineReplyText("");
-      setInlineReplyId(null);
     } catch (error) {
       console.error("Failed to save reply:", error);
       toast.error("Failed to save reply");
@@ -2253,7 +2696,9 @@ export function WorkloadBoard({
     // In a real app, you might want to show a confirmation dialog
     try {
       await tasksApi.deleteComment(selectedTaskId, commentId);
-      setComments((prev) => prev.filter((c) => String(c.id) !== String(commentId)));
+      setComments((prev) =>
+        prev.filter((c) => String(c.id) !== String(commentId))
+      );
       toast.success("Comment deleted successfully");
     } catch (error) {
       console.error("Failed to delete comment:", error);
@@ -2261,11 +2706,22 @@ export function WorkloadBoard({
     }
   };
 
-  const updateTaskComment = async (commentId: string | number, content: string) => {
+  const updateTaskComment = async (
+    commentId: string | number,
+    content: string
+  ) => {
     if (!selectedTaskId) return;
     try {
-      const updatedComment = await tasksApi.updateComment(selectedTaskId, commentId, { content });
-      setComments((prev) => prev.map((c) => (String(c.id) === String(commentId) ? updatedComment : c)));
+      const updatedComment = await tasksApi.updateComment(
+        selectedTaskId,
+        commentId,
+        { content }
+      );
+      setComments((prev) =>
+        prev.map((c) =>
+          String(c.id) === String(commentId) ? updatedComment : c
+        )
+      );
       toast.success("Comment updated successfully");
     } catch (error) {
       console.error("Failed to update comment:", error);
@@ -2311,12 +2767,25 @@ export function WorkloadBoard({
     const newWorkloadColumns = arrayMove(workloadColumns, oldIndex, newIndex);
     setWorkloadColumns(newWorkloadColumns);
 
-    // Update columnOrder state and persist
+    // Build the columns payload with labels
+    const columnsPayload: Record<string, any> = {};
+    newWorkloadColumns.forEach((col) => {
+      columnsPayload[col.id] = {
+        label: col.label,
+        visible: !collapsedColumns[col.id],
+        position: newWorkloadColumns.indexOf(col) + 1,
+      };
+    });
+
+    // Update columnOrder state
     const newOrder = newWorkloadColumns.map((c) => c.id);
     setColumnOrder(newOrder);
-    localStorage.setItem(
-      `workload-columns-${boardId}`,
-      JSON.stringify(newOrder)
+
+    // Persist using the new utility
+    updateFullColumnConfiguration(
+      parseInt(boardId, 10),
+      newOrder,
+      columnsPayload
     );
   };
 
@@ -2330,7 +2799,7 @@ export function WorkloadBoard({
           `board-collapsed-columns-${boardId}`,
           JSON.stringify(updated)
         );
-      } catch { }
+      } catch {}
 
       // Update columnWidths and prevColumnWidths synchronously so the UI reflects the collapsed width immediately.
       const currentWidth = columnWidths[columnId];
@@ -2339,12 +2808,19 @@ export function WorkloadBoard({
 
       if (willBeCollapsed) {
         // Save current width (if any) so we can restore it when expanded
-        if (typeof currentWidth !== "undefined" && currentWidth !== COLLAPSED_WIDTH) {
+        if (
+          typeof currentWidth !== "undefined" &&
+          currentWidth !== COLLAPSED_WIDTH
+        ) {
           updatedPrevWidths[columnId] = currentWidth;
         } else if (!currentWidth) {
           // If no explicit saved width, try to read from current workloadColumns fallback width
           const existingCol = workloadColumns.find((c) => c.id === columnId);
-          if (existingCol && existingCol.width && existingCol.width !== COLLAPSED_WIDTH) {
+          if (
+            existingCol &&
+            existingCol.width &&
+            existingCol.width !== COLLAPSED_WIDTH
+          ) {
             updatedPrevWidths[columnId] = existingCol.width as string;
           }
         }
@@ -2367,14 +2843,14 @@ export function WorkloadBoard({
           `board-column-widths-${boardId}`,
           JSON.stringify(updatedColumnWidths)
         );
-      } catch { }
+      } catch {}
 
       try {
         localStorage.setItem(
           `board-prev-column-widths-${boardId}`,
           JSON.stringify(updatedPrevWidths)
         );
-      } catch { }
+      } catch {}
 
       setPrevColumnWidths(updatedPrevWidths);
       setColumnWidths(updatedColumnWidths);
@@ -2385,17 +2861,31 @@ export function WorkloadBoard({
         toggleTask,
         onOpenComments: openCommentsPanel,
         onEditTask: openEditTaskDialog,
+        onOpenTaskCard: openTaskCard,
         statuses,
         priorities,
         members,
+        tags,
         onStatusChange: handleStatusChange,
         onPriorityChange: handlePriorityChange,
         onPersonChange: handlePersonChange,
         onRatingChange: handleRatingChange,
         onEstimatedDateChange: handleEstimatedDateChange,
         onEstimatedTimeChange: handleEstimatedTimeChange,
+        onTagChange: handleTagChange,
         openPopoverId,
         setOpenPopoverId,
+        boardId: parseInt(boardId, 10),
+        onTagCreated: (newTag) => {
+          setTags((prevTags) => [...prevTags, newTag]);
+        },
+        onStatusCreated: handleStatusCreated,
+        onPriorityCreated: handlePriorityCreated,
+        inlineEditingTaskId,
+        setInlineEditingTaskId,
+        inlineEditingTaskName,
+        setInlineEditingTaskName,
+        onInlineEditTaskName: handleInlineEditTaskName,
       });
 
       // Apply saved column order
@@ -2417,7 +2907,9 @@ export function WorkloadBoard({
         .map((col) => ({
           ...col,
           collapsed: !!updated[col.id],
-          width: updatedColumnWidths[col.id] ?? (updated[col.id] ? COLLAPSED_WIDTH : col.width),
+          width:
+            updatedColumnWidths[col.id] ??
+            (updated[col.id] ? COLLAPSED_WIDTH : col.width),
         }))
         .filter((col) => visibleColumns[col.id] === true);
 
@@ -2440,8 +2932,10 @@ export function WorkloadBoard({
 
     // Find initial width
     const currentCol = workloadColumns.find((c) => c.id === columnId);
-    const startWidthStr = columnWidths[columnId] ?? (currentCol?.width ?? "150px");
-    const startWidth = parseInt(String(startWidthStr).replace(/px$/, "")) || 150;
+    const startWidthStr =
+      columnWidths[columnId] ?? currentCol?.width ?? "150px";
+    const startWidth =
+      parseInt(String(startWidthStr).replace(/px$/, "")) || 150;
 
     const onPointerMove = (ev: PointerEvent) => {
       const delta = (ev as PointerEvent).clientX - startX;
@@ -2460,7 +2954,7 @@ export function WorkloadBoard({
             `board-collapsed-columns-${boardId}`,
             JSON.stringify(updated)
           );
-        } catch { }
+        } catch {}
         return;
       }
 
@@ -2472,7 +2966,7 @@ export function WorkloadBoard({
             `board-column-widths-${boardId}`,
             JSON.stringify(updated)
           );
-        } catch { }
+        } catch {}
 
         return updated;
       });
@@ -2495,7 +2989,7 @@ export function WorkloadBoard({
     // capture pointer to the element if available
     try {
       (e.target as Element).setPointerCapture?.((e as any).pointerId);
-    } catch { }
+    } catch {}
   };
 
   // const workloadColumns = getWorkloadColumns({
@@ -2504,7 +2998,9 @@ export function WorkloadBoard({
   // });
 
   // Collapsed columns state (persisted per board)
-  const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>(() => {
+  const [collapsedColumns, setCollapsedColumns] = useState<
+    Record<string, boolean>
+  >(() => {
     try {
       const raw = localStorage.getItem(`board-collapsed-columns-${boardId}`);
       return raw ? JSON.parse(raw) : {};
@@ -2516,17 +3012,21 @@ export function WorkloadBoard({
   const COLLAPSED_WIDTH = "32px";
   const MIN_COLUMN_WIDTH = 80;
 
-  const [columnWidths, setColumnWidths] = useState<Record<string, string>>(() => {
-    try {
-      const raw = localStorage.getItem(`board-column-widths-${boardId}`);
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
+  const [columnWidths, setColumnWidths] = useState<Record<string, string>>(
+    () => {
+      try {
+        const raw = localStorage.getItem(`board-column-widths-${boardId}`);
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
     }
-  });
+  );
 
   // Keep a backup of column widths that were present before collapsing a column so we can restore them on expand
-  const [prevColumnWidths, setPrevColumnWidths] = useState<Record<string, string>>(() => {
+  const [prevColumnWidths, setPrevColumnWidths] = useState<
+    Record<string, string>
+  >(() => {
     try {
       const raw = localStorage.getItem(`board-prev-column-widths-${boardId}`);
       return raw ? JSON.parse(raw) : {};
@@ -2538,8 +3038,8 @@ export function WorkloadBoard({
   // Track column order separately to preserve it across updates
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem(`workload-columns-${boardId}`);
-      return saved ? JSON.parse(saved) : [];
+      const config = getColumnConfiguration(parseInt(boardId, 10));
+      return config?.columnOrder || [];
     } catch {
       return [];
     }
@@ -2551,17 +3051,33 @@ export function WorkloadBoard({
       toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
+      onOpenTaskCard: openTaskCard,
       statuses,
       priorities,
       members,
+      tags,
       onStatusChange: handleStatusChange,
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
       onEstimatedTimeChange: handleEstimatedTimeChange,
+      onTagChange: handleTagChange,
       openPopoverId,
       setOpenPopoverId,
+      boardId: parseInt(boardId, 10),
+      onTagCreated: (newTag) => {
+        setTags((prevTags) => [...prevTags, newTag]);
+      },
+      onStatusCreated: handleStatusCreated,
+      onStatusesUpdated: handleStatusesUpdated,
+      onPriorityCreated: handlePriorityCreated,
+      onPrioritiesUpdated: handlePrioritiesUpdated,
+      inlineEditingTaskId,
+      setInlineEditingTaskId,
+      inlineEditingTaskName,
+      setInlineEditingTaskName,
+      onInlineEditTaskName: handleInlineEditTaskName,
     });
 
     // Apply saved column order if available
@@ -2579,12 +3095,30 @@ export function WorkloadBoard({
       });
     }
 
-    // Apply collapsed state and persisted widths and filter visibility
+    // Load persisted column labels from localStorage using the new utility
+    let savedLabels: Record<string, string> = {};
+    try {
+      const config = getColumnConfiguration(parseInt(boardId, 10));
+      if (config?.columns) {
+        Object.entries(config.columns).forEach(([colId, colData]) => {
+          if (colData.label) {
+            savedLabels[colId] = colData.label;
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error loading saved column labels:", error);
+    }
+
+    // Apply collapsed state, persisted widths, persisted labels, and filter visibility
     return orderedColumns
       .map((col) => ({
         ...col,
+        label: savedLabels[col.id] || col.label, // Apply persisted label
         collapsed: !!collapsedColumns[col.id],
-        width: columnWidths[col.id] ?? (collapsedColumns[col.id] ? COLLAPSED_WIDTH : col.width),
+        width:
+          columnWidths[col.id] ??
+          (collapsedColumns[col.id] ? COLLAPSED_WIDTH : col.width),
       }))
       .filter((col) => visibleColumns[col.id] === true);
   });
@@ -2597,6 +3131,7 @@ export function WorkloadBoard({
       toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
+      onOpenTaskCard: openTaskCard,
       statuses,
       priorities,
       members,
@@ -2610,6 +3145,19 @@ export function WorkloadBoard({
       onTagChange: handleTagChange,
       openPopoverId,
       setOpenPopoverId,
+      boardId: parseInt(boardId, 10),
+      onTagCreated: (newTag) => {
+        setTags((prevTags) => [...prevTags, newTag]);
+      },
+      onStatusCreated: handleStatusCreated,
+      onStatusesUpdated: handleStatusesUpdated,
+      onPriorityCreated: handlePriorityCreated,
+      onPrioritiesUpdated: handlePrioritiesUpdated,
+      inlineEditingTaskId,
+      setInlineEditingTaskId,
+      inlineEditingTaskName,
+      setInlineEditingTaskName,
+      onInlineEditTaskName: handleInlineEditTaskName,
     });
 
     // Apply saved column order
@@ -2627,19 +3175,47 @@ export function WorkloadBoard({
       });
     }
 
-    // Apply collapsed state and filter columns based on visibility and saved widths
+    // Load persisted column labels from localStorage using the new utility
+    let savedLabels: Record<string, string> = {};
+    try {
+      const config = getColumnConfiguration(parseInt(boardId, 10));
+      if (config?.columns) {
+        Object.entries(config.columns).forEach(([colId, colData]) => {
+          if (colData.label) {
+            savedLabels[colId] = colData.label;
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error loading saved column labels:", error);
+    }
+
+    // Apply collapsed state, persisted labels, and filter columns based on visibility and saved widths
     setWorkloadColumns(
       orderedColumns
         .map((col) => ({
           ...col,
+          label: savedLabels[col.id] || col.label, // Apply persisted label
           collapsed: !!collapsedColumns[col.id],
-          width: columnWidths[col.id] ?? (collapsedColumns[col.id] ? COLLAPSED_WIDTH : col.width),
+          width:
+            columnWidths[col.id] ??
+            (collapsedColumns[col.id] ? COLLAPSED_WIDTH : col.width),
         }))
         .filter((col) => visibleColumns[col.id] === true)
     );
-  }, [statuses, priorities, members, openPopoverId, visibleColumns, collapsedColumns, columnWidths, columnOrder]);
-
-  const totalColumns = workloadColumns.length + 1;
+  }, [
+    statuses,
+    priorities,
+    members,
+    tags,
+    openPopoverId,
+    visibleColumns,
+    collapsedColumns,
+    columnWidths,
+    columnOrder,
+    inlineEditingTaskId,
+    inlineEditingTaskName,
+  ]);
 
   // Track unsaved changes for layout
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -2665,8 +3241,72 @@ export function WorkloadBoard({
     setHasUnsavedChanges(groupsChanged || columnsChanged);
   }, [groups, workloadColumns, initialGroupOrder, initialColumnOrder]);
 
+  // Synchronized horizontal scrolling for all group tables
+  const tableScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [maxScrollWidth, setMaxScrollWidth] = useState(0);
+  const groupsContainerRef = useRef<HTMLDivElement | null>(null);
+  const [stickyGroupId, setStickyGroupId] = useState<string | null>(null);
+
+  const handleTableScroll = (groupId: string, scrollLeft: number) => {
+    // Scroll all other tables to the same position
+    Object.entries(tableScrollRefs.current).forEach(([id, ref]) => {
+      if (ref && id !== groupId) {
+        ref.scrollLeft = scrollLeft;
+      }
+    });
+    
+    // Update the unified scrollbar
+    const unifiedScrollbar = document.querySelector('[data-unified-scrollbar]') as HTMLDivElement;
+    if (unifiedScrollbar) {
+      unifiedScrollbar.scrollLeft = scrollLeft;
+    }
+  };
+
+  // Calculate max scroll width from tables
+  useEffect(() => {
+    if (Object.keys(tableScrollRefs.current).length > 0) {
+      const firstTableRef = Object.values(tableScrollRefs.current)[0];
+      if (firstTableRef) {
+        const maxWidth = firstTableRef.scrollWidth;
+        setMaxScrollWidth(maxWidth);
+      }
+    }
+  }, [workloadColumns, groups]);
+
+  // Handle scroll event to detect sticky group header
+  useEffect(() => {
+    const container = groupsContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      // Find which group header is currently at the top (sticky)
+      const groupHeaders = container.querySelectorAll('[data-group-header]');
+      let currentStickyGroupId: string | null = null;
+
+      groupHeaders.forEach((header) => {
+        const rect = header.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        
+        // Check if header is at the top of the container (sticky position)
+        if (rect.top <= containerRect.top + 1 && rect.bottom > containerRect.top) {
+          currentStickyGroupId = header.getAttribute('data-group-id');
+        }
+      });
+
+      setStickyGroupId(currentStickyGroupId);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+
+  const handleOpenProfile = () => {
+    setProfileDialogOpen(true);
+  };
+
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-background overflow-hidden">
       {/* Image resize styles */}
       <style>{`
         .image-resize-wrapper:hover {
@@ -2693,10 +3333,19 @@ export function WorkloadBoard({
         .no-scrollbar-x::-webkit-scrollbar {
           display: none; /* Chrome, Safari and Opera */
         }
+
+        /* Hide scrollbar but keep scrolling intact */
+        .scrollbar-hide {
+          -ms-overflow-style: none; /* IE and Edge */
+          scrollbar-width: none; /* Firefox */
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none; /* Chrome, Safari and Opera */
+        }
       `}</style>
 
-      {/* Top Header */}
-      <div className="border-b border-border px-6 py-4">
+      {/* Top Header - FIXED, does not scroll */}
+      <div className="border-b border-border px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             {editingBoardName ? (
@@ -2722,9 +3371,11 @@ export function WorkloadBoard({
             {/* Board Members Display */}
             <div className="flex items-center gap-2">
               <div className="flex items-center -space-x-2">
-                <Avatar className="w-8 h-8 border-2 border-background">
+                <Avatar className="w-8 h-8 border-2 border-background"   onClick={handleOpenProfile}>
                   <AvatarFallback className="bg-blue-500">
-                    <span className="text-white text-xs font-semibold">{userInitials}</span>
+                    <span className="text-white text-xs font-semibold">
+                      {userInitials}
+                    </span>
                   </AvatarFallback>
                 </Avatar>
               </div>
@@ -2735,7 +3386,7 @@ export function WorkloadBoard({
               variant="outline"
               size="sm"
               onClick={() =>
-                navigate(`/workspace/${workspaceId}/board/${boardId}/dashboard`)
+                navigate(`/board/${boardId}/dashboard`)
               }
               className="h-8 px-3"
             >
@@ -2769,13 +3420,11 @@ export function WorkloadBoard({
         </DndContext>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-auto">
-        {/* Main Table View */}
-        {activeTab === "Main Table" && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Toolbar */}
-            <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap">
+      {/* Main Table View */}
+      {activeTab === "Main Table" && (
+        <div className="flex flex-col flex-1 overflow-hidden" ref={mainFlexContainerRef}>
+          {/* Toolbar - FIXED */}
+          <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
               {/* New Group Button */}
               <Button
                 variant="default"
@@ -2785,7 +3434,7 @@ export function WorkloadBoard({
               >
                 New Group
               </Button>
-              {/* Search */}
+              {/* Search and Filters */}
               <div className="flex items-center gap-3 flex-1">
                 {/* Search */}
                 <div className="relative max-w-xs">
@@ -2798,117 +3447,484 @@ export function WorkloadBoard({
                   />
                 </div>
 
+                {/* Done Items Checkbox */}
+                <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={showDoneItemsOnly}
+                    onChange={(e) => setShowDoneItemsOnly(e.target.checked)}
+                    className="cursor-pointer"
+                  />
+                  <span className="text-sm font-medium">Done Items</span>
+                </label>
+
+                {/* Show/Hide Filter Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
+                      <Eye className="h-4 w-4" />
+                      Only Show
+                    </button>
+                  </PopoverTrigger>
+
+                  <PopoverContent align="start" className="w-64 max-h-96 p-0 bg-card border-2 border-primary/20 flex flex-col">
+                    <div className="space-y-1 overflow-y-auto flex-1 p-2 scrollbar-hide">
+                      {/* Person Filter Dropdown */}
+                      <div className="border border-primary/30 rounded-md bg-background">
+                        <button
+                          onClick={() =>
+                            setOpenFilterDropdowns((prev) => ({
+                              ...prev,
+                              persons: !prev.persons,
+                            }))
+                          }
+                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                        >
+                          <span className="text-sm font-medium">Person</span>
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              openFilterDropdowns.persons ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                        {openFilterDropdowns.persons && (
+                          <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                            {members.map((member) => (
+                              <label
+                                key={member.user_id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={taskFilters.persons.has(
+                                    String(member.user_id)
+                                  )}
+                                  onChange={(e) => {
+                                    const newPersons = new Set(
+                                      taskFilters.persons
+                                    );
+                                    if (e.target.checked) {
+                                      newPersons.add(String(member.user_id));
+                                    } else {
+                                      newPersons.delete(String(member.user_id));
+                                    }
+                                    setTaskFilters({
+                                      ...taskFilters,
+                                      persons: newPersons,
+                                    });
+                                  }}
+                                  className="cursor-pointer"
+                                />
+                                <span>{member.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Status Filter Dropdown */}
+                      <div className="border border-primary/30 rounded-md bg-background">
+                        <button
+                          onClick={() =>
+                            setOpenFilterDropdowns((prev) => ({
+                              ...prev,
+                              statuses: !prev.statuses,
+                            }))
+                          }
+                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                        >
+                          <span className="text-sm font-medium">Status</span>
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              openFilterDropdowns.statuses ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                        {openFilterDropdowns.statuses && (
+                          <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                            {statuses.map((status) => (
+                              <label
+                                key={status.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={taskFilters.statuses.has(
+                                    String(status.id)
+                                  )}
+                                  onChange={(e) => {
+                                    const newStatuses = new Set(
+                                      taskFilters.statuses
+                                    );
+                                    if (e.target.checked) {
+                                      newStatuses.add(String(status.id));
+                                    } else {
+                                      newStatuses.delete(String(status.id));
+                                    }
+                                    setTaskFilters({
+                                      ...taskFilters,
+                                      statuses: newStatuses,
+                                    });
+                                  }}
+                                  className="cursor-pointer"
+                                />
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{
+                                      backgroundColor: status.color_code,
+                                    }}
+                                  />
+                                  <span>{status.name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Priority Filter Dropdown */}
+                      <div className="border border-primary/30 rounded-md bg-background">
+                        <button
+                          onClick={() =>
+                            setOpenFilterDropdowns((prev) => ({
+                              ...prev,
+                              priorities: !prev.priorities,
+                            }))
+                          }
+                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                        >
+                          <span className="text-sm font-medium">Priority</span>
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              openFilterDropdowns.priorities ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                        {openFilterDropdowns.priorities && (
+                          <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                            {priorities.map((priority) => (
+                              <label
+                                key={priority.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={taskFilters.priorities.has(
+                                    String(priority.id)
+                                  )}
+                                  onChange={(e) => {
+                                    const newPriorities = new Set(
+                                      taskFilters.priorities
+                                    );
+                                    if (e.target.checked) {
+                                      newPriorities.add(String(priority.id));
+                                    } else {
+                                      newPriorities.delete(String(priority.id));
+                                    }
+                                    setTaskFilters({
+                                      ...taskFilters,
+                                      priorities: newPriorities,
+                                    });
+                                  }}
+                                  className="cursor-pointer"
+                                />
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{
+                                      backgroundColor: priority.color_code,
+                                    }}
+                                  />
+                                  <span>{priority.name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Label Filter Dropdown */}
+                      <div className="border border-primary/30 rounded-md bg-background">
+                        <button
+                          onClick={() =>
+                            setOpenFilterDropdowns((prev) => ({
+                              ...prev,
+                              labels: !prev.labels,
+                            }))
+                          }
+                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                        >
+                          <span className="text-sm font-medium">Label</span>
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              openFilterDropdowns.labels ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                        {openFilterDropdowns.labels && (
+                          <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                            {labels.map((label) => (
+                              <label
+                                key={label.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={taskFilters.labels.has(
+                                    String(label.id)
+                                  )}
+                                  onChange={(e) => {
+                                    const newLabels = new Set(
+                                      taskFilters.labels
+                                    );
+                                    if (e.target.checked) {
+                                      newLabels.add(String(label.id));
+                                    } else {
+                                      newLabels.delete(String(label.id));
+                                    }
+                                    setTaskFilters({
+                                      ...taskFilters,
+                                      labels: newLabels,
+                                    });
+                                  }}
+                                  className="cursor-pointer"
+                                />
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{
+                                      backgroundColor: label.label_color,
+                                    }}
+                                  />
+                                  <span>{label.label_name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Group Filter Dropdown */}
+                      <div className="border border-primary/30 rounded-md bg-background">
+                        <button
+                          onClick={() =>
+                            setOpenFilterDropdowns((prev) => ({
+                              ...prev,
+                              groups: !prev.groups,
+                            }))
+                          }
+                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                        >
+                          <span className="text-sm font-medium">Group</span>
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              openFilterDropdowns.groups ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                        {openFilterDropdowns.groups && (
+                          <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                            {groups.map((group) => (
+                              <label
+                                key={group.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={taskFilters.groups.has(group.id)}
+                                  onChange={(e) => {
+                                    const newGroups = new Set(
+                                      taskFilters.groups
+                                    );
+                                    if (e.target.checked) {
+                                      newGroups.add(group.id);
+                                    } else {
+                                      newGroups.delete(group.id);
+                                    }
+                                    setTaskFilters({
+                                      ...taskFilters,
+                                      groups: newGroups,
+                                    });
+                                  }}
+                                  className="cursor-pointer"
+                                />
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: group.color }}
+                                  />
+                                  <span>{group.name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Clear Filters Button - Fixed at bottom */}
+                    {(taskFilters.persons.size > 0 ||
+                      taskFilters.statuses.size > 0 ||
+                      taskFilters.priorities.size > 0 ||
+                      taskFilters.labels.size > 0 ||
+                      taskFilters.groups.size > 0) && (
+                      <div className="border-t border-primary/20 bg-primary/5 p-2 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => {
+                            setTaskFilters({
+                              persons: new Set(),
+                              statuses: new Set(),
+                              priorities: new Set(),
+                              labels: new Set(),
+                              groups: new Set(),
+                            });
+                          }}
+                        >
+                          Clear All Filters
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+
                 {/* Save Button */}
-                <Button
-                  variant="default"
-                  size="sm"
+                <button
                   disabled={!hasUnsavedChanges}
-                  onClick={() => {
-                    // Build the payload
-                    const groupOrder: Record<string, string> = {};
-                    groups.forEach((group, index) => {
-                      groupOrder[String(index + 1)] = group.id;
-                    });
+                  className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={async () => {
+                    try {
+                      // Build the columns payload with labels and positions
+                      const columnsPayload: Record<string, any> = {};
+                      workloadColumns.forEach((col) => {
+                        columnsPayload[col.id] = {
+                          label: col.label,
+                          visible: !collapsedColumns[col.id],
+                          position: workloadColumns.indexOf(col) + 1,
+                        };
+                      });
 
-                    const columnOrder: Record<string, string> = {};
-                    workloadColumns.forEach((col, index) => {
-                      columnOrder[String(index + 1)] = col.id;
-                    });
+                      // Build the group order payload
+                      const groupOrder: Record<string, string> = {};
+                      groups.forEach((group, index) => {
+                        groupOrder[String(index + 1)] = group.id;
+                      });
 
-                    const payload = {
-                      board_id: parseInt(boardId, 10),
-                      group_order: groupOrder,
-                      column_order: columnOrder,
-                    };
+                      // Build the column order payload
+                      const columnOrder: Record<string, string> = {};
+                      workloadColumns.forEach((col, index) => {
+                        columnOrder[String(index + 1)] = col.id;
+                      });
 
-                    console.log("Save payload:", payload);
+                      // Build the full payload
+                      const payload = {
+                        user_id: 2, // TODO: Get from auth context
+                        group_id: 92, // TODO: Get from current group
+                        board_id: parseInt(boardId, 10),
+                        group_order: groupOrder,
+                        column_order: columnOrder,
+                        columns: columnsPayload,
+                      };
 
-                    // Update initial order to mark changes as saved
-                    setInitialGroupOrder(groups.map((g) => g.id));
-                    setInitialColumnOrder(workloadColumns.map((c) => c.id));
-                    setHasUnsavedChanges(false);
+                      console.log("Save View payload:", payload);
 
-                    toast.success("Layout saved successfully");
-                    // API call will be added here in the future
+                      // Call the API to save the layout
+                      const response = await cmsApi.saveUserGroupColumns(payload);
+                      
+                      // Update localStorage with the response to ensure sync
+                      if (response.columns) {
+                        const newOrder = workloadColumns.map((c) => c.id);
+                        updateFullColumnConfiguration(
+                          parseInt(boardId, 10),
+                          newOrder,
+                          response.columns
+                        );
+                      }
+
+                      // Update initial order to mark changes as saved
+                      setInitialGroupOrder(groups.map((g) => g.id));
+                      setInitialColumnOrder(workloadColumns.map((c) => c.id));
+                      setHasUnsavedChanges(false);
+
+                      toast.success("Layout saved successfully");
+                    } catch (error) {
+                      console.error("Failed to save layout:", error);
+                      toast.error("Failed to save layout");
+                    }
                   }}
                 >
+                  <Save className="h-4 w-4" />
                   Save View
-                </Button>
+                </button>
+
+                {/* Column Visibility Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Columns
+                    </Button>
+                  </PopoverTrigger>
+
+                  <PopoverContent align="end" className="w-56">
+                    <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
+                      Columns
+                    </div>
+                    <div className="border-t border-border my-2" />
+
+                    <div className="p-2 space-y-1">
+                      {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                        const columnLabel =
+                          {
+                            item: "Item",
+                            status: "Status",
+                            priority: "Priority",
+                            description: "Description",
+                            rating: "Rating",
+                            estimatedDate: "Estimated Date",
+                            estimatedTime: "Estimated Time",
+                            date: "Date",
+                            person: "Person",
+                            timer: "Timer",
+                            time: "Time Spent",
+                          }[columnId] || columnId;
+
+                        return (
+                          <label
+                            key={columnId}
+                            className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={visibleColumns[columnId] === true}
+                              onChange={() => toggleColumnVisibility(columnId)}
+                              className="cursor-pointer"
+                            />
+                            <span className="text-sm">{columnLabel}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
-
-              {/* <Button variant="ghost" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                Filter
-              </Button>
-              <Button variant="ghost" size="sm">
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                Sort
-              </Button> */}
-
-              {/* Column Visibility Popover */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Columns
-                  </Button>
-                </PopoverTrigger>
-
-                <PopoverContent align="end" className="w-56">
-                  <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
-                    Show/Hide Columns
-                  </div>
-                  <div className="border-t border-border my-2" />
-
-                  <div className="p-2 space-y-1">
-                    {ALL_AVAILABLE_COLUMNS.map((columnId) => {
-                      const columnLabel =
-                        {
-                          item: "Item",
-                          status: "Status",
-                          priority: "Priority",
-                          description: "Description",
-                          rating: "Rating",
-                          estimatedDate: "Estimated Date",
-                          estimatedTime: "Estimated Time",
-                          date: "Date",
-                          person: "Person",
-                          timer: "Timer",
-                          time: "Time Spent",
-                        }[columnId] || columnId;
-
-                      return (
-                        <label
-                          key={columnId}
-                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns[columnId] === true}
-                            onChange={() => toggleColumnVisibility(columnId)}
-                            className="cursor-pointer"
-                          />
-                          <span className="text-sm">{columnLabel}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
             </div>
 
-            {/* Task Groups */}
-            <div className="flex-1 overflow-auto px-6 py-4">
-              <DndContext
-                sensors={groupSensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleGroupDragEnd}
-              >
-                <SortableContext
-                  items={getFilteredGroups().map((g) => g.id)}
-                  strategy={verticalListSortingStrategy}
+            {/* Task Groups Container - ONLY scrollable element */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" ref={groupsContainerRef}>
+                <DndContext
+                  sensors={groupSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleGroupDragEnd}
                 >
-                  <div className="space-y-6">
+                  <SortableContext
+                    items={getFilteredGroups().map((g) => g.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-6 py-4">
                     {getFilteredGroups().length === 0 ? (
                       <div className="text-center py-12">
                         {mainTableSearchQuery.trim() ? (
@@ -2937,7 +3953,7 @@ export function WorkloadBoard({
                         <SortableGroupCard key={group.id} group={group}>
                           {(dragListeners, dragAttributes) => (
                             <div
-                              className="bg-card border border-border overflow-hidden flex-1 border-l-4"
+                              className="bg-card border border-border flex-1 border-l-4"
                               style={{
                                 borderLeftColor: group.color || "#3b82f6",
                               }}
@@ -2946,7 +3962,11 @@ export function WorkloadBoard({
                             >
                               {/* Group Header */}
 
-                              <div className="group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing">
+                              <div 
+                                className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-30 bg-muted border-b border-border ${stickyGroupId === group.id ? 'shadow-md' : ''}`}
+                                data-group-header
+                                data-group-id={group.id}
+                              >
                                 {/* Group Actions Dropdown */}
                                 <DropdownMenu
                                   open={groupDropdownOpen === group.id}
@@ -3038,31 +4058,44 @@ export function WorkloadBoard({
                                 </span>
 
                                 {/* Label Chip (optional) */}
-                                {groupLabels[group.id] && (() => {
-                                  // Find the label object to get its color
-                                  const labelObj = labels.find(l => l.label_name === groupLabels[group.id]);
-                                  const labelColor = labelObj?.label_color || groupLabelColors[group.id] || "#3b82f6";
-                                  return (
-                                    <div
-                                      className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
-                                      style={{
-                                        backgroundColor: labelColor,
-                                      }}
-                                    >
-                                      {groupLabels[group.id]}
-                                    </div>
-                                  );
-                                })()}
+                                {groupLabels[group.id] &&
+                                  (() => {
+                                    // Find the label object to get its color
+                                    const labelObj = labels.find(
+                                      (l) =>
+                                        l.label_name === groupLabels[group.id]
+                                    );
+                                    const labelColor =
+                                      labelObj?.label_color ||
+                                      groupLabelColors[group.id] ||
+                                      "#3b82f6";
+                                    return (
+                                      <div
+                                        className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
+                                        style={{
+                                          backgroundColor: labelColor,
+                                        }}
+                                      >
+                                        {groupLabels[group.id]}
+                                      </div>
+                                    );
+                                  })()}
                                 {/* edit group button */}
                                 <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
-                                  <Popover open={editGroupDialogOpen && editingGroupId === group.id} onOpenChange={(open) => {
-                                    if (open) {
-                                      editGroup(group.id);
-                                    } else {
-                                      setEditGroupDialogOpen(false);
-                                      setEditingGroupId(null);
+                                  <Popover
+                                    open={
+                                      editGroupDialogOpen &&
+                                      editingGroupId === group.id
                                     }
-                                  }}>
+                                    onOpenChange={(open) => {
+                                      if (open) {
+                                        editGroup(group.id);
+                                      } else {
+                                        setEditGroupDialogOpen(false);
+                                        setEditingGroupId(null);
+                                      }
+                                    }}
+                                  >
                                     <PopoverTrigger asChild>
                                       <Button
                                         variant="ghost"
@@ -3073,25 +4106,37 @@ export function WorkloadBoard({
                                         <Pencil className="h-4 w-4" />
                                       </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-80 p-4" align="start">
+                                    <PopoverContent
+                                      className="w-80 p-4"
+                                      align="start"
+                                    >
                                       <div className="space-y-4">
                                         <div>
-                                          <h3 className="font-semibold text-sm mb-3">Edit Group</h3>
+                                          <h3 className="font-semibold text-sm mb-3">
+                                            Edit Group
+                                          </h3>
                                         </div>
 
                                         {/* Color Picker */}
                                         <div className="space-y-2">
-                                          <label className="text-sm font-medium">Color</label>
+                                          <label className="text-sm font-medium">
+                                            Color
+                                          </label>
                                           <div className="flex gap-2">
                                             {PRESET_COLORS.map((color) => (
                                               <button
                                                 key={color}
-                                                className={`h-10 w-10 rounded-lg transition-all border-2 ${editGroupColorInput === color
-                                                  ? "border-foreground scale-110"
-                                                  : "border-transparent hover:scale-105"
-                                                  }`}
-                                                style={{ backgroundColor: color }}
-                                                onClick={() => setEditGroupColorInput(color)}
+                                                className={`h-10 w-10 rounded-lg transition-all border-2 ${
+                                                  editGroupColorInput === color
+                                                    ? "border-foreground scale-110"
+                                                    : "border-transparent hover:scale-105"
+                                                }`}
+                                                style={{
+                                                  backgroundColor: color,
+                                                }}
+                                                onClick={() =>
+                                                  setEditGroupColorInput(color)
+                                                }
                                               />
                                             ))}
                                           </div>
@@ -3099,14 +4144,21 @@ export function WorkloadBoard({
 
                                         {/* Group Name Input */}
                                         <div className="space-y-2">
-                                          <label htmlFor="edit-group-name" className="text-sm font-medium">
+                                          <label
+                                            htmlFor="edit-group-name"
+                                            className="text-sm font-medium"
+                                          >
                                             Group Name
                                           </label>
                                           <Input
                                             id="edit-group-name"
                                             placeholder="Enter group name..."
                                             value={editGroupNameInput}
-                                            onChange={(e) => setEditGroupNameInput(e.target.value)}
+                                            onChange={(e) =>
+                                              setEditGroupNameInput(
+                                                e.target.value
+                                              )
+                                            }
                                             onKeyDown={(e) => {
                                               if (e.key === "Enter") {
                                                 handleUpdateGroup();
@@ -3118,25 +4170,50 @@ export function WorkloadBoard({
 
                                         {/* Label Dropdown */}
                                         <div className="space-y-2">
-                                          <label className="text-sm font-medium">Label (Optional)</label>
+                                          <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium">
+                                              Label (Optional)
+                                            </label>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0 hover:bg-primary"
+                                              onClick={() => {
+                                                setIsCreatingLabel(true);
+                                                setLabelDropdownOpen(false);
+                                              }}
+                                              title="Create New Label"
+                                            >
+                                              <span className="text-lg font-semibold">+</span>
+                                            </Button>
+                                          </div>
                                           {isCreatingLabel ? (
                                             <div className="space-y-2">
                                               <Input
                                                 placeholder="Label name..."
                                                 value={newLabelName}
-                                                onChange={(e) => setNewLabelName(e.target.value)}
+                                                onChange={(e) =>
+                                                  setNewLabelName(
+                                                    e.target.value
+                                                  )
+                                                }
                                                 className="h-8 text-sm"
                                               />
                                               <div className="flex gap-2">
                                                 {PRESET_COLORS.map((color) => (
                                                   <button
                                                     key={color}
-                                                    className={`h-8 w-8 rounded-lg transition-all border-2 ${newLabelColor === color
-                                                      ? "border-foreground scale-110"
-                                                      : "border-transparent hover:scale-105"
-                                                      }`}
-                                                    style={{ backgroundColor: color }}
-                                                    onClick={() => setNewLabelColor(color)}
+                                                    className={`h-8 w-8 rounded-lg transition-all border-2 ${
+                                                      newLabelColor === color
+                                                        ? "border-foreground scale-110"
+                                                        : "border-transparent hover:scale-105"
+                                                    }`}
+                                                    style={{
+                                                      backgroundColor: color,
+                                                    }}
+                                                    onClick={() =>
+                                                      setNewLabelColor(color)
+                                                    }
                                                   />
                                                 ))}
                                               </div>
@@ -3160,39 +4237,75 @@ export function WorkloadBoard({
                                                   onClick={async () => {
                                                     if (newLabelName.trim()) {
                                                       try {
-                                                        const organizationIdNum = getOrganizationId();
-                                                        const boardIdNum = Number(boardId);
+                                                        const organizationIdNum =
+                                                          getOrganizationId();
+                                                        const boardIdNum =
+                                                          Number(boardId);
 
-                                                        if (organizationIdNum === null) {
-                                                          toast.error("Organization not found");
+                                                        if (
+                                                          organizationIdNum ===
+                                                          null
+                                                        ) {
+                                                          toast.error(
+                                                            "Organization not found"
+                                                          );
                                                           return;
                                                         }
 
                                                         // Call API to create label
-                                                        const createdLabel = await cmsApi.createLabel({
-                                                          label_name: newLabelName.trim(),
-                                                          label_color: newLabelColor,
-                                                          organization_id: organizationIdNum,
-                                                          board_id: boardIdNum,
-                                                        });
+                                                        const createdLabel =
+                                                          await cmsApi.createLabel(
+                                                            {
+                                                              label_name:
+                                                                newLabelName.trim(),
+                                                              label_color:
+                                                                newLabelColor,
+                                                              organization_id:
+                                                                organizationIdNum,
+                                                              board_id:
+                                                                boardIdNum,
+                                                            }
+                                                          );
 
                                                         // Add new label to the list
-                                                        setLabels((prevLabels) => [...prevLabels, createdLabel]);
-                                                        setEditGroupLabelInput(createdLabel.label_name);
-                                                        setEditGroupLabelColorInput(createdLabel.label_color);
+                                                        setLabels(
+                                                          (prevLabels) => [
+                                                            ...prevLabels,
+                                                            createdLabel,
+                                                          ]
+                                                        );
+                                                        setEditGroupLabelInput(
+                                                          createdLabel.label_name
+                                                        );
+                                                        setEditGroupLabelColorInput(
+                                                          createdLabel.label_color
+                                                        );
 
                                                         // Reset form and exit creation mode
                                                         setNewLabelName("");
-                                                        setNewLabelColor("#FF0000");
-                                                        setIsCreatingLabel(false);
+                                                        setNewLabelColor(
+                                                          "#FF0000"
+                                                        );
+                                                        setIsCreatingLabel(
+                                                          false
+                                                        );
 
                                                         // Reopen dropdown to show the new label
-                                                        setLabelDropdownOpen(true);
+                                                        setLabelDropdownOpen(
+                                                          true
+                                                        );
 
-                                                        toast.success("Label created successfully");
+                                                        toast.success(
+                                                          "Label created successfully"
+                                                        );
                                                       } catch (error) {
-                                                        console.error("Failed to create label:", error);
-                                                        toast.error("Failed to create label");
+                                                        console.error(
+                                                          "Failed to create label:",
+                                                          error
+                                                        );
+                                                        toast.error(
+                                                          "Failed to create label"
+                                                        );
                                                       }
                                                     }
                                                   }}
@@ -3202,7 +4315,12 @@ export function WorkloadBoard({
                                               </div>
                                             </div>
                                           ) : (
-                                            <DropdownMenu open={labelDropdownOpen} onOpenChange={setLabelDropdownOpen}>
+                                            <DropdownMenu
+                                              open={labelDropdownOpen}
+                                              onOpenChange={
+                                                setLabelDropdownOpen
+                                              }
+                                            >
                                               <DropdownMenuTrigger asChild>
                                                 <Button
                                                   variant="outline"
@@ -3213,54 +4331,67 @@ export function WorkloadBoard({
                                                       <div
                                                         className="w-3 h-3 rounded-full flex-shrink-0"
                                                         style={{
-                                                          backgroundColor: editGroupLabelColorInput,
+                                                          backgroundColor:
+                                                            editGroupLabelColorInput,
                                                         }}
                                                       />
-                                                      <span>{editGroupLabelInput}</span>
+                                                      <span>
+                                                        {editGroupLabelInput}
+                                                      </span>
                                                     </div>
                                                   ) : (
-                                                    <span className="text-muted-foreground">Select a label...</span>
+                                                    <span className="text-muted-foreground">
+                                                      Select a label...
+                                                    </span>
                                                   )}
                                                 </Button>
                                               </DropdownMenuTrigger>
-                                              <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto" align="start">
+                                              <DropdownMenuContent
+                                                className="w-56 max-h-64 overflow-y-auto"
+                                                align="start"
+                                              >
                                                 <DropdownMenuItem
                                                   onClick={() => {
                                                     setEditGroupLabelInput("");
-                                                    setEditGroupLabelColorInput("#3b82f6");
+                                                    setEditGroupLabelColorInput(
+                                                      "#3b82f6"
+                                                    );
                                                   }}
                                                 >
-                                                  <span className="text-muted-foreground">No Label</span>
+                                                  <span className="text-muted-foreground">
+                                                    No Label
+                                                  </span>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
-                                                {Array.isArray(labels) && labels.map((label) => (
-                                                  <DropdownMenuItem
-                                                    key={`label-${label.id}`}
-                                                    onClick={() => {
-                                                      setEditGroupLabelInput(label.label_name);
-                                                      setEditGroupLabelColorInput(label.label_color);
-                                                      setLabelDropdownOpen(false);
-                                                    }}
-                                                    className="flex items-center gap-2"
-                                                  >
-                                                    <div
-                                                      className="w-3 h-3 rounded-full flex-shrink-0"
-                                                      style={{
-                                                        backgroundColor: label.label_color,
+                                                {Array.isArray(labels) &&
+                                                  labels.map((label) => (
+                                                    <DropdownMenuItem
+                                                      key={`label-${label.id}`}
+                                                      onClick={() => {
+                                                        setEditGroupLabelInput(
+                                                          label.label_name
+                                                        );
+                                                        setEditGroupLabelColorInput(
+                                                          label.label_color
+                                                        );
+                                                        setLabelDropdownOpen(
+                                                          false
+                                                        );
                                                       }}
-                                                    />
-                                                    <span>{label.label_name}</span>
-                                                  </DropdownMenuItem>
-                                                ))}
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                  onClick={() => {
-                                                    setIsCreatingLabel(true);
-                                                    setLabelDropdownOpen(false);
-                                                  }}
-                                                >
-                                                  <span className="text-primary">+ Add New Label</span>
-                                                </DropdownMenuItem>
+                                                      className="flex items-center gap-2"
+                                                    >
+                                                      <div
+                                                        className="w-3 h-3 rounded-full flex-shrink-0"
+                                                        style={{
+                                                          backgroundColor:
+                                                            label.label_color,
+                                                        }}
+                                                      />
+                                                      <span>
+                                                        {label.label_name}
+                                                      </span>
+                                                    </DropdownMenuItem>
+                                                  ))}
                                               </DropdownMenuContent>
                                             </DropdownMenu>
                                           )}
@@ -3277,7 +4408,9 @@ export function WorkloadBoard({
                                               setEditGroupNameInput("");
                                               setEditGroupColorInput("#3b82f6");
                                               setEditGroupLabelInput("");
-                                              setEditGroupLabelColorInput("#3b82f6");
+                                              setEditGroupLabelColorInput(
+                                                "#3b82f6"
+                                              );
                                             }}
                                           >
                                             Cancel
@@ -3299,24 +4432,29 @@ export function WorkloadBoard({
 
                                 {/* Group Progress Bar - Time Spent vs Estimated Time */}
                                 {(() => {
+                                  // Use timerUpdateTrigger to force recalculation when timer updates
                                   const progress = calculateGroupProgress(
                                     group.tasks
                                   );
+                                  // Access timerUpdateTrigger to create dependency
+                                  void timerUpdateTrigger;
                                   return (
-                                    <div className="flex items-center gap-2 flex-1 ml-4">
-                                      <Progress
-                                        value={progress.percentage}
-                                        className="h-2 flex-1 max-w-[200px]"
-                                      />
-                                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                    <div className="flex items-center gap-3 flex-1 ml-4">
+                                      <div className="flex-1 max-w-[250px]">
+                                        <Progress
+                                          value={progress.percentage}
+                                          className="h-2"
+                                        />
+                                      </div>
+                                      <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
                                         {formatSecondsToTime(
                                           progress.timeSpentSeconds
                                         )}{" "}
                                         /{" "}
                                         {progress.estimatedTimeSeconds > 0
                                           ? formatSecondsToTime(
-                                            progress.estimatedTimeSeconds
-                                          )
+                                              progress.estimatedTimeSeconds
+                                            )
                                           : "—"}
                                       </span>
                                     </div>
@@ -3326,10 +4464,20 @@ export function WorkloadBoard({
 
                               {/* Task Table */}
                               {expandedGroups[group.id] && (
-                                <table
-                                  className="w-full"
-                                  style={{ tableLayout: "fixed" }}
+                                <div 
+                                  className="overflow-x-auto w-full scrollbar-hide"
+                                  ref={(el) => {
+                                    if (el) tableScrollRefs.current[group.id] = el;
+                                  }}
+                                  onScroll={(e) => {
+                                    const target = e.currentTarget as HTMLDivElement;
+                                    handleTableScroll(group.id, target.scrollLeft);
+                                  }}
                                 >
+                                  <table
+                                    className="w-full"
+                                    style={{ tableLayout: "fixed" }}
+                                  >
                                   {/* Table head */}
                                   {/* <thead className="border-b border-border bg-muted/30">
                                       <tr className="text-sm text-muted-foreground">
@@ -3363,9 +4511,9 @@ export function WorkloadBoard({
                                       items={workloadColumns.map((c) => c.id)}
                                       strategy={horizontalListSortingStrategy}
                                     >
-                                      <thead className="border-b border-border bg-muted/30">
+                                      <thead className="border-b border-border bg-muted/30   top-0 z-30">
                                         <tr className="text-sm text-muted-foreground">
-                                          <th className="p-4 w-12 border-r border-border text-center">
+                                          <th className="p-4 w-12 border-r border-border text-center sticky left-0 z-10 bg-card">
                                             <input
                                               type="checkbox"
                                               checked={
@@ -3381,23 +4529,20 @@ export function WorkloadBoard({
                                                   string,
                                                   boolean
                                                 > = {};
-                                                group.tasks.forEach(
-                                                  (task) => {
-                                                    updatedChecked[task.id] =
-                                                      e.target.checked;
-                                                    // Also select/deselect subitems
-                                                    if (task.subitems) {
-                                                      task.subitems.forEach(
-                                                        (subitem) => {
-                                                          updatedChecked[
-                                                            subitem.id
-                                                          ] =
-                                                            e.target.checked;
-                                                        }
-                                                      );
-                                                    }
+                                                group.tasks.forEach((task) => {
+                                                  updatedChecked[task.id] =
+                                                    e.target.checked;
+                                                  // Also select/deselect subitems
+                                                  if (task.subitems) {
+                                                    task.subitems.forEach(
+                                                      (subitem) => {
+                                                        updatedChecked[
+                                                          subitem.id
+                                                        ] = e.target.checked;
+                                                      }
+                                                    );
                                                   }
-                                                );
+                                                });
                                                 setCheckedTasks((prev) => ({
                                                   ...prev,
                                                   ...updatedChecked,
@@ -3410,8 +4555,11 @@ export function WorkloadBoard({
                                             <SortableColumnHeader
                                               key={col.id}
                                               column={col}
-                                              onToggleCollapse={() => toggleCollapseColumn(col.id)}
+                                              onToggleCollapse={() =>
+                                                toggleCollapseColumn(col.id)
+                                              }
                                               onStartResize={startColumnResize}
+                                              onColumnLabelChange={handleColumnLabelChange}
                                             />
                                           ))}
                                         </tr>
@@ -3433,13 +4581,18 @@ export function WorkloadBoard({
                                         <React.Fragment key={task.id}>
                                           {/* ================= TASK ROW ================= */}
                                           <tr
-                                            className="border-t border-b border-border hover:bg-muted/40 cursor-pointer"
+                                            className="border-t border-b border-border hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
                                             onClick={() => {
                                               setSelectedTaskId(task.id);
                                               setSheetTaskCardOpen(true);
                                             }}
                                           >
-                                            <td className="p-4 text-center border-r border-border" onClick={(e) => e.stopPropagation()}>
+                                            <td
+                                              className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                            >
                                               <input
                                                 type="checkbox"
                                                 checked={
@@ -3460,12 +4613,15 @@ export function WorkloadBoard({
                                                 className={cn(
                                                   "p-4 border-r border-border last:border-r-0",
                                                   col.align === "center" &&
-                                                  "text-center",
+                                                    "text-center",
                                                   col.align === "left" &&
-                                                  "text-left"
+                                                    "text-left",
+                                                  col.id === "item" && "sticky left-12 z-10 bg-card"
                                                 )}
                                                 style={{ width: col.width }}
-                                                onClick={(e) => e.stopPropagation()}
+                                                onClick={(e) =>
+                                                  e.stopPropagation()
+                                                }
                                               >
                                                 {col.collapsed ? (
                                                   <div className="flex items-center justify-center">
@@ -3473,7 +4629,9 @@ export function WorkloadBoard({
                                                       className="h-6 w-6 rounded-sm   flex items-center justify-center"
                                                       onClick={(e) => {
                                                         e.stopPropagation();
-                                                        toggleCollapseColumn(col.id);
+                                                        toggleCollapseColumn(
+                                                          col.id
+                                                        );
                                                       }}
                                                       aria-label={`Expand ${col.label}`}
                                                       title={`Expand ${col.label}`}
@@ -3496,19 +4654,25 @@ export function WorkloadBoard({
                                                 boardId: boardId,
                                                 activeTimerId: activeTimerId,
                                                 onTimerStart: handleTimerStart,
-                                                onTimerConflict: handleTimerConflict,
+                                                onTimerConflict:
+                                                  handleTimerConflict,
                                               };
                                               return (
                                                 <tr
                                                   key={subtask.id}
-                                                  className="  hover:bg-muted/30 border-b border-border"
+                                                  className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 border-b border-border transition-colors"
                                                 >
-                                                  <td className="p-4 text-center border-r border-border" onClick={(e) => e.stopPropagation()}>
+                                                  <td
+                                                    className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
+                                                    onClick={(e) =>
+                                                      e.stopPropagation()
+                                                    }
+                                                  >
                                                     <input
                                                       type="checkbox"
                                                       checked={
                                                         checkedTasks[
-                                                        subtask.id
+                                                          subtask.id
                                                         ] || false
                                                       }
                                                       onChange={(e) =>
@@ -3520,37 +4684,49 @@ export function WorkloadBoard({
                                                     />
                                                   </td>
 
-                                                  {workloadColumns.map((col) => (
-                                                    <td
-                                                      key={col.id}
-                                                      className={cn(
-                                                        "p-4 border-r border-border last:border-r-0",
-                                                        col.align === "center" &&
-                                                        "text-center",
-                                                        col.align === "left" &&
-                                                        "text-left"
-                                                      )}
-                                                      onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                      {col.collapsed ? (
-                                                        <div className="flex items-center justify-center">
-                                                          <button
-                                                            className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
-                                                            onClick={(e) => {
-                                                              e.stopPropagation();
-                                                              toggleCollapseColumn(col.id);
-                                                            }}
-                                                            aria-label={`Expand ${col.label}`}
-                                                            title={`Expand ${col.label}`}
-                                                          >
-                                                            <ChevronRight className="h-3 w-3" />
-                                                          </button>
-                                                        </div>
-                                                      ) : (
-                                                        col.render(subtaskWithProps, true)
-                                                      )}
-                                                    </td>
-                                                  ))}
+                                                  {workloadColumns.map(
+                                                    (col) => (
+                                                      <td
+                                                        key={col.id}
+                                                        className={cn(
+                                                          "p-4 border-r border-border last:border-r-0",
+                                                          col.align ===
+                                                            "center" &&
+                                                            "text-center",
+                                                          col.align ===
+                                                            "left" &&
+                                                            "text-left",
+                                                          col.id === "item" && "sticky left-12 z-10 bg-card"
+                                                        )}
+                                                        onClick={(e) =>
+                                                          e.stopPropagation()
+                                                        }
+                                                      >
+                                                        {col.collapsed ? (
+                                                          <div className="flex items-center justify-center">
+                                                            <button
+                                                              className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleCollapseColumn(
+                                                                  col.id
+                                                                );
+                                                              }}
+                                                              aria-label={`Expand ${col.label}`}
+                                                              title={`Expand ${col.label}`}
+                                                            >
+                                                              <ChevronRight className="h-3 w-3" />
+                                                            </button>
+                                                          </div>
+                                                        ) : (
+                                                          col.render(
+                                                            subtaskWithProps,
+                                                            true
+                                                          )
+                                                        )}
+                                                      </td>
+                                                    )
+                                                  )}
                                                 </tr>
                                               );
                                             })}
@@ -3558,15 +4734,15 @@ export function WorkloadBoard({
                                           {/* ================= ADD SUBITEM ================= */}
                                           {expandedTasks[task.id] && (
                                             <tr>
-                                              <td className="p-4 text-center border-r border-border">
+                                              <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
                                                 {/* Empty Cell */}
                                               </td>
                                               <td
-                                                colSpan={totalColumns}
-                                                className="p-4 border-t border-border"
+                                                colSpan={2}
+                                                className="p-4 border-t border-border sticky left-12 z-10 bg-card"
                                               >
                                                 {addingSubitemToTask ===
-                                                  task.id ? (
+                                                task.id ? (
                                                   <div className="flex items-center gap-2 pl-8">
                                                     <span className="text-muted-foreground">
                                                       └
@@ -3642,12 +4818,12 @@ export function WorkloadBoard({
 
                                     {/* ================= ADD ITEM ROW ================= */}
                                     <tr>
-                                      <td className="p-4 text-center border-r border-border">
+                                      <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
                                         {/* Empty Cell */}
                                       </td>
                                       <td
-                                        colSpan={totalColumns}
-                                        className="p-4 border-t border-border"
+                                        colSpan={2}
+                                        className="p-4 border-t border-border sticky left-12 z-10 bg-card"
                                       >
                                         {addingItemToGroup === group.id ? (
                                           <Input
@@ -3679,6 +4855,10 @@ export function WorkloadBoard({
                                           <button
                                             onClick={() => {
                                               setAddingItemToGroup(group.id);
+                                              // Scroll the main flex container to the right
+                                              if (mainFlexContainerRef.current) {
+                                                mainFlexContainerRef.current.scrollLeft = mainFlexContainerRef.current.scrollWidth;
+                                              }
                                             }}
                                             className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 "
                                           >
@@ -3691,6 +4871,7 @@ export function WorkloadBoard({
                                     </tr>
                                   </tbody>
                                 </table>
+                                </div>
                               )}
                             </div>
                           )}
@@ -3701,12 +4882,36 @@ export function WorkloadBoard({
                 </SortableContext>
               </DndContext>
             </div>
-          </div>
-        )}
 
-        {/* Other Views */}
-        {activeTab !== "Main Table" && (
-          <div className="flex-1 overflow-auto p-6">
+        {/* Unified Horizontal Scrollbar at Bottom */}
+        <div 
+          className="h-5 overflow-x-scroll border-t border-border bg-muted flex-shrink-0"
+          data-unified-scrollbar
+          ref={(el) => {
+            if (el && Object.keys(tableScrollRefs.current).length > 0) {
+              const firstTableRef = Object.values(tableScrollRefs.current)[0];
+              if (firstTableRef) {
+                el.scrollLeft = firstTableRef.scrollLeft;
+              }
+            }
+          }}
+          onScroll={(e) => {
+            const scrollLeft = e.currentTarget.scrollLeft;
+            Object.values(tableScrollRefs.current).forEach((ref) => {
+              if (ref) {
+                ref.scrollLeft = scrollLeft;
+              }
+            });
+          }}
+        >
+          <div style={{ width: `${maxScrollWidth}px`, height: "1px" }} />
+        </div>
+        </div>
+      )}
+
+      {/* Other Views */}
+      {activeTab !== "Main Table" && (
+        <div className="flex-1 overflow-auto p-6">
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Active Tab: {activeTab}</h2>
               <p className="text-sm text-muted-foreground">
@@ -3735,7 +4940,6 @@ export function WorkloadBoard({
             </div>
           </div>
         )}
-      </div>
 
       {/* ALL DIALOGS WILL GO HERE */}
       {/* New Group Dialog */}
@@ -3751,10 +4955,11 @@ export function WorkloadBoard({
                 {PRESET_COLORS.map((color) => (
                   <button
                     key={color}
-                    className={`h-10 w-10 rounded-lg transition-all border-2 ${newGroupColorInput === color
-                      ? "border-foreground scale-110"
-                      : "border-transparent hover:scale-105"
-                      }`}
+                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
+                      newGroupColorInput === color
+                        ? "border-foreground scale-110"
+                        : "border-transparent hover:scale-105"
+                    }`}
                     style={{ backgroundColor: color }}
                     onClick={() => setNewGroupColorInput(color)}
                   />
@@ -3800,6 +5005,9 @@ export function WorkloadBoard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/*  Profile Details Dialog */}
+      <ProfileDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
 
       {/* Delete Group Confirmation Dialog */}
       <Dialog
@@ -3915,15 +5123,19 @@ export function WorkloadBoard({
       </Dialog>
 
       {/* Timer Conflict Dialog */}
-      <Dialog open={timerConflictDialogOpen} onOpenChange={setTimerConflictDialogOpen}>
+      <Dialog
+        open={timerConflictDialogOpen}
+        onOpenChange={setTimerConflictDialogOpen}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Timer Already Running</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-foreground">
-              Another timer is already running on "<strong>{conflictingTaskName}</strong>".
-              Please stop it first before starting a new timer.
+              Another timer is already running on "
+              <strong>{conflictingTaskName}</strong>". Please stop it first
+              before starting a new timer.
             </p>
           </div>
           <DialogFooter>
@@ -3936,489 +5148,26 @@ export function WorkloadBoard({
 
       {/* ALL SHEETS WILL GO HERE */}
       {/* Comments Panel Sheet */}
-      <Sheet
+      <CommentsPanelSheet
         open={commentsPanelOpen}
         onOpenChange={setCommentsPanelOpen}
-        modal={false}
-      >
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-2xl p-0"
-          showOverlay={false}
-        >
-          <div className="flex flex-col h-full">
-            <SheetHeader className="px-6 py-4 border-b border-border">
-              <div className="flex items-center justify-between">
-                <SheetTitle className="text-2xl font-semibold">
-                  {getTaskById(selectedTaskId)?.name || "Task Details"}
-                </SheetTitle>
-                <div className="flex items-center gap-4">
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </SheetHeader>
-
-            <Tabs
-              defaultValue="updates"
-              className="flex-1 flex flex-col min-h-0"
-            >
-              <div className="px-6 border-b border-border">
-                <TabsList className="w-full justify-start h-12 bg-transparent p-0">
-                  <TabsTrigger
-                    value="updates"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-                  >
-                    <Home className="h-4 w-4 mr-2" />
-                    Dev Updates
-                  </TabsTrigger>
-
-                  <TabsTrigger
-                    value="client-updates"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-                  >
-                    <RefreshCcw className="h-4 w-4 mr-2" />
-                    Client Updates
-                  </TabsTrigger>
-
-                  <Button
-                    variant="ghost"
-                    className="rounded-none border-b-2 border-transparent hover:bg-transparent h-auto py-3 px-4"
-                    onClick={() => {
-                      setCommentsPanelOpen(false);
-                      setSheetTaskCardOpen(true);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Task
-                  </Button>
-
-                  <TabsTrigger
-                    value="activity"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-                  >
-                    <Activity className="h-4 w-4 mr-2" />
-                    Activity Log
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent
-                value="updates"
-                className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0"
-              >
-                <div className="px-6 pt-2 pb-4 border-b border-border relative z-10 flex flex-col gap-2">
-                  {replyingTo && (
-                    <div className="flex items-center justify-between text-xs bg-muted/50 p-2 rounded border border-border">
-                      <div className="flex items-center gap-2 text-muted-foreground truncate">
-                        <span>Replying to <strong>{replyingTo.user?.name}</strong></span>
-                        <span className="truncate opacity-70 italic" dangerouslySetInnerHTML={{ __html: replyingTo.content.substring(0, 50) + (replyingTo.content.length > 50 ? '...' : '') }} />
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 w-5 p-0 hover:bg-transparent"
-                        onClick={() => setReplyingTo(null)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
-                  <MentionRichTextEditor
-                    placeholder={replyingTo ? "Write a reply..." : "Write an update and mention others with @"}
-                    value={updateText}
-                    onChange={setUpdateText}
-                    availablePeople={[]}
-                    files={updateFiles}
-                    onFilesChange={setUpdateFiles}
-                  />
-                </div>
-                <div className="flex items-center justify-between px-6 pt-3">
-                  <div className="flex items-center gap-2">
-                    <FileUploadDropdown
-                      onFileSelect={(fileInfo) => {
-                        setUpdateFiles((prev) => [...prev, fileInfo]);
-                      }}
-                    />
-                    <GifPicker
-                      onGifSelect={(gifUrl) =>
-                        setUpdateText(
-                          (prev) =>
-                            prev +
-                            `<img src="${gifUrl}" alt="GIF" style="max-width: 200px; border-radius: 8px;" />`
-                        )
-                      }
-                    />
-                    <EmojiPicker
-                      onEmojiSelect={(emoji) =>
-                        setUpdateText((prev) => prev + emoji)
-                      }
-                    />
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                    // onClick={() => mentionEditorRef.current?.showMentionDropdown()}
-                    >
-                      <AtSign className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </div>
-                  <Button
-                    onClick={saveUpdate}
-                    disabled={!updateText.trim()}
-                    className="bg-primary hover:bg-primary/90"
-                  >
-                    Update
-                  </Button>
-                </div>
-
-                <div className="flex-1 overflow-auto px-6 py-4">
-                  {isLoadingComments ? (
-                    <div className="flex items-center justify-center py-8">
-                      <p className="text-sm text-muted-foreground">Loading updates...</p>
-                    </div>
-                  ) : comments.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-sm text-muted-foreground">
-                        No updates yet. Be the first to add one!
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-8">
-                      {comments
-                        .filter((c) => !c.parent_id) // Root comments
-                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                        .map((comment) => {
-                          // Helper to find all descendants of a comment to show them flat in this thread
-                          const getDescendants = (parentId: string | number): TaskComment[] => {
-                            const directChildren = comments.filter(c => String(c.parent_id) === String(parentId));
-                            let allDescendants = [...directChildren];
-                            directChildren.forEach(child => {
-                              allDescendants = [...allDescendants, ...getDescendants(child.id)];
-                            });
-                            return allDescendants;
-                          };
-
-                          const allThreadComments = getDescendants(comment.id).sort(
-                            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-                          );
-
-                          const isExpanded = expandedThreads[comment.id];
-                          const visibleReplies = isExpanded ? allThreadComments :
-                            (allThreadComments.length > 2 ? [allThreadComments[allThreadComments.length - 1]] : allThreadComments);
-                          const hiddenCount = allThreadComments.length - visibleReplies.length;
-
-                          // Check if currently replying to ANY comment within this specific thread
-                          const isReplyingInThisThread = inlineReplyId && (
-                            String(inlineReplyId) === String(comment.id) ||
-                            allThreadComments.some(rtc => String(rtc.id) === String(inlineReplyId))
-                          );
-
-                          return (
-                            <div key={comment.id} className="space-y-4 relative">
-                              {/* Main Comment */}
-                              <div className="flex gap-4 group relative z-10">
-                                <Avatar className="h-10 w-10 shrink-0 border border-border/50 shadow-sm relative z-10">
-                                  <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                                    {comment.user?.name?.charAt(0).toUpperCase() || "U"}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 space-y-1.5 min-w-0">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-sm font-semibold text-foreground">
-                                        {comment.user?.name || "Unknown User"}
-                                      </span>
-                                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                                        {comment.created_at ? format(new Date(comment.created_at), "MMM d, h:mm a") : ""}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-muted">
-                                            <MoreHorizontal className="h-3.5 w-3.5" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                          <DropdownMenuItem
-                                            onClick={() => {
-                                              setInlineReplyId(comment.id);
-                                              setInlineReplyText("");
-                                            }}
-                                          >
-                                            Reply
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            className="text-destructive focus:text-destructive"
-                                            onClick={() => handleDeleteComment(comment.id)}
-                                          >
-                                            <Trash2 className="h-4 w-4 mr-2" />
-                                            Delete
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    </div>
-                                  </div>
-                                  {editingCommentId === comment.id ? (
-                                    <div className="space-y-3 pt-2 mr-4">
-                                      <MentionRichTextEditor
-                                        value={editCommentText}
-                                        onChange={setEditCommentText}
-                                        placeholder="Edit your comment..."
-                                        availablePeople={[]}
-                                      />
-                                      <div className="flex gap-2">
-                                        <Button
-                                          size="sm"
-                                          className="h-8 text-xs px-4"
-                                          onClick={() => {
-                                            updateTaskComment(comment.id, editCommentText);
-                                            setEditingCommentId(null);
-                                          }}
-                                          disabled={!editCommentText.trim()}
-                                        >
-                                          Save
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-8 text-xs px-3"
-                                          onClick={() => setEditingCommentId(null)}
-                                        >
-                                          Cancel
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <div
-                                        className="text-sm text-foreground/90 leading-relaxed break-words pr-4"
-                                        dangerouslySetInnerHTML={{ __html: comment.content }}
-                                      />
-                                      <div className="pt-0.5 flex items-center gap-4">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-7 px-2 -ml-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
-                                          onClick={() => {
-                                            setInlineReplyId(comment.id);
-                                            setInlineReplyText("");
-                                          }}
-                                        >
-                                          <MessageCirclePlus className="h-3.5 w-3.5 mr-1.5" />
-                                          Reply
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-7 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
-                                          onClick={() => {
-                                            setEditingCommentId(comment.id);
-                                            setEditCommentText(comment.content);
-                                          }}
-                                        >
-                                          <Pencil className="h-3 w-3 mr-1.5" />
-                                          Edit
-                                        </Button>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Tread Guide Line */}
-                              {allThreadComments.length > 0 && (
-                                <div className="absolute left-[19px] top-10 bottom-4 w-0.5 bg-muted/40 z-0" />
-                              )}
-
-                              {/* Collapse/Expand Information */}
-                              {allThreadComments.length > 1 && hiddenCount > 0 && (
-                                <div className="pl-14 py-1 relative z-10">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-3 text-xs text-primary bg-primary/5 hover:bg-primary/10 transition-colors flex items-center gap-2"
-                                    onClick={() => setExpandedThreads(prev => ({ ...prev, [comment.id]: true }))}
-                                  >
-                                    <RefreshCcw className="h-3 w-3" />
-                                    Show {hiddenCount} more {hiddenCount === 1 ? 'reply' : 'replies'}
-                                  </Button>
-                                </div>
-                              )}
-
-                              {/* Replies Container */}
-                              <div className="pl-14 space-y-4 relative z-10">
-                                {visibleReplies.map((reply) => (
-                                  <div key={reply.id} className="flex gap-3 group relative py-1">
-                                    {/* Horizontal Connection Line */}
-                                    <div className="absolute -left-[37px] top-5 w-5 h-0.5 bg-muted/40" />
-
-                                    <Avatar className="h-8 w-8 shrink-0 border border-border/50 shadow-sm">
-                                      <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-semibold">
-                                        {reply.user?.name?.charAt(0).toUpperCase() || "U"}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex-1 space-y-0.5 min-w-0">
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-sm font-semibold text-foreground/80">
-                                            {reply.user?.name || "Unknown User"}
-                                          </span>
-                                          <span className="text-[10px] text-muted-foreground italic">
-                                            {reply.created_at ? format(new Date(reply.created_at), "MMM d, h:mm a") : ""}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted">
-                                                <MoreHorizontal className="h-3 w-3" />
-                                              </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                              <DropdownMenuItem
-                                                onClick={() => {
-                                                  setInlineReplyId(reply.id);
-                                                  setInlineReplyText("");
-                                                }}
-                                              >
-                                                Reply
-                                              </DropdownMenuItem>
-                                              <DropdownMenuItem
-                                                className="text-destructive focus:text-destructive"
-                                                onClick={() => handleDeleteComment(reply.id)}
-                                              >
-                                                <Trash2 className="h-4 w-4 mr-2" />
-                                                Delete
-                                              </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                          </DropdownMenu>
-                                        </div>
-                                      </div>
-                                      {editingCommentId === reply.id ? (
-                                        <div className="space-y-3 pt-2">
-                                          <MentionRichTextEditor
-                                            value={editCommentText}
-                                            onChange={setEditCommentText}
-                                            placeholder="Edit your reply..."
-                                            availablePeople={[]}
-                                          />
-                                          <div className="flex gap-2">
-                                            <Button
-                                              size="sm"
-                                              className="h-8 text-xs px-4"
-                                              onClick={() => {
-                                                updateTaskComment(reply.id, editCommentText);
-                                                setEditingCommentId(null);
-                                              }}
-                                              disabled={!editCommentText.trim()}
-                                            >
-                                              Save
-                                            </Button>
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-8 text-xs px-3"
-                                              onClick={() => setEditingCommentId(null)}
-                                            >
-                                              Cancel
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <>
-                                          <div
-                                            className="text-sm text-foreground/80 leading-relaxed break-words"
-                                            dangerouslySetInnerHTML={{ __html: reply.content }}
-                                          />
-                                          <div className="pt-0.5 flex items-center gap-4">
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-6 px-1.5 -ml-1.5 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
-                                              onClick={() => {
-                                                setInlineReplyId(reply.id);
-                                                setInlineReplyText("");
-                                              }}
-                                            >
-                                              Reply
-                                            </Button>
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
-                                              onClick={() => {
-                                                setEditingCommentId(reply.id);
-                                                setEditCommentText(reply.content);
-                                              }}
-                                            >
-                                              Edit
-                                            </Button>
-                                          </div>
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-
-                                {/* Inline reply editor */}
-                                {isReplyingInThisThread && (
-                                  <div className="mt-4 mr-4 bg-muted/30 p-4 rounded-xl border border-border/50 shadow-inner relative transition-all animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <div className="mb-3 flex items-center justify-between">
-                                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-primary/80">
-                                        Replying to {comments.find(c => String(c.id) === String(inlineReplyId))?.user?.name || "User"}
-                                      </span>
-                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-background" onClick={() => setInlineReplyId(null)}>
-                                        <X className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                    <MentionRichTextEditor
-                                      placeholder="Write a reply..."
-                                      value={inlineReplyText}
-                                      onChange={setInlineReplyText}
-                                      availablePeople={[]}
-                                    />
-                                    <div className="mt-3 flex justify-end gap-2">
-                                      <Button variant="ghost" size="sm" className="h-8 text-xs px-3" onClick={() => setInlineReplyId(null)}>
-                                        Cancel
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        className="h-8 text-xs px-4 font-semibold"
-                                        onClick={() => saveInlineReply(inlineReplyId!)}
-                                        disabled={!inlineReplyText.trim()}
-                                      >
-                                        Reply
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              {/* <TabsContent
-                value="activity"
-                className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0"
-              >
-                <div className="px-6 pt-4 pb-4">
-                  <p className="text-sm text-muted-foreground">
-                    Activity log for this task will appear here.
-                  </p>
-                </div>
-              </TabsContent> */}
-            </Tabs>
-          </div>
-        </SheetContent>
-      </Sheet>
+        taskName={getTaskById(selectedTaskId)?.name || "Task Details"}
+        taskId={selectedTaskId}
+        comments={comments}
+        isLoadingComments={isLoadingComments}
+        updateText={updateText}
+        onUpdateTextChange={setUpdateText}
+        updateFiles={updateFiles}
+        onUpdateFilesChange={setUpdateFiles}
+        onSaveUpdate={saveUpdate}
+        onDeleteComment={handleDeleteComment}
+        onUpdateComment={updateTaskComment}
+        onSaveInlineReply={saveInlineReply}
+        onTaskButtonClick={() => {
+          setCommentsPanelOpen(false);
+          setSheetTaskCardOpen(true);
+        }}
+      />
 
       {/* Bulk Actions Toolbar */}
       {Object.values(checkedTasks).some((checked) => checked) && (

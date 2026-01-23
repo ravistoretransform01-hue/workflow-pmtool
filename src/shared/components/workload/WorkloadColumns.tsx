@@ -6,8 +6,7 @@ import {
   Pencil,
   X,
   Search,
-  Play,
-  Pause,
+  Clock,
 } from "lucide-react";
 import type { Status, Priority } from "@/features/cms/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
@@ -22,6 +21,12 @@ import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { Input } from "@/shared/components/ui/input";
 import { format, parseISO, parse } from "date-fns";
+import { TagsColumnCell } from "./TagsColumnCell";
+import { TimerCell } from "./TimerCell";
+import { ProgressBarCell } from "./ProgressBarCell";
+import { TimePickerInput } from "@/shared/components/TimePickerInput";
+import StatusPopoverCell  from "./StatusPopoverCell";
+import { PriorityPopoverCell } from "./PriorityPopoverCell";
 
 function stringToHslColor(str: string, s = 70, l = 55): string {
   let hash = 0;
@@ -30,128 +35,6 @@ function stringToHslColor(str: string, s = 70, l = 55): string {
   }
   const h = Math.abs(hash) % 360;
   return `hsl(${h} ${s}% ${l}%)`;
-}
-
-// Component for timer/stopwatch
-function Timer({
-  taskId,
-  boardId,
-  activeTimerId,
-  onTimerStart,
-  onTimerConflict,
-}: {
-  taskId: string;
-  boardId: string;
-  activeTimerId: string | null;
-  onTimerStart: (taskId: string | null) => void;
-  onTimerConflict?: (taskId: string) => void;
-}) {
-  const [seconds, setSeconds] = useState(0);
-  const isRunning = activeTimerId === taskId;
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (isRunning) {
-      interval = setInterval(() => {
-        setSeconds((prev) => prev + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isRunning]);
-
-  const formatTime = (totalSeconds: number) => {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    } else {
-      return `${secs}s`;
-    }
-  };
-
-  const handlePlayPause = () => {
-    if (isRunning) {
-      // Pause
-      console.log({
-        taskId,
-        boardId,
-        timestamp: new Date().toISOString(),
-        action: "stop",
-      });
-      onTimerStart(null as any); // Pass null to stop the timer
-    } else {
-      // Play
-      if (activeTimerId && activeTimerId !== taskId) {
-        console.log({
-          taskId,
-          boardId,
-          timestamp: new Date().toISOString(),
-          action: "conflict",
-        });
-        onTimerConflict?.(activeTimerId);
-        return;
-      }
-      console.log({
-        taskId,
-        boardId,
-        timestamp: new Date().toISOString(),
-        action: "play",
-      });
-      onTimerStart(taskId);
-    }
-  };
-
-  // const handleReset = () => {
-  //   setSeconds(0);
-  //   console.log({
-  //     taskId,
-  //     boardId,
-  //     timestamp: new Date().toISOString(),
-  //     action: "reset",
-  //   });
-  // };
-
-  // Determine background color based on timer state
-  let bgColor = "bg-blue-500/50"; // Default: blue
-  if (isRunning) {
-    bgColor = "bg-green-500/50"; // Running: green
-  }
-  // TODO: Add red for overtime when estimatedSeconds is available
-  // if (isOverTime) {
-  //   bgColor = "bg-red-500/50"; // Overtime: red
-  // }
-
-  return (
-    <div
-      className={`flex items-center justify-center gap-2 w-full h-full ${bgColor} rounded`}
-    >
-      <button
-        onClick={handlePlayPause}
-        className="p-2 hover:bg-muted rounded transition-colors"
-        title={isRunning ? "Pause" : "Start"}
-      >
-        {isRunning ? (
-          <Pause className="h-4 w-4 text-foreground" />
-        ) : (
-          <Play className="h-4 w-4 text-foreground" />
-        )}
-      </button>
-      <div className="rounded px-3 py-1 min-w-14 text-center">
-        <span className="text-sm font-medium">{formatTime(seconds)}</span>
-      </div>
-      {/* <button
-        onClick={handleReset}
-        className="p-1 hover:bg-muted rounded transition-colors"
-        title="Reset"
-      >
-        <RotateCcw className="h-4 w-4 text-foreground" />
-      </button> */}
-    </div>
-  );
 }
 
 // Component for person selection with search
@@ -174,11 +57,11 @@ function PersonPopover({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [localSelected, setLocalSelected] = useState<string | null>(
-    selectedMemberIds?.[0] || null
+    selectedMemberIds?.[0] || null,
   );
 
   const filteredMembers = members.filter((member) =>
-    (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+    (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleMemberSelect = (memberId: string) => {
@@ -207,7 +90,7 @@ function PersonPopover({
             <div className="flex justify-center">
               {(() => {
                 const member = members.find(
-                  (m) => String(m.user_id) === String(localSelected)
+                  (m) => String(m.user_id) === String(localSelected),
                 );
                 if (!member) return null;
                 const name = (member?.name ?? "").trim();
@@ -219,7 +102,7 @@ function PersonPopover({
                   .join("")
                   .toUpperCase();
                 const bgColor = stringToHslColor(
-                  name || String(member?.user_id || "user")
+                  name || String(member?.user_id || "user"),
                 );
                 return (
                   <Avatar className="h-8 w-8 border-2 border-background">
@@ -294,7 +177,7 @@ function PersonPopover({
                   .toUpperCase();
 
                 const bgColor = stringToHslColor(
-                  name || String(member?.user_id || "user")
+                  name || String(member?.user_id || "user"),
                 );
 
                 const isSelected = localSelected === String(member.user_id);
@@ -360,6 +243,8 @@ function RatingStars({
   openPopoverId,
   setOpenPopoverId,
   onRatingChange,
+  hasAssignee = false,
+  isDone = false,
 }: {
   task: any;
   rating: number;
@@ -368,17 +253,46 @@ function RatingStars({
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
   onRatingChange?: (taskId: string, rating: number) => void;
+  hasAssignee?: boolean;
+  isDone?: boolean;
 }) {
   const [hoveredRating, setHoveredRating] = useState(0);
+
+  const handleRatingClick = (ratingValue: number) => {
+    if (!hasAssignee) {
+      toast.error("Please assign a person before rating");
+      setOpenPopoverId?.(null);
+      return;
+    }
+    if (!isDone) {
+      toast.error("Task must be marked as Done before rating");
+      setOpenPopoverId?.(null);
+      return;
+    }
+    setOpenPopoverId?.(null);
+    onRatingChange?.(task.id, ratingValue);
+  };
 
   return (
     <Popover
       open={openPopoverId === popoverId}
-      onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+      onOpenChange={(open) => {
+        if (open && !hasAssignee) {
+          toast.error("Please assign a person before rating");
+          return;
+        }
+        if (open && !isDone) {
+          toast.error("Task must be marked as Done before rating");
+          return;
+        }
+        setOpenPopoverId?.(open ? popoverId : null);
+      }}
     >
       <PopoverTrigger asChild>
         <button
-          className="w-full h-8 flex items-center justify-center gap-1"
+          className={`w-full h-8 flex items-center justify-center gap-1 ${
+            !hasAssignee || !isDone ? "opacity-50 cursor-not-allowed" : ""
+          }`}
           aria-label={`Rating ${rating}${
             ratingCount
               ? ` (${ratingCount} rating${ratingCount !== 1 ? "s" : ""})`
@@ -386,10 +300,15 @@ function RatingStars({
           }`}
           onClick={(e) => e.stopPropagation()}
           title={
-            ratingCount
-              ? `${ratingCount} rating${ratingCount !== 1 ? "s" : ""}`
-              : "No ratings"
+            !hasAssignee
+              ? "Assign a person first"
+              : !isDone
+                ? "Task must be marked as Done"
+                : ratingCount
+                  ? `${ratingCount} rating${ratingCount !== 1 ? "s" : ""}`
+                  : "No ratings"
           }
+          disabled={!hasAssignee || !isDone}
         >
           {[1, 2, 3, 4, 5].map((i) => (
             <svg
@@ -422,10 +341,7 @@ function RatingStars({
             {[1, 2, 3, 4, 5].map((i) => (
               <button
                 key={i}
-                onClick={() => {
-                  setOpenPopoverId?.(null);
-                  onRatingChange?.(task.id, i);
-                }}
+                onClick={() => handleRatingClick(i)}
                 onMouseEnter={() => setHoveredRating(i)}
                 onMouseLeave={() => setHoveredRating(0)}
                 className="p-1"
@@ -479,7 +395,7 @@ function EstimatedDatePicker({
   onEstimatedDateChange?: (
     taskId: string,
     fromDate: string | null,
-    toDate?: string | null
+    toDate?: string | null,
   ) => void;
 }) {
   // Initialize date range from task.estimation object or formatted estimatedDate string
@@ -494,26 +410,102 @@ function EstimatedDatePicker({
         return { from, to };
       }
 
-      // Fallback: parse the formatted estimatedDate string (e.g., "15 Jan, 2026  -  19 Jan, 2026")
+      // Fallback: parse the formatted estimatedDate string
       if (estimatedDate && estimatedDate !== "-") {
-        const parts = estimatedDate.split("  -  ");
-        if (parts.length === 2) {
-          // Range format: "15 Jan, 2026  -  19 Jan, 2026"
+        // Try format: "15 Jan, 2026  -  19 Jan, 2026"
+        const doubleSpaceParts = estimatedDate.split("  -  ");
+        if (doubleSpaceParts.length === 2) {
           try {
-            const from = parse(parts[0].trim(), "dd MMM, yyyy", new Date());
-            const to = parse(parts[1].trim(), "dd MMM, yyyy", new Date());
-            return { from, to };
+            const from = parse(
+              doubleSpaceParts[0].trim(),
+              "dd MMM, yyyy",
+              new Date(),
+            );
+            const to = parse(
+              doubleSpaceParts[1].trim(),
+              "dd MMM, yyyy",
+              new Date(),
+            );
+            if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+              return { from, to };
+            }
           } catch {
-            return undefined;
+            // Continue to next format
           }
-        } else if (parts.length === 1) {
-          // Single date format
+        }
+
+        // Try format: "Jan 19 - 30" (same month and year)
+        const singleDashParts = estimatedDate.split(" - ");
+        if (singleDashParts.length === 2) {
           try {
-            const from = parse(parts[0].trim(), "dd MMM, yyyy", new Date());
+            const fromStr = singleDashParts[0].trim();
+            const toStr = singleDashParts[1].trim();
+
+            // Parse "Jan 19" and "30" format
+            const from = parse(fromStr, "MMM d", new Date());
+            const toDay = parseInt(toStr);
+
+            if (!isNaN(from.getTime()) && !isNaN(toDay)) {
+              const to = new Date(from);
+              to.setDate(toDay);
+              return { from, to };
+            }
+          } catch {
+            // Continue to next format
+          }
+        }
+
+        // Try format: "Jan 31 – Feb 15" or "Dec 31, '26 – Jan 8, '27" (with en-dash)
+        const enDashParts = estimatedDate.split("–");
+        if (enDashParts.length === 2) {
+          try {
+            let fromStr = enDashParts[0].trim();
+            let toStr = enDashParts[1].trim();
+
+            // Check if format includes year with apostrophe (e.g., "Dec 30, '26")
+            const hasYearWithApostrophe =
+              /,\s*'?\d{2}$/.test(fromStr) || /,\s*'?\d{2}$/.test(toStr);
+
+            if (hasYearWithApostrophe) {
+              // Remove apostrophes and parse with full year format
+              fromStr = fromStr.replace(/'/g, "");
+              toStr = toStr.replace(/'/g, "");
+
+              // Parse "Dec 30, 26" format - need to handle 2-digit year
+              // date-fns yy format interprets 00-68 as 2000-2068, 69-99 as 1969-1999
+              // So '26 becomes 2026 correctly
+              let from = parse(fromStr, "MMM d, yy", new Date());
+              let to = parse(toStr, "MMM d, yy", new Date());
+
+              if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+                return { from, to };
+              }
+            } else {
+              // Format without year (e.g., "Jan 31 – Feb 15")
+              let from = parse(fromStr, "MMM d", new Date());
+              let to = parse(toStr, "MMM d", new Date());
+
+              if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+                return { from, to };
+              }
+            }
+          } catch (error) {
+            console.warn("Failed to parse en-dash format:", error, {
+              fromStr: enDashParts[0],
+              toStr: enDashParts[1],
+            });
+            // Continue to next format
+          }
+        }
+
+        // Try single date format
+        try {
+          const from = parse(estimatedDate.trim(), "dd MMM, yyyy", new Date());
+          if (!isNaN(from.getTime())) {
             return { from, to: from };
-          } catch {
-            return undefined;
           }
+        } catch {
+          // Continue
         }
       }
 
@@ -530,15 +522,30 @@ function EstimatedDatePicker({
     { from?: Date; to?: Date } | undefined
   >(getInitialDateRange());
 
+  // State to track which month to display in the calendar
+  const [displayMonth, setDisplayMonth] = useState<Date | undefined>(undefined);
+
+  // State for time inputs
+  const [showTimeInputs, setShowTimeInputs] = useState(false);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+
   // Update dateRange when task.estimation changes (e.g., when popover opens)
   useEffect(() => {
     if (openPopoverId === popoverId) {
-      setDateRange(getInitialDateRange());
+      const range = getInitialDateRange();
+      setDateRange(range);
+      // Set display month to the start date of the range, or current month if no range
+      if (range?.from) {
+        setDisplayMonth(range.from);
+      } else {
+        setDisplayMonth(new Date());
+      }
     }
-  }, [openPopoverId, popoverId, task.estimation]);
+  }, [openPopoverId, popoverId, task.estimation, estimatedDate]);
 
   const handleDateRangeChange = (
-    range: { from?: Date; to?: Date } | undefined
+    range: { from?: Date; to?: Date } | undefined,
   ) => {
     setDateRange(range);
   };
@@ -547,6 +554,8 @@ function EstimatedDatePicker({
     if (estimatedDate === "-") return "-";
     // estimatedDate already contains the full formatted range (e.g., "15 Jan, 2026 - 19 Jan, 2026")
     // so just return it as-is
+    // console.log("Estimated Date:", estimatedDate);
+
     return estimatedDate;
   };
 
@@ -557,7 +566,7 @@ function EstimatedDatePicker({
     >
       <PopoverTrigger asChild>
         <div className="w-full" onClick={(e) => e.stopPropagation()}>
-          <button className="w-full bg-muted text-muted-foreground px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
+          <button className="w-full bg-muted text-white px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
             {formatDateDisplay()}
           </button>
         </div>
@@ -567,6 +576,7 @@ function EstimatedDatePicker({
         align="center"
       >
         <div className="space-y-4">
+          {/* Header with title and clock button */}
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-sm">Select Date Range</h3>
             <button
@@ -576,6 +586,43 @@ function EstimatedDatePicker({
               <X className="h-4 w-4" />
             </button>
           </div>
+
+          {/* Time inputs - toggle with clock button */}
+          {showTimeInputs && (
+            <div className="p-4 border-y border-[#334155] space-y-4">
+              {/* Start Time */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white">
+                  Start Time
+                </label>
+                <TimePickerInput
+                  value={startTime}
+                  onChange={(e) => setStartTime(e)}
+                  onBlur={() => {
+                    // Save when field loses focus
+                  }}
+                  placeholder="Type time (e.g., 10:00am)"
+                />
+              </div>
+
+              {/* End Time */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white">
+                  End Time
+                </label>
+                <TimePickerInput
+                  value={endTime}
+                  onChange={(e) => setEndTime(e)}
+                  onBlur={() => {
+                    // Save when field loses focus
+                  }}
+                  placeholder="Type time (e.g., 11:00am)"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Calendar */}
           <Calendar
             mode="range"
             selected={
@@ -587,61 +634,75 @@ function EstimatedDatePicker({
             disabled={(date) =>
               date < new Date(new Date().setHours(0, 0, 0, 0))
             }
+            month={displayMonth}
+            onMonthChange={setDisplayMonth}
           />
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-between items-center">
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setDateRange(undefined);
-                onEstimatedDateChange?.(task.id, null);
-                setOpenPopoverId?.(null);
-              }}
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowTimeInputs(!showTimeInputs)}
+              className={`h-8 w-8 p-0 text-white ${showTimeInputs ? "bg-primary" : "hover:bg-[#4b5563]"}`}
+              title="Toggle time inputs"
             >
-              Clear
+              <Clock className="h-5 w-5" />
             </Button>
-            <Button
-              size="sm"
-              onClick={async () => {
-                if (dateRange?.from) {
-                  const fromDate = format(dateRange.from, "yyyy-MM-dd");
-                  const toDate = dateRange.to
-                    ? format(dateRange.to, "yyyy-MM-dd")
-                    : fromDate;
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDateRange(undefined);
+                  onEstimatedDateChange?.(task.id, null);
+                  setOpenPopoverId?.(null);
+                }}
+              >
+                Clear
+              </Button>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (dateRange?.from) {
+                    const fromDate = format(dateRange.from, "yyyy-MM-dd");
+                    const toDate = dateRange.to
+                      ? format(dateRange.to, "yyyy-MM-dd")
+                      : fromDate;
 
-                  try {
-                    // Check if estimation already exists by checking if estimatedDate is not "-"
-                    const hasEstimation = estimatedDate && estimatedDate !== "-";
+                    try {
+                      // Check if estimation already exists by checking if estimatedDate is not "-"
+                      const hasEstimation =
+                        estimatedDate && estimatedDate !== "-";
 
-                    if (hasEstimation) {
-                      // Update existing estimation
-                      await tasksApi.updateEstimatedDate({
-                        task_id: task.id,
-                        estimated_date_from: fromDate,
-                        estimated_date_to: toDate,
-                      });
-                    } else {
-                      // Create new estimation
-                      await tasksApi.createEstimatedDate({
-                        task_id: task.id,
-                        estimated_date_from: fromDate,
-                        estimated_date_to: toDate,
-                      });
+                      if (hasEstimation) {
+                        // Update existing estimation
+                        await tasksApi.updateEstimatedDate({
+                          task_id: task.id,
+                          estimated_date_from: fromDate,
+                          estimated_date_to: toDate,
+                        });
+                      } else {
+                        // Create new estimation
+                        await tasksApi.createEstimatedDate({
+                          task_id: task.id,
+                          estimated_date_from: fromDate,
+                          estimated_date_to: toDate,
+                        });
+                      }
+
+                      // Update local state
+                      onEstimatedDateChange?.(task.id, fromDate, toDate);
+                      setOpenPopoverId?.(null);
+                      toast.success("Estimated date updated successfully");
+                    } catch (error) {
+                      console.error("Failed to update estimated date:", error);
+                      toast.error("Failed to update estimated date");
                     }
-
-                    // Update local state
-                    onEstimatedDateChange?.(task.id, fromDate, toDate);
-                    setOpenPopoverId?.(null);
-                    toast.success("Estimated date updated successfully");
-                  } catch (error) {
-                    console.error("Failed to update estimated date:", error);
-                    toast.error("Failed to update estimated date");
                   }
-                }
-              }}
-            >
-              Done
-            </Button>
+                }}
+              >
+                Done
+              </Button>
+            </div>
           </div>
         </div>
       </PopoverContent>
@@ -665,20 +726,65 @@ function EstimatedTimePicker({
   popoverId: string;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
-  onEstimatedTimeChange?: (taskId: string, hours: string | number | null) => void;
+  onEstimatedTimeChange?: (
+    taskId: string,
+    hours: string | number | null,
+  ) => void;
 }) {
-  const [hours, setHours] = useState<string>(
-    estimatedHours && estimatedHours !== "-" ? String(estimatedHours) : ""
-  );
+  // Parse estimatedHours to extract hours and minutes
+  const parseEstimatedTime = (value: string | number) => {
+    if (!value || value === "-") return { hours: "", minutes: "" };
 
-  // Update hours when estimatedHours changes
+    const strValue = String(value);
+    // Check if it's in "02h 30m" format
+    const match = strValue.match(/(\d+)h\s*(\d+)m/);
+    if (match) {
+      return { hours: match[1], minutes: match[2] };
+    }
+
+    // Check if it's in "2h" format
+    const hoursMatch = strValue.match(/(\d+)h/);
+    if (hoursMatch) {
+      return { hours: hoursMatch[1], minutes: "" };
+    }
+
+    // Otherwise treat as decimal hours (e.g., "2.5" = 2h 30m)
+    const numValue = parseFloat(strValue);
+    if (!isNaN(numValue)) {
+      const hrs = Math.floor(numValue);
+      const mins = Math.round((numValue - hrs) * 60);
+      return {
+        hours: hrs > 0 ? String(hrs) : "",
+        minutes: mins > 0 ? String(mins) : "",
+      };
+    }
+
+    return { hours: "", minutes: "" };
+  };
+
+  const initialTime = parseEstimatedTime(estimatedHours);
+  const [hours, setHours] = useState<string>(initialTime.hours);
+  const [minutes, setMinutes] = useState<string>(initialTime.minutes);
+
+  // Update hours and minutes when estimatedHours changes
   useEffect(() => {
     if (openPopoverId === popoverId) {
-      setHours(
-        estimatedHours && estimatedHours !== "-" ? String(estimatedHours) : ""
-      );
+      const parsed = parseEstimatedTime(estimatedHours);
+      setHours(parsed.hours);
+      setMinutes(parsed.minutes);
     }
   }, [openPopoverId, popoverId, estimatedHours]);
+
+  // Format display value for the button
+  const formatDisplayValue = () => {
+    if (estimatedHours === "-") return "-";
+    const strValue = String(estimatedHours);
+    // If already in "Xh Ym" format, return as is
+    if (strValue.match(/\d+h\s*\d+m/)) return strValue;
+    if (strValue.match(/\d+h/)) return strValue;
+    // Otherwise format as hours
+    return `${estimatedHours}h`;
+  };
 
   return (
     <Popover
@@ -700,7 +806,7 @@ function EstimatedTimePicker({
           }
           onClick={(e) => e.stopPropagation()}
         >
-          {estimatedHours === "-" ? "-" : `${estimatedHours}h`}
+          {formatDisplayValue()}
         </button>
       </PopoverTrigger>
       {hasEstimatedDate && (
@@ -710,7 +816,7 @@ function EstimatedTimePicker({
         >
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium text-sm">Estimated Time (Hours)</h3>
+              <h3 className="font-medium text-sm">Estimated Time</h3>
               <button
                 onClick={() => setOpenPopoverId?.(null)}
                 className="text-muted-foreground hover:text-foreground"
@@ -719,16 +825,39 @@ function EstimatedTimePicker({
               </button>
             </div>
 
-            <div className="space-y-2">
-              <Input
-                type="number"
-                placeholder="Enter hours"
-                value={hours}
-                onChange={(e) => setHours(e.target.value)}
-                className="h-8 text-sm"
-                min="0"
-                step="0.5"
-              />
+            <div className="flex gap-3 items-center">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Hours</label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={hours}
+                  onChange={(e) => setHours(e.target.value)}
+                  className="h-9 w-20 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  style={{ MozAppearance: "textfield" }}
+                  min="0"
+                  max="999"
+                />
+              </div>
+              <span className="text-muted-foreground mt-5">:</span>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Minutes</label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={minutes}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    if (val >= 0 && val <= 59) {
+                      setMinutes(e.target.value);
+                    }
+                  }}
+                  className="h-9 w-20 text-sm [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  style={{ MozAppearance: "textfield" }}
+                  min="0"
+                  max="59"
+                />
+              </div>
             </div>
 
             <div className="flex gap-2 justify-end">
@@ -737,6 +866,7 @@ function EstimatedTimePicker({
                 size="sm"
                 onClick={() => {
                   setHours("");
+                  setMinutes("");
                   onEstimatedTimeChange?.(task.id, null);
                   setOpenPopoverId?.(null);
                 }}
@@ -747,7 +877,17 @@ function EstimatedTimePicker({
                 size="sm"
                 onClick={async () => {
                   try {
-                    const approvedHours = hours ? Number(hours) : null;
+                    const hrs = parseInt(hours) || 0;
+                    const mins = parseInt(minutes) || 0;
+
+                    // Format as "02h 30m" or just "2h" if no minutes
+                    let approvedHours: string | null = null;
+                    if (hrs > 0 || mins > 0) {
+                      const hrsStr = hrs.toString().padStart(2, "0");
+                      const minsStr = mins.toString().padStart(2, "0");
+                      approvedHours =
+                        mins > 0 ? `${hrsStr}h ${minsStr}m` : `${hrs}h`;
+                    }
 
                     // Call API to update approved hours
                     await tasksApi.updateEstimatedDate({
@@ -775,6 +915,7 @@ function EstimatedTimePicker({
   );
 }
 
+// Component for Priority selection with create functionality
 interface Column {
   id: string;
   label: string;
@@ -789,6 +930,7 @@ export const getWorkloadColumns = ({
   toggleTask,
   onOpenComments,
   onEditTask,
+  onOpenTaskCard,
   statuses = [],
   priorities = [],
   members = [],
@@ -802,31 +944,54 @@ export const getWorkloadColumns = ({
   onTagChange,
   openPopoverId,
   setOpenPopoverId,
+  boardId,
+  onTagCreated,
+  onStatusCreated,
+  onStatusesUpdated,
+  onPriorityCreated,
+  onPrioritiesUpdated,
+  inlineEditingTaskId,
+  setInlineEditingTaskId,
+  inlineEditingTaskName,
+  setInlineEditingTaskName,
+  onInlineEditTaskName,
 }: {
   expandedTasks: Record<string, boolean>;
   toggleTask: (taskId: string) => void;
   onOpenComments?: (task: any) => void;
   onEditTask?: (task: any, focus?: "name" | "description") => void;
+  onOpenTaskCard?: (task: any) => void;
   statuses?: Status[];
   priorities?: Priority[];
   members?: any[];
   tags?: any[];
-  onStatusChange?: (taskId: string, statusId: string) => void;
+  onStatusChange?: (taskId: string, statusId: string) => Promise<void>;
   onPriorityChange?: (taskId: string, priorityId: string) => void;
   onPersonChange?: (taskId: string, memberIds: string[]) => void;
   onRatingChange?: (taskId: string, rating: number) => void;
   onEstimatedDateChange?: (
     taskId: string,
     fromDate: string | null,
-    toDate?: string | null
+    toDate?: string | null,
   ) => void;
   onEstimatedTimeChange?: (
     taskId: string,
-    hours: string | number | null
+    hours: string | number | null,
   ) => void;
   onTagChange?: (taskId: string, tags: any[]) => void;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
+  boardId?: string | number;
+  onTagCreated?: (newTag: any) => void;
+  onStatusCreated?: (newStatus: Status) => void;
+  onStatusesUpdated?: (statuses: Status[]) => void;
+  onPriorityCreated?: (newPriority: Priority) => void;
+  onPrioritiesUpdated?: (priorities: Priority[]) => void;
+  inlineEditingTaskId?: string | null;
+  setInlineEditingTaskId?: (id: string | null) => void;
+  inlineEditingTaskName?: string;
+  setInlineEditingTaskName?: (name: string) => void;
+  onInlineEditTaskName?: (taskId: string, newName: string) => void;
 }): Column[] => {
   // Create lookup maps for statuses and priorities
   const statusMap = new Map(statuses.map((s) => [s.id, s]));
@@ -845,13 +1010,44 @@ export const getWorkloadColumns = ({
             <div className="flex items-center gap-2 pl-8 justify-between group">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground"> {"├"}</span>
-                <span className="font-medium text-foreground">{task.name}</span>
+                {inlineEditingTaskId === task.id ? (
+                  <Input
+                    className="h-6 text-sm border-0 focus:ring-0 focus:border-0"
+                    autoFocus
+                    value={inlineEditingTaskName}
+                    onChange={(e) => setInlineEditingTaskName?.(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && inlineEditingTaskName?.trim()) {
+                        onInlineEditTaskName?.(task.id, inlineEditingTaskName);
+                      }
+                      if (e.key === "Escape") {
+                        setInlineEditingTaskId?.(null);
+                        setInlineEditingTaskName?.("");
+                      }
+                    }}
+                    onBlur={() => {
+                      setInlineEditingTaskId?.(null);
+                      setInlineEditingTaskName?.("");
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setInlineEditingTaskId?.(task.id);
+                      setInlineEditingTaskName?.(task.name);
+                    }}
+                    className="font-medium text-foreground hover:underline cursor-pointer"
+                  >
+                    {task.name}
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onEditTask?.(task, "name");
+                    onOpenTaskCard?.(task);
                   }}
                   className="p-1 hover:bg-muted rounded"
                 >
@@ -872,28 +1068,61 @@ export const getWorkloadColumns = ({
         }
         return (
           <div className="flex items-center gap-2 justify-between group">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleTask(task.id);
-              }}
-              className="flex items-center gap-2 font-medium text-foreground hover:underline"
-            >
-              {
-                // task.subitems?.length > 0 &&
-                expandedTasks[task.id] ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )
-              }
-              {task.name}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleTask(task.id);
+                }}
+                className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                {
+                  // task.subitems?.length > 0 &&
+                  expandedTasks[task.id] ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )
+                }
+              </button>
+              {inlineEditingTaskId === task.id ? (
+                <Input
+                  className="h-6 text-sm border-0 focus:ring-0 focus:border-0"
+                  autoFocus
+                  value={inlineEditingTaskName}
+                  onChange={(e) => setInlineEditingTaskName?.(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && inlineEditingTaskName?.trim()) {
+                      onInlineEditTaskName?.(task.id, inlineEditingTaskName);
+                    }
+                    if (e.key === "Escape") {
+                      setInlineEditingTaskId?.(null);
+                      setInlineEditingTaskName?.("");
+                    }
+                  }}
+                  onBlur={() => {
+                    setInlineEditingTaskId?.(null);
+                    setInlineEditingTaskName?.("");
+                  }}
+                />
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setInlineEditingTaskId?.(task.id);
+                    setInlineEditingTaskName?.(task.name);
+                  }}
+                  className="font-medium text-foreground hover:underline cursor-pointer"
+                >
+                  {task.name}
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onEditTask?.(task, "name");
+                  onOpenTaskCard?.(task);
                 }}
                 className="p-1 hover:bg-muted rounded"
               >
@@ -913,6 +1142,34 @@ export const getWorkloadColumns = ({
         );
       },
     },
+    // {
+    //   id: "status",
+    //   label: "Status",
+    //   width: "160px",
+    //   align: "center",
+    //   render: (task: any) => {
+    //     const statusObj = statusMap.get(task.status_id);
+    //     const popoverId = `status-${task.id}`;
+    //     return (
+    //       <StatusPopoverCell
+    //         task={task}
+    //         statuses={statuses}
+    //         statusObj={statusObj}
+    //         popoverId={popoverId}
+    //         openPopoverId={openPopoverId}
+    //         setOpenPopoverId={setOpenPopoverId}
+    //         onStatusChange={onStatusChange}
+    //         onStatusCreated={onStatusCreated}
+    //         onStatusesUpdated={(updatedStatuses) => {
+    //           // Update the statuses state to reflect changes in the Select Status list
+    //           onStatusCreated?.(updatedStatuses[0]);
+    //         }}
+    //         boardId={boardId}
+    //       />
+    //     );
+    //   },
+    // },
+
     {
       id: "status",
       label: "Status",
@@ -922,46 +1179,18 @@ export const getWorkloadColumns = ({
         const statusObj = statusMap.get(task.status_id);
         const popoverId = `status-${task.id}`;
         return (
-          <Popover
-            open={openPopoverId === popoverId}
-            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-3 text-xs font-medium"
-                style={{
-                  backgroundColor: statusObj?.color_code || "#e5e7eb",
-                  color: "white",
-                  border: "none",
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {statusObj?.name || "No Status"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg"
-              align="center"
-            >
-              <div className="space-y-1">
-                {statuses.map((status) => (
-                  <button
-                    key={status.id}
-                    onClick={() => onStatusChange?.(task.id, status.id)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-accent transition-colors text-sm font-medium"
-                  >
-                    <div
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: status.color_code }}
-                    />
-                    <span>{status.name}</span>
-                  </button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
+          <StatusPopoverCell
+            task={task}
+            statuses={statuses}
+            statusObj={statusObj}
+            popoverId={popoverId}
+            openPopoverId={openPopoverId}
+            setOpenPopoverId={setOpenPopoverId}
+            onStatusChange={onStatusChange}
+            onStatusCreated={onStatusCreated}
+            onStatusesUpdated={onStatusesUpdated}
+            boardId={boardId}
+          />
         );
       },
     },
@@ -974,46 +1203,18 @@ export const getWorkloadColumns = ({
         const priorityObj = priorityMap.get(task.priority_id);
         const popoverId = `priority-${task.id}`;
         return (
-          <Popover
-            open={openPopoverId === popoverId}
-            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-3 text-xs font-medium"
-                style={{
-                  backgroundColor: priorityObj?.color_code || "#e5e7eb",
-                  color: "white",
-                  border: "none",
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {priorityObj?.name || "No Priority"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg"
-              align="center"
-            >
-              <div className="space-y-1">
-                {priorities.map((priority) => (
-                  <button
-                    key={priority.id}
-                    onClick={() => onPriorityChange?.(task.id, priority.id)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-accent transition-colors text-sm font-medium"
-                  >
-                    <div
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: priority.color_code }}
-                    />
-                    <span>{priority.name}</span>
-                  </button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
+          <PriorityPopoverCell
+            task={task}
+            priorities={priorities}
+            priorityObj={priorityObj}
+            popoverId={popoverId}
+            openPopoverId={openPopoverId}
+            setOpenPopoverId={setOpenPopoverId}
+            onPriorityChange={onPriorityChange}
+            onPriorityCreated={onPriorityCreated}
+            onPrioritiesUpdated={onPrioritiesUpdated}
+            boardId={boardId}
+          />
         );
       },
     },
@@ -1059,6 +1260,12 @@ export const getWorkloadColumns = ({
         const rating = Number(task.rating) || 0;
         const ratingCount = task.ratingCount || 0;
         const popoverId = `rating-${task.id}`;
+        const hasAssignee =
+          task.assigned_to_ids && task.assigned_to_ids.length > 0;
+
+        // Check if status is "Done" by looking up the status name from the map
+        const statusObj = statusMap.get(task.status_id);
+        const isDone = statusObj?.name === "Done";
 
         return (
           <RatingStars
@@ -1069,6 +1276,8 @@ export const getWorkloadColumns = ({
             openPopoverId={openPopoverId}
             setOpenPopoverId={setOpenPopoverId}
             onRatingChange={onRatingChange}
+            hasAssignee={hasAssignee}
+            isDone={isDone}
           />
         );
       },
@@ -1103,7 +1312,8 @@ export const getWorkloadColumns = ({
       align: "center",
       render: (task: any) => {
         const estimatedHours = task.estimatedHours ?? "-";
-        const hasEstimatedDate = task.estimatedDate && task.estimatedDate !== "-";
+        const hasEstimatedDate =
+          task.estimatedDate && task.estimatedDate !== "-";
         const popoverId = `estimatedTime-${task.id}`;
 
         return (
@@ -1120,11 +1330,21 @@ export const getWorkloadColumns = ({
       },
     },
     {
-      id: "date",
-      label: "Date",
-      width: "160px",
+      id: "progress",
+      label: "Progress",
+      width: "180px",
       align: "center",
-      render: (task: any) => task.date ?? "-",
+      render: (task: any) => {
+        const estimatedHours = task.estimatedHours ?? "-";
+        return (
+          <ProgressBarCell
+            taskId={task.id}
+            trackedTimeSeconds={task.tracked_time_seconds || 0}
+            activeTimerId={task.activeTimerId}
+            estimatedHours={estimatedHours}
+          />
+        );
+      },
     },
     {
       id: "person",
@@ -1154,144 +1374,17 @@ export const getWorkloadColumns = ({
       label: "Tags",
       width: "180px",
       align: "center",
-      render: (task: any) => {
-        const taskTags = task.tags || [];
-        const popoverId = `tags-${task.id}`;
-
-        return (
-          <Popover
-            open={openPopoverId === popoverId}
-            onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
-          >
-            <PopoverTrigger asChild>
-              <button
-                className="w-full flex flex-wrap gap-1 justify-center items-center hover:opacity-80 transition-opacity cursor-pointer"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {taskTags.length === 0 ? (
-                  <span className="text-muted-foreground text-xs">+ Add</span>
-                ) : (
-                  taskTags.map((tag: any) => (
-                    <span
-                      key={tag.tag_id}
-                      className="px-2 py-1 rounded text-xs font-medium text-white cursor-pointer hover:opacity-90"
-                      style={{ backgroundColor: `#${tag.tag_slug}` }}
-                      title={tag.tag_name}
-                    >
-                      {tag.tag_name}
-                    </span>
-                  ))
-                )}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg flex flex-col"
-              align="center"
-            >
-              <div className="space-y-2 flex flex-col">
-                <h3 className="font-medium text-sm">Manage Tags</h3>
-                
-                {/* Current Tags */}
-                {taskTags.length > 0 && (
-                  <div className="space-y-1 border-b border-border pb-2">
-                    {taskTags.map((tag: any) => (
-                      <div
-                        key={tag.task_tag_id}
-                        className="flex items-center justify-between px-2 py-1 rounded hover:bg-muted"
-                      >
-                        <span
-                          className="px-2 py-1 rounded text-xs font-medium text-white"
-                          style={{ backgroundColor: `#${tag.tag_slug}` }}
-                        >
-                          {tag.tag_name}
-                        </span>
-                        <button
-                          onClick={async () => {
-                            try {
-                              // Remove tag by sending the tag to remove
-                              await tasksApi.updateTaskTags({
-                                id: task.id,
-                                tag_id: tag.tag_id,
-                              });
-                              
-                              // Update local state by removing the tag
-                              const updatedTags = taskTags.filter(
-                                (t: any) => t.tag_id !== tag.tag_id
-                              );
-                              onTagChange?.(task.id, updatedTags);
-                              toast.success("Tag removed");
-                            } catch (error) {
-                              console.error("Failed to remove tag:", error);
-                              toast.error("Failed to remove tag");
-                            }
-                          }}
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Available Tags to Add */}
-                {Array.isArray(tags) && tags.length > 0 && (
-                  <div className="space-y-1 border-b border-border pb-2">
-                    <p className="text-xs font-medium text-muted-foreground px-2">Available Tags:</p>
-                    {tags.map((cmsTag: any) => {
-                      const isAlreadyAdded = taskTags.some(
-                        (t: any) => t.tag_id === cmsTag.id
-                      );
-                      return (
-                        <button
-                          key={cmsTag.id}
-                          onClick={async () => {
-                            if (!isAlreadyAdded) {
-                              try {
-                                // Add tag by sending the tag ID
-                                await tasksApi.updateTaskTags({
-                                  id: task.id,
-                                  tag_id: cmsTag.id,
-                                });
-                                
-                                // Add tag to local state
-                                const newTag = {
-                                  task_tag_id: Date.now(), // Temporary ID
-                                  tag_id: cmsTag.id,
-                                  tag_name: cmsTag.name,
-                                  tag_slug: cmsTag.slug,
-                                  tag_is_active: cmsTag.is_active,
-                                  tagged_by: 2,
-                                  tagged_by_name: "Current User",
-                                  tagged_at: new Date().toISOString(),
-                                };
-                                const updatedTags = [...taskTags, newTag];
-                                onTagChange?.(task.id, updatedTags);
-                                toast.success("Tag added");
-                              } catch (error) {
-                                console.error("Failed to add tag:", error);
-                                toast.error("Failed to add tag");
-                              }
-                            }
-                          }}
-                          disabled={isAlreadyAdded}
-                          className={`w-full text-left px-2 py-1 rounded text-xs font-medium transition-colors ${
-                            isAlreadyAdded
-                              ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                              : "hover:bg-muted cursor-pointer"
-                          }`}
-                        >
-                          {cmsTag.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
-        );
-      },
+      render: (task: any) => (
+        <TagsColumnCell
+          task={task}
+          tags={tags}
+          openPopoverId={openPopoverId}
+          setOpenPopoverId={setOpenPopoverId}
+          onTagChange={onTagChange}
+          onTagCreated={onTagCreated}
+          boardId={boardId}
+        />
+      ),
     },
 
     {
@@ -1299,22 +1392,22 @@ export const getWorkloadColumns = ({
       label: "Timer",
       width: "160px",
       align: "center",
-      render: (task: any) => (
-        <Timer
-          taskId={task.id}
-          boardId={task.boardId}
-          activeTimerId={task.activeTimerId}
-          onTimerStart={task.onTimerStart}
-          onTimerConflict={task.onTimerConflict}
-        />
-      ),
-    },
-    {
-      id: "time",
-      label: "Time Spent",
-      width: "128px",
-      align: "center",
-      render: (task: any) => task.timeSpent ?? "-",
+      render: (task: any) => {
+        const hasAssignee =
+          task.assigned_to_ids && task.assigned_to_ids.length > 0;
+        const estimatedHours = task.estimatedHours ?? "-";
+        return (
+          <TimerCell
+            taskId={task.id}
+            trackedTimeSeconds={task.tracked_time_seconds || 0}
+            activeTimerId={task.activeTimerId}
+            onTimerStart={task.onTimerStart}
+            onTimerConflict={task.onTimerConflict}
+            hasAssignee={hasAssignee}
+            estimatedHours={estimatedHours}
+          />
+        );
+      },
     },
   ];
 };
