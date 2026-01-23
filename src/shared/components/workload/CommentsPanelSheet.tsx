@@ -37,6 +37,33 @@ import {
 } from "lucide-react";
 import type { TaskComment } from "@/features/tasks/types";
 
+// Helper to render markdown-ish content
+const renderFormattedContent = (content: string) => {
+  if (!content) return { __html: "" };
+
+  // Escape HTML first to prevent XSS from the raw text
+  let safeContent = content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+  // Restore Bold
+  safeContent = safeContent.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+  // Restore Italic
+  safeContent = safeContent.replace(/_(.*?)_/g, "<em>$1</em>");
+
+  // Restore Strike
+  safeContent = safeContent.replace(/~~(.*?)~~/g, "<strike>$1</strike>");
+
+  // Newlines
+  safeContent = safeContent.replace(/\n/g, "<br />");
+
+  return { __html: safeContent };
+};
+
 interface CommentsPanelSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -396,10 +423,8 @@ export function CommentsPanelSheet({
                                 ) : (
                                   <>
                                     <div
-                                      className="text-sm text-foreground/90 leading-relaxed break-words pr-4 whitespace-pre-wrap"
-                                      dangerouslySetInnerHTML={{
-                                        __html: comment.content,
-                                      }}
+                                      className="text-sm text-foreground/90 leading-relaxed break-words pr-4"
+                                      dangerouslySetInnerHTML={renderFormattedContent(comment.content)}
                                     />
 
                                     <div className="pt-0.5 flex items-center gap-4">
@@ -564,10 +589,8 @@ export function CommentsPanelSheet({
                                     ) : (
                                       <>
                                         <div
-                                          className="text-sm text-foreground/80 leading-relaxed break-words whitespace-pre-wrap"
-                                          dangerouslySetInnerHTML={{
-                                            __html: reply.content,
-                                          }}
+                                          className="text-sm text-foreground/80 leading-relaxed break-words"
+                                          dangerouslySetInnerHTML={renderFormattedContent(reply.content)}
                                         />
                                         <div className="pt-0.5 flex items-center gap-4">
                                           <Button

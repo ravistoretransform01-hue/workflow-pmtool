@@ -2640,14 +2640,34 @@ export function WorkloadBoard({
   const processHtmlContent = (html: string) => {
     if (!html) return "";
 
-    // First, replace any <br> tags with a single newline
-    let processed = html.replace(/<br\s*\/?>/gi, "\n");
+    let processed = html;
 
-    // Replace block ending tags with DOUBLE newlines to ensure visual separation
-    // because single newlines might be treated as soft breaks (space)
-    processed = processed.replace(/<\/(div|p|h[1-6]|li|ul|ol|blockquote)>/gi, "\n\n");
+    // Handle bold (including with attributes)
+    processed = processed.replace(/<b\b[^>]*>(.*?)<\/b>/gi, "**$1**");
+    processed = processed.replace(/<strong\b[^>]*>(.*?)<\/strong>/gi, "**$1**");
 
-    // If we have "Hello\n\nTesting\n\n", the trailing \n\n is fine or can be trimmed.
+    // Handle italic
+    processed = processed.replace(/<i\b[^>]*>(.*?)<\/i>/gi, "_$1_");
+    processed = processed.replace(/<em\b[^>]*>(.*?)<\/em>/gi, "_$1_");
+
+    // Handle strike
+    processed = processed.replace(/<s\b[^>]*>(.*?)<\/s>/gi, "~~$1~~");
+    processed = processed.replace(/<strike\b[^>]*>(.*?)<\/strike>/gi, "~~$1~~");
+
+    // Handle Lists
+    processed = processed.replace(/<\/li>/gi, ""); // remove closing li
+    processed = processed.replace(/<li\b[^>]*>/gi, "\n- "); // replace opening li with newline dash
+    processed = processed.replace(/<\/?(ul|ol)\b[^>]*>/gi, "\n"); // remove ul/ol tags but add newline
+
+    // Handle BR
+    processed = processed.replace(/<br\s*\/?>/gi, "\n");
+
+    // Handle Blocks (div, p, etc)
+    // Replace opening block tags with newlines
+    processed = processed.replace(/<(div|p|h[1-6]|blockquote)( [^>]*)?>/gi, "\n");
+    // Replace closing block tags with newlines
+    processed = processed.replace(/<\/(div|p|h[1-6]|blockquote)>/gi, "\n");
+
     return processed;
   };
 
