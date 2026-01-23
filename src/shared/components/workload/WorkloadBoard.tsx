@@ -208,7 +208,6 @@ const ALL_AVAILABLE_COLUMNS = [
   "person",
   "tags",
   "timer",
-  "time",
 ];
 
 const PRESET_COLORS = [
@@ -819,41 +818,6 @@ export function WorkloadBoard({
   // Done items filter state
   const [showDoneItemsOnly, setShowDoneItemsOnly] = useState(false);
 
-  // Column visibility state - load from localStorage
-  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
-    () => {
-      const saved = localStorage.getItem(`board-visible-columns-${boardId}`);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {
-          return Object.fromEntries(
-            DEFAULT_VISIBLE_COLUMNS.map((col) => [col, true])
-          );
-        }
-      }
-      return Object.fromEntries(
-        DEFAULT_VISIBLE_COLUMNS.map((col) => [col, true])
-      );
-    }
-  );
-
-  // Load saved tab order from localStorage
-  const [viewTabs, setViewTabs] = useState(() => {
-    const savedTabs = localStorage.getItem(`board-tabs-${boardId}`);
-    if (savedTabs) {
-      try {
-        const parsed = JSON.parse(savedTabs);
-        // Ensure all default tabs exist in saved order
-        const allTabs = [...new Set([...parsed, ...DEFAULT_TABS])];
-        return allTabs.filter((tab) => DEFAULT_TABS.includes(tab));
-      } catch {
-        return DEFAULT_TABS;
-      }
-    }
-    return DEFAULT_TABS;
-  });
-
   // Fetch groups from API on component mount
   useEffect(() => {
     // Prevent duplicate fetches for the same board (helps with React StrictMode double mount in dev)
@@ -1260,11 +1224,11 @@ export function WorkloadBoard({
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = viewTabs.findIndex((tab) => tab === active.id);
-      const newIndex = viewTabs.findIndex((tab) => tab === over.id);
+      const oldIndex = columnState.viewTabs.findIndex((tab: any) => tab === active.id);
+      const newIndex = columnState.viewTabs.findIndex((tab: any) => tab === over.id);
 
-      const newTabs = arrayMove(viewTabs, oldIndex, newIndex);
-      setViewTabs(newTabs);
+      const newTabs = arrayMove(columnState.viewTabs, oldIndex, newIndex);
+      columnState.reorderTabs(newTabs);
 
       // Persist tab order to localStorage
       localStorage.setItem(`board-tabs-${boardId}`, JSON.stringify(newTabs));
@@ -3015,7 +2979,7 @@ export function WorkloadBoard({
             updatedColumnWidths[col.id] ??
             (updated[col.id] ? COLLAPSED_WIDTH : col.width),
         }))
-        .filter((col) => visibleColumns[col.id] === true);
+        .filter((col) => columnState.visibleColumns[col.id] === true);
 
       setWorkloadColumns(newCols as any);
 
@@ -3515,10 +3479,10 @@ export function WorkloadBoard({
         >
           <div className="flex items-center gap-2 overflow-x-auto">
             <SortableContext
-              items={viewTabs}
+              items={columnState.viewTabs}
               strategy={horizontalListSortingStrategy}
             >
-              {viewTabs.map((tab) => (
+              {columnState.viewTabs.map((tab: any) => (
                 <SortableViewTab
                   key={tab}
                   tab={tab}
@@ -4005,7 +3969,7 @@ export function WorkloadBoard({
                           >
                             <input
                               type="checkbox"
-                              checked={visibleColumns[columnId] === true}
+                              checked={columnState.visibleColumns[columnId] === true}
                               onChange={() => toggleColumnVisibility(columnId)}
                               className="cursor-pointer"
                             />
@@ -5038,7 +5002,7 @@ export function WorkloadBoard({
             <div className="mt-6 p-4 bg-muted rounded-lg">
               <h3 className="font-semibold mb-2">Available Tabs:</h3>
               <div className="flex flex-wrap gap-2">
-                {viewTabs.map((tab) => (
+                {columnState.viewTabs.map((tab: any) => (
                   <span
                     key={tab}
                     className="px-2 py-1 bg-background rounded text-sm"
