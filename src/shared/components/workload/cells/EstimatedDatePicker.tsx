@@ -29,7 +29,6 @@ interface EstimatedDatePickerProps {
 export function EstimatedDatePicker({
   task,
   estimatedDate,
-  estimatedDateEnd,
   popoverId,
   openPopoverId,
   setOpenPopoverId,

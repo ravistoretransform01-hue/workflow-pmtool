@@ -90,6 +90,7 @@ import {
   useTaskFilters,
 } from "./hooks";
 import { SortableColumnHeader } from "./components/ColumnHeader";
+// import { KanbanView } from "./KanbanView";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -98,7 +99,7 @@ interface WorkloadBoardProps {
   workspaceName: string;
 }
 
-interface TaskGroup {
+export interface TaskGroup {
   id: string;
   name: string;
   color: string;
@@ -4580,8 +4581,20 @@ export function WorkloadBoard({
         </div>
       )}
 
+      
+      {/* {activeTab === "Kanban" && (
+        <KanbanView
+          groups={getFilteredGroups()}
+          statuses={statuses}
+          onTaskMove={handleStatusChange}
+          onTaskClick={openTaskCard}
+          searchQuery={mainTableSearchQuery}
+        />
+      )} */}
+
       {/* Other Views */}
-      {activeTab !== "Main Table" && (
+      {/* {activeTab !== "Main Table" && activeTab !== "Kanban"  && ( */}
+      {activeTab !== "Main Table"  && (
         <div className="flex-1 overflow-auto p-6">
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Active Tab: {activeTab}</h2>
