@@ -1,7 +1,7 @@
 import React from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Button } from "@/shared/components/ui/button";
+// import { Button } from "@/shared/components/ui/button";
 import type { TaskGroup } from "../WorkloadBoard";
 import { useTaskState, usePopoverState, useTaskTimer, useColumnPersistence, useTaskFilters } from "../hooks";
 
@@ -36,7 +36,7 @@ export function TaskTable({
   mainTableSearchQuery,
   getFilteredGroups,
   onGroupDragEnd,
-  onAddNewGroup,
+  // onAddNewGroup,
   groupsContainerRef,
   children,
 }: TaskTableProps) {
@@ -75,7 +75,7 @@ export function TaskTable({
                   </>
                 ) : (
                   <>
-                    <p className="text-muted-foreground mb-4">
+                    {/* <p className="text-muted-foreground mb-4">
                       No groups yet. Create one to get started.
                     </p>
                     <Button
@@ -84,7 +84,7 @@ export function TaskTable({
                       onClick={onAddNewGroup}
                     >
                       Create First Group
-                    </Button>
+                    </Button> */}
                   </>
                 )}
               </div>
