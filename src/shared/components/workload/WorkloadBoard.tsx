@@ -756,23 +756,32 @@ export function WorkloadBoard({
   }, [boardId]);
 
   // Fetch comments when task is selected or comments panel is opened
+  // Auto-refresh comments every 5-7 seconds while the panel is open
   useEffect(() => {
     const fetchComments = async (taskId: string) => {
-      setIsLoadingComments(true);
       try {
         const data = await tasksApi.getComments(taskId);
         setComments(data);
       } catch (error) {
         console.error("Failed to fetch comments:", error);
-      } finally {
-        setIsLoadingComments(false);
       }
     };
 
     if (commentsPanelOpen && selectedTaskId) {
+      // Initial fetch without loading state to avoid flickering
       fetchComments(selectedTaskId);
+      setIsLoadingComments(false);
+
+      // Set up interval to auto-refresh comments every 6 seconds
+      const refreshInterval = setInterval(() => {
+        fetchComments(selectedTaskId);
+      }, 5000); // 5 seconds
+
+      // Cleanup interval when panel closes or task changes
+      return () => clearInterval(refreshInterval);
     } else {
       setComments([]);
+      setIsLoadingComments(false);
     }
   }, [commentsPanelOpen, selectedTaskId]);
 
