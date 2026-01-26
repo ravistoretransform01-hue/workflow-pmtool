@@ -75,7 +75,7 @@ export function TaskTable({
                   </>
                 ) : (
                   <>
-                    <p className="text-muted-foreground mb-4">
+                    {/* <p className="text-muted-foreground mb-4">
                       No groups yet. Create one to get started.
                     </p>
                     <Button
@@ -84,7 +84,7 @@ export function TaskTable({
                       onClick={onAddNewGroup}
                     >
                       Create First Group
-                    </Button>
+                    </Button> */}
                   </>
                 )}
               </div>

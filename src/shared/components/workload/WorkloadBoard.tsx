@@ -3622,7 +3622,7 @@ export function WorkloadBoard({
                           </>
                         ) : (
                           <>
-                            <p className="text-muted-foreground mb-4">
+                            {/* <p className="text-muted-foreground mb-4">
                               No groups yet. Create one to get started.
                             </p>
                             <Button
@@ -3631,7 +3631,7 @@ export function WorkloadBoard({
                               onClick={addNewGroup}
                             >
                               Create First Group
-                            </Button>
+                            </Button> */}
                           </>
                         )}
                       </div>
