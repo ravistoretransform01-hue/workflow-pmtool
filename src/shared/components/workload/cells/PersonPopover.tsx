@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
+import { Input } from "@/shared/components/ui/input";
+import { toast } from "sonner";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/shared/components/ui/popover";
-import { Button } from "@/shared/components/ui/button";
-import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
-import { Input } from "@/shared/components/ui/input";
 import { stringToHslColor } from "../utils";
 
 interface PersonPopoverProps {
@@ -33,24 +32,49 @@ export function PersonPopover({
   const [localSelected, setLocalSelected] = useState<string | null>(
     selectedMemberIds?.[0] || null
   );
+  const [isSaving, setIsSaving] = useState(false);
 
   const filteredMembers = members.filter((member) =>
     (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleMemberSelect = (memberId: string) => {
+  const handleMemberSelect = async (memberId: string) => {
     setLocalSelected(memberId);
+    setIsSaving(true);
+    try {
+      onPersonChange?.(task.id, [memberId]);
+      toast.success("Assignee updated");
+    } catch (error) {
+      console.error("Failed to update assignee:", error);
+      toast.error("Failed to update assignee");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleUpdateAssignees = () => {
-    onPersonChange?.(task.id, localSelected ? [localSelected] : []);
-    setOpenPopoverId?.(null);
+  const handleClearAssignee = async () => {
+    setLocalSelected(null);
+    setIsSaving(true);
+    try {
+      onPersonChange?.(task.id, []);
+      toast.success("Assignee removed");
+    } catch (error) {
+      console.error("Failed to clear assignee:", error);
+      toast.error("Failed to clear assignee");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <Popover
       open={openPopoverId === popoverId}
-      onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
+      onOpenChange={(open) => {
+        if (open) {
+          setLocalSelected(selectedMemberIds?.[0] || null);
+        }
+        setOpenPopoverId?.(open ? popoverId : null);
+      }}
     >
       <PopoverTrigger asChild>
         <button
@@ -96,39 +120,36 @@ export function PersonPopover({
         className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg flex flex-col"
         align="center"
       >
-        <div className="space-y-2 flex flex-col">
+        <div className="flex flex-col h-full space-y-2">
           {/* Search Input */}
-          <div className="relative flex-shrink-0">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-0 pointer-events-none" />
+          <div className="flex-shrink-0">
             <Input
               placeholder="Search members..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-8 text-sm"
+              className="h-8 text-sm"
             />
           </div>
 
-          {/* Members List */}
+          {/* Members List with Selectable Tiles */}
           <div
-            className="space-y-1 overflow-y-auto"
+            className="flex-1 overflow-y-auto scrollbar-hide space-y-1"
             style={{
-              maxHeight: "calc(4 * 40px)",
               scrollbarWidth: "none",
               msOverflowStyle: "none",
             }}
           >
             {/* No Member Option */}
             <button
-              onClick={() => setLocalSelected(null)}
-              className="w-full border-y border-border flex items-center gap-3 px-2 py-2 rounded transition-colors text-sm font-medium text-left hover:bg-muted"
+              onClick={handleClearAssignee}
+              disabled={isSaving}
+              className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed ${
+                localSelected === null
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : "bg-secondary/50 text-foreground hover:bg-secondary"
+              }`}
             >
-              <input
-                type="radio"
-                checked={localSelected === null}
-                onChange={() => {}}
-                className="h-4 w-4 accent-primary cursor-pointer"
-              />
-              <span className="text-muted-foreground">No Member</span>
+              No Member
             </button>
 
             {filteredMembers.length === 0 ? (
@@ -156,49 +177,28 @@ export function PersonPopover({
                   <button
                     key={member.user_id}
                     onClick={() => handleMemberSelect(String(member.user_id))}
-                    className="w-full flex items-center gap-3 px-2 py-2 rounded transition-colors text-sm font-medium text-left hover:bg-muted"
+                    disabled={isSaving}
+                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground shadow-md"
+                        : "bg-secondary/50 text-foreground hover:bg-secondary"
+                    }`}
                   >
-                    <input
-                      type="radio"
-                      checked={isSelected}
-                      onChange={() => {}}
-                      className="h-4 w-4 accent-primary cursor-pointer"
-                    />
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback
-                        style={{ background: bgColor, color: "white" }}
-                      >
-                        {initials || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span>{member.name}</span>
+                    <div className="flex items-center justify-left gap-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback
+                          style={{ background: bgColor, color: "white" }}
+                          className="text-[10px] font-semibold"
+                        >
+                          {initials || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{member.name}</span>
+                    </div>
                   </button>
                 );
               })
             )}
-          </div>
-
-          {/* Update Button */}
-          <div className="flex-shrink-0 pt-2 border-t border-border flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setLocalSelected(null);
-                onPersonChange?.(task.id, []);
-                setOpenPopoverId?.(null);
-              }}
-              className="flex-1 h-8 text-sm"
-              size="sm"
-            >
-              Clear
-            </Button>
-            <Button
-              onClick={handleUpdateAssignees}
-              className="flex-1 h-8 text-sm"
-              size="sm"
-            >
-              Update
-            </Button>
           </div>
         </div>
       </PopoverContent>

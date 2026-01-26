@@ -9,8 +9,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/shared/components/ui/popover";
-import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
+import { Loader2 } from "lucide-react";
 
 interface TagsColumnCellProps {
   task: any;
@@ -39,7 +39,6 @@ export function TagsColumnCell({
   const [isSaving, setIsSaving] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [isCreatingTag, setIsCreatingTag] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
   const [availableTags, setAvailableTags] = useState(tags);
 
   // Update available tags when tags prop changes
@@ -78,10 +77,11 @@ export function TagsColumnCell({
       // Update localStorage cache
       addTagToCache(Number(bId), newTag);
 
-      // Add the new tag to selected tags
-      setSelectedTagIds((prev) => new Set([...prev, String(newTag.id)]));
+      // Add the new tag to available tags list
+      setAvailableTags((prev) => [...prev, newTag]);
+
+      // Don't automatically select the new tag - let user click to select
       setNewTagName("");
-      setShowCreateForm(false);
 
       // Call callback to update tags list in parent component
       onTagCreated?.(newTag);
@@ -95,54 +95,46 @@ export function TagsColumnCell({
     }
   };
 
-  const handleSaveTags = async () => {
+  const handleTagToggle = async (cmsTag: any) => {
+    const newSelected = new Set(selectedTagIds);
+    const tagIdStr = String(cmsTag.id);
+    const isCurrentlySelected = selectedTagIds.has(tagIdStr);
+
+    // Update local state immediately for UI feedback
+    if (isCurrentlySelected) {
+      newSelected.delete(tagIdStr);
+    } else {
+      newSelected.add(tagIdStr);
+    }
+    setSelectedTagIds(newSelected);
+
+    // Save to API immediately
     setIsSaving(true);
     try {
-      // Get tags to add and remove
-      const currentTagIds = new Set(taskTags.map((t: any) => String(t.tag_id)));
-      const tagsToAdd = Array.from(selectedTagIds).filter(
-        (id) => !currentTagIds.has(String(id))
-      );
-      const tagsToRemove = Array.from(currentTagIds).filter(
-        (id) => !selectedTagIds.has(String(id))
-      );
-
-      // Call API for each tag change
-      for (const tagId of tagsToAdd) {
-        await tasksApi.updateTaskTags({
-          id: task.id,
-          tag_id: Number(tagId),
-        });
-      }
-
-      for (const tagId of tagsToRemove) {
-        await tasksApi.updateTaskTags({
-          id: task.id,
-          tag_id: Number(tagId),
-        });
-      }
+      await tasksApi.updateTaskTags({
+        id: task.id,
+        tag_id: Number(cmsTag.id),
+      });
 
       // Update local state with new tags
-      const updatedTags = Array.from(selectedTagIds)
+      const updatedTags = Array.from(newSelected)
         .map((tagId) => {
-          // Check if tag already exists in taskTags
-          const existingTag = taskTags.find(
+          const existingTag = task.tags?.find(
             (t: any) => String(t.tag_id) === String(tagId)
           );
           if (existingTag) return existingTag;
 
-          // Create new tag object
-          const cmsTag = availableTags.find(
+          const cmsTagData = availableTags.find(
             (t: any) => String(t.id) === String(tagId)
           );
-          if (!cmsTag) return null;
+          if (!cmsTagData) return null;
 
           return {
             task_tag_id: Date.now() + Math.random(),
-            tag_id: cmsTag.id,
-            tag_name: cmsTag.name,
-            tag_slug: cmsTag.slug,
-            tag_is_active: cmsTag.is_active,
+            tag_id: cmsTagData.id,
+            tag_name: cmsTagData.name,
+            tag_slug: cmsTagData.slug,
+            tag_is_active: cmsTagData.is_active,
             tagged_by: 2,
             tagged_by_name: "Current User",
             tagged_at: new Date().toISOString(),
@@ -151,11 +143,12 @@ export function TagsColumnCell({
         .filter(Boolean);
 
       onTagChange?.(task.id, updatedTags);
-      setOpenPopoverId?.(null);
-      toast.success("Tags updated successfully");
+      toast.success(isCurrentlySelected ? "Tag removed" : "Tag added");
     } catch (error) {
-      console.error("Failed to update tags:", error);
-      toast.error("Failed to update tags");
+      console.error("Failed to update tag:", error);
+      toast.error("Failed to update tag");
+      // Revert selection on error
+      setSelectedTagIds(selectedTagIds);
     } finally {
       setIsSaving(false);
     }
@@ -169,8 +162,8 @@ export function TagsColumnCell({
           setSelectedTagIds(
             new Set(taskTags.map((t: any) => String(t.tag_id)))
           );
-          setShowCreateForm(false);
         }
+        // Only allow closing from outside (when open is false)
         setOpenPopoverId?.(open ? popoverId : null);
       }}
     >
@@ -198,92 +191,52 @@ export function TagsColumnCell({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-56 p-3 bg-card border border-primary/20 shadow-lg rounded-lg flex flex-col max-h-96"
+        className="w-56 p-3 bg-card border border-primary/20 shadow-lg rounded-sm flex flex-col max-h-96"
         align="center"
       >
         <div className="flex flex-col h-full">
-          {/* Header with Manage Tags and + button */}
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-medium text-sm">Manage Tags</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 hover:bg-primary/10"
-              onClick={() => setShowCreateForm(!showCreateForm)}
-              title="Create New Tag"
-            >
-              <span className="text-lg font-semibold">+</span>
-            </Button>
-          </div>
-
-          {/* Create New Tag Form (shown when + is clicked) */}
-          {showCreateForm && (
-            <div className="space-y-2 mb-2 pb-2 border-b border-primary/20">
+          {/* Create New Tag Input */}
+          <div className="mb-3 pb-3 border-b border-primary/20">
+            <div className="flex items-center gap-2">
               <Input
-                placeholder="Tag name"
+                placeholder="Add new tag..."
                 value={newTagName}
                 onChange={(e) => setNewTagName(e.target.value)}
-                className="h-8 text-sm"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleCreateTag();
-                  } else if (e.key === "Escape") {
-                    setShowCreateForm(false);
-                    setNewTagName("");
                   }
                 }}
+                disabled={isCreatingTag}
+                className="h-8 text-sm flex-1"
                 autoFocus
               />
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 h-8 text-xs"
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    setNewTagName("");
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="flex-1 h-8 text-xs"
-                  onClick={handleCreateTag}
-                  disabled={isCreatingTag || !newTagName.trim()}
-                >
-                  {isCreatingTag ? "Creating..." : "Create"}
-                </Button>
-              </div>
+              {isCreatingTag && (
+                <Loader2 className="h-5 w-5 animate-spin text-primary flex-shrink-0" />
+              )}
             </div>
-          )}
+          </div>
 
-          {/* Available Tags with Checkboxes */}
+          {/* Available Tags with Selectable Tiles */}
           <div className="flex-1 overflow-y-auto scrollbar-hide space-y-1">
             {Array.isArray(availableTags) && availableTags.length > 0 ? (
-              availableTags.map((cmsTag: any) => (
-                <label
-                  key={cmsTag.id}
-                  className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/5 transition-colors text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedTagIds.has(String(cmsTag.id))}
-                    onChange={(e) => {
-                      const newSelected = new Set(selectedTagIds);
-                      const tagIdStr = String(cmsTag.id);
-                      if (e.target.checked) {
-                        newSelected.add(tagIdStr);
-                      } else {
-                        newSelected.delete(tagIdStr);
-                      }
-                      setSelectedTagIds(newSelected);
-                    }}
-                    className="cursor-pointer accent-primary"
-                  />
-                  <span className="text-sm">{cmsTag.name}</span>
-                </label>
-              ))
+              availableTags.map((cmsTag: any) => {
+                const isSelected = selectedTagIds.has(String(cmsTag.id));
+                return (
+                  <button
+                    key={cmsTag.id}
+                    onClick={() => handleTagToggle(cmsTag)}
+                    disabled={isSaving}
+                    className={`w-full px-3 py-2 rounded-none text-sm font-medium transition-all cursor-pointer text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground shadow-md"
+                        : "bg-secondary/50 text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    #{cmsTag.name}
+                  </button>
+                );
+              })
             ) : (
               <div className="text-center py-4 text-sm text-muted-foreground">
                 No tags available
@@ -291,17 +244,6 @@ export function TagsColumnCell({
             )}
           </div>
 
-          {/* Submit Button */}
-          <div className="border-t border-primary/20 mt-2 pt-2">
-            <Button
-              size="sm"
-              className="w-full"
-              onClick={handleSaveTags}
-              disabled={isSaving}
-            >
-              {isSaving ? "Saving..." : "Save Tags"}
-            </Button>
-          </div>
         </div>
       </PopoverContent>
     </Popover>
