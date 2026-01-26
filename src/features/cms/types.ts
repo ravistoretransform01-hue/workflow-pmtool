@@ -57,7 +57,7 @@ export interface CMSResponse {
 export interface CMSRequest {
   organization_id: number;
   board_id: number;
-  user_id: number;
+  user_id: number | null;
 }
 
 export interface CMSData {

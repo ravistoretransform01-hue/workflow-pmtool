@@ -694,7 +694,7 @@ export function WorkloadBoard({
       try {
         const boardIdNum = Number(boardId);
         const organizationIdNum = getOrganizationId();
-        const userId = 2; // TODO: Get from auth context
+        const userId = getCurrentUserId();  
 
         if (organizationIdNum === null) {
           console.warn("Organization not found, skipping CMS data load");
