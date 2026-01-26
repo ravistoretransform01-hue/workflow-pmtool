@@ -39,18 +39,15 @@ import {
   Briefcase,
   Plus,
   Search,
-  FileText,
-  Folder,
   LayoutDashboard,
   Copy,
-  ChevronRight,
   Loader2,
   MoreHorizontal,
   ExternalLink,
   Pencil,
   Trash2,
 } from "lucide-react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useBoards } from "@/hooks/useBoards";
 import { boardsApi } from "@/features/boards/boardsApi";
@@ -58,12 +55,12 @@ import { getOrganizationId } from "@/lib/utils";
 
 export const AppSidebar = () => {
   const navigate = useNavigate();
+  const { boardId } = useParams();
   const { open } = useSidebar();
   const { boards, fetchLoading, fetchBoards } = useBoards();
   const [addBoardOpen, setAddBoardOpen] = useState(false);
   const [createDocOpen, setCreateDocOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [hoveredSubmenu, setHoveredSubmenu] = useState<string | null>(null);
   const [, setNewBoardName] = useState("");
   const [newDocName, setNewDocName] = useState("");
   const [boardSearchQuery, setBoardSearchQuery] = useState("");
@@ -79,33 +76,14 @@ export const AppSidebar = () => {
     fetchBoards();
   }, [fetchBoards]);
 
-  // Mock data - replace with API calls
-  const [selectedWorkspace] = useState("1");
-  const [workspaces] = useState([
-    {
-      id: "1",
-      name: "Default Workspace",
-      documents: [
-        { id: "d1", title: "Documentation" },
-        { id: "d2", title: "Guidelines" },
-      ],
-      folders: [
-        {
-          id: "f1",
-          name: "Q1 Projects",
-          boards: [],
-        },
-      ],
-    },
-  ]);
-
   const mainMenuItems = [
     { icon: Home, label: "Dashboard", href: "/home" },
     { icon: FolderKanban, label: "All Items", href: "/all-items" },
     { icon: Briefcase, label: "My Habits", href: "/my-habits" },
   ];
 
-  const currentWorkspace = workspaces.find((ws) => ws.id === selectedWorkspace);
+  const currentBoard = boards.find((b) => b.id === boardId);
+  const currentBoardName = currentBoard?.name || "Workspace";
   const filteredBoards = boards.filter((b) =>
     b.name.toLowerCase().includes(boardSearchQuery.toLowerCase())
   );
@@ -238,6 +216,49 @@ export const AppSidebar = () => {
 
         {/* Workspace Selector & Add Menu */}
         <SidebarGroup>
+          <div className="flex items-center justify-between px-0">
+            <SidebarGroupLabel className="font-bold text-white text-lg">Projects</SidebarGroupLabel>
+            <div className="flex items-center gap-1">
+              <Popover open={addMenuOpen} onOpenChange={setAddMenuOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="default" size="sm" className="h-6 w-6 p-0">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-2" align="start">
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => {
+                        setAddMenuOpen(false);
+                        setAddBoardOpen(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-white transition-colors text-left cursor-pointer text-white"
+                    >
+                      <LayoutDashboard className="h-4 w-4 text-white" />
+                      <span>New Project</span>
+                    </button>
+                    <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-white transition-colors text-left cursor-pointer text-white">
+                      <Copy className="h-4 w-4 text-white" />
+                      <span>Start with template</span>
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => setBoardSearchOpen(true)}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </SidebarGroup>
+
+        {/* COMMENTED OUT: Nested popover structure - may be useful in the future */}
+        {/* 
+        <SidebarGroup>
           <div className="flex items-center justify-between px-2">
             <SidebarGroupLabel>
               {currentWorkspace?.name || "Workspace"}
@@ -251,7 +272,7 @@ export const AppSidebar = () => {
               <PopoverContent className="w-56 p-2" align="start">
                 <div className="space-y-1">
                   {/* Board Submenu */}
-                  <div
+                  {/* <div
                     className="relative"
                     onMouseEnter={() => setHoveredSubmenu("board")}
                     onMouseLeave={() => setHoveredSubmenu(null)}
@@ -282,10 +303,10 @@ export const AppSidebar = () => {
                         </button>
                       </div>
                     )}
-                  </div>
+                  </div> */}
 
                   {/* Document Submenu */}
-                  <div
+                  {/* <div
                     className="relative"
                     onMouseEnter={() => setHoveredSubmenu("doc")}
                     onMouseLeave={() => setHoveredSubmenu(null)}
@@ -316,34 +337,24 @@ export const AppSidebar = () => {
                         </button>
                       </div>
                     )}
-                  </div>
+                  </div> */}
 
                   {/* Folder */}
-                  <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-hover hover:text-foreground transition-colors text-left">
+                  {/* <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-hover hover:text-foreground transition-colors text-left">
                     <Folder className="h-4 w-4 text-muted-foreground" />
                     <span>Folder</span>
-                  </button>
-                </div>
+                  </button> */}
+                {/* </div>
               </PopoverContent>
             </Popover>
           </div>
         </SidebarGroup>
+        */}
 
         {/* Boards & Documents */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
-              {/* Search Boards */}
-              <SidebarMenuItem>
-                <button
-                  onClick={() => setBoardSearchOpen(true)}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-md hover:bg-hover text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Search className="h-4 w-4" />
-                  <span>Search boards...</span>
-                </button>
-              </SidebarMenuItem>
-
               {/* Loading State */}
               {fetchLoading && (
                 <SidebarMenuItem>
@@ -358,7 +369,7 @@ export const AppSidebar = () => {
               {!fetchLoading && boards.length > 0 ? (
                 boards.map((board) => (
                   <SidebarMenuItem key={board.id} className="p-0">
-                    <div className="flex items-center gap-1 w-full group px-2 py-1.5 rounded-md hover:bg-hover">
+                    <div className={`flex items-center gap-1 w-full group px-2 py-1.5 rounded-md ${boardId === board.id ? "bg-accent" : "hover:bg-hover"}`}>
                       <button
                         onClick={() => navigate(`/board/${board.id}`)}
                         className="flex items-center gap-2 flex-1 text-left min-w-0"
@@ -424,30 +435,6 @@ export const AppSidebar = () => {
                   </div>
                 </SidebarMenuItem>
               ) : null}
-
-              {/* Documents */}
-              {currentWorkspace?.documents.map((doc) => (
-                <SidebarMenuItem key={doc.id}>
-                  <SidebarMenuButton asChild>
-                    <button className="flex items-center gap-2 w-full text-left">
-                      <FileText className="h-4 w-4" />
-                      <span className="truncate">{doc.title}</span>
-                    </button>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-
-              {/* Folders */}
-              {currentWorkspace?.folders.map((folder) => (
-                <SidebarMenuItem key={folder.id}>
-                  <SidebarMenuButton asChild>
-                    <button className="flex items-center gap-2 w-full text-left">
-                      <Folder className="h-4 w-4" />
-                      <span className="truncate">{folder.name}</span>
-                    </button>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
