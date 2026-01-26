@@ -28,7 +28,7 @@ const MyComponent = () => {
     
     if (result.type === "auth/login/fulfilled") {
       // Login successful
-      console.log("Logged in!");
+      debugLog("Logged in!");
     }
   };
 

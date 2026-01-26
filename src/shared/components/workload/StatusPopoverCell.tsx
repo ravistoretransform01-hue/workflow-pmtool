@@ -441,7 +441,7 @@ export default function StatusPopoverCell({
 //   // Sync editableStatuses with displayStatuses when edit mode is opened (use displayStatuses as source of truth)
 //   useEffect(() => {
 //     if (isEditMode) {
-//       // console.log("[useEffect] Syncing editableStatuses with displayStatuses:", displayStatuses);
+//       // debugLog("[useEffect] Syncing editableStatuses with displayStatuses:", displayStatuses);
 //       setEditableStatuses(displayStatuses.map((s) => ({ id: String(s.id), name: s.name, color_code: s.color_code })));
 //     }
 //   }, [isEditMode, displayStatuses]);
@@ -449,7 +449,7 @@ export default function StatusPopoverCell({
 //   // Sync displayStatuses with editableStatuses when in edit mode for real-time updates
 //   useEffect(() => {
 //     if (isEditMode && editableStatuses.length > 0) {
-//       // console.log("[useEffect] Syncing displayStatuses with editableStatuses:", editableStatuses);
+//       // debugLog("[useEffect] Syncing displayStatuses with editableStatuses:", editableStatuses);
 //       setDisplayStatuses([...editableStatuses] as any);
 //     }
 //   }, [editableStatuses, isEditMode]);
@@ -761,21 +761,21 @@ export default function StatusPopoverCell({
 //                     }
 //                     toast.success("Status labels updated successfully");
 
-//                     console.log("[Done Button] Before state update:");
-//                     console.log("editableStatuses:", editableStatuses);
-//                     console.log("displayStatuses:", displayStatuses);
+//                     debugLog("[Done Button] Before state update:");
+//                     debugLog("editableStatuses:", editableStatuses);
+//                     debugLog("displayStatuses:", displayStatuses);
 
 //                     // Update displayStatuses with the successfully saved editable statuses
 //                     setDisplayStatuses([...editableStatuses] as any);
-//                     console.log("[Done Button] After setDisplayStatuses called with:", editableStatuses);
+//                     debugLog("[Done Button] After setDisplayStatuses called with:", editableStatuses);
 
 //                     // Reset edit mode
 //                     setIsEditMode(false);
-//                     console.log("[Done Button] isEditMode set to false");
+//                     debugLog("[Done Button] isEditMode set to false");
 
 //                     // Notify parent to refresh the statuses list
 //                     onStatusesUpdated?.(editableStatuses as any);
-//                     console.log("[Done Button] onStatusesUpdated called with:", editableStatuses);
+//                     debugLog("[Done Button] onStatusesUpdated called with:", editableStatuses);
 //                   } catch (error) {
 //                     console.error("Failed to update status labels:", error);
 //                     toast.error("Failed to update status labels");

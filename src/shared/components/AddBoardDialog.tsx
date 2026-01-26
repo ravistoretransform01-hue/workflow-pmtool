@@ -45,6 +45,7 @@ import { useTestUser, testUserEmails } from "@/contexts/TestUserContext";
 import { BOARD_PERMISSION_CATEGORIES } from "@/lib/permissions";
 import { toast } from "@/hooks/use-toast";
 import { useBoards } from "@/hooks/useBoards";
+import { debugLog } from "@/lib/debugLog";
 
 interface AddBoardDialogProps {
   open: boolean;
@@ -431,7 +432,7 @@ export function AddBoardDialog({
   };
 
   const handleSavePermissions = () => {
-    console.log("Saving permissions:", rolePermissions);
+    debugLog("Saving permissions:", rolePermissions);
   };
 
   // Filter out current user (board creator) and already added members
@@ -490,7 +491,7 @@ export function AddBoardDialog({
       return;
     }
 
-    console.log({
+    debugLog({
       name: boardName.trim(),
       organization_id: organizationId,
       workspace_id: workspaceId,

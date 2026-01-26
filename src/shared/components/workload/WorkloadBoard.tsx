@@ -91,6 +91,7 @@ import {
 } from "./hooks";
 import { SortableColumnHeader } from "./components/ColumnHeader";
 import { ColorPickerPopover } from "./ColorPickerPopover";
+import { debugLog } from "@/lib/debugLog";
 // import { KanbanView } from "./KanbanView";
 
 interface WorkloadBoardProps {
@@ -527,8 +528,8 @@ export function WorkloadBoard({
           tasksApi.getTasksByBoardId(boardIdNum),
         ]);
 
-        console.log("Fetched Groups:", groupsRes);
-        console.log("Fetched Tasks:", tasksRes);
+        debugLog("Fetched Groups:", groupsRes);
+        debugLog("Fetched Tasks:", tasksRes);
 
         // 1️⃣ Split parent & subtasks
         const parentTasks: TaskResponse[] = tasksRes.filter(
@@ -637,14 +638,14 @@ export function WorkloadBoard({
           };
         });
 
-        console.log("Tasks with Subtasks:", tasksWithSubtasks);
+        debugLog("Tasks with Subtasks:", tasksWithSubtasks);
 
         // 3️⃣ Attach tasks to groups - Sort groups by position
         const sortedGroups = groupsRes.sort(
           (a: any, b: any) => Number(a.position) - Number(b.position)
         );
 
-        // console.log("Sorted Groups:", sortedGroups);
+        // debugLog("Sorted Groups:", sortedGroups);
 
         const groupedData: TaskGroup[] = sortedGroups.map((group) => ({
           id: String(group.id),
@@ -655,7 +656,7 @@ export function WorkloadBoard({
           ),
         }));
 
-        console.log("Final Groups with Tasks:", groupedData);
+        debugLog("Final Groups with Tasks:", groupedData);
 
         setGroups(groupedData);
 
@@ -710,7 +711,7 @@ export function WorkloadBoard({
           user_id: userId,
         });
 
-        console.log("Fetched CMS Data:", cmsData);
+        debugLog("Fetched CMS Data:", cmsData);
 
         // Sort statuses by status_order
         const sortedStatuses = [...cmsData.statuses].sort(
@@ -732,7 +733,7 @@ export function WorkloadBoard({
         // This ensures custom column labels and positions from the server are loaded on initial mount
         const userColumns = getUserColumnsFromCache(boardIdNum);
         if (userColumns?.columns) {
-          console.log("Syncing user_columns from CMS API to columnPersistence:", userColumns);
+          debugLog("Syncing user_columns from CMS API to columnPersistence:", userColumns);
           mergeColumnConfigWithAPI(boardIdNum, userColumns.columns);
 
           // Update columnOrder to reflect the positions from the API
@@ -743,7 +744,7 @@ export function WorkloadBoard({
 
           if (sortedColumnIds.length > 0) {
             setColumnOrder(sortedColumnIds);
-            console.log("Updated columnOrder from API positions:", sortedColumnIds);
+            debugLog("Updated columnOrder from API positions:", sortedColumnIds);
           }
         }
       } catch (err) {
@@ -854,7 +855,7 @@ export function WorkloadBoard({
 
   //       setGroups(transformedGroups);
 
-  //       console.log(transformedGroups);
+  //       debugLog(transformedGroups);
 
   //       // Initialize groupNames, groupColors, and expandedGroups from fetched data
   //       const names: Record<string, string> = {};
@@ -1303,7 +1304,7 @@ export function WorkloadBoard({
         columns: columnsPayload,
       };
 
-      console.log("Column label update payload:", payload);
+      debugLog("Column label update payload:", payload);
 
       // Call API to save
       const response = await cmsApi.saveUserGroupColumns(payload);
@@ -1726,7 +1727,7 @@ export function WorkloadBoard({
         }
       }
 
-      console.log("assigneeId", assigneeId);
+      debugLog("assigneeId", assigneeId);
 
       const payload: UpdateTaskRequest = {
         id: taskId,
@@ -3515,7 +3516,7 @@ export function WorkloadBoard({
                         columns: columnsPayload,
                       };
 
-                      console.log("Save View payload:", payload);
+                      debugLog("Save View payload:", payload);
 
                       // Call the API to save the layout
                       const response = await cmsApi.saveUserGroupColumns(payload);
@@ -4944,18 +4945,18 @@ export function WorkloadBoard({
 
                   // Fetch updated labels from CMS API immediately after creating label
                   try {
-                    console.log("Fetching updated CMS data...");
+                    debugLog("Fetching updated CMS data...");
                     const cmsData = await getCMSData({
                       organization_id: organizationIdNum,
                       board_id: boardIdNum,
                       user_id: userId,
                     });
 
-                    console.log("CMS Data received:", cmsData);
+                    debugLog("CMS Data received:", cmsData);
 
                     // Update labels state - this will reflect in all UI places where labels are used
                     setLabels(cmsData.labels || []);
-                    console.log("Labels updated:", cmsData.labels);
+                    debugLog("Labels updated:", cmsData.labels);
 
                     // Close dialog and reset form
                     setEditLabelsDialogOpen(false);

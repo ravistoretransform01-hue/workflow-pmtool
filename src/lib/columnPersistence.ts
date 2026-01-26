@@ -17,6 +17,8 @@
  * }
  */
 
+import { debugLog } from "./debugLog";
+
 const STORAGE_PREFIX = "workload-columns";
 const VISIBILITY_PREFIX = "board-visible-columns";
 const COLLAPSED_PREFIX = "board-collapsed-columns";
@@ -128,7 +130,7 @@ export function updateColumnLabel(
     const key = getStorageKey(boardId);
     localStorage.setItem(key, JSON.stringify(config));
 
-    console.log(
+    debugLog(
       `Column label updated for board ${boardId}, column ${columnId}:`,
       newLabel
     );
@@ -172,7 +174,7 @@ export function updateColumnLabels(
     const key = getStorageKey(boardId);
     localStorage.setItem(key, JSON.stringify(config));
 
-    console.log(`Column labels updated for board ${boardId}`);
+    debugLog(`Column labels updated for board ${boardId}`);
     return true;
   } catch (error) {
     console.error("Error updating column labels:", error);
@@ -211,7 +213,7 @@ export function updateColumnOrder(
     const key = getStorageKey(boardId);
     localStorage.setItem(key, JSON.stringify(config));
 
-    console.log(`Column order updated for board ${boardId}`);
+    debugLog(`Column order updated for board ${boardId}`);
     return true;
   } catch (error) {
     console.error("Error updating column order:", error);
@@ -236,8 +238,8 @@ export function updateFullColumnConfiguration(
     const key = getStorageKey(boardId);
     localStorage.setItem(key, JSON.stringify(payload));
 
-    console.log(`Full column configuration updated for board ${boardId}`);
-    console.log(payload);
+    debugLog(`Full column configuration updated for board ${boardId}`);
+    debugLog(payload);
     return true;
   } catch (error) {
     console.error("Error updating full column configuration:", error);
@@ -252,7 +254,7 @@ export function clearColumnConfiguration(boardId: string | number): void {
   try {
     const key = getStorageKey(boardId);
     localStorage.removeItem(key);
-    console.log(`Column configuration cleared for board ${boardId}`);
+    debugLog(`Column configuration cleared for board ${boardId}`);
   } catch (error) {
     console.error("Error clearing column configuration:", error);
   }
@@ -403,7 +405,7 @@ export function clearAllColumnStorage(boardId: string | number): void {
     localStorage.removeItem(collapsedKey);
     localStorage.removeItem(widthsKey);
 
-    console.log(`All column storage cleared for board ${boardId}`);
+    debugLog(`All column storage cleared for board ${boardId}`);
   } catch (error) {
     console.error("Error clearing all column storage:", error);
   }
@@ -456,7 +458,7 @@ export function mergeColumnConfigWithAPI(
     const key = getStorageKey(boardId);
     localStorage.setItem(key, JSON.stringify(config));
 
-    console.log(`Column configuration merged with API for board ${boardId}`);
+    debugLog(`Column configuration merged with API for board ${boardId}`);
   } catch (error) {
     console.error("Error merging column configuration with API:", error);
   }

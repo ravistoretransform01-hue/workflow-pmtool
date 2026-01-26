@@ -5,6 +5,7 @@ import type {
   CreateBoardResponse,
   GetBoardsResponse,
 } from "./types";
+import { debugLog } from "@/lib/debugLog";
 
 const BOARD_ENDPOINTS = {
   CREATE: "/boards",
@@ -63,7 +64,7 @@ export const boardsApi = {
       const response = await api.post<any>(BOARD_ENDPOINTS.CREATE, data, {
         // headers: CACHE_CONTROL_HEADERS
       });
-      console.log("Raw API response:", response);
+      debugLog("Raw API response:", response);
 
       // The API might return the board data directly or wrapped in a response object
       // Handle both cases

@@ -61,8 +61,8 @@ const cmsData = await getCMSData({
   user_id: 2,
 });
 
-console.log(cmsData.statuses);
-console.log(cmsData.priority);
+debugLog(cmsData.statuses);
+debugLog(cmsData.priority);
 ```
 
 ### Get only statuses

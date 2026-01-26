@@ -72,6 +72,7 @@ import { GifPicker } from "./GifPicker";
 import { FileUploadDropdown } from "./FileUploadDropdown";
 import { EmojiPicker } from "./EmojiPicker";
 import { TableHeaderCell } from "./ui/tableHeadCell";
+import { debugLog } from "@/lib/debugLog";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -738,7 +739,7 @@ export function WorkloadBoard({
 
     try {
       // Save update (in a real app, this would call an API)
-      console.log("Saving update:", updateText);
+      debugLog("Saving update:", updateText);
       toast.success("Update saved successfully");
 
       // Reset the form
