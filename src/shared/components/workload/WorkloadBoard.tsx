@@ -4424,35 +4424,14 @@ export function WorkloadBoard({
         />
       )} */}
 
-      {/* Other Views */}
-      {/* {activeTab !== "Main Table" && activeTab !== "Kanban"  && ( */}
+      {/* Other Views - Coming Soon */}
       {activeTab !== "Main Table"  && (
-        <div className="flex-1 overflow-auto p-6">
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Active Tab: {activeTab}</h2>
-            <p className="text-sm text-muted-foreground">
-              Workspace: {workspaceName}
+        <div className="flex-1 overflow-auto flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <h2 className="text-2xl font-semibold text-foreground">Coming Soon</h2>
+            <p className="text-muted-foreground">
+              The <span className="font-medium">{activeTab}</span> view is coming soon
             </p>
-            <p className="text-sm text-muted-foreground">
-              Board ID: {boardId}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Workspace ID: {workspaceId}
-            </p>
-
-            <div className="mt-6 p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold mb-2">Available Tabs:</h3>
-              <div className="flex flex-wrap gap-2">
-                {columnState.viewTabs.map((tab: any) => (
-                  <span
-                    key={tab}
-                    className="px-2 py-1 bg-background rounded text-sm"
-                  >
-                    {tab}
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       )}
