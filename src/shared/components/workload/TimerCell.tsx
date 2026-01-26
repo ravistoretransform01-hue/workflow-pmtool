@@ -51,11 +51,11 @@ export function TimerCell({
     const secs = totalSeconds % 60;
 
     if (hours > 0) {
-      return `${hours}h ${minutes}m`;
+      return `${hours}h ${minutes}m ${secs}s`;
     } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
+      return `${hours}h ${minutes}m ${secs}s`;
     } else {
-      return `${secs}s`;
+      return `${hours}h ${minutes}m ${secs}s`;
     }
   };
 

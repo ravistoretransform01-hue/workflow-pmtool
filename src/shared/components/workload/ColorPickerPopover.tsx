@@ -32,6 +32,7 @@ interface ColorPickerPopoverProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   size?: string;
+  disableHexInput?: boolean;
 }
 
 export function ColorPickerPopover({
@@ -40,6 +41,7 @@ export function ColorPickerPopover({
   isOpen,
   onOpenChange,
   size = "w-6 h-6",
+  disableHexInput = false,
 }: ColorPickerPopoverProps) {
   const [tempColor, setTempColor] = useState(color);
 
@@ -105,9 +107,12 @@ export function ColorPickerPopover({
             <Input
               value={tempColor}
               onChange={(e) => {
-                setTempColor(e.target.value);
-                onColorChange(e.target.value);
+                if (!disableHexInput) {
+                  setTempColor(e.target.value);
+                  onColorChange(e.target.value);
+                }
               }}
+              disabled={disableHexInput}
               className="h-8 text-xs flex-1"
               placeholder="#000000"
             />
