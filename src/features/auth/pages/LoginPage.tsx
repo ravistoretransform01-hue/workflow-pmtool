@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/label";
@@ -181,7 +181,7 @@ const LoginPage = () => {
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
+            {/* <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
                 Don't have an account?{" "}
                 <Link
@@ -191,7 +191,7 @@ const LoginPage = () => {
                   Create Account
                 </Link>
               </p>
-            </div>
+            </div> */}
           </CardContent>
         </Card>
       </div>

@@ -42,7 +42,7 @@ const LandingPage = () => {
           className="flex flex-col sm:flex-row gap-4 mb-16 animate-slide-up"
           style={{ animationDelay: "0.3s" }}
         >
-          <Link to="/signup">
+          {/* <Link to="/signup">
             <Button
               size="lg"
               className="h-14 px-8 text-lg font-medium shadow-elegant"
@@ -50,14 +50,15 @@ const LandingPage = () => {
               Get Started
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
-          </Link>
+          </Link> */}
           <Link to="/login">
             <Button
               size="lg"
-              variant="outline"
+              variant="default"
               className="h-14 px-8 text-lg font-medium border-2 border-border hover:bg-card/50"
             >
-              Sign In
+              Sign In Now
+              <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>
         </div>
