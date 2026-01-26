@@ -84,7 +84,7 @@ export function EstimatedDatePicker({
           }
         }
 
-        const enDashParts = estimatedDate.split("–");
+        const enDashParts = estimatedDate.split("-");
         if (enDashParts.length === 2) {
           try {
             let fromStr = enDashParts[0].trim();
@@ -162,6 +162,19 @@ export function EstimatedDatePicker({
 
   const formatDateDisplay = () => {
     if (estimatedDate === "-") return "-";
+    
+    // Check if from and to dates are the same
+    const range = getInitialDateRange();
+    if (range?.from && range?.to) {
+      const fromTime = range.from.getTime();
+      const toTime = range.to.getTime();
+      
+      // If dates are the same, show single formatted date
+      if (fromTime === toTime) {
+        return format(range.from, "d MMM, yy").toLowerCase();
+      }
+    }
+    
     return estimatedDate;
   };
 
