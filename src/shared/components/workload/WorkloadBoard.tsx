@@ -90,6 +90,7 @@ import {
   useTaskFilters,
 } from "./hooks";
 import { SortableColumnHeader } from "./components/ColumnHeader";
+import { ColorPickerPopover } from "./ColorPickerPopover";
 // import { KanbanView } from "./KanbanView";
 
 interface WorkloadBoardProps {
@@ -494,11 +495,20 @@ export function WorkloadBoard({
   const [labels, setLabels] = useState<any[]>([]);
   const [tags, setTags] = useState<any[]>([]);
 
-  // New label creation state
-  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  // Color picker popover states
+  const [editGroupColorPickerOpen, setEditGroupColorPickerOpen] = useState(false);
+
+  // Edit labels dialog state
+  const [editLabelsDialogOpen, setEditLabelsDialogOpen] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
-  const [newLabelColor, setNewLabelColor] = useState("#FF0000");
-  const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
+  const [newLabelColor, setNewLabelColor] = useState("#a855f7");
+  const [newLabelColorPickerOpen, setNewLabelColorPickerOpen] = useState(false);
+  
+  // Edit existing label state
+  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+  const [editingLabelName, setEditingLabelName] = useState("");
+  const [editingLabelColor, setEditingLabelColor] = useState("");
+  const [editingLabelColorPickerOpen, setEditingLabelColorPickerOpen] = useState(false);
 
   // Fetch groups from API on component mount
   useEffect(() => {
@@ -3784,31 +3794,7 @@ export function WorkloadBoard({
                                         </h3>
                                       </div>
 
-                                      {/* Color Picker */}
-                                      <div className="space-y-2">
-                                        <label className="text-sm font-medium">
-                                          Color
-                                        </label>
-                                        <div className="flex gap-2">
-                                          {PRESET_COLORS.map((color) => (
-                                            <button
-                                              key={color}
-                                              className={`h-10 w-10 rounded-lg transition-all border-2 ${editGroupColorInput === color
-                                                ? "border-foreground scale-110"
-                                                : "border-transparent hover:scale-105"
-                                                }`}
-                                              style={{
-                                                backgroundColor: color,
-                                              }}
-                                              onClick={() =>
-                                                setEditGroupColorInput(color)
-                                              }
-                                            />
-                                          ))}
-                                        </div>
-                                      </div>
-
-                                      {/* Group Name Input */}
+                                      {/* Group Name Input and Color Picker */}
                                       <div className="space-y-2">
                                         <label
                                           htmlFor="edit-group-name"
@@ -3816,249 +3802,85 @@ export function WorkloadBoard({
                                         >
                                           Group Name
                                         </label>
-                                        <Input
-                                          id="edit-group-name"
-                                          placeholder="Enter group name..."
-                                          value={editGroupNameInput}
-                                          onChange={(e) =>
-                                            setEditGroupNameInput(
-                                              e.target.value
-                                            )
-                                          }
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                              handleUpdateGroup();
+                                        <div className="flex gap-2 items-end">
+                                          <Input
+                                            id="edit-group-name"
+                                            placeholder="Enter group name..."
+                                            value={editGroupNameInput}
+                                            onChange={(e) =>
+                                              setEditGroupNameInput(
+                                                e.target.value
+                                              )
                                             }
-                                          }}
-                                          autoFocus
-                                        />
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") {
+                                                handleUpdateGroup();
+                                              }
+                                            }}
+                                            autoFocus
+                                            className="flex-1"
+                                          />
+                                          <ColorPickerPopover
+                                            color={editGroupColorInput}
+                                            onColorChange={setEditGroupColorInput}
+                                            isOpen={editGroupColorPickerOpen}
+                                            onOpenChange={setEditGroupColorPickerOpen}
+                                            size="w-10 h-10"
+                                            disableHexInput={true}
+                                          />
+                                        </div>
                                       </div>
 
-                                      {/* Label Dropdown */}
-                                      <div className="space-y-2">
+                                      {/* Labels Selector */}
+                                      <div className="space-y-3">
                                         <div className="flex items-center justify-between">
                                           <label className="text-sm font-medium">
-                                            Label (Optional)
+                                            Labels
                                           </label>
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="h-6 w-6 p-0 hover:bg-primary"
-                                            onClick={() => {
-                                              setIsCreatingLabel(true);
-                                              setLabelDropdownOpen(false);
-                                            }}
-                                            title="Create New Label"
+                                            className="h-6 w-6 p-0"
+                                            onClick={() => setEditLabelsDialogOpen(true)}
                                           >
-                                            <span className="text-lg font-semibold">+</span>
+                                            <Pencil className="h-3.5 w-3.5" />
                                           </Button>
                                         </div>
-                                        {isCreatingLabel ? (
-                                          <div className="space-y-2">
-                                            <Input
-                                              placeholder="Label name..."
-                                              value={newLabelName}
-                                              onChange={(e) =>
-                                                setNewLabelName(
-                                                  e.target.value
-                                                )
-                                              }
-                                              className="h-8 text-sm"
-                                            />
-                                            <div className="flex gap-2">
-                                              {PRESET_COLORS.map((color) => (
-                                                <button
-                                                  key={color}
-                                                  className={`h-8 w-8 rounded-lg transition-all border-2 ${newLabelColor === color
-                                                    ? "border-foreground scale-110"
-                                                    : "border-transparent hover:scale-105"
-                                                    }`}
-                                                  style={{
-                                                    backgroundColor: color,
-                                                  }}
-                                                  onClick={() =>
-                                                    setNewLabelColor(color)
-                                                  }
-                                                />
-                                              ))}
-                                            </div>
-                                            <div className="flex gap-2">
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="flex-1 h-8"
+                                        
+                                        {/* Display all available labels as clickable chips */}
+                                        {Array.isArray(labels) && labels.length > 0 && (
+                                          <div className="flex flex-wrap gap-2">
+                                            {labels.map((label) => (
+                                              <button
+                                                key={`label-${label.id}`}
                                                 onClick={() => {
-                                                  setIsCreatingLabel(false);
-                                                  setNewLabelName("");
-                                                  setNewLabelColor("#FF0000");
-                                                  setLabelDropdownOpen(true);
-                                                }}
-                                              >
-                                                Cancel
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                className="flex-1 h-8"
-                                                onClick={async () => {
-                                                  if (newLabelName.trim()) {
-                                                    try {
-                                                      const organizationIdNum =
-                                                        getOrganizationId();
-                                                      const boardIdNum =
-                                                        Number(boardId);
-
-                                                      if (
-                                                        organizationIdNum ===
-                                                        null
-                                                      ) {
-                                                        toast.error(
-                                                          "Organization not found"
-                                                        );
-                                                        return;
-                                                      }
-
-                                                      // Call API to create label
-                                                      const createdLabel =
-                                                        await cmsApi.createLabel(
-                                                          {
-                                                            label_name:
-                                                              newLabelName.trim(),
-                                                            label_color:
-                                                              newLabelColor,
-                                                            organization_id:
-                                                              organizationIdNum,
-                                                            board_id:
-                                                              boardIdNum,
-                                                          }
-                                                        );
-
-                                                      // Add new label to the list
-                                                      setLabels(
-                                                        (prevLabels) => [
-                                                          ...prevLabels,
-                                                          createdLabel,
-                                                        ]
-                                                      );
-                                                      setEditGroupLabelInput(
-                                                        createdLabel.label_name
-                                                      );
-                                                      setEditGroupLabelColorInput(
-                                                        createdLabel.label_color
-                                                      );
-
-                                                      // Reset form and exit creation mode
-                                                      setNewLabelName("");
-                                                      setNewLabelColor(
-                                                        "#FF0000"
-                                                      );
-                                                      setIsCreatingLabel(
-                                                        false
-                                                      );
-
-                                                      // Reopen dropdown to show the new label
-                                                      setLabelDropdownOpen(
-                                                        true
-                                                      );
-
-                                                      toast.success(
-                                                        "Label created successfully"
-                                                      );
-                                                    } catch (error) {
-                                                      console.error(
-                                                        "Failed to create label:",
-                                                        error
-                                                      );
-                                                      toast.error(
-                                                        "Failed to create label"
-                                                      );
-                                                    }
-                                                  }
-                                                }}
-                                              >
-                                                Create
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        ) : (
-                                          <DropdownMenu
-                                            open={labelDropdownOpen}
-                                            onOpenChange={
-                                              setLabelDropdownOpen
-                                            }
-                                          >
-                                            <DropdownMenuTrigger asChild>
-                                              <Button
-                                                variant="outline"
-                                                className="w-full justify-start text-left font-normal"
-                                              >
-                                                {editGroupLabelInput ? (
-                                                  <div className="flex items-center gap-2">
-                                                    <div
-                                                      className="w-3 h-3 rounded-full flex-shrink-0"
-                                                      style={{
-                                                        backgroundColor:
-                                                          editGroupLabelColorInput,
-                                                      }}
-                                                    />
-                                                    <span>
-                                                      {editGroupLabelInput}
-                                                    </span>
-                                                  </div>
-                                                ) : (
-                                                  <span className="text-muted-foreground">
-                                                    Select a label...
-                                                  </span>
-                                                )}
-                                              </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent
-                                              className="w-56 max-h-64 overflow-y-auto"
-                                              align="start"
-                                            >
-                                              <DropdownMenuItem
-                                                onClick={() => {
-                                                  setEditGroupLabelInput("");
+                                                  setEditGroupLabelInput(
+                                                    label.label_name
+                                                  );
                                                   setEditGroupLabelColorInput(
-                                                    "#3b82f6"
+                                                    label.label_color
                                                   );
                                                 }}
+                                                className={`px-3 py-1 rounded-full text-xs font-medium text-white hover:opacity-80 transition-opacity ${
+                                                  editGroupLabelInput === label.label_name
+                                                    ? "ring-2 ring-offset-1 ring-foreground"
+                                                    : ""
+                                                }`}
+                                                style={{
+                                                  backgroundColor:
+                                                    label.label_color,
+                                                }}
                                               >
-                                                <span className="text-muted-foreground">
-                                                  No Label
-                                                </span>
-                                              </DropdownMenuItem>
-                                              <DropdownMenuSeparator />
-                                              {Array.isArray(labels) &&
-                                                labels.map((label) => (
-                                                  <DropdownMenuItem
-                                                    key={`label-${label.id}`}
-                                                    onClick={() => {
-                                                      setEditGroupLabelInput(
-                                                        label.label_name
-                                                      );
-                                                      setEditGroupLabelColorInput(
-                                                        label.label_color
-                                                      );
-                                                      setLabelDropdownOpen(
-                                                        false
-                                                      );
-                                                    }}
-                                                    className="flex items-center gap-2"
-                                                  >
-                                                    <div
-                                                      className="w-3 h-3 rounded-full flex-shrink-0"
-                                                      style={{
-                                                        backgroundColor:
-                                                          label.label_color,
-                                                      }}
-                                                    />
-                                                    <span>
-                                                      {label.label_name}
-                                                    </span>
-                                                  </DropdownMenuItem>
-                                                ))}
-                                            </DropdownMenuContent>
-                                          </DropdownMenu>
+                                                {label.label_name}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {(!Array.isArray(labels) || labels.length === 0) && (
+                                          <p className="text-xs text-muted-foreground">
+                                            No labels available
+                                          </p>
                                         )}
                                       </div>
 
@@ -4906,6 +4728,248 @@ export function WorkloadBoard({
         onRatingChange={handleRatingChange}
         onEstimatedDateChange={handleEstimatedDateChange}
       />
+
+      {/* Edit Labels Dialog */}
+      <Dialog open={editLabelsDialogOpen} onOpenChange={setEditLabelsDialogOpen}>
+        <DialogContent className="max-w-2xl flex flex-col max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Edit Group Labels</DialogTitle>
+          </DialogHeader>
+
+          {/* Scrollable Labels List */}
+          <div className="flex-1 overflow-y-auto space-y-2 pr-4">
+            {/* Existing Labels */}
+            {Array.isArray(labels) && labels.length > 0 && (
+              <div className="space-y-2">
+                {labels.map((label) => (
+                  <div
+                    key={`edit-label-${label.id}`}
+                    className="flex items-center gap-2 p-3 rounded-lg bg-muted"
+                  >
+                    {editingLabelId === String(label.id) ? (
+                      <>
+                        <Input
+                          value={editingLabelName}
+                          onChange={(e) => setEditingLabelName(e.target.value)}
+                          className="flex-1"
+                          placeholder="Label name..."
+                        />
+                        <ColorPickerPopover
+                          color={editingLabelColor}
+                          onColorChange={setEditingLabelColor}
+                          isOpen={editingLabelColorPickerOpen}
+                          onOpenChange={setEditingLabelColorPickerOpen}
+                          size="w-10 h-10"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={async () => {
+                            try {
+                              const organizationIdNum = getOrganizationId();
+                              const boardIdNum = Number(boardId);
+
+                              if (organizationIdNum === null) {
+                                toast.error("Organization not found");
+                                return;
+                              }
+
+                              // Call API to update label
+                              await cmsApi.updateLabel({
+                                label_id: editingLabelId!,
+                                label_name: editingLabelName,
+                                label_color: editingLabelColor,
+                                organization_id: organizationIdNum,
+                                board_id: boardIdNum,
+                              });
+
+                              // Update local state
+                              setLabels((prev) =>
+                                prev.map((l) =>
+                                  String(l.id) === editingLabelId
+                                    ? {
+                                        ...l,
+                                        label_name: editingLabelName,
+                                        label_color: editingLabelColor,
+                                      }
+                                    : l
+                                )
+                              );
+
+                              setEditingLabelId(null);
+                              toast.success("Label updated successfully");
+                            } catch (error) {
+                              console.error("Failed to update label:", error);
+                              toast.error("Failed to update label");
+                            }
+                          }}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2"
+                          onClick={() => setEditingLabelId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <div
+                          className="flex-1 px-3 py-2 rounded text-white font-medium"
+                          style={{ backgroundColor: label.label_color }}
+                        >
+                          {label.label_name}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            setEditingLabelId(String(label.id));
+                            setEditingLabelName(label.label_name);
+                            setEditingLabelColor(label.label_color);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          onClick={async () => {
+                            try {
+                              // Call API to delete label
+                              await cmsApi.deleteLabel(label.id);
+
+                              // Remove from local state
+                              setLabels((prev) =>
+                                prev.filter((l) => String(l.id) !== String(label.id))
+                              );
+                              toast.success("Label deleted successfully");
+                            } catch (error) {
+                              console.error("Failed to delete label:", error);
+                              toast.error("Failed to delete label");
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Fixed Add New Label Section */}
+          <div className="border-t border-border pt-4 space-y-3">
+            <h4 className="font-medium text-sm">Add New Label</h4>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Label name..."
+                value={newLabelName}
+                onChange={(e) => setNewLabelName(e.target.value)}
+                className="flex-1"
+              />
+              <ColorPickerPopover
+                color={newLabelColor}
+                onColorChange={setNewLabelColor}
+                isOpen={newLabelColorPickerOpen}
+                onOpenChange={setNewLabelColorPickerOpen}
+                size="w-10 h-10"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditLabelsDialogOpen(false);
+                setNewLabelName("");
+                setNewLabelColor("#a855f7");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  const organizationIdNum = getOrganizationId();
+                  const boardIdNum = Number(boardId);
+                  const userId = getCurrentUserId();
+
+                  if (organizationIdNum === null) {
+                    toast.error("Organization not found");
+                    return;
+                  }
+
+                  if (userId === null) {
+                    toast.error("User not found");
+                    return;
+                  }
+
+                  // Create label if name is provided
+                  if (newLabelName.trim()) {
+                    try {
+                      await cmsApi.createLabel({
+                        label_name: newLabelName.trim(),
+                        label_color: newLabelColor,
+                        organization_id: organizationIdNum,
+                        board_id: boardIdNum,
+                      });
+                      toast.success("Label created successfully");
+                    } catch (createError) {
+                      console.error("Failed to create label:", createError);
+                      toast.error("Failed to create label");
+                      return;
+                    }
+                  }
+
+                  // Clear CMS cache to ensure fresh data
+                  clearCMSCache(boardIdNum);
+
+                  // Fetch updated labels from CMS API immediately after creating label
+                  try {
+                    console.log("Fetching updated CMS data...");
+                    const cmsData = await getCMSData({
+                      organization_id: organizationIdNum,
+                      board_id: boardIdNum,
+                      user_id: userId,
+                    });
+
+                    console.log("CMS Data received:", cmsData);
+
+                    // Update labels state - this will reflect in all UI places where labels are used
+                    setLabels(cmsData.labels || []);
+                    console.log("Labels updated:", cmsData.labels);
+
+                    // Close dialog and reset form
+                    setEditLabelsDialogOpen(false);
+                    setNewLabelName("");
+                    setNewLabelColor("#a855f7");
+                    
+                    // Close the Edit Group popover to force re-render when reopened
+                    setEditGroupDialogOpen(false);
+                  } catch (fetchError) {
+                    console.error("Failed to fetch CMS data:", fetchError);
+                    toast.error("Failed to fetch updated labels");
+                  }
+                } catch (error) {
+                  console.error("Failed to update labels:", error);
+                  toast.error("Failed to update labels");
+                }
+              }}
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

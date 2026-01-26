@@ -4,6 +4,8 @@ import type { CMSRequest, CMSResponse, Label } from "./types";
 const CMS_ENDPOINTS = {
   GET_CMS_DATA: `/cms`,
   CREATE_LABEL: `/labels`,
+  UPDATE_LABEL: `/labels`,
+  DELETE_LABEL: `/labels`,
   CREATE_TAG: `/tags`,
   CREATE_STATUS: `/task-status`,
   UPDATE_STATUS: `/task-status`,
@@ -52,6 +54,45 @@ export const cmsApi = {
       return response.data;
     } catch (error) {
       console.error("Failed to create label:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update an existing label
+   */
+  updateLabel: async (payload: {
+    label_id: string | number;
+    label_name: string;
+    label_color: string;
+    organization_id: number;
+    board_id: number;
+  }): Promise<Label> => {
+    try {
+      const response = await axios.put<Label>(
+        `${CMS_ENDPOINTS.UPDATE_LABEL}/${payload.label_id}`,
+        payload
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error("Failed to update label:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete an existing label
+   */
+  deleteLabel: async (labelId: string | number): Promise<any> => {
+    try {
+      const response = await axios.delete<any>(
+        `${CMS_ENDPOINTS.DELETE_LABEL}/${labelId}`
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error("Failed to delete label:", error);
       throw error;
     }
   },
