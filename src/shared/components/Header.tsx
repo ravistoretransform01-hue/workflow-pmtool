@@ -75,7 +75,7 @@ export function Header() {
               <User className="mr-2 h-4 w-4" />
               <span>My profile</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setUserManagementOpen(true)}>
+            <DropdownMenuItem onClick={() => {}}>
               <Users className="mr-2 h-4 w-4" />
               <span>Members</span>
             </DropdownMenuItem>
