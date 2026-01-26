@@ -390,7 +390,7 @@ export function WorkloadBoard({
   boardName,
   boardId,
   workspaceId,
-  workspaceName,
+  // workspaceName,
 }: WorkloadBoardProps) {
   const navigate = useNavigate();
   
