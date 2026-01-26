@@ -82,8 +82,8 @@ export const AppSidebar = () => {
     { icon: Briefcase, label: "My Habits", href: "/my-habits" },
   ];
 
-  const currentBoard = boards.find((b) => b.id === boardId);
-  const currentBoardName = currentBoard?.name || "Workspace";
+  // const currentBoard = boards.find((b) => b.id === boardId);
+  // const currentBoardName = currentBoard?.name || "Workspace";
   const filteredBoards = boards.filter((b) =>
     b.name.toLowerCase().includes(boardSearchQuery.toLowerCase())
   );
