@@ -14,6 +14,7 @@ import { tasksApi } from "@/features/tasks/tasksApi";
 import type { TimeEntry } from "@/features/tasks/types";
 import { format } from "date-fns";
 import { TimePickerInput } from "@/shared/components/TimePickerInput";
+import { debugLog } from "@/lib/debugLog";
 
 interface TimeLogEntry extends TimeEntry {
   date: string;
@@ -120,8 +121,8 @@ const formatTimeEntry = (entry: TimeEntry): TimeLogEntry => {
 //   const startDate = parseLocalTime(entry.start_time);
 //   const endDate = entry.end_time ? parseLocalTime(entry.end_time) : new Date();
 
-//   console.log("API start_time:", entry.start_time);
-//   console.log("Parsed startDate:", startDate);
+//   debugLog("API start_time:", entry.start_time);
+//   debugLog("Parsed startDate:", startDate);
 
 //   // Format date
 //   const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -143,7 +144,7 @@ const formatTimeEntry = (entry: TimeEntry): TimeLogEntry => {
 //   const startTimeFormatted = timeFormatter.format(startDate);
 //   const endTimeFormatted = entry.end_time ? timeFormatter.format(endDate) : "Active...";
 
-//   console.log("Formatted startTime:", startTimeFormatted);
+//   debugLog("Formatted startTime:", startTimeFormatted);
 
 //   const startTime = startTimeFormatted;
 //   const endTime = endTimeFormatted;
@@ -211,9 +212,9 @@ export function TimeTrackingLogDialog({
   }, [open, taskId]);
 
   useEffect(() => {
-    console.log(startTime);
-    console.log(endTime);
-    console.log(duration);
+    debugLog(startTime);
+    debugLog(endTime);
+    debugLog(duration);
   }, [startTime, endTime, duration]);
 
   const calculateDuration = () => {

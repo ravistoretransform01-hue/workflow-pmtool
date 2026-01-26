@@ -1,6 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { boardsApi } from "./boardsApi";
 import type { CreateBoardRequest, Board } from "./types";
+import { debugLog } from "@/lib/debugLog";
 
 export const createBoardThunk = createAsyncThunk<
   Board,
@@ -10,10 +11,10 @@ export const createBoardThunk = createAsyncThunk<
   }
 >("boards/createBoard", async (data, { rejectWithValue }) => {
   try {
-    console.log("Creating board with data:", data);
+    debugLog("Creating board with data:", data);
     const response = await boardsApi.createBoard(data);
     
-    console.log("Board creation response:", response);
+    debugLog("Board creation response:", response);
     
     // Handle different response formats
     let boardData: Board | null = null;
@@ -58,9 +59,9 @@ export const fetchBoardsThunk = createAsyncThunk<
   }
 >("boards/fetchBoards", async (_, { rejectWithValue }) => {
   try {
-    console.log("Fetching boards...");
+    debugLog("Fetching boards...");
     const boards = await boardsApi.getBoards();
-    console.log("Boards fetched:", boards);
+    debugLog("Boards fetched:", boards);
     return boards;
   } catch (error: any) {
     console.error("Fetch boards error:", error);

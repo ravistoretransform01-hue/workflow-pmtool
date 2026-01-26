@@ -35,6 +35,13 @@ const SignupPage = () => {
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   const [invitationData, setInvitationData] = useState<any>(null);
 
+  // Redirect to login if no invite token
+  useEffect(() => {
+    if (!inviteToken) {
+      navigate('/login', { replace: true });
+    }
+  }, [inviteToken, navigate]);
+
   // Validate invitation token on mount
   useEffect(() => {
     if (inviteToken) {

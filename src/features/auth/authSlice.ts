@@ -7,6 +7,7 @@ import {
   refreshTokenThunk,
 } from "./authThunks";
 import { clearCMSCache } from "../cms/cmsStorage";
+import { debugLog } from "@/lib/debugLog";
 
 const initialState: AuthState = {
   user: null,
@@ -69,11 +70,11 @@ const authSlice = createSlice({
           const exp = new Date(payload.exp * 1000);
           const now = new Date();
           const expiresIn = Math.round((exp.getTime() - now.getTime()) / 1000);
-          console.log("🔐 Login successful!");
-          console.log("⏰ Token expires in:", expiresIn + "s");
-          console.log("📅 Token expires at:", exp.toLocaleString());
+          debugLog("🔐 Login successful!");
+          debugLog("⏰ Token expires in:", expiresIn + "s");
+          debugLog("📅 Token expires at:", exp.toLocaleString());
         } catch (e) {
-          console.log("Could not decode token expiration");
+          debugLog("Could not decode token expiration");
         }
       })
       .addCase(loginThunk.rejected, (state, action) => {

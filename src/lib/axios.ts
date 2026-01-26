@@ -1,41 +1,5 @@
 import axios, { AxiosError, type AxiosResponse } from "axios";
-
-// Debug flag - only log in development mode
-const DEBUG = true;
-
-// Helper function to log only in debug mode
-const debugLog = (...args: any[]) => {
-  if (DEBUG) console.log(...args);
-};
-
-const debugWarn = (...args: any[]) => {
-  if (DEBUG) console.warn(...args);
-};
-
-const debugError = (...args: any[]) => {
-  if (DEBUG) console.error(...args);
-};
-
-// Helper function to decode JWT and check expiration
-const getTokenInfo = (token: string) => {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    
-    const payload = JSON.parse(atob(parts[1]));
-    const exp = payload.exp ? new Date(payload.exp * 1000) : null;
-    const now = new Date();
-    const isExpired = exp ? now > exp : false;
-    
-    return {
-      exp,
-      isExpired,
-      expiresIn: exp ? Math.round((exp.getTime() - now.getTime()) / 1000) + "s" : "unknown",
-    };
-  } catch (e) {
-    return null;
-  }
-};
+import { debugLog, debugWarn, debugError, getTokenInfo } from "./debugLog";
 
 // Flag to prevent multiple refresh token requests
 let isRefreshing = false;
@@ -154,7 +118,7 @@ api.interceptors.response.use(
 
         // Prevent multiple refresh requests
         if (!isRefreshing) {
-          console.log(`[REFRESH] Step 1: Not currently refreshing - Starting refresh process`);
+          debugLog(`[REFRESH] Step 1: Not currently refreshing - Starting refresh process`);
           isRefreshing = true;
 
           try {
@@ -189,7 +153,7 @@ api.interceptors.response.use(
               }
             );
 
-            console.log(`[REFRESH] ✅ Step 7: Refresh request successful - Status: ${response.status}`);
+            debugLog(`[REFRESH] ✅ Step 7: Refresh request successful - Status: ${response.status}`);
             debugLog(`[REFRESH] Step 8: Extracting new tokens from response`);
             const { access_token, refresh_token } = response.data;
             debugLog(`[REFRESH] Step 9: New access_token received: ${!!access_token}`);
@@ -219,7 +183,7 @@ api.interceptors.response.use(
 
             // Retry the original request
             debugLog(`[REFRESH] Step 16: Retrying original request with new token`);
-            console.log(`[REFRESH] ========== TOKEN REFRESH COMPLETE ==========\n`);
+            debugLog(`[REFRESH] ========== TOKEN REFRESH COMPLETE ==========\n`);
             
             // Clear retry counter on successful refresh
             retryAttempts.delete(requestKey);

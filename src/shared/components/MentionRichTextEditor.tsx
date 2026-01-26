@@ -164,7 +164,6 @@ export const MentionRichTextEditor = forwardRef<MentionRichTextEditorRef, Mentio
             mentionLink.href = "#";
             mentionLink.onclick = (e) => {
               e.preventDefault();
-              console.log("Navigate to profile:", personId);
             };
 
             // Create a document fragment to replace the content

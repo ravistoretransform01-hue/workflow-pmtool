@@ -1,3 +1,4 @@
+import { debugLog } from "@/lib/debugLog";
 import { cmsApi } from "./cmsApi";
 import type { CMSRequest, CMSData, Status, Priority, Member, Label, Tag } from "./types";
 
@@ -21,12 +22,12 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
     const cachedData = getFromLocalStorage(payload.board_id);
 
     if (cachedData) {
-      console.log(`Using cached CMS data from localStorage for board ${payload.board_id}`);
+      debugLog(`Using cached CMS data from localStorage for board ${payload.board_id}`);
       return cachedData;
     }
 
     // If not in cache, fetch from API
-    console.log(`Fetching CMS data from API for board ${payload.board_id}`);
+    debugLog(`Fetching CMS data from API for board ${payload.board_id}`);
     const apiResponse = await cmsApi.getCMSData(payload);
 
     // Store in localStorage with board-specific key
@@ -56,7 +57,7 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
     // Fallback to cached data even if expired
     const cachedData = getFromLocalStorage(payload.board_id, true);
     if (cachedData) {
-      console.log(`Using expired cached CMS data as fallback for board ${payload.board_id}`);
+      debugLog(`Using expired cached CMS data as fallback for board ${payload.board_id}`);
       return cachedData;
     }
 
@@ -193,7 +194,7 @@ export function clearCMSCache(boardId?: number): void {
   try {
     if (boardId) {
       localStorage.removeItem(getStorageKey(boardId));
-      console.log(`CMS cache cleared for board ${boardId}`);
+      debugLog(`CMS cache cleared for board ${boardId}`);
     } else {
       // Clear all board-specific CMS caches
       const keys = Object.keys(localStorage);
@@ -202,7 +203,7 @@ export function clearCMSCache(boardId?: number): void {
           localStorage.removeItem(key);
         }
       });
-      console.log("All CMS caches cleared");
+      debugLog("All CMS caches cleared");
     }
   } catch (error) {
     console.error("Error clearing CMS cache:", error);
@@ -230,7 +231,7 @@ function getFromLocalStorage(boardId: number, ignoreExpiry = false): CMSData | n
     if (!ignoreExpiry) {
       const isExpired = Date.now() - cmsData.timestamp > CACHE_DURATION;
       if (isExpired) {
-        console.log(`CMS cache expired for board ${boardId}, will fetch fresh data`);
+        debugLog(`CMS cache expired for board ${boardId}, will fetch fresh data`);
         return null;
       }
     }
@@ -251,7 +252,7 @@ function saveToLocalStorage(boardId: number, cmsData: CMSData): void {
   try {
     const storageKey = getStorageKey(boardId);
     localStorage.setItem(storageKey, JSON.stringify(cmsData));
-    console.log(`CMS data saved to localStorage for board ${boardId}`);
+    debugLog(`CMS data saved to localStorage for board ${boardId}`);
   } catch (error) {
     console.error("Error saving CMS data to localStorage:", error);
   }
@@ -271,7 +272,7 @@ export function addStatusToCache(boardId: number, newStatus: Status): void {
       cachedData.statuses.push(newStatus);
       cachedData.timestamp = Date.now(); // Update timestamp
       saveToLocalStorage(boardId, cachedData);
-      console.log(`Added new status to cache for board ${boardId}`);
+      debugLog(`Added new status to cache for board ${boardId}`);
     } else {
       // Cache doesn't exist, create a new one with just this status
       const newCacheData: CMSData = {
@@ -283,7 +284,7 @@ export function addStatusToCache(boardId: number, newStatus: Status): void {
         timestamp: Date.now(),
       };
       saveToLocalStorage(boardId, newCacheData);
-      console.log(`Created new cache with status for board ${boardId}`);
+      debugLog(`Created new cache with status for board ${boardId}`);
     }
   } catch (error) {
     console.error("Error adding status to cache:", error);
@@ -303,7 +304,7 @@ export function addPriorityToCache(boardId: number, newPriority: Priority): void
       cachedData.priorities.push(newPriority);
       cachedData.timestamp = Date.now(); // Update timestamp
       saveToLocalStorage(boardId, cachedData);
-      console.log(`Added new priority to cache for board ${boardId}`);
+      debugLog(`Added new priority to cache for board ${boardId}`);
     } else {
       // Cache doesn't exist, create a new one with just this priority
       const newCacheData: CMSData = {
@@ -315,7 +316,7 @@ export function addPriorityToCache(boardId: number, newPriority: Priority): void
         timestamp: Date.now(),
       };
       saveToLocalStorage(boardId, newCacheData);
-      console.log(`Created new cache with priority for board ${boardId}`);
+      debugLog(`Created new cache with priority for board ${boardId}`);
     }
   } catch (error) {
     console.error("Error adding priority to cache:", error);
@@ -335,7 +336,7 @@ export function addTagToCache(boardId: number, newTag: Tag): void {
       cachedData.tags.push(newTag);
       cachedData.timestamp = Date.now(); // Update timestamp
       saveToLocalStorage(boardId, cachedData);
-      console.log(`Added new tag to cache for board ${boardId}`);
+      debugLog(`Added new tag to cache for board ${boardId}`);
     } else {
       // Cache doesn't exist, create a new one with just this tag
       const newCacheData: CMSData = {
@@ -347,7 +348,7 @@ export function addTagToCache(boardId: number, newTag: Tag): void {
         timestamp: Date.now(),
       };
       saveToLocalStorage(boardId, newCacheData);
-      console.log(`Created new cache with tag for board ${boardId}`);
+      debugLog(`Created new cache with tag for board ${boardId}`);
     }
   } catch (error) {
     console.error("Error adding tag to cache:", error);
@@ -369,7 +370,7 @@ export function updateStatusInCache(boardId: number, updatedStatus: Status): voi
         cachedData.statuses[statusIndex] = updatedStatus;
         cachedData.timestamp = Date.now(); // Update timestamp
         saveToLocalStorage(boardId, cachedData);
-        console.log(`Updated status in cache for board ${boardId}`);
+        debugLog(`Updated status in cache for board ${boardId}`);
       }
     }
   } catch (error) {
@@ -392,7 +393,7 @@ export function updatePriorityInCache(boardId: number, updatedPriority: Priority
         cachedData.priorities[priorityIndex] = updatedPriority;
         cachedData.timestamp = Date.now(); // Update timestamp
         saveToLocalStorage(boardId, cachedData);
-        console.log(`Updated priority in cache for board ${boardId}`);
+        debugLog(`Updated priority in cache for board ${boardId}`);
       }
     }
   } catch (error) {
@@ -448,7 +449,7 @@ function saveUserColumnsToLocalStorage(boardId: number, userColumns: any): void 
   try {
     const storageKey = `user_columns_board_${boardId}`;
     localStorage.setItem(storageKey, JSON.stringify(userColumns));
-    console.log(`User columns saved to localStorage for board ${boardId}`);
+    debugLog(`User columns saved to localStorage for board ${boardId}`);
   } catch (error) {
     console.error("Error saving user columns to localStorage:", error);
   }
@@ -463,7 +464,7 @@ function saveDefaultColumnsToLocalStorage(boardId: number, defaultColumns: any):
   try {
     const storageKey = `default_columns_board_${boardId}`;
     localStorage.setItem(storageKey, JSON.stringify(defaultColumns));
-    console.log(`Default columns saved to localStorage for board ${boardId}`);
+    debugLog(`Default columns saved to localStorage for board ${boardId}`);
   } catch (error) {
     console.error("Error saving default columns to localStorage:", error);
   }
