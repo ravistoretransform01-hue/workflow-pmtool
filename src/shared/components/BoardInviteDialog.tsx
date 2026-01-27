@@ -152,7 +152,11 @@ export function BoardInviteDialog({ open, onOpenChange, boardId, onMembersUpdate
         setIsInviting(true);
         try {
             // Get organization_id from localStorage or context
-            const organizationId = localStorage.getItem('organization_id') || '2'; // Default to 2 if not found
+            const userData = localStorage.getItem("user_data");
+
+            const organizationId = userData
+            ? JSON.parse(userData).organization_id
+            : '2';
 
             await api.post('/invite-user', {
                 email: searchQuery.trim(),
