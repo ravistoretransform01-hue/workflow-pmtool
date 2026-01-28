@@ -422,7 +422,7 @@ export const getWorkloadColumns = ({
           <ProgressBarCell
             taskId={task.id}
             trackedTimeSeconds={task.tracked_time_seconds || 0}
-            activeTimerId={null}
+            activeTimerId={activeTimerId || null}
             estimatedHours={estimatedHours}
             estimatedDate={estimatedDate}
           />
