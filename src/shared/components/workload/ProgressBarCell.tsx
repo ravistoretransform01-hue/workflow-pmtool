@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { parse } from "date-fns";
 
 interface ProgressBarCellProps {
   taskId: string;
   trackedTimeSeconds?: number;
   activeTimerId: string | null;
   estimatedHours?: string | number;
+  estimatedDate?: string;
 }
 
 export function ProgressBarCell({
@@ -12,6 +14,7 @@ export function ProgressBarCell({
   trackedTimeSeconds = 0,
   activeTimerId,
   estimatedHours = "-",
+  estimatedDate = "-",
 }: ProgressBarCellProps) {
   const [seconds, setSeconds] = useState(trackedTimeSeconds);
   const isRunning = activeTimerId === taskId;
@@ -60,12 +63,66 @@ export function ProgressBarCell({
     return 0;
   };
 
+  // Extract end date from estimated date range
+  const getEndDate = (): Date | null => {
+    if (!estimatedDate || estimatedDate === "-") return null;
+
+    try {
+      const dateStr = String(estimatedDate);
+      
+      // Handle "21 Jan – 25 Jan" format (with en-dash)
+      const enDashParts = dateStr.split("–");
+      if (enDashParts.length === 2) {
+        let toStr = enDashParts[1].trim();
+        const hasYearWithApostrophe = /,\s*'?\d{2}$/.test(enDashParts[0]) || /,\s*'?\d{2}$/.test(toStr);
+        
+        if (hasYearWithApostrophe) {
+          toStr = toStr.replace(/'/g, "");
+          const to = parse(toStr, "MMM d, yy", new Date());
+          if (!isNaN(to.getTime())) return to;
+        } else {
+          const to = parse(toStr, "MMM d", new Date());
+          if (!isNaN(to.getTime())) return to;
+        }
+      }
+
+      // Handle single date format "27 jan, '26"
+      const singleDateStr = dateStr.replace(/'/g, "");
+      const singleDate = parse(singleDateStr, "d MMM, yy", new Date());
+      if (!isNaN(singleDate.getTime())) return singleDate;
+
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Check if task is overdue
+  const isOverdue = (): boolean => {
+    const endDate = getEndDate();
+    if (!endDate) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+
+    return endDate < today;
+  };
+
   // Calculate progress percentage
   const estimatedSeconds = parseEstimatedHours(estimatedHours);
   const percentage = estimatedSeconds > 0 ? (seconds / estimatedSeconds) * 100 : 0;
   
-  // Determine bar color based on percentage
-  const barColor = percentage >= 100 ? '#ef4444' : '#3c83f6'; // Red if >= 100%, blue otherwise
+  // Determine bar color: overdue takes priority, then progress-based colors
+  let barColor = '#3c83f6'; // Default blue
+  
+  if (isOverdue()) {
+    barColor = '#ef4444'; // Red if overdue
+  } else if (percentage >= 100) {
+    barColor = '#ef4444'; // Red if >= 100%
+  } else if (percentage >= 75) {
+    barColor = '#fb923c'; // Orange if 75-100%
+  }
 
   return (
     <div className="w-full px-2">

@@ -417,12 +417,14 @@ export const getWorkloadColumns = ({
       align: "center",
       render: (task: Task) => {
         const estimatedHours = task.estimatedHours ?? "-";
+        const estimatedDate = task.estimatedDate ?? "-";
         return (
           <ProgressBarCell
             taskId={task.id}
             trackedTimeSeconds={task.tracked_time_seconds || 0}
             activeTimerId={null}
             estimatedHours={estimatedHours}
+            estimatedDate={estimatedDate}
           />
         );
       },
@@ -477,6 +479,7 @@ export const getWorkloadColumns = ({
         const hasAssignee =
           task.assigned_to_ids && task.assigned_to_ids.length > 0;
         const estimatedHours = task.estimatedHours ?? "-";
+        const estimatedDate = task.estimatedDate ?? "-";
         return (
           <TimerCell
             taskId={task.id}
@@ -488,6 +491,7 @@ export const getWorkloadColumns = ({
             estimatedHours={estimatedHours}
             taskName={task.name}
             assignedToIds={task.assigned_to_ids || []}
+            estimatedDate={estimatedDate}
           />
         );
       },
