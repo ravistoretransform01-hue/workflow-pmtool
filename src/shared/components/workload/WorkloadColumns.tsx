@@ -120,9 +120,14 @@ export const getWorkloadColumns = ({
                     value={inlineEditingTaskName}
                     onChange={(e) => setInlineEditingTaskName?.(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && inlineEditingTaskName?.trim()) {
-                        onInlineEditTaskName?.(task.id, inlineEditingTaskName);
-                      }
+                    const isSubmitKey = e.key === "Enter" || e.key === "Tab";
+
+                    if (isSubmitKey && inlineEditingTaskName?.trim()) {
+                      e.preventDefault(); // prevent losing value before save
+                      onInlineEditTaskName?.(task.id, inlineEditingTaskName);
+                      setInlineEditingTaskId?.(null);
+                      setInlineEditingTaskName?.("");
+                    }
                       if (e.key === "Escape") {
                         setInlineEditingTaskId?.(null);
                         setInlineEditingTaskName?.("");
@@ -192,8 +197,13 @@ export const getWorkloadColumns = ({
                   value={inlineEditingTaskName}
                   onChange={(e) => setInlineEditingTaskName?.(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && inlineEditingTaskName?.trim()) {
+                    const isSubmitKey = e.key === "Enter" || e.key === "Tab";
+
+                    if (isSubmitKey && inlineEditingTaskName?.trim()) {
+                      e.preventDefault(); // prevent losing value before save
                       onInlineEditTaskName?.(task.id, inlineEditingTaskName);
+                      setInlineEditingTaskId?.(null);
+                      setInlineEditingTaskName?.("");
                     }
                     if (e.key === "Escape") {
                       setInlineEditingTaskId?.(null);
@@ -477,6 +487,7 @@ export const getWorkloadColumns = ({
             hasAssignee={hasAssignee}
             estimatedHours={estimatedHours}
             taskName={task.name}
+            assignedToIds={task.assigned_to_ids || []}
           />
         );
       },

@@ -190,6 +190,7 @@ export function TimeTrackingLogDialog({
   open,
   onOpenChange,
   taskId,
+  taskName,
 }: TimeTrackingLogDialogProps) {
   const [timeLogs, setTimeLogs] = useState<TimeLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -328,7 +329,7 @@ export function TimeTrackingLogDialog({
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `time-tracking-${taskId}-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.download = `time-tracking-${taskName || taskId}-${format(new Date(), "yyyy-MM-dd")}.csv`;
     link.click();
     window.URL.revokeObjectURL(url);
     toast.success("Exported to CSV");

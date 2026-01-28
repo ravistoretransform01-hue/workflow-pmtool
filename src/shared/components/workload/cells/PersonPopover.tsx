@@ -117,7 +117,7 @@ export function PersonPopover({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg flex flex-col"
+        className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg flex flex-col max-h-96"
         align="center"
       >
         <div className="flex flex-col h-full space-y-2">
@@ -131,15 +131,8 @@ export function PersonPopover({
             />
           </div>
 
-          {/* Members List with Selectable Tiles */}
-          <div
-            className="flex-1 overflow-y-auto scrollbar-hide space-y-1"
-            style={{
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-            }}
-          >
-            {/* No Member Option */}
+          {/* No Member Option - Fixed */}
+          <div className="flex-shrink-0">
             <button
               onClick={handleClearAssignee}
               disabled={isSaving}
@@ -151,7 +144,16 @@ export function PersonPopover({
             >
               No Member
             </button>
+          </div>
 
+          {/* Members List with Selectable Tiles */}
+          <div
+            className="flex-1 overflow-y-auto scrollbar-hide space-y-1 max-h-64"
+            style={{
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
+          >
             {filteredMembers.length === 0 ? (
               <div className="text-center py-4 text-sm text-muted-foreground">
                 No members found
@@ -193,7 +195,7 @@ export function PersonPopover({
                           {initials || "U"}
                         </AvatarFallback>
                       </Avatar>
-                      <span>{member.name}</span>
+                      <span className="truncate">{member.name}</span>
                     </div>
                   </button>
                 );

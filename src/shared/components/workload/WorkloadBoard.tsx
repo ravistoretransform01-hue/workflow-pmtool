@@ -2956,33 +2956,59 @@ export function WorkloadBoard({
 
   // Synchronized horizontal scrolling for all group tables
   const tableScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const isSyncingScroll = useRef(false);
   const [maxScrollWidth, setMaxScrollWidth] = useState(0);
   const groupsContainerRef = useRef<HTMLDivElement | null>(null);
   const [stickyGroupId, setStickyGroupId] = useState<string | null>(null);
 
   const handleTableScroll = (groupId: string, scrollLeft: number) => {
-    // Scroll all other tables to the same position
+    if (isSyncingScroll.current) return;
+
+    // Scroll all other tables to the same position (proportional mapping)
     Object.entries(tableScrollRefs.current).forEach(([id, ref]) => {
       if (ref && id !== groupId) {
-        ref.scrollLeft = scrollLeft;
+        const srcRef = tableScrollRefs.current[groupId];
+        if (srcRef) {
+          const srcMax = Math.max(0, srcRef.scrollWidth - srcRef.clientWidth);
+          const dstMax = Math.max(0, ref.scrollWidth - ref.clientWidth);
+          const mapped = srcMax > 0 ? (scrollLeft / srcMax) * dstMax : 0;
+          ref.scrollLeft = mapped;
+        } else {
+          ref.scrollLeft = scrollLeft;
+        }
       }
     });
 
-    // Update the unified scrollbar
+    // Update the unified scrollbar position proportionally
     const unifiedScrollbar = document.querySelector('[data-unified-scrollbar]') as HTMLDivElement;
     if (unifiedScrollbar) {
-      unifiedScrollbar.scrollLeft = scrollLeft;
+      const srcRef = tableScrollRefs.current[groupId];
+      const srcMax = srcRef ? Math.max(0, srcRef.scrollWidth - srcRef.clientWidth) : 0;
+      const unifiedMax = Math.max(0, unifiedScrollbar.scrollWidth - unifiedScrollbar.clientWidth);
+
+      const mapped = srcMax > 0 && unifiedMax > 0 ? (scrollLeft / srcMax) * unifiedMax : scrollLeft;
+
+      // Guard against re-entrant scroll events
+      isSyncingScroll.current = true;
+      unifiedScrollbar.scrollLeft = mapped;
+      // Allow other scrolls on next frame
+      window.requestAnimationFrame(() => {
+        isSyncingScroll.current = false;
+      });
     }
   };
 
   // Calculate max scroll width from tables
   useEffect(() => {
     if (Object.keys(tableScrollRefs.current).length > 0) {
-      const firstTableRef = Object.values(tableScrollRefs.current)[0];
-      if (firstTableRef) {
-        const maxWidth = firstTableRef.scrollWidth;
-        setMaxScrollWidth(maxWidth);
-      }
+      // Get the maximum scrollWidth from all tables
+      let maxWidth = 0;
+      Object.values(tableScrollRefs.current).forEach((ref) => {
+        if (ref && ref.scrollWidth > maxWidth) {
+          maxWidth = ref.scrollWidth;
+        }
+      });
+      setMaxScrollWidth(maxWidth);
     }
   }, [workloadColumns, groups]);
 
@@ -3556,7 +3582,7 @@ export function WorkloadBoard({
                     </Button>
                   </PopoverTrigger>
 
-                  <PopoverContent align="end" className="w-56">
+                  <PopoverContent align="start" className="w-56">
                     <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
                       Columns
                     </div>
@@ -4263,7 +4289,7 @@ export function WorkloadBoard({
                                                       }
                                                       onKeyDown={(e) => {
                                                         if (
-                                                          e.key === "Enter" &&
+                                                          (e.key === "Enter" || e.key === "Tab") &&
                                                           newSubitemName.trim()
                                                         ) {
                                                           addSubitem(
@@ -4340,7 +4366,7 @@ export function WorkloadBoard({
                                             }
                                             onKeyDown={(e) => {
                                               if (
-                                                e.key === "Enter" &&
+                                                (e.key === "Enter" || e.key === "Tab") &&
                                                 newItemName.trim()
                                               ) {
                                                 addNewItem(group.id);
@@ -4393,18 +4419,33 @@ export function WorkloadBoard({
             data-unified-scrollbar
             ref={(el) => {
               if (el && Object.keys(tableScrollRefs.current).length > 0) {
+                // Sync scrollbar position with first table on mount/update (proportional)
                 const firstTableRef = Object.values(tableScrollRefs.current)[0];
                 if (firstTableRef) {
-                  el.scrollLeft = firstTableRef.scrollLeft;
+                  const srcLeft = firstTableRef.scrollLeft;
+                  const srcMax = Math.max(0, firstTableRef.scrollWidth - firstTableRef.clientWidth);
+                  const unifiedMax = Math.max(0, el.scrollWidth - el.clientWidth);
+                  const mapped = srcMax > 0 && unifiedMax > 0 ? (srcLeft / srcMax) * unifiedMax : srcLeft;
+                  if (el.scrollLeft !== mapped) el.scrollLeft = mapped;
                 }
               }
             }}
             onScroll={(e) => {
-              const scrollLeft = e.currentTarget.scrollLeft;
+              if (isSyncingScroll.current) return;
+              const unified = e.currentTarget as HTMLDivElement;
+              const unifiedLeft = unified.scrollLeft;
+              const unifiedMax = Math.max(0, unified.scrollWidth - unified.clientWidth);
+
+              isSyncingScroll.current = true;
               Object.values(tableScrollRefs.current).forEach((ref) => {
                 if (ref) {
-                  ref.scrollLeft = scrollLeft;
+                  const tableMax = Math.max(0, ref.scrollWidth - ref.clientWidth);
+                  const mapped = unifiedMax > 0 && tableMax > 0 ? (unifiedLeft / unifiedMax) * tableMax : unifiedLeft;
+                  if (ref.scrollLeft !== mapped) ref.scrollLeft = mapped;
                 }
+              });
+              window.requestAnimationFrame(() => {
+                isSyncingScroll.current = false;
               });
             }}
           >
