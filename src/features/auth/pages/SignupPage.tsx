@@ -20,7 +20,7 @@ const SignupPage = () => {
   const { toast } = useToast();
 
   // Get token from URL
-  const inviteToken = searchParams.get('token');
+  const inviteToken = searchParams.get("token");
 
   // Form state
   const [firstName, setFirstName] = useState("");
@@ -34,11 +34,12 @@ const SignupPage = () => {
   const [isValidatingToken, setIsValidatingToken] = useState(false);
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   const [invitationData, setInvitationData] = useState<any>(null);
+  const [tokenErrorMessage, setTokenErrorMessage] = useState<string>("");
 
   // Redirect to login if no invite token
   useEffect(() => {
     if (!inviteToken) {
-      navigate('/login', { replace: true });
+      navigate("/login", { replace: true });
     }
   }, [inviteToken, navigate]);
 
@@ -52,22 +53,18 @@ const SignupPage = () => {
   const validateInvitationToken = async (token: string) => {
     setIsValidatingToken(true);
     try {
-const response = await api.post(
-  "/validate-invitation-token",
-  { token },
-  {
-    transformRequest: [(data, headers) => {
-      delete headers.Authorization;
-      return JSON.stringify(data);
-    }],
-  }
-);
-
-
+      const response = await api.post(
+        "/validate-invitation-token",
+        { token },
+        {
+          skipAuth: true,
+        },
+      );
 
       if (response.data && response.data.code === 200) {
         setTokenValid(true);
         setInvitationData(response.data.data);
+        setTokenErrorMessage("");
 
         // Pre-fill email if available in response
         if (response.data.data?.email) {
@@ -80,6 +77,7 @@ const response = await api.post(
         });
       } else {
         setTokenValid(false);
+        setTokenErrorMessage(response.data?.message || "This invitation link is invalid or has expired.");
         toast({
           title: "Invalid invitation",
           description: "This invitation link is invalid or has expired.",
@@ -87,11 +85,13 @@ const response = await api.post(
         });
       }
     } catch (error: any) {
-      console.error('Token validation error:', error);
+      console.error("Token validation error:", error);
       setTokenValid(false);
+      const errorMsg = error.response?.data?.message || "Failed to validate invitation token.";
+      setTokenErrorMessage(errorMsg);
       toast({
         title: "Validation failed",
-        description: error.response?.data?.message || "Failed to validate invitation token.",
+        description: errorMsg,
         variant: "destructive",
       });
     } finally {
@@ -135,7 +135,7 @@ const response = await api.post(
     try {
       if (inviteToken && tokenValid) {
         // Register with invitation
-        const response = await api.post('/register-with-invitation', {
+        const response = await api.post("/register-with-invitation", {
           token: inviteToken,
           email: email,
           password: password,
@@ -147,12 +147,13 @@ const response = await api.post(
         if (response.data && response.data.code === 200) {
           toast({
             title: "Registration successful!",
-            description: "Your account has been created. Redirecting to login...",
+            description:
+              "Your account has been created. Redirecting to login...",
           });
 
           // Redirect to login after 2 seconds
           setTimeout(() => {
-            navigate('/login');
+            navigate("/login");
           }, 2000);
         } else {
           throw new Error(response.data?.message || "Registration failed");
@@ -166,10 +167,13 @@ const response = await api.post(
         });
       }
     } catch (error: any) {
-      console.error('Registration error:', error);
+      console.error("Registration error:", error);
       toast({
         title: "Registration failed",
-        description: error.response?.data?.message || error.message || "Failed to create account.",
+        description:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to create account.",
         variant: "destructive",
       });
     } finally {
@@ -198,14 +202,16 @@ const response = await api.post(
             <div className="inline-flex items-center justify-center w-16 h-16 bg-destructive/10 border border-destructive/20 rounded-2xl mx-auto">
               <AlertCircle className="w-8 h-8 text-destructive" />
             </div>
-            <CardTitle className="text-2xl font-semibold">Invalid Invitation</CardTitle>
+            <CardTitle className="text-2xl font-semibold">
+              Invalid Invitation
+            </CardTitle>
             <CardDescription>
-              This invitation link is invalid or has expired. Please contact the person who invited you for a new link.
+              {tokenErrorMessage || "This invitation link is invalid or has expired. Please contact the person who invited you for a new link."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate("/login")}
               className="w-full"
               variant="outline"
             >
@@ -230,7 +236,9 @@ const response = await api.post(
               Project Manager
             </h1>
             <p className="text-muted-foreground text-lg">
-              {inviteToken ? "Complete your registration" : "Create your account to get started"}
+              {inviteToken
+                ? "Complete your registration"
+                : "Create your account to get started"}
             </p>
           </div>
         </div>
@@ -240,7 +248,9 @@ const response = await api.post(
           <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-start gap-3">
             <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">You've been invited!</p>
+              <p className="text-sm font-medium text-foreground">
+                You've been invited!
+              </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Complete the form below to join the project.
               </p>
@@ -297,7 +307,9 @@ const response = await api.post(
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  disabled={isSubmitting || (!!inviteToken && !!invitationData?.email)}
+                  disabled={
+                    isSubmitting || (!!inviteToken && !!invitationData?.email)
+                  }
                   className="h-12 bg-background border-border"
                 />
                 {inviteToken && invitationData?.email && (
@@ -335,7 +347,9 @@ const response = await api.post(
               <Button
                 type="submit"
                 className="w-full h-12 text-base font-medium shadow-lg"
-                disabled={isSubmitting || (!!inviteToken && tokenValid === false)}
+                disabled={
+                  isSubmitting || (!!inviteToken && tokenValid === false)
+                }
               >
                 {isSubmitting ? (
                   <>
@@ -367,7 +381,6 @@ const response = await api.post(
 };
 
 export default SignupPage;
-
 
 // // import { useState, useEffect } from "react";
 // // import { Link, useNavigate } from "react-router-dom";
@@ -461,7 +474,7 @@ export default SignupPage;
 
 //   // const handleSubmit = async (e: React.FormEvent) => {};
 //   const handleSubmit = async () => {};
-  
+
 //   return (
 //     <div className="min-h-screen w-full bg-gradient-dark flex items-center justify-center p-4 animate-fade-in">
 //       <div className="w-full max-w-md space-y-8 animate-slide-up">

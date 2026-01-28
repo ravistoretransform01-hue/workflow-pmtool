@@ -44,10 +44,21 @@ const DynamicBoard = () => {
 
   if (error || !board) {
     return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-gray-400">No Board Found.</p>
+        </div>
+      </div>
+    );
+    // return <NotFound />;
+  }
+
+  if (error || !board) {
+    return (
       <WorkloadBoard
         boardName={"Board Name"}
         boardId={boardId!}
-        workspaceId={'00'}
+        workspaceId={"00"}
         workspaceName="Workspace"
       />
     );
