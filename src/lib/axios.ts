@@ -1,4 +1,5 @@
 import axios, { AxiosError, type AxiosResponse } from "axios";
+import "./axios.d";
 import { debugLog, debugWarn, debugError, getTokenInfo } from "./debugLog";
 
 // Flag to prevent multiple refresh token requests
@@ -43,6 +44,13 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     debugLog(`[REQUEST] Step 1: Preparing request to ${config.url}`);
+
+    // skipAuth CHECK
+    if (config.skipAuth) {
+      debugLog(`[REQUEST] 🔓 Skipping Authorization header for this request`);
+      return config;
+    }
+
     try {
       const token = localStorage.getItem("access_token");
       debugLog(`[REQUEST] Step 2: Token found in localStorage: ${!!token}`);
