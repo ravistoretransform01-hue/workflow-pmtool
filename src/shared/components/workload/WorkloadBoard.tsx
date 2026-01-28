@@ -4289,7 +4289,7 @@ export function WorkloadBoard({
                                                       }
                                                       onKeyDown={(e) => {
                                                         if (
-                                                          e.key === "Enter" &&
+                                                          (e.key === "Enter" || e.key === "Tab") &&
                                                           newSubitemName.trim()
                                                         ) {
                                                           addSubitem(
@@ -4366,7 +4366,7 @@ export function WorkloadBoard({
                                             }
                                             onKeyDown={(e) => {
                                               if (
-                                                e.key === "Enter" &&
+                                                (e.key === "Enter" || e.key === "Tab") &&
                                                 newItemName.trim()
                                               ) {
                                                 addNewItem(group.id);
