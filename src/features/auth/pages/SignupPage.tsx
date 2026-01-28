@@ -52,7 +52,18 @@ const SignupPage = () => {
   const validateInvitationToken = async (token: string) => {
     setIsValidatingToken(true);
     try {
-      const response = await api.post('/validate-invitation-token', { token });
+const response = await api.post(
+  "/validate-invitation-token",
+  { token },
+  {
+    transformRequest: [(data, headers) => {
+      delete headers.Authorization;
+      return JSON.stringify(data);
+    }],
+  }
+);
+
+
 
       if (response.data && response.data.code === 200) {
         setTokenValid(true);

@@ -10,6 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
+import { parseISO, isAfter, endOfDay, startOfToday } from "date-fns";
 
 interface TimerCellProps {
   taskId: string;
@@ -21,6 +22,7 @@ interface TimerCellProps {
   estimatedHours?: string | number;
   taskName?: string;
   assignedToIds?: string[];
+  estimatedDate?: string;
 }
 
 export function TimerCell({
@@ -33,6 +35,7 @@ export function TimerCell({
   estimatedHours = "-",
   taskName = "Task",
   assignedToIds = [],
+  estimatedDate = "-",
 }: TimerCellProps) {
   const [seconds, setSeconds] = useState(trackedTimeSeconds);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +47,43 @@ export function TimerCell({
   const isAssignedToCurrentUser = assignedToIds.some(
     (id) => String(id) === String(currentUserId)
   );
+
+  // Check if estimated date is overdue (past today)
+  const isOverdue = (() => {
+    if (!estimatedDate || estimatedDate === "-") return false;
+    try {
+      // Extract the end date from the date range (e.g., "Jan 19 - 30" or "27 jan, '26")
+      // For single dates like "27 jan, '26", use that date
+      // For ranges like "Jan 19 - 30", use the end date (30)
+      let dateStr = estimatedDate;
+      
+      // If it's a range format like "Jan 19 - 30", extract the end date
+      if (dateStr.includes(" - ")) {
+        const parts = dateStr.split(" - ");
+        const endPart = parts[1].trim();
+        const monthPart = parts[0].split(" ")[0]; // Get month from first part
+        
+        // Reconstruct as "Jan 30" format
+        dateStr = `${monthPart} ${endPart}`;
+      }
+      
+      // If it's a range format like "Jan 31 – Feb 15", extract the end date
+      if (dateStr.includes(" - ")) {
+        const parts = dateStr.split(" - ");
+        dateStr = parts[1].trim(); // Use the end date part
+      }
+      
+      // Parse the date string
+      // Handle formats like "27 jan, '26" or "Jan 30"
+      const parsedDate = parseISO(dateStr);
+      const todayDate = startOfToday();
+      
+      // Check if the date is before today (overdue)
+      return isAfter(todayDate, endOfDay(parsedDate));
+    } catch (error) {
+      return false;
+    }
+  })();
 
   // Update seconds when trackedTimeSeconds prop changes (e.g., on page refresh)
   useEffect(() => {
@@ -106,12 +146,15 @@ export function TimerCell({
   const estimatedSeconds = parseEstimatedHours(estimatedHours);
   const progressPercentage = estimatedSeconds > 0 ? (seconds / estimatedSeconds) * 100 : 0;
 
-  // Determine background color based on progress
+  // Determine background color based on overdue status first, then progress
   let bgColor = "bg-blue-600"; // Default: blue (< 75%)
-  if (progressPercentage >= 75 && progressPercentage < 100) {
+  
+  if (isOverdue) {
+    // Red if overdue, regardless of progress percentage
+    bgColor = "bg-red-600";
+  } else if (progressPercentage >= 75 && progressPercentage < 100) {
     bgColor = "bg-orange-600"; // Orange (75% - 100%)
   } else if (progressPercentage >= 100) {
-    // Red if progress > 100%, regardless of timer state
     bgColor = "bg-red-600"; // Red (> 100%)
   }
 
