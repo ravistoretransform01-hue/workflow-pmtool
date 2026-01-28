@@ -10,7 +10,11 @@ import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { cmsApi } from "@/features/cms/cmsApi";
-import { getCMSData, clearCMSCache, getUserColumnsFromCache } from "@/features/cms/cmsStorage";
+import {
+  getCMSData,
+  clearCMSCache,
+  getUserColumnsFromCache,
+} from "@/features/cms/cmsStorage";
 import type {
   CreateTaskRequest,
   UpdateTaskRequest,
@@ -195,29 +199,44 @@ const formatSecondsToTime = (seconds: number): string => {
   return `${minutes}m`;
 };
 
+// Helper to convert "00h 04m" | number → seconds
+const parseEstimatedToSeconds = (value: string | number): number => {
+  if (typeof value === "number") {
+    return value * 3600;
+  }
+
+  if (typeof value === "string") {
+    const match = value.match(/(\d+)\s*h\s*(\d+)\s*m/i);
+    if (!match) return 0;
+
+    const hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+
+    return hours * 3600 + minutes * 60;
+  }
+
+  return 0;
+};
+
 // Helper function to calculate group progress
 const calculateGroupProgress = (tasks: Task[]) => {
   let totalTimeSpentSeconds = 0;
   let totalEstimatedSeconds = 0;
 
   const processTask = (task: Task) => {
-    // Add tracked time from this task
+    // Add tracked time
     if (task.tracked_time_seconds) {
       totalTimeSpentSeconds += task.tracked_time_seconds;
     }
 
-    // Add estimated hours from this task (convert to seconds)
+    // Add estimated time
     if (task.estimatedHours) {
-      const hours = typeof task.estimatedHours === 'string'
-        ? parseFloat(task.estimatedHours)
-        : task.estimatedHours;
-      if (!isNaN(hours)) {
-        totalEstimatedSeconds += hours * 3600;
-      }
+      const estimatedSeconds = parseEstimatedToSeconds(task.estimatedHours);
+      totalEstimatedSeconds += estimatedSeconds;
     }
 
     // Process subitems recursively
-    if (task.subitems && task.subitems.length > 0) {
+    if (task.subitems?.length) {
       task.subitems.forEach(processTask);
     }
   };
@@ -371,10 +390,11 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     <button
       ref={setNodeRef}
       style={style}
-      className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap ${activeTab === tab
-        ? "text-primary border-b-primary"
-        : "text-muted-foreground border-b-transparent hover:text-foreground"
-        }`}
+      className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
+        activeTab === tab
+          ? "text-primary border-b-primary"
+          : "text-muted-foreground border-b-transparent hover:text-foreground"
+      }`}
       onClick={() => onTabClick(tab)}
       {...attributes}
       {...listeners}
@@ -384,8 +404,6 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
   );
 }
 
-
-
 export function WorkloadBoard({
   boardName,
   boardId,
@@ -393,7 +411,7 @@ export function WorkloadBoard({
   // workspaceName,
 }: WorkloadBoardProps) {
   const navigate = useNavigate();
-  
+
   // Initialize hooks for state management
   const taskState = useTaskState();
   const popoverState = usePopoverState();
@@ -439,7 +457,7 @@ export function WorkloadBoard({
   const [mainTableSearchQuery, setMainTableSearchQuery] = useState("");
   const [groups, setGroups] = useState<TaskGroup[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
-    {}
+    {},
   );
   const [groupNames, setGroupNames] = useState<Record<string, string>>({});
   const [groupColors, setGroupColors] = useState<Record<string, string>>({});
@@ -464,7 +482,7 @@ export function WorkloadBoard({
     useState<string>("#3b82f6");
   const [newGroupColorInput, setNewGroupColorInput] = useState("#3b82f6");
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<string | null>(
-    null
+    null,
   );
   const [deleteGroupDialogOpen, setDeleteGroupDialogOpen] = useState(false);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
@@ -473,11 +491,11 @@ export function WorkloadBoard({
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [addingItemToGroup, setAddingItemToGroup] = useState<string | null>(
-    null
+    null,
   );
   const [newItemName, setNewItemName] = useState("");
   const [addingSubitemToTask, setAddingSubitemToTask] = useState<string | null>(
-    null
+    null,
   );
   const [newSubitemName, setNewSubitemName] = useState("");
   // Comments state
@@ -497,19 +515,21 @@ export function WorkloadBoard({
   const [tags, setTags] = useState<any[]>([]);
 
   // Color picker popover states
-  const [editGroupColorPickerOpen, setEditGroupColorPickerOpen] = useState(false);
+  const [editGroupColorPickerOpen, setEditGroupColorPickerOpen] =
+    useState(false);
 
   // Edit labels dialog state
   const [editLabelsDialogOpen, setEditLabelsDialogOpen] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#a855f7");
   const [newLabelColorPickerOpen, setNewLabelColorPickerOpen] = useState(false);
-  
+
   // Edit existing label state
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [editingLabelName, setEditingLabelName] = useState("");
   const [editingLabelColor, setEditingLabelColor] = useState("");
-  const [editingLabelColorPickerOpen, setEditingLabelColorPickerOpen] = useState(false);
+  const [editingLabelColorPickerOpen, setEditingLabelColorPickerOpen] =
+    useState(false);
 
   // Fetch groups from API on component mount
   useEffect(() => {
@@ -533,7 +553,7 @@ export function WorkloadBoard({
 
         // 1️⃣ Split parent & subtasks
         const parentTasks: TaskResponse[] = tasksRes.filter(
-          (t) => !t.parent_id
+          (t) => !t.parent_id,
         );
 
         const subtasks: TaskResponse[] = tasksRes.filter((t) => t.parent_id);
@@ -574,11 +594,11 @@ export function WorkloadBoard({
             estimatedDate: task.estimation?.estimated_date_from
               ? task.estimation.estimated_date_to &&
                 task.estimation.estimated_date_to !==
-                task.estimation.estimated_date_from
+                  task.estimation.estimated_date_from
                 ? formatDateRange(
-                  task.estimation.estimated_date_from,
-                  task.estimation.estimated_date_to
-                )
+                    task.estimation.estimated_date_from,
+                    task.estimation.estimated_date_to,
+                  )
                 : formatDateRange(task.estimation.estimated_date_from)
               : task.due_date,
             estimatedHours: task.estimation?.approved_hours || "-",
@@ -611,11 +631,11 @@ export function WorkloadBoard({
                 estimatedDate: st.estimation?.estimated_date_from
                   ? st.estimation.estimated_date_to &&
                     st.estimation.estimated_date_to !==
-                    st.estimation.estimated_date_from
+                      st.estimation.estimated_date_from
                     ? formatDateRange(
-                      st.estimation.estimated_date_from,
-                      st.estimation.estimated_date_to
-                    )
+                        st.estimation.estimated_date_from,
+                        st.estimation.estimated_date_to,
+                      )
                     : formatDateRange(st.estimation.estimated_date_from)
                   : st.due_date,
                 estimatedHours: st.estimation?.approved_hours || "-",
@@ -642,7 +662,7 @@ export function WorkloadBoard({
 
         // 3️⃣ Attach tasks to groups - Sort groups by position
         const sortedGroups = groupsRes.sort(
-          (a: any, b: any) => Number(a.position) - Number(b.position)
+          (a: any, b: any) => Number(a.position) - Number(b.position),
         );
 
         // debugLog("Sorted Groups:", sortedGroups);
@@ -652,7 +672,7 @@ export function WorkloadBoard({
           name: group.name,
           color: group.color ?? "#3b82f6",
           tasks: tasksWithSubtasks.filter(
-            (task) => String(task.group_id) === String(group.id)
+            (task) => String(task.group_id) === String(group.id),
           ),
         }));
 
@@ -672,7 +692,7 @@ export function WorkloadBoard({
 
         // expand all groups by default
         setExpandedGroups(
-          Object.fromEntries(groupedData.map((g: any) => [g.id, true]))
+          Object.fromEntries(groupedData.map((g: any) => [g.id, true])),
         );
       } catch (err) {
         toast.error("Failed to load board data");
@@ -695,7 +715,7 @@ export function WorkloadBoard({
       try {
         const boardIdNum = Number(boardId);
         const organizationIdNum = getOrganizationId();
-        const userId = getCurrentUserId();  
+        const userId = getCurrentUserId();
 
         if (organizationIdNum === null) {
           console.warn("Organization not found, skipping CMS data load");
@@ -715,12 +735,12 @@ export function WorkloadBoard({
 
         // Sort statuses by status_order
         const sortedStatuses = [...cmsData.statuses].sort(
-          sortBy((s) => s.status_order, "number")
+          sortBy((s) => s.status_order, "number"),
         );
 
         // Sort priorities by priority_order
         const sortedPriorities = [...cmsData.priorities].sort(
-          sortBy((p) => p.priority_order, "number")
+          sortBy((p) => p.priority_order, "number"),
         );
 
         setStatuses(sortedStatuses);
@@ -733,18 +753,27 @@ export function WorkloadBoard({
         // This ensures custom column labels and positions from the server are loaded on initial mount
         const userColumns = getUserColumnsFromCache(boardIdNum);
         if (userColumns?.columns) {
-          debugLog("Syncing user_columns from CMS API to columnPersistence:", userColumns);
+          debugLog(
+            "Syncing user_columns from CMS API to columnPersistence:",
+            userColumns,
+          );
           mergeColumnConfigWithAPI(boardIdNum, userColumns.columns);
 
           // Update columnOrder to reflect the positions from the API
           // Sort columns by position to get the correct order
           const sortedColumnIds = Object.entries(userColumns.columns)
-            .sort(([, a]: [string, any], [, b]: [string, any]) => (a.position || 0) - (b.position || 0))
+            .sort(
+              ([, a]: [string, any], [, b]: [string, any]) =>
+                (a.position || 0) - (b.position || 0),
+            )
             .map(([colId]) => colId);
 
           if (sortedColumnIds.length > 0) {
             setColumnOrder(sortedColumnIds);
-            debugLog("Updated columnOrder from API positions:", sortedColumnIds);
+            debugLog(
+              "Updated columnOrder from API positions:",
+              sortedColumnIds,
+            );
           }
         }
       } catch (err) {
@@ -911,7 +940,7 @@ export function WorkloadBoard({
       activationConstraint: {
         distance: 8,
       },
-    })
+    }),
   );
 
   const groupSensors = useSensors(
@@ -919,15 +948,19 @@ export function WorkloadBoard({
       activationConstraint: {
         distance: 8,
       },
-    })
+    }),
   );
 
   const handleViewTabDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = columnState.viewTabs.findIndex((tab: any) => tab === active.id);
-      const newIndex = columnState.viewTabs.findIndex((tab: any) => tab === over.id);
+      const oldIndex = columnState.viewTabs.findIndex(
+        (tab: any) => tab === active.id,
+      );
+      const newIndex = columnState.viewTabs.findIndex(
+        (tab: any) => tab === over.id,
+      );
 
       const newTabs = arrayMove(columnState.viewTabs, oldIndex, newIndex);
       columnState.reorderTabs(newTabs);
@@ -950,7 +983,7 @@ export function WorkloadBoard({
       // Persist group order to localStorage
       localStorage.setItem(
         `board-groups-${boardId}`,
-        JSON.stringify(newGroups)
+        JSON.stringify(newGroups),
       );
     }
   };
@@ -998,9 +1031,9 @@ export function WorkloadBoard({
         prevGroups.map((group) => ({
           ...group,
           tasks: group.tasks.map((task) =>
-            task.id === taskId ? { ...task, name: newName.trim() } : task
+            task.id === taskId ? { ...task, name: newName.trim() } : task,
           ),
-        }))
+        })),
       );
 
       taskState.finishInlineEdit();
@@ -1015,7 +1048,7 @@ export function WorkloadBoard({
   const handleSortGroupItems = (
     groupId: string,
     columnId: string,
-    direction: "asc" | "desc"
+    direction: "asc" | "desc",
   ) => {
     setGroups((prevGroups) =>
       prevGroups.map((group) => {
@@ -1064,7 +1097,7 @@ export function WorkloadBoard({
         });
 
         return { ...group, tasks: sortedTasks };
-      })
+      }),
     );
   };
 
@@ -1159,7 +1192,7 @@ export function WorkloadBoard({
     // Prefer in-memory label state; fallback to server-provided group label
     setEditGroupLabelInput(groupLabels[groupId] ?? (group as any).label ?? "");
     setEditGroupLabelColorInput(
-      groupLabelColors[groupId] ?? (group as any).label_color ?? "#3b82f6"
+      groupLabelColors[groupId] ?? (group as any).label_color ?? "#3b82f6",
     );
     setEditGroupDialogOpen(true);
   };
@@ -1267,9 +1300,16 @@ export function WorkloadBoard({
     setGroupDropdownOpen(null);
   };
 
-  const handleColumnLabelChange = async (columnId: string, newLabel: string) => {
+  const handleColumnLabelChange = async (
+    columnId: string,
+    newLabel: string,
+  ) => {
     // Persist the new label to localStorage immediately
-    const success = updateColumnLabel(parseInt(boardId, 10), columnId, newLabel);
+    const success = updateColumnLabel(
+      parseInt(boardId, 10),
+      columnId,
+      newLabel,
+    );
 
     if (!success) {
       console.error("Failed to persist column label to localStorage");
@@ -1280,8 +1320,8 @@ export function WorkloadBoard({
     // Update workload columns with new label immediately (for UI feedback)
     setWorkloadColumns((prev) =>
       prev.map((col) =>
-        col.id === columnId ? { ...col, label: newLabel } : col
-      )
+        col.id === columnId ? { ...col, label: newLabel } : col,
+      ),
     );
 
     // Call API to save column configuration (async, non-blocking)
@@ -1298,8 +1338,8 @@ export function WorkloadBoard({
 
       // Build the full payload
       const payload = {
-        user_id: getCurrentUserId(),  
-        organization_id: getOrganizationId(),  
+        user_id: getCurrentUserId(),
+        organization_id: getOrganizationId(),
         board_id: parseInt(boardId, 10),
         columns: columnsPayload,
       };
@@ -1315,7 +1355,7 @@ export function WorkloadBoard({
         updateFullColumnConfiguration(
           parseInt(boardId, 10),
           newOrder,
-          response.columns
+          response.columns,
         );
       }
 
@@ -1323,7 +1363,7 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to update column on server:", error);
       console.warn(
-        "Column label saved locally but API sync failed. Will retry on next sync."
+        "Column label saved locally but API sync failed. Will retry on next sync.",
       );
       // Don't show error to user since we already saved locally
     }
@@ -1584,7 +1624,7 @@ export function WorkloadBoard({
 
   const openEditTaskDialog = (
     task: Task,
-    focus: "name" | "description" = "name"
+    focus: "name" | "description" = "name",
   ) => {
     taskState.setEditingTask(task);
     setEditTaskName(task.name);
@@ -1766,19 +1806,19 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) =>
                   sub.id === taskId
                     ? {
-                      ...sub,
-                      rating: ratingValue,
-                      ratingCount: updated.rating_count || 0,
-                      ratings: updated.ratings,
-                    }
-                    : sub
+                        ...sub,
+                        rating: ratingValue,
+                        ratingCount: updated.rating_count || 0,
+                        ratings: updated.ratings,
+                      }
+                    : sub,
                 ),
               };
             }
 
             return task;
           }),
-        }))
+        })),
       );
 
       // Close popover after update
@@ -1851,7 +1891,7 @@ export function WorkloadBoard({
 
             return task;
           }),
-        }))
+        })),
       );
 
       toast.success("Person assigned successfully");
@@ -1864,7 +1904,7 @@ export function WorkloadBoard({
   const handleEstimatedDateChange = (
     taskId: string,
     fromDate: string | null,
-    toDate?: string | null
+    toDate?: string | null,
   ) => {
     // Format the date range display using the new formatDateRange function
     let dateDisplay = "-";
@@ -1892,18 +1932,18 @@ export function WorkloadBoard({
               subitems: task.subitems.map((sub) =>
                 sub.id === taskId
                   ? {
-                    ...sub,
-                    estimatedDate: dateDisplay,
-                    estimatedDateEnd: toDate || null,
-                  }
-                  : sub
+                      ...sub,
+                      estimatedDate: dateDisplay,
+                      estimatedDateEnd: toDate || null,
+                    }
+                  : sub,
               ),
             };
           }
 
           return task;
         }),
-      }))
+      })),
     );
 
     // Close popover after update
@@ -1912,7 +1952,7 @@ export function WorkloadBoard({
 
   const handleEstimatedTimeChange = (
     taskId: string,
-    hours: string | number | null
+    hours: string | number | null,
   ) => {
     setGroups((prevGroups) =>
       prevGroups.map((group) => ({
@@ -1933,17 +1973,17 @@ export function WorkloadBoard({
               subitems: task.subitems.map((sub) =>
                 sub.id === taskId
                   ? {
-                    ...sub,
-                    estimatedHours: hours || "-",
-                  }
-                  : sub
+                      ...sub,
+                      estimatedHours: hours || "-",
+                    }
+                  : sub,
               ),
             };
           }
 
           return task;
         }),
-      }))
+      })),
     );
 
     // Close popover after update
@@ -1970,17 +2010,17 @@ export function WorkloadBoard({
               subitems: task.subitems.map((sub) =>
                 sub.id === taskId
                   ? {
-                    ...sub,
-                    tags,
-                  }
-                  : sub
+                      ...sub,
+                      tags,
+                    }
+                  : sub,
               ),
             };
           }
 
           return task;
         }),
-      }))
+      })),
     );
 
     // Close popover after update
@@ -2019,18 +2059,18 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) =>
                   sub.id === taskId
                     ? {
-                      ...sub,
-                      status: updated.status_label,
-                      status_id: String(updated.status_id),
-                    }
-                    : sub
+                        ...sub,
+                        status: updated.status_label,
+                        status_id: String(updated.status_id),
+                      }
+                    : sub,
                 ),
               };
             }
 
             return task;
           }),
-        }))
+        })),
       );
 
       toast.success("Status updated successfully");
@@ -2072,18 +2112,18 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) =>
                   sub.id === taskId
                     ? {
-                      ...sub,
-                      priority: updated.priority_label,
-                      priority_id: String(updated.task_priority_id),
-                    }
-                    : sub
+                        ...sub,
+                        priority: updated.priority_label,
+                        priority_id: String(updated.task_priority_id),
+                      }
+                    : sub,
                 ),
               };
             }
 
             return task;
           }),
-        }))
+        })),
       );
 
       toast.success("Priority updated successfully");
@@ -2179,7 +2219,7 @@ export function WorkloadBoard({
           .map((task) => ({
             ...task,
             subitems: task.subitems?.filter(
-              (subitem) => !checkedTaskIds.includes(subitem.id)
+              (subitem) => !checkedTaskIds.includes(subitem.id),
             ),
           })),
       }));
@@ -2218,7 +2258,7 @@ export function WorkloadBoard({
 
               const filteredSubitems =
                 task.subitems?.filter((sub) =>
-                  sub.name.toLowerCase().includes(query)
+                  sub.name.toLowerCase().includes(query),
                 ) || [];
 
               // keep task if task OR any subitem matches
@@ -2275,7 +2315,7 @@ export function WorkloadBoard({
           if (filterState.showDoneItemsOnly) {
             // Find the "Done" status ID
             const doneStatus = statuses.find(
-              (s) => s.name.toLowerCase() === "done"
+              (s) => s.name.toLowerCase() === "done",
             );
             if (!doneStatus || task.status_id !== String(doneStatus.id)) {
               return false;
@@ -2285,14 +2325,15 @@ export function WorkloadBoard({
           // Check person filter
           if (filterState.taskFilters.persons.size > 0) {
             const hasMatchingPerson = task.assigned_to_ids?.some((id) =>
-              filterState.taskFilters.persons.has(String(id))
+              filterState.taskFilters.persons.has(String(id)),
             );
             if (!hasMatchingPerson) return false;
           }
 
           // Check status filter
           if (filterState.taskFilters.statuses.size > 0) {
-            if (!filterState.taskFilters.statuses.has(task.status_id || "")) return false;
+            if (!filterState.taskFilters.statuses.has(task.status_id || ""))
+              return false;
           }
 
           // Check priority filter
@@ -2303,7 +2344,8 @@ export function WorkloadBoard({
 
           // Check label filter
           if (filterState.taskFilters.labels.size > 0) {
-            if (!filterState.taskFilters.labels.has(task.label_id || "")) return false;
+            if (!filterState.taskFilters.labels.has(task.label_id || ""))
+              return false;
           }
 
           return true;
@@ -2339,7 +2381,10 @@ export function WorkloadBoard({
 
     // Handle Blocks (div, p, etc)
     // Replace opening block tags with newlines
-    processed = processed.replace(/<(div|p|h[1-6]|blockquote)( [^>]*)?>/gi, "\n");
+    processed = processed.replace(
+      /<(div|p|h[1-6]|blockquote)( [^>]*)?>/gi,
+      "\n",
+    );
     // Replace closing block tags with newlines
     processed = processed.replace(/<\/(div|p|h[1-6]|blockquote)>/gi, "\n");
 
@@ -2364,7 +2409,7 @@ export function WorkloadBoard({
       setComments((prev) => [newComment, ...prev]);
 
       toast.success(
-        replyingTo ? "Reply saved successfully" : "Update saved successfully"
+        replyingTo ? "Reply saved successfully" : "Update saved successfully",
       );
 
       // Reset the form
@@ -2379,7 +2424,7 @@ export function WorkloadBoard({
 
   const saveInlineReply = async (
     parentId: string | number,
-    replyText: string
+    replyText: string,
   ) => {
     if (!replyText.trim() || !selectedTaskId) {
       return;
@@ -2411,7 +2456,7 @@ export function WorkloadBoard({
     try {
       await tasksApi.deleteComment(selectedTaskId, commentId);
       setComments((prev) =>
-        prev.filter((c) => String(c.id) !== String(commentId))
+        prev.filter((c) => String(c.id) !== String(commentId)),
       );
       toast.success("Comment deleted successfully");
     } catch (error) {
@@ -2422,19 +2467,19 @@ export function WorkloadBoard({
 
   const updateTaskComment = async (
     commentId: string | number,
-    content: string
+    content: string,
   ) => {
     if (!selectedTaskId) return;
     try {
       const updatedComment = await tasksApi.updateComment(
         selectedTaskId,
         commentId,
-        { content: processHtmlContent(content) }
+        { content: processHtmlContent(content) },
       );
       setComments((prev) =>
         prev.map((c) =>
-          String(c.id) === String(commentId) ? updatedComment : c
-        )
+          String(c.id) === String(commentId) ? updatedComment : c,
+        ),
       );
       toast.success("Comment updated successfully");
     } catch (error) {
@@ -2487,7 +2532,7 @@ export function WorkloadBoard({
     updateFullColumnConfiguration(
       parseInt(boardId, 10),
       newOrder,
-      columnsPayload
+      columnsPayload,
     );
   };
 
@@ -2499,9 +2544,9 @@ export function WorkloadBoard({
       try {
         localStorage.setItem(
           `board-collapsed-columns-${boardId}`,
-          JSON.stringify(updated)
+          JSON.stringify(updated),
         );
-      } catch { }
+      } catch {}
 
       // Update columnWidths and prevColumnWidths synchronously so the UI reflects the collapsed width immediately.
       const currentWidth = columnWidths[columnId];
@@ -2543,16 +2588,16 @@ export function WorkloadBoard({
       try {
         localStorage.setItem(
           `board-column-widths-${boardId}`,
-          JSON.stringify(updatedColumnWidths)
+          JSON.stringify(updatedColumnWidths),
         );
-      } catch { }
+      } catch {}
 
       try {
         localStorage.setItem(
           `board-prev-column-widths-${boardId}`,
-          JSON.stringify(updatedPrevWidths)
+          JSON.stringify(updatedPrevWidths),
         );
-      } catch { }
+      } catch {}
 
       setPrevColumnWidths(updatedPrevWidths);
       setColumnWidths(updatedColumnWidths);
@@ -2657,9 +2702,9 @@ export function WorkloadBoard({
           const updated = { ...collapsedColumns, [columnId]: true };
           localStorage.setItem(
             `board-collapsed-columns-${boardId}`,
-            JSON.stringify(updated)
+            JSON.stringify(updated),
           );
-        } catch { }
+        } catch {}
         return;
       }
 
@@ -2669,17 +2714,17 @@ export function WorkloadBoard({
         try {
           localStorage.setItem(
             `board-column-widths-${boardId}`,
-            JSON.stringify(updated)
+            JSON.stringify(updated),
           );
-        } catch { }
+        } catch {}
 
         return updated;
       });
 
       setWorkloadColumns((prevCols) =>
         prevCols.map((col) =>
-          col.id === columnId ? { ...col, width: `${newWidth}px` } : col
-        )
+          col.id === columnId ? { ...col, width: `${newWidth}px` } : col,
+        ),
       );
     };
 
@@ -2694,7 +2739,7 @@ export function WorkloadBoard({
     // capture pointer to the element if available
     try {
       (e.target as Element).setPointerCapture?.((e as any).pointerId);
-    } catch { }
+    } catch {}
   };
 
   // const workloadColumns = getWorkloadColumns({
@@ -2725,7 +2770,7 @@ export function WorkloadBoard({
       } catch {
         return {};
       }
-    }
+    },
   );
 
   // Keep a backup of column widths that were present before collapsing a column so we can restore them on expand
@@ -2912,7 +2957,7 @@ export function WorkloadBoard({
             columnWidths[col.id] ??
             (collapsedColumns[col.id] ? COLLAPSED_WIDTH : col.width),
         }))
-        .filter((col) => columnState.visibleColumns[col.id] === true)
+        .filter((col) => columnState.visibleColumns[col.id] === true),
     );
   }, [
     groups,
@@ -2980,13 +3025,23 @@ export function WorkloadBoard({
     });
 
     // Update the unified scrollbar position proportionally
-    const unifiedScrollbar = document.querySelector('[data-unified-scrollbar]') as HTMLDivElement;
+    const unifiedScrollbar = document.querySelector(
+      "[data-unified-scrollbar]",
+    ) as HTMLDivElement;
     if (unifiedScrollbar) {
       const srcRef = tableScrollRefs.current[groupId];
-      const srcMax = srcRef ? Math.max(0, srcRef.scrollWidth - srcRef.clientWidth) : 0;
-      const unifiedMax = Math.max(0, unifiedScrollbar.scrollWidth - unifiedScrollbar.clientWidth);
+      const srcMax = srcRef
+        ? Math.max(0, srcRef.scrollWidth - srcRef.clientWidth)
+        : 0;
+      const unifiedMax = Math.max(
+        0,
+        unifiedScrollbar.scrollWidth - unifiedScrollbar.clientWidth,
+      );
 
-      const mapped = srcMax > 0 && unifiedMax > 0 ? (scrollLeft / srcMax) * unifiedMax : scrollLeft;
+      const mapped =
+        srcMax > 0 && unifiedMax > 0
+          ? (scrollLeft / srcMax) * unifiedMax
+          : scrollLeft;
 
       // Guard against re-entrant scroll events
       isSyncingScroll.current = true;
@@ -3019,7 +3074,7 @@ export function WorkloadBoard({
 
     const handleScroll = () => {
       // Find which group header is currently at the top (sticky)
-      const groupHeaders = container.querySelectorAll('[data-group-header]');
+      const groupHeaders = container.querySelectorAll("[data-group-header]");
       let currentStickyGroupId: string | null = null;
 
       groupHeaders.forEach((header) => {
@@ -3027,18 +3082,20 @@ export function WorkloadBoard({
         const containerRect = container.getBoundingClientRect();
 
         // Check if header is at the top of the container (sticky position)
-        if (rect.top <= containerRect.top + 1 && rect.bottom > containerRect.top) {
-          currentStickyGroupId = header.getAttribute('data-group-id');
+        if (
+          rect.top <= containerRect.top + 1 &&
+          rect.bottom > containerRect.top
+        ) {
+          currentStickyGroupId = header.getAttribute("data-group-id");
         }
       });
 
       setStickyGroupId(currentStickyGroupId);
     };
 
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
   }, []);
-
 
   const handleOpenProfile = () => {
     setProfileDialogOpen(true);
@@ -3110,7 +3167,10 @@ export function WorkloadBoard({
             {/* Board Members Display */}
             <div className="flex items-center gap-2">
               <div className="flex items-center -space-x-2">
-                <Avatar className="w-8 h-8 border-2 border-background" onClick={handleOpenProfile}>
+                <Avatar
+                  className="w-8 h-8 border-2 border-background"
+                  onClick={handleOpenProfile}
+                >
                   <AvatarFallback className="bg-blue-500">
                     <span className="text-white text-xs font-semibold">
                       {userInitials}
@@ -3124,9 +3184,7 @@ export function WorkloadBoard({
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                navigate(`/board/${boardId}/dashboard`)
-              }
+              onClick={() => navigate(`/board/${boardId}/dashboard`)}
               className="h-8 px-3"
             >
               <LayoutDashboard className="h-4 w-4 mr-2" />
@@ -3161,7 +3219,10 @@ export function WorkloadBoard({
 
       {/* Main Table View */}
       {activeTab === "Main Table" && (
-        <div className="flex flex-col flex-1 overflow-hidden" ref={mainFlexContainerRef}>
+        <div
+          className="flex flex-col flex-1 overflow-hidden"
+          ref={mainFlexContainerRef}
+        >
           {/* Toolbar - FIXED */}
           <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
             {/* New Group Button */}
@@ -3191,7 +3252,9 @@ export function WorkloadBoard({
                 <input
                   type="checkbox"
                   checked={filterState.showDoneItemsOnly}
-                  onChange={(e) => filterState.setShowDoneItemsOnly(e.target.checked)}
+                  onChange={(e) =>
+                    filterState.setShowDoneItemsOnly(e.target.checked)
+                  }
                   className="cursor-pointer"
                 />
                 <span className="text-sm font-medium">Done Items</span>
@@ -3206,7 +3269,10 @@ export function WorkloadBoard({
                   </button>
                 </PopoverTrigger>
 
-                <PopoverContent align="start" className="w-64 max-h-96 p-0 bg-card border-2 border-primary/20 flex flex-col">
+                <PopoverContent
+                  align="start"
+                  className="w-64 max-h-96 p-0 bg-card border-2 border-primary/20 flex flex-col"
+                >
                   <div className="space-y-1 overflow-y-auto flex-1 p-2 scrollbar-hide">
                     {/* Person Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
@@ -3218,8 +3284,11 @@ export function WorkloadBoard({
                       >
                         <span className="text-sm font-medium">Person</span>
                         <ChevronDown
-                          className={`h-4 w-4 transition-transform ${filterState.openFilterDropdowns.persons ? "rotate-180" : ""
-                            }`}
+                          className={`h-4 w-4 transition-transform ${
+                            filterState.openFilterDropdowns.persons
+                              ? "rotate-180"
+                              : ""
+                          }`}
                         />
                       </button>
                       {filterState.openFilterDropdowns.persons && (
@@ -3232,11 +3301,11 @@ export function WorkloadBoard({
                               <input
                                 type="checkbox"
                                 checked={filterState.taskFilters.persons.has(
-                                  String(member.user_id)
+                                  String(member.user_id),
                                 )}
                                 onChange={(e) => {
                                   const newPersons = new Set(
-                                    filterState.taskFilters.persons
+                                    filterState.taskFilters.persons,
                                   );
                                   if (e.target.checked) {
                                     newPersons.add(String(member.user_id));
@@ -3267,8 +3336,11 @@ export function WorkloadBoard({
                       >
                         <span className="text-sm font-medium">Status</span>
                         <ChevronDown
-                          className={`h-4 w-4 transition-transform ${filterState.openFilterDropdowns.statuses ? "rotate-180" : ""
-                            }`}
+                          className={`h-4 w-4 transition-transform ${
+                            filterState.openFilterDropdowns.statuses
+                              ? "rotate-180"
+                              : ""
+                          }`}
                         />
                       </button>
                       {filterState.openFilterDropdowns.statuses && (
@@ -3281,11 +3353,11 @@ export function WorkloadBoard({
                               <input
                                 type="checkbox"
                                 checked={filterState.taskFilters.statuses.has(
-                                  String(status.id)
+                                  String(status.id),
                                 )}
                                 onChange={(e) => {
                                   const newStatuses = new Set(
-                                    filterState.taskFilters.statuses
+                                    filterState.taskFilters.statuses,
                                   );
                                   if (e.target.checked) {
                                     newStatuses.add(String(status.id));
@@ -3324,8 +3396,11 @@ export function WorkloadBoard({
                       >
                         <span className="text-sm font-medium">Priority</span>
                         <ChevronDown
-                          className={`h-4 w-4 transition-transform ${filterState.openFilterDropdowns.priorities ? "rotate-180" : ""
-                            }`}
+                          className={`h-4 w-4 transition-transform ${
+                            filterState.openFilterDropdowns.priorities
+                              ? "rotate-180"
+                              : ""
+                          }`}
                         />
                       </button>
                       {filterState.openFilterDropdowns.priorities && (
@@ -3338,11 +3413,11 @@ export function WorkloadBoard({
                               <input
                                 type="checkbox"
                                 checked={filterState.taskFilters.priorities.has(
-                                  String(priority.id)
+                                  String(priority.id),
                                 )}
                                 onChange={(e) => {
                                   const newPriorities = new Set(
-                                    filterState.taskFilters.priorities
+                                    filterState.taskFilters.priorities,
                                   );
                                   if (e.target.checked) {
                                     newPriorities.add(String(priority.id));
@@ -3381,8 +3456,11 @@ export function WorkloadBoard({
                       >
                         <span className="text-sm font-medium">Label</span>
                         <ChevronDown
-                          className={`h-4 w-4 transition-transform ${filterState.openFilterDropdowns.labels ? "rotate-180" : ""
-                            }`}
+                          className={`h-4 w-4 transition-transform ${
+                            filterState.openFilterDropdowns.labels
+                              ? "rotate-180"
+                              : ""
+                          }`}
                         />
                       </button>
                       {filterState.openFilterDropdowns.labels && (
@@ -3395,11 +3473,11 @@ export function WorkloadBoard({
                               <input
                                 type="checkbox"
                                 checked={filterState.taskFilters.labels.has(
-                                  String(label.id)
+                                  String(label.id),
                                 )}
                                 onChange={(e) => {
                                   const newLabels = new Set(
-                                    filterState.taskFilters.labels
+                                    filterState.taskFilters.labels,
                                   );
                                   if (e.target.checked) {
                                     newLabels.add(String(label.id));
@@ -3438,8 +3516,11 @@ export function WorkloadBoard({
                       >
                         <span className="text-sm font-medium">Group</span>
                         <ChevronDown
-                          className={`h-4 w-4 transition-transform ${filterState.openFilterDropdowns.groups ? "rotate-180" : ""
-                            }`}
+                          className={`h-4 w-4 transition-transform ${
+                            filterState.openFilterDropdowns.groups
+                              ? "rotate-180"
+                              : ""
+                          }`}
                         />
                       </button>
                       {filterState.openFilterDropdowns.groups && (
@@ -3451,10 +3532,12 @@ export function WorkloadBoard({
                             >
                               <input
                                 type="checkbox"
-                                checked={filterState.taskFilters.groups.has(group.id)}
+                                checked={filterState.taskFilters.groups.has(
+                                  group.id,
+                                )}
                                 onChange={(e) => {
                                   const newGroups = new Set(
-                                    filterState.taskFilters.groups
+                                    filterState.taskFilters.groups,
                                   );
                                   if (e.target.checked) {
                                     newGroups.add(group.id);
@@ -3488,167 +3571,172 @@ export function WorkloadBoard({
                     filterState.taskFilters.priorities.size > 0 ||
                     filterState.taskFilters.labels.size > 0 ||
                     filterState.taskFilters.groups.size > 0) && (
-                      <div className="border-t border-primary/20 bg-primary/5 p-2 shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => {
-                            filterState.clearFilters();
-                          }}
-                        >
-                          Clear All Filters
-                        </Button>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
+                    <div className="border-t border-primary/20 bg-primary/5 p-2 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          filterState.clearFilters();
+                        }}
+                      >
+                        Clear All Filters
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
 
-                {/* Save Button */}
-                <button
-                  disabled={!hasUnsavedChanges}
-                  className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={async () => {
-                    try {
-                      // Build the columns payload with labels and positions
-                      const columnsPayload: Record<string, any> = {};
-                      workloadColumns.forEach((col) => {
-                        columnsPayload[col.id] = {
-                          label: col.label,
-                          visible: !collapsedColumns[col.id],
-                          position: workloadColumns.indexOf(col) + 1,
-                        };
-                      });
-
-                      // Build the group order payload
-                      const groupOrder: Record<string, string> = {};
-                      groups.forEach((group, index) => {
-                        groupOrder[String(index + 1)] = group.id;
-                      });
-
-                      // Build the column order payload
-                      const columnOrder: Record<string, string> = {};
-                      workloadColumns.forEach((col, index) => {
-                        columnOrder[String(index + 1)] = col.id;
-                      });
-
-                      // Build the full payload
-                      const payload = {
-                        user_id: getCurrentUserId(),  
-                        organization_id: getOrganizationId(),  
-                        board_id: parseInt(boardId, 10),
-                        group_order: groupOrder,
-                        column_order: columnOrder,
-                        columns: columnsPayload,
+              {/* Save Button */}
+              <button
+                disabled={!hasUnsavedChanges}
+                className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={async () => {
+                  try {
+                    // Build the columns payload with labels and positions
+                    const columnsPayload: Record<string, any> = {};
+                    workloadColumns.forEach((col) => {
+                      columnsPayload[col.id] = {
+                        label: col.label,
+                        visible: !collapsedColumns[col.id],
+                        position: workloadColumns.indexOf(col) + 1,
                       };
+                    });
 
-                      debugLog("Save View payload:", payload);
+                    // Build the group order payload
+                    const groupOrder: Record<string, string> = {};
+                    groups.forEach((group, index) => {
+                      groupOrder[String(index + 1)] = group.id;
+                    });
 
-                      // Call the API to save the layout
-                      const response = await cmsApi.saveUserGroupColumns(payload);
-                      
-                      // Update localStorage with the response to ensure sync
-                      if (response.columns) {
-                        const newOrder = workloadColumns.map((c) => c.id);
-                        updateFullColumnConfiguration(
-                          parseInt(boardId, 10),
-                          newOrder,
-                          response.columns
-                        );
-                      }
+                    // Build the column order payload
+                    const columnOrder: Record<string, string> = {};
+                    workloadColumns.forEach((col, index) => {
+                      columnOrder[String(index + 1)] = col.id;
+                    });
 
-                      // Update initial order to mark changes as saved
-                      setInitialGroupOrder(groups.map((g) => g.id));
-                      setInitialColumnOrder(workloadColumns.map((c) => c.id));
-                      setHasUnsavedChanges(false);
+                    // Build the full payload
+                    const payload = {
+                      user_id: getCurrentUserId(),
+                      organization_id: getOrganizationId(),
+                      board_id: parseInt(boardId, 10),
+                      group_order: groupOrder,
+                      column_order: columnOrder,
+                      columns: columnsPayload,
+                    };
 
-                      toast.success("Layout saved successfully");
-                    } catch (error) {
-                      console.error("Failed to save layout:", error);
-                      toast.error("Failed to save layout");
+                    debugLog("Save View payload:", payload);
+
+                    // Call the API to save the layout
+                    const response = await cmsApi.saveUserGroupColumns(payload);
+
+                    // Update localStorage with the response to ensure sync
+                    if (response.columns) {
+                      const newOrder = workloadColumns.map((c) => c.id);
+                      updateFullColumnConfiguration(
+                        parseInt(boardId, 10),
+                        newOrder,
+                        response.columns,
+                      );
                     }
-                  }}
-                >
-                  <Save className="h-4 w-4" />
-                  Save View
-                </button>
 
-                {/* Column Visibility Popover */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      <EyeOff className="h-4 w-4 mr-2" />
-                      Columns
-                    </Button>
-                  </PopoverTrigger>
+                    // Update initial order to mark changes as saved
+                    setInitialGroupOrder(groups.map((g) => g.id));
+                    setInitialColumnOrder(workloadColumns.map((c) => c.id));
+                    setHasUnsavedChanges(false);
 
-                  <PopoverContent align="start" className="w-56">
-                    <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
-                      Columns
-                    </div>
-                    <div className="border-t border-border my-2" />
+                    toast.success("Layout saved successfully");
+                  } catch (error) {
+                    console.error("Failed to save layout:", error);
+                    toast.error("Failed to save layout");
+                  }
+                }}
+              >
+                <Save className="h-4 w-4" />
+                Save View
+              </button>
 
-                    <div className="p-2 space-y-1">
-                      {ALL_AVAILABLE_COLUMNS.map((columnId) => {
-                        const columnLabel =
-                          {
-                            item: "Item",
-                            status: "Status",
-                            priority: "Priority",
-                            description: "Description",
-                            rating: "Rating",
-                            estimatedDate: "Estimated Date",
-                            estimatedTime: "Estimated Time",
-                            date: "Date",
-                            person: "Person",
-                            timer: "Timer",
-                            time: "Time Spent",
-                          }[columnId] || columnId;
+              {/* Column Visibility Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <EyeOff className="h-4 w-4 mr-2" />
+                    Columns
+                  </Button>
+                </PopoverTrigger>
 
-                        return (
-                          <label
-                            key={columnId}
-                            className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={columnState.visibleColumns[columnId] === true}
-                              onChange={() => toggleColumnVisibility(columnId)}
-                              className="cursor-pointer"
-                            />
-                            <span className="text-sm">{columnLabel}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
+                <PopoverContent align="start" className="w-56">
+                  <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
+                    Columns
+                  </div>
+                  <div className="border-t border-border my-2" />
+
+                  <div className="p-2 space-y-1">
+                    {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                      const columnLabel =
+                        {
+                          item: "Item",
+                          status: "Status",
+                          priority: "Priority",
+                          description: "Description",
+                          rating: "Rating",
+                          estimatedDate: "Estimated Date",
+                          estimatedTime: "Estimated Time",
+                          date: "Date",
+                          person: "Person",
+                          timer: "Timer",
+                          time: "Time Spent",
+                        }[columnId] || columnId;
+
+                      return (
+                        <label
+                          key={columnId}
+                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              columnState.visibleColumns[columnId] === true
+                            }
+                            onChange={() => toggleColumnVisibility(columnId)}
+                            className="cursor-pointer"
+                          />
+                          <span className="text-sm">{columnLabel}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
+          </div>
 
-            {/* Task Groups Container - ONLY scrollable element */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-6" ref={groupsContainerRef}>
-                <DndContext
-                  sensors={groupSensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleGroupDragEnd}
-                >
-                  <SortableContext
-                    items={getFilteredGroups().map((g) => g.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-6 py-4">
-                    {getFilteredGroups().length === 0 ? (
-                      <div className="text-center py-12">
-                        {mainTableSearchQuery.trim() ? (
-                          <>
-                            <p className="text-muted-foreground mb-4">
-                              No items found matching "{mainTableSearchQuery}"
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            {/* <p className="text-muted-foreground mb-4">
+          {/* Task Groups Container - ONLY scrollable element */}
+          <div
+            className="flex-1 overflow-y-auto overflow-x-hidden px-6"
+            ref={groupsContainerRef}
+          >
+            <DndContext
+              sensors={groupSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleGroupDragEnd}
+            >
+              <SortableContext
+                items={getFilteredGroups().map((g) => g.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-6 py-4">
+                  {getFilteredGroups().length === 0 ? (
+                    <div className="text-center py-12">
+                      {mainTableSearchQuery.trim() ? (
+                        <>
+                          <p className="text-muted-foreground mb-4">
+                            No items found matching "{mainTableSearchQuery}"
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          {/* <p className="text-muted-foreground mb-4">
                               No groups yet. Create one to get started.
                             </p>
                             <Button
@@ -3658,25 +3746,25 @@ export function WorkloadBoard({
                             >
                               Create First Group
                             </Button> */}
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      getFilteredGroups().map((group) => (
-                        <SortableGroupCard key={group.id} group={group}>
-                          {(dragListeners, dragAttributes) => (
-                            <div
-                              className="bg-card border border-border flex-1 border-l-4"
-                              style={{
-                                borderLeftColor: group.color || "#3b82f6",
-                              }}
-                              {...dragAttributes}
-                              {...dragListeners}
-                            >
-                              {/* Group Header */}
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    getFilteredGroups().map((group) => (
+                      <SortableGroupCard key={group.id} group={group}>
+                        {(dragListeners, dragAttributes) => (
+                          <div
+                            className="bg-card border border-border flex-1 border-l-4"
+                            style={{
+                              borderLeftColor: group.color || "#3b82f6",
+                            }}
+                            {...dragAttributes}
+                            {...dragListeners}
+                          >
+                            {/* Group Header */}
 
                             <div
-                              className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-30 bg-muted border-b border-border ${stickyGroupId === group.id ? 'shadow-md' : ''}`}
+                              className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-30 bg-muted border-b border-border ${stickyGroupId === group.id ? "shadow-md" : ""}`}
                               data-group-header
                               data-group-id={group.id}
                             >
@@ -3776,7 +3864,7 @@ export function WorkloadBoard({
                                   // Find the label object to get its color
                                   const labelObj = labels.find(
                                     (l) =>
-                                      l.label_name === groupLabels[group.id]
+                                      l.label_name === groupLabels[group.id],
                                   );
                                   const labelColor =
                                     labelObj?.label_color ||
@@ -3845,7 +3933,7 @@ export function WorkloadBoard({
                                             value={editGroupNameInput}
                                             onChange={(e) =>
                                               setEditGroupNameInput(
-                                                e.target.value
+                                                e.target.value,
                                               )
                                             }
                                             onKeyDown={(e) => {
@@ -3858,9 +3946,13 @@ export function WorkloadBoard({
                                           />
                                           <ColorPickerPopover
                                             color={editGroupColorInput}
-                                            onColorChange={setEditGroupColorInput}
+                                            onColorChange={
+                                              setEditGroupColorInput
+                                            }
                                             isOpen={editGroupColorPickerOpen}
-                                            onOpenChange={setEditGroupColorPickerOpen}
+                                            onOpenChange={
+                                              setEditGroupColorPickerOpen
+                                            }
                                             size="w-10 h-10"
                                             disableHexInput={true}
                                           />
@@ -3877,43 +3969,48 @@ export function WorkloadBoard({
                                             variant="ghost"
                                             size="sm"
                                             className="h-6 w-6 p-0"
-                                            onClick={() => setEditLabelsDialogOpen(true)}
+                                            onClick={() =>
+                                              setEditLabelsDialogOpen(true)
+                                            }
                                           >
                                             <Pencil className="h-3.5 w-3.5" />
                                           </Button>
                                         </div>
-                                        
-                                        {/* Display all available labels as clickable chips */}
-                                        {Array.isArray(labels) && labels.length > 0 && (
-                                          <div className="flex flex-wrap gap-2">
-                                            {labels.map((label) => (
-                                              <button
-                                                key={`label-${label.id}`}
-                                                onClick={() => {
-                                                  setEditGroupLabelInput(
-                                                    label.label_name
-                                                  );
-                                                  setEditGroupLabelColorInput(
-                                                    label.label_color
-                                                  );
-                                                }}
-                                                className={`px-3 py-1 rounded-full text-xs font-medium text-white hover:opacity-80 transition-opacity ${
-                                                  editGroupLabelInput === label.label_name
-                                                    ? "ring-2 ring-offset-1 ring-foreground"
-                                                    : ""
-                                                }`}
-                                                style={{
-                                                  backgroundColor:
-                                                    label.label_color,
-                                                }}
-                                              >
-                                                {label.label_name}
-                                              </button>
-                                            ))}
-                                          </div>
-                                        )}
 
-                                        {(!Array.isArray(labels) || labels.length === 0) && (
+                                        {/* Display all available labels as clickable chips */}
+                                        {Array.isArray(labels) &&
+                                          labels.length > 0 && (
+                                            <div className="flex flex-wrap gap-2">
+                                              {labels.map((label) => (
+                                                <button
+                                                  key={`label-${label.id}`}
+                                                  onClick={() => {
+                                                    setEditGroupLabelInput(
+                                                      label.label_name,
+                                                    );
+                                                    setEditGroupLabelColorInput(
+                                                      label.label_color,
+                                                    );
+                                                  }}
+                                                  className={`px-3 py-1 rounded-full text-xs font-medium text-white hover:opacity-80 transition-opacity ${
+                                                    editGroupLabelInput ===
+                                                    label.label_name
+                                                      ? "ring-2 ring-offset-1 ring-foreground"
+                                                      : ""
+                                                  }`}
+                                                  style={{
+                                                    backgroundColor:
+                                                      label.label_color,
+                                                  }}
+                                                >
+                                                  {label.label_name}
+                                                </button>
+                                              ))}
+                                            </div>
+                                          )}
+
+                                        {(!Array.isArray(labels) ||
+                                          labels.length === 0) && (
                                           <p className="text-xs text-muted-foreground">
                                             No labels available
                                           </p>
@@ -3932,7 +4029,7 @@ export function WorkloadBoard({
                                             setEditGroupColorInput("#3b82f6");
                                             setEditGroupLabelInput("");
                                             setEditGroupLabelColorInput(
-                                              "#3b82f6"
+                                              "#3b82f6",
                                             );
                                           }}
                                         >
@@ -3954,10 +4051,9 @@ export function WorkloadBoard({
                               </div>
 
                               {/* Group Progress Bar - Time Spent vs Estimated Time */}
-                              {(() => {
-                                // Use timerUpdateTrigger to force recalculation when timer updates
+                              {useMemo(() => {
                                 const progress = calculateGroupProgress(
-                                  group.tasks
+                                  group.tasks,
                                 );
                                 // Access timerUpdateTrigger to create dependency
                                 void timerState.timerUpdateTrigger;
@@ -3971,18 +4067,18 @@ export function WorkloadBoard({
                                     </div>
                                     <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
                                       {formatSecondsToTime(
-                                        progress.timeSpentSeconds
+                                        progress.timeSpentSeconds,
                                       )}{" "}
                                       /{" "}
                                       {progress.estimatedTimeSeconds > 0
                                         ? formatSecondsToTime(
-                                          progress.estimatedTimeSeconds
-                                        )
+                                            progress.estimatedTimeSeconds,
+                                          )
                                         : "—"}
                                     </span>
                                   </div>
                                 );
-                              })()}
+                              }, [group.tasks, timerState.timerUpdateTrigger])}
                             </div>
 
                             {/* Task Table */}
@@ -3990,11 +4086,16 @@ export function WorkloadBoard({
                               <div
                                 className="overflow-x-auto w-full scrollbar-hide"
                                 ref={(el) => {
-                                  if (el) tableScrollRefs.current[group.id] = el;
+                                  if (el)
+                                    tableScrollRefs.current[group.id] = el;
                                 }}
                                 onScroll={(e) => {
-                                  const target = e.currentTarget as HTMLDivElement;
-                                  handleTableScroll(group.id, target.scrollLeft);
+                                  const target =
+                                    e.currentTarget as HTMLDivElement;
+                                  handleTableScroll(
+                                    group.id,
+                                    target.scrollLeft,
+                                  );
                                 }}
                               >
                                 <table
@@ -4043,8 +4144,9 @@ export function WorkloadBoard({
                                                 group.tasks.length > 0 &&
                                                 group.tasks.every(
                                                   (task) =>
-                                                    taskState.checkedTasks[task.id] ||
-                                                    false
+                                                    taskState.checkedTasks[
+                                                      task.id
+                                                    ] || false,
                                                 )
                                               }
                                               onChange={(e) => {
@@ -4062,14 +4164,16 @@ export function WorkloadBoard({
                                                         updatedChecked[
                                                           subitem.id
                                                         ] = e.target.checked;
-                                                      }
+                                                      },
                                                     );
                                                   }
                                                 });
-                                                taskState.setCheckedTasks((prev) => ({
-                                                  ...prev,
-                                                  ...updatedChecked,
-                                                }));
+                                                taskState.setCheckedTasks(
+                                                  (prev) => ({
+                                                    ...prev,
+                                                    ...updatedChecked,
+                                                  }),
+                                                );
                                               }}
                                             />
                                           </th>
@@ -4082,12 +4186,17 @@ export function WorkloadBoard({
                                                 toggleCollapseColumn(col.id)
                                               }
                                               onStartResize={startColumnResize}
-                                              onColumnLabelChange={handleColumnLabelChange}
-                                              onSort={(columnId: string, direction: "asc" | "desc") =>
+                                              onColumnLabelChange={
+                                                handleColumnLabelChange
+                                              }
+                                              onSort={(
+                                                columnId: string,
+                                                direction: "asc" | "desc",
+                                              ) =>
                                                 handleSortGroupItems(
                                                   group.id,
                                                   columnId,
-                                                  direction
+                                                  direction,
                                                 )
                                               }
                                             />
@@ -4126,12 +4235,14 @@ export function WorkloadBoard({
                                               <input
                                                 type="checkbox"
                                                 checked={
-                                                  taskState.checkedTasks[task.id] || false
+                                                  taskState.checkedTasks[
+                                                    task.id
+                                                  ] || false
                                                 }
                                                 onChange={(e) =>
                                                   handleTaskCheckChange(
                                                     task.id,
-                                                    e.target.checked
+                                                    e.target.checked,
                                                   )
                                                 }
                                               />
@@ -4143,10 +4254,11 @@ export function WorkloadBoard({
                                                 className={cn(
                                                   "p-4 border-r border-border last:border-r-0",
                                                   col.align === "center" &&
-                                                  "text-center",
+                                                    "text-center",
                                                   col.align === "left" &&
-                                                  "text-left",
-                                                  col.id === "item" && "sticky left-12 z-10 bg-card"
+                                                    "text-left",
+                                                  col.id === "item" &&
+                                                    "sticky left-12 z-10 bg-card",
                                                 )}
                                                 style={{ width: col.width }}
                                                 onClick={(e) =>
@@ -4160,7 +4272,7 @@ export function WorkloadBoard({
                                                       onClick={(e) => {
                                                         e.stopPropagation();
                                                         toggleCollapseColumn(
-                                                          col.id
+                                                          col.id,
                                                         );
                                                       }}
                                                       aria-label={`Expand ${col.label}`}
@@ -4182,7 +4294,8 @@ export function WorkloadBoard({
                                               const subtaskWithProps = {
                                                 ...subtask,
                                                 boardId: boardId,
-                                                activeTimerId: timerState.activeTimerId,
+                                                activeTimerId:
+                                                  timerState.activeTimerId,
                                                 onTimerStart: handleTimerStart,
                                                 onTimerConflict:
                                                   handleTimerConflict,
@@ -4202,13 +4315,13 @@ export function WorkloadBoard({
                                                       type="checkbox"
                                                       checked={
                                                         taskState.checkedTasks[
-                                                        subtask.id
+                                                          subtask.id
                                                         ] || false
                                                       }
                                                       onChange={(e) =>
                                                         handleTaskCheckChange(
                                                           subtask.id,
-                                                          e.target.checked
+                                                          e.target.checked,
                                                         )
                                                       }
                                                     />
@@ -4221,12 +4334,13 @@ export function WorkloadBoard({
                                                         className={cn(
                                                           "p-4 border-r border-border last:border-r-0",
                                                           col.align ===
-                                                          "center" &&
-                                                          "text-center",
+                                                            "center" &&
+                                                            "text-center",
                                                           col.align ===
-                                                          "left" &&
-                                                          "text-left",
-                                                          col.id === "item" && "sticky left-12 z-10 bg-card"
+                                                            "left" &&
+                                                            "text-left",
+                                                          col.id === "item" &&
+                                                            "sticky left-12 z-10 bg-card",
                                                         )}
                                                         onClick={(e) =>
                                                           e.stopPropagation()
@@ -4239,7 +4353,7 @@ export function WorkloadBoard({
                                                               onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 toggleCollapseColumn(
-                                                                  col.id
+                                                                  col.id,
                                                                 );
                                                               }}
                                                               aria-label={`Expand ${col.label}`}
@@ -4251,11 +4365,11 @@ export function WorkloadBoard({
                                                         ) : (
                                                           col.render(
                                                             subtaskWithProps,
-                                                            true
+                                                            true,
                                                           )
                                                         )}
                                                       </td>
-                                                    )
+                                                    ),
                                                   )}
                                                 </tr>
                                               );
@@ -4272,7 +4386,7 @@ export function WorkloadBoard({
                                                 className="p-4 border-t border-border sticky left-12 z-10 bg-card"
                                               >
                                                 {addingSubitemToTask ===
-                                                  task.id ? (
+                                                task.id ? (
                                                   <div className="flex items-center gap-2 pl-8">
                                                     <span className="text-muted-foreground">
                                                       └
@@ -4284,31 +4398,32 @@ export function WorkloadBoard({
                                                       value={newSubitemName}
                                                       onChange={(e) =>
                                                         setNewSubitemName(
-                                                          e.target.value
+                                                          e.target.value,
                                                         )
                                                       }
                                                       onKeyDown={(e) => {
                                                         if (
-                                                          (e.key === "Enter" || e.key === "Tab") &&
+                                                          (e.key === "Enter" ||
+                                                            e.key === "Tab") &&
                                                           newSubitemName.trim()
                                                         ) {
                                                           addSubitem(
                                                             group.id,
-                                                            task.id
+                                                            task.id,
                                                           );
                                                         }
                                                         if (
                                                           e.key === "Escape"
                                                         ) {
                                                           setAddingSubitemToTask(
-                                                            null
+                                                            null,
                                                           );
                                                           setNewSubitemName("");
                                                         }
                                                       }}
                                                       onBlur={() => {
                                                         setAddingSubitemToTask(
-                                                          null
+                                                          null,
                                                         );
                                                         setNewSubitemName("");
                                                       }}
@@ -4321,10 +4436,10 @@ export function WorkloadBoard({
                                                         (prev) => ({
                                                           ...prev,
                                                           [task.id]: true,
-                                                        })
+                                                        }),
                                                       );
                                                       setAddingSubitemToTask(
-                                                        task.id
+                                                        task.id,
                                                       );
                                                     }}
                                                     className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 pl-8"
@@ -4366,7 +4481,8 @@ export function WorkloadBoard({
                                             }
                                             onKeyDown={(e) => {
                                               if (
-                                                (e.key === "Enter" || e.key === "Tab") &&
+                                                (e.key === "Enter" ||
+                                                  e.key === "Tab") &&
                                                 newItemName.trim()
                                               ) {
                                                 addNewItem(group.id);
@@ -4386,8 +4502,11 @@ export function WorkloadBoard({
                                             onClick={() => {
                                               setAddingItemToGroup(group.id);
                                               // Scroll the main flex container to the right
-                                              if (mainFlexContainerRef.current) {
-                                                mainFlexContainerRef.current.scrollLeft = mainFlexContainerRef.current.scrollWidth;
+                                              if (
+                                                mainFlexContainerRef.current
+                                              ) {
+                                                mainFlexContainerRef.current.scrollLeft =
+                                                  mainFlexContainerRef.current.scrollWidth;
                                               }
                                             }}
                                             className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 "
@@ -4423,9 +4542,18 @@ export function WorkloadBoard({
                 const firstTableRef = Object.values(tableScrollRefs.current)[0];
                 if (firstTableRef) {
                   const srcLeft = firstTableRef.scrollLeft;
-                  const srcMax = Math.max(0, firstTableRef.scrollWidth - firstTableRef.clientWidth);
-                  const unifiedMax = Math.max(0, el.scrollWidth - el.clientWidth);
-                  const mapped = srcMax > 0 && unifiedMax > 0 ? (srcLeft / srcMax) * unifiedMax : srcLeft;
+                  const srcMax = Math.max(
+                    0,
+                    firstTableRef.scrollWidth - firstTableRef.clientWidth,
+                  );
+                  const unifiedMax = Math.max(
+                    0,
+                    el.scrollWidth - el.clientWidth,
+                  );
+                  const mapped =
+                    srcMax > 0 && unifiedMax > 0
+                      ? (srcLeft / srcMax) * unifiedMax
+                      : srcLeft;
                   if (el.scrollLeft !== mapped) el.scrollLeft = mapped;
                 }
               }
@@ -4434,13 +4562,22 @@ export function WorkloadBoard({
               if (isSyncingScroll.current) return;
               const unified = e.currentTarget as HTMLDivElement;
               const unifiedLeft = unified.scrollLeft;
-              const unifiedMax = Math.max(0, unified.scrollWidth - unified.clientWidth);
+              const unifiedMax = Math.max(
+                0,
+                unified.scrollWidth - unified.clientWidth,
+              );
 
               isSyncingScroll.current = true;
               Object.values(tableScrollRefs.current).forEach((ref) => {
                 if (ref) {
-                  const tableMax = Math.max(0, ref.scrollWidth - ref.clientWidth);
-                  const mapped = unifiedMax > 0 && tableMax > 0 ? (unifiedLeft / unifiedMax) * tableMax : unifiedLeft;
+                  const tableMax = Math.max(
+                    0,
+                    ref.scrollWidth - ref.clientWidth,
+                  );
+                  const mapped =
+                    unifiedMax > 0 && tableMax > 0
+                      ? (unifiedLeft / unifiedMax) * tableMax
+                      : unifiedLeft;
                   if (ref.scrollLeft !== mapped) ref.scrollLeft = mapped;
                 }
               });
@@ -4454,7 +4591,6 @@ export function WorkloadBoard({
         </div>
       )}
 
-      
       {/* {activeTab === "Kanban" && (
         <KanbanView
           groups={getFilteredGroups()}
@@ -4466,12 +4602,15 @@ export function WorkloadBoard({
       )} */}
 
       {/* Other Views - Coming Soon */}
-      {activeTab !== "Main Table"  && (
+      {activeTab !== "Main Table" && (
         <div className="flex-1 overflow-auto flex items-center justify-center">
           <div className="text-center space-y-4">
-            <h2 className="text-2xl font-semibold text-foreground">Coming Soon</h2>
+            <h2 className="text-2xl font-semibold text-foreground">
+              Coming Soon
+            </h2>
             <p className="text-muted-foreground">
-              The <span className="font-medium">{activeTab}</span> view is coming soon
+              The <span className="font-medium">{activeTab}</span> view is
+              coming soon
             </p>
           </div>
         </div>
@@ -4491,10 +4630,11 @@ export function WorkloadBoard({
                 {PRESET_COLORS.map((color) => (
                   <button
                     key={color}
-                    className={`h-10 w-10 rounded-lg transition-all border-2 ${newGroupColorInput === color
-                      ? "border-foreground scale-110"
-                      : "border-transparent hover:scale-105"
-                      }`}
+                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
+                      newGroupColorInput === color
+                        ? "border-foreground scale-110"
+                        : "border-transparent hover:scale-105"
+                    }`}
                     style={{ backgroundColor: color }}
                     onClick={() => setNewGroupColorInput(color)}
                   />
@@ -4542,7 +4682,10 @@ export function WorkloadBoard({
       </Dialog>
 
       {/*  Profile Details Dialog */}
-      <ProfileDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
+      <ProfileDialog
+        open={profileDialogOpen}
+        onOpenChange={setProfileDialogOpen}
+      />
 
       {/* Delete Group Confirmation Dialog */}
       <Dialog
@@ -4712,8 +4855,9 @@ export function WorkloadBoard({
               <div className="flex items-center gap-2">
                 <div className="bg-primary rounded-full w-8 h-8 flex items-center justify-center text-white font-semibold text-sm">
                   {
-                    Object.values(taskState.checkedTasks).filter((checked) => checked)
-                      .length
+                    Object.values(taskState.checkedTasks).filter(
+                      (checked) => checked,
+                    ).length
                   }
                 </div>
                 <span className="text-foreground font-medium">
@@ -4760,7 +4904,10 @@ export function WorkloadBoard({
       />
 
       {/* Edit Labels Dialog */}
-      <Dialog open={editLabelsDialogOpen} onOpenChange={setEditLabelsDialogOpen}>
+      <Dialog
+        open={editLabelsDialogOpen}
+        onOpenChange={setEditLabelsDialogOpen}
+      >
         <DialogContent className="max-w-2xl flex flex-col max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Edit Group Labels</DialogTitle>
@@ -4822,8 +4969,8 @@ export function WorkloadBoard({
                                         label_name: editingLabelName,
                                         label_color: editingLabelColor,
                                       }
-                                    : l
-                                )
+                                    : l,
+                                ),
                               );
 
                               setEditingLabelId(null);
@@ -4876,7 +5023,9 @@ export function WorkloadBoard({
 
                               // Remove from local state
                               setLabels((prev) =>
-                                prev.filter((l) => String(l.id) !== String(label.id))
+                                prev.filter(
+                                  (l) => String(l.id) !== String(label.id),
+                                ),
                               );
                               toast.success("Label deleted successfully");
                             } catch (error) {
@@ -4982,7 +5131,7 @@ export function WorkloadBoard({
                     setEditLabelsDialogOpen(false);
                     setNewLabelName("");
                     setNewLabelColor("#a855f7");
-                    
+
                     // Close the Edit Group popover to force re-render when reopened
                     setEditGroupDialogOpen(false);
                   } catch (fetchError) {
