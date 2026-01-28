@@ -3,6 +3,13 @@ import { Play, Pause } from "lucide-react";
 import { toast } from "sonner";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { TimeTrackingLogDialog } from "./TimeTrackingLogDialog";
+import { getCurrentUserId } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
 
 interface TimerCellProps {
   taskId: string;
@@ -13,6 +20,7 @@ interface TimerCellProps {
   hasAssignee?: boolean;
   estimatedHours?: string | number;
   taskName?: string;
+  assignedToIds?: string[];
 }
 
 export function TimerCell({
@@ -24,11 +32,18 @@ export function TimerCell({
   hasAssignee = false,
   estimatedHours = "-",
   taskName = "Task",
+  assignedToIds = [],
 }: TimerCellProps) {
   const [seconds, setSeconds] = useState(trackedTimeSeconds);
   const [isLoading, setIsLoading] = useState(false);
   const [showTimeLog, setShowTimeLog] = useState(false);
   const isRunning = activeTimerId === taskId;
+  const currentUserId = getCurrentUserId();
+
+  // Check if current user is assigned to this task
+  const isAssignedToCurrentUser = assignedToIds.some(
+    (id) => String(id) === String(currentUserId)
+  );
 
   // Update seconds when trackedTimeSeconds prop changes (e.g., on page refresh)
   useEffect(() => {
@@ -101,9 +116,13 @@ export function TimerCell({
   }
 
   const handlePlayPause = async () => {
-    // Check if assignee exists before starting timer
-    if (!hasAssignee && !isRunning) {
-      toast.error("Please assign a person before starting the timer");
+    // Check if current user is assigned to this task before starting timer
+    if (!isRunning && !isAssignedToCurrentUser) {
+      if (hasAssignee) {
+        toast.error("You can only track time for tasks assigned to you");
+      } else {
+        toast.error("Task needs an assignee to track time");
+      }
       return;
     }
 
@@ -140,24 +159,32 @@ export function TimerCell({
       <div
         className={`flex items-center justify-center gap-2 w-full h-full ${bgColor} rounded`}
       >
-        <button
-          onClick={handlePlayPause}
-          disabled={isLoading || (!hasAssignee && !isRunning)}
-          className="p-2 hover:bg-muted rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title={
-            !hasAssignee && !isRunning
-              ? "Assign a person first"
-              : isRunning
-              ? "Pause"
-              : "Start"
-          }
-        >
-          {isRunning ? (
-            <Pause className="h-4 w-4 text-white" />
-          ) : (
-            <Play className="h-4 w-4 text-white" />
-          )}
-        </button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handlePlayPause}
+                disabled={isLoading || (!isAssignedToCurrentUser && !isRunning)}
+                className="p-2 hover:bg-muted rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isRunning ? (
+                  <Pause className="h-4 w-4 text-white" />
+                ) : (
+                  <Play className="h-4 w-4 text-white" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {!isAssignedToCurrentUser && !isRunning
+                ? hasAssignee
+                  ? "You can only track time for tasks assigned to you"
+                  : "Task needs an assignee to track time"
+                : isRunning
+                ? "Pause"
+                : "Start"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <button
           onClick={() => setShowTimeLog(true)}
           className="rounded px-3 py-1 min-w-14 text-center hover:opacity-80 transition-opacity cursor-pointer"

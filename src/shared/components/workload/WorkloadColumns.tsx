@@ -487,6 +487,7 @@ export const getWorkloadColumns = ({
             hasAssignee={hasAssignee}
             estimatedHours={estimatedHours}
             taskName={task.name}
+            assignedToIds={task.assigned_to_ids || []}
           />
         );
       },
