@@ -13,6 +13,7 @@ import {
 import { BarChart3, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/axios";
+import { clearAllBrowserStorage } from "@/lib/utils";
 
 const SignupPage = () => {
   const navigate = useNavigate();
@@ -75,6 +76,7 @@ const SignupPage = () => {
           title: "Invitation verified",
           description: "Please complete your registration below.",
         });
+        clearAllBrowserStorage();
       } else {
         setTokenValid(false);
         setTokenErrorMessage(
