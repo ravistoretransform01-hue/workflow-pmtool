@@ -39,6 +39,15 @@ export const getCurrentUserId = (): number | null => {
   }
 };
 
+export const clearAllBrowserStorage = () => {
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+  } catch (error) {
+    console.error("Failed to clear browser storage:", error);
+  }
+};
+
 export {
   parseApiDateTime,
   formatApiDateTimeToLocale,
