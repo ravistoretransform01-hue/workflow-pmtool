@@ -7,6 +7,7 @@ import { format, parseISO } from "date-fns";
 // const _loadedCMSForBoard = new Set<string>();
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import axios from "@/lib/axios";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { cmsApi } from "@/features/cms/cmsApi";
@@ -93,6 +94,7 @@ import {
   useColumnPersistence,
   useTaskFilters,
 } from "./hooks";
+import { useBeforeUnload } from "./hooks/useBeforeUnload";
 import { SortableColumnHeader } from "./components/ColumnHeader";
 import { ColorPickerPopover } from "./ColorPickerPopover";
 import { debugLog } from "@/lib/debugLog";
@@ -825,6 +827,48 @@ export function WorkloadBoard({
 
     return () => clearInterval(interval);
   }, [timerState.activeTimerId, timerState]);
+
+  // Prevent page unload when timer is running
+  useBeforeUnload(!!timerState.activeTimerId, {
+    message: "A timer is running. Are you sure you want to leave?",
+    onUnload: () => {
+      if (timerState.activeTimerId) {
+        try {
+          // Use fetch with keepalive to stop timer during page unload
+          // pagehide event ensures this runs even if user confirms close/refresh
+          const baseUrl = axios.defaults.baseURL || "";
+          const url = `${baseUrl}/tasks/time/stop`;
+          const payload = JSON.stringify({ task_id: timerState.activeTimerId });
+          
+          // Get auth token from localStorage
+          const token = localStorage.getItem("access_token");
+          
+          // Create headers object
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+          };
+          
+          if (typeof token === "string") {
+            headers["Authorization"] = `Bearer ${token}`;
+          }
+          
+          // Use fetch with keepalive to ensure request completes even during unload
+          fetch(url, {
+            method: "POST",
+            body: payload,
+            headers,
+            keepalive: true, // Important: keeps connection alive during unload
+          }).catch((error) => {
+            console.error("Failed to stop timer on page unload:", error);
+          });
+          
+          console.log("Timer stop request sent on page hide");
+        } catch (error) {
+          console.error("Error stopping timer on unload:", error);
+        }
+      }
+    },
+  });
 
   // useEffect(() => {
   //   const loadGroupsAndTasks = async () => {
@@ -2174,8 +2218,10 @@ export function WorkloadBoard({
   const handleTimerStart = (taskId: string | null) => {
     if (taskId === null) {
       timerState.stopTimer();
+      sessionStorage.removeItem("activeTimerId");
     } else {
       timerState.startTimer(taskId);
+      sessionStorage.setItem("activeTimerId", taskId);
     }
   };
 
