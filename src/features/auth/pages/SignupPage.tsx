@@ -77,7 +77,10 @@ const SignupPage = () => {
         });
       } else {
         setTokenValid(false);
-        setTokenErrorMessage(response.data?.message || "This invitation link is invalid or has expired.");
+        setTokenErrorMessage(
+          response.data?.message ||
+            "This invitation link is invalid or has expired.",
+        );
         toast({
           title: "Invalid invitation",
           description: "This invitation link is invalid or has expired.",
@@ -87,7 +90,8 @@ const SignupPage = () => {
     } catch (error: any) {
       console.error("Token validation error:", error);
       setTokenValid(false);
-      const errorMsg = error.response?.data?.message || "Failed to validate invitation token.";
+      const errorMsg =
+        error.response?.data?.message || "Failed to validate invitation token.";
       setTokenErrorMessage(errorMsg);
       toast({
         title: "Validation failed",
@@ -135,14 +139,20 @@ const SignupPage = () => {
     try {
       if (inviteToken && tokenValid) {
         // Register with invitation
-        const response = await api.post("/register-with-invitation", {
-          token: inviteToken,
-          email: email,
-          password: password,
-          first_name: firstName,
-          last_name: lastName,
-          board_id: invitationData?.board_id || "",
-        });
+        const response = await api.post(
+          "/register-with-invitation",
+          {
+            token: inviteToken,
+            email: email,
+            password: password,
+            first_name: firstName,
+            last_name: lastName,
+            board_id: invitationData?.board_id || "",
+          },
+          {
+            skipAuth: true,
+          },
+        );
 
         if (response.data && response.data.code === 200) {
           toast({
@@ -206,7 +216,8 @@ const SignupPage = () => {
               Invalid Invitation
             </CardTitle>
             <CardDescription>
-              {tokenErrorMessage || "This invitation link is invalid or has expired. Please contact the person who invited you for a new link."}
+              {tokenErrorMessage ||
+                "This invitation link is invalid or has expired. Please contact the person who invited you for a new link."}
             </CardDescription>
           </CardHeader>
           <CardContent>
