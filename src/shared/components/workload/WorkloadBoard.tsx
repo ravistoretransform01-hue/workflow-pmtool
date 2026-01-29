@@ -2218,8 +2218,10 @@ export function WorkloadBoard({
   const handleTimerStart = (taskId: string | null) => {
     if (taskId === null) {
       timerState.stopTimer();
+      sessionStorage.removeItem("activeTimerId");
     } else {
       timerState.startTimer(taskId);
+      sessionStorage.setItem("activeTimerId", taskId);
     }
   };
 
