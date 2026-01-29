@@ -805,12 +805,13 @@ export function WorkloadBoard({
       setIsLoadingComments(false);
 
       // Set up interval to auto-refresh comments every 6 seconds
-      const refreshInterval = setInterval(() => {
-        fetchComments(selectedTaskId);
-      }, 5000); // 5 seconds
+      // const refreshInterval = setInterval(() => {
+      //   fetchComments(selectedTaskId);
+      // }, 5000); // 5 seconds
 
-      // Cleanup interval when panel closes or task changes
-      return () => clearInterval(refreshInterval);
+      // // Cleanup interval when panel closes or task changes
+      // return () => clearInterval(refreshInterval);
+
     } else {
       setComments([]);
       setIsLoadingComments(false);
@@ -2401,6 +2402,7 @@ export function WorkloadBoard({
   };
 
   const processHtmlContent = (html: string) => {
+
     if (!html) return "";
 
     let processed = html;
@@ -2444,19 +2446,13 @@ export function WorkloadBoard({
 
     try {
       const payload = {
-        content: processHtmlContent(updateText),
+        // content: processHtmlContent(updateText),
+        content: updateText,
         parent_id: replyingTo ? Number(replyingTo.id) : null,
         is_internal: 0,
       };
 
-      const newComment = await tasksApi.createComment(selectedTaskId, payload);
-
-      // Update local state
-      setComments((prev) => [newComment, ...prev]);
-
-      toast.success(
-        replyingTo ? "Reply saved successfully" : "Update saved successfully",
-      );
+      console.log("Saving update:", payload);
 
       // Reset the form
       setUpdateText("");
@@ -2483,12 +2479,7 @@ export function WorkloadBoard({
         is_internal: 0,
       };
 
-      const newComment = await tasksApi.createComment(selectedTaskId, payload);
-
-      // Update local state
-      setComments((prev) => [...prev, newComment]);
-
-      toast.success("Reply saved successfully");
+      console.log("Saving inline reply:", payload);
     } catch (error) {
       console.error("Failed to save reply:", error);
       toast.error("Failed to save reply");
@@ -2511,28 +2502,48 @@ export function WorkloadBoard({
     }
   };
 
-  const updateTaskComment = async (
+
+
+   const updateTaskComment = async (
     commentId: string | number,
     content: string,
   ) => {
     if (!selectedTaskId) return;
     try {
-      const updatedComment = await tasksApi.updateComment(
-        selectedTaskId,
+      const payload = {
         commentId,
-        { content: processHtmlContent(content) },
-      );
-      setComments((prev) =>
-        prev.map((c) =>
-          String(c.id) === String(commentId) ? updatedComment : c,
-        ),
-      );
-      toast.success("Comment updated successfully");
+        content: processHtmlContent(content),
+      };
+
+      console.log("Updating comment:", payload);
     } catch (error) {
       console.error("Failed to update comment:", error);
       toast.error("Failed to update comment");
     }
   };
+
+  // const updateTaskComment = async (
+  //   commentId: string | number,
+  //   content: string,
+  // ) => {
+  //   if (!selectedTaskId) return;
+  //   try {
+  //     const updatedComment = await tasksApi.updateComment(
+  //       selectedTaskId,
+  //       commentId,
+  //       { content: processHtmlContent(content) },
+  //     );
+  //     setComments((prev) =>
+  //       prev.map((c) =>
+  //         String(c.id) === String(commentId) ? updatedComment : c,
+  //       ),
+  //     );
+  //     toast.success("Comment updated successfully");
+  //   } catch (error) {
+  //     console.error("Failed to update comment:", error);
+  //     toast.error("Failed to update comment");
+  //   }
+  // };
 
   // NEW : Start
   // Note: toggleTask is now provided by taskState hook
@@ -3772,7 +3783,11 @@ export function WorkloadBoard({
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-6 py-4">
-                  {getFilteredGroups().length === 0 ? (
+                  {isLoadingGroups ? (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">Loading groups...</p>
+                    </div>
+                  ) : getFilteredGroups().length === 0 ? (
                     <div className="text-center py-12">
                       {mainTableSearchQuery.trim() ? (
                         <>
@@ -3780,18 +3795,24 @@ export function WorkloadBoard({
                             No items found matching "{mainTableSearchQuery}"
                           </p>
                         </>
+                      ) : groups.length === 0 ? (
+                        <>
+                          <p className="text-muted-foreground mb-4">
+                            No groups yet. Create one to get started.
+                          </p>
+                          {/* <Button
+                            variant="default"
+                            size="sm"
+                            onClick={addNewGroup}
+                          >
+                            Create First Group
+                          </Button> */}
+                        </>
                       ) : (
                         <>
-                          {/* <p className="text-muted-foreground mb-4">
-                              No groups yet. Create one to get started.
-                            </p>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={addNewGroup}
-                            >
-                              Create First Group
-                            </Button> */}
+                          <p className="text-muted-foreground mb-4">
+                            No items match your filters
+                          </p>
                         </>
                       )}
                     </div>
@@ -4891,6 +4912,7 @@ export function WorkloadBoard({
           setCommentsPanelOpen(false);
           setSheetTaskCardOpen(true);
         }}
+        boardId={boardId}
       />
 
       {/* Bulk Actions Toolbar */}
