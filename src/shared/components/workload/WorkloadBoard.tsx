@@ -839,19 +839,19 @@ export function WorkloadBoard({
           const baseUrl = axios.defaults.baseURL || "";
           const url = `${baseUrl}/tasks/time/stop`;
           const payload = JSON.stringify({ task_id: timerState.activeTimerId });
-          
+
           // Get auth token from localStorage
           const token = localStorage.getItem("access_token");
-          
+
           // Create headers object
           const headers: Record<string, string> = {
             "Content-Type": "application/json",
           };
-          
+
           if (typeof token === "string") {
             headers["Authorization"] = `Bearer ${token}`;
           }
-          
+
           // Use fetch with keepalive to ensure request completes even during unload
           fetch(url, {
             method: "POST",
@@ -861,7 +861,7 @@ export function WorkloadBoard({
           }).catch((error) => {
             console.error("Failed to stop timer on page unload:", error);
           });
-          
+
           console.log("Timer stop request sent on page hide");
         } catch (error) {
           console.error("Error stopping timer on unload:", error);
@@ -2444,7 +2444,8 @@ export function WorkloadBoard({
 
     try {
       const payload = {
-        content: processHtmlContent(updateText),
+        // content: processHtmlContent(updateText),
+        content: updateText,
         parent_id: replyingTo ? Number(replyingTo.id) : null,
         is_internal: 0,
       };
@@ -2458,7 +2459,9 @@ export function WorkloadBoard({
         replyingTo ? "Reply saved successfully" : "Update saved successfully",
       );
 
-      // Reset the form
+      console.log("Saving update:", payload);
+
+      // Reset the form - clear the editor
       setUpdateText("");
       setUpdateFiles([]);
       setReplyingTo(null);
@@ -2489,6 +2492,8 @@ export function WorkloadBoard({
       setComments((prev) => [...prev, newComment]);
 
       toast.success("Reply saved successfully");
+
+      console.log("Saving inline reply:", payload);
     } catch (error) {
       console.error("Failed to save reply:", error);
       toast.error("Failed to save reply");
@@ -2517,22 +2522,40 @@ export function WorkloadBoard({
   ) => {
     if (!selectedTaskId) return;
     try {
-      const updatedComment = await tasksApi.updateComment(
-        selectedTaskId,
+      const payload = {
         commentId,
-        { content: processHtmlContent(content) },
-      );
-      setComments((prev) =>
-        prev.map((c) =>
-          String(c.id) === String(commentId) ? updatedComment : c,
-        ),
-      );
-      toast.success("Comment updated successfully");
+        content: processHtmlContent(content),
+      };
+
+      console.log("Updating comment:", payload);
     } catch (error) {
       console.error("Failed to update comment:", error);
       toast.error("Failed to update comment");
     }
   };
+
+  // const updateTaskComment = async (
+  //   commentId: string | number,
+  //   content: string,
+  // ) => {
+  //   if (!selectedTaskId) return;
+  //   try {
+  //     const updatedComment = await tasksApi.updateComment(
+  //       selectedTaskId,
+  //       commentId,
+  //       { content: processHtmlContent(content) },
+  //     );
+  //     setComments((prev) =>
+  //       prev.map((c) =>
+  //         String(c.id) === String(commentId) ? updatedComment : c,
+  //       ),
+  //     );
+  //     toast.success("Comment updated successfully");
+  //   } catch (error) {
+  //     console.error("Failed to update comment:", error);
+  //     toast.error("Failed to update comment");
+  //   }
+  // };
 
   // NEW : Start
   // Note: toggleTask is now provided by taskState hook
@@ -3772,7 +3795,11 @@ export function WorkloadBoard({
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-6 py-4">
-                  {getFilteredGroups().length === 0 ? (
+                  {isLoadingGroups ? (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">Loading groups...</p>
+                    </div>
+                  ) : getFilteredGroups().length === 0 ? (
                     <div className="text-center py-12">
                       {mainTableSearchQuery.trim() ? (
                         <>
@@ -3780,18 +3807,24 @@ export function WorkloadBoard({
                             No items found matching "{mainTableSearchQuery}"
                           </p>
                         </>
+                      ) : groups.length === 0 ? (
+                        <>
+                          <p className="text-muted-foreground mb-4">
+                            No groups yet. Create one to get started.
+                          </p>
+                          {/* <Button
+                            variant="default"
+                            size="sm"
+                            onClick={addNewGroup}
+                          >
+                            Create First Group
+                          </Button> */}
+                        </>
                       ) : (
                         <>
-                          {/* <p className="text-muted-foreground mb-4">
-                              No groups yet. Create one to get started.
-                            </p>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={addNewGroup}
-                            >
-                              Create First Group
-                            </Button> */}
+                          <p className="text-muted-foreground mb-4">
+                            No items match your filters
+                          </p>
                         </>
                       )}
                     </div>
@@ -4891,6 +4924,7 @@ export function WorkloadBoard({
           setCommentsPanelOpen(false);
           setSheetTaskCardOpen(true);
         }}
+        boardId={boardId}
       />
 
       {/* Bulk Actions Toolbar */}
