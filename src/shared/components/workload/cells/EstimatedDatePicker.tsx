@@ -362,10 +362,10 @@ export function EstimatedDatePicker({
 
                       onEstimatedDateChange?.(task.id, fromDate, toDate);
                       setOpenPopoverId?.(null);
-                      toast.success("Estimated date updated successfully");
+                      toast.success("Estimated Date Updated Successfully");
                     } catch (error) {
                       console.error("Failed to update estimated date:", error);
-                      toast.error("Failed to update estimated date");
+                      toast.error("Failed to Update Estimated Date");
                     }
                   }
                 }}

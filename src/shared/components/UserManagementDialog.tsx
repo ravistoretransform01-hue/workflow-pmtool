@@ -179,7 +179,7 @@ export function UserManagementDialog({ open, onOpenChange }: UserManagementDialo
       console.error('Error saving permissions:', error);
       toast({
         title: "Error",
-        description: "Failed to save permissions. Please try again.",
+        description: "Failed To Save Permissions. Please Try Again.",
         variant: "destructive",
       });
     } finally {
@@ -287,8 +287,8 @@ export function UserManagementDialog({ open, onOpenChange }: UserManagementDialo
       setSelectedRole(newRole);
       
       toast({
-        title: "Role created",
-        description: `${newRole} has been created successfully.`,
+        title: "Role Created",
+        description: `${newRole} Has Been Created Successfully.`,
       });
     }
   };
@@ -326,8 +326,8 @@ export function UserManagementDialog({ open, onOpenChange }: UserManagementDialo
     }
     
     toast({
-      title: "Role deleted",
-      description: `${roleToDelete} has been permanently deleted.`,
+      title: "Role Deleted",
+      description: `${roleToDelete} Has Been Permanently Deleted.`,
     });
   };
 

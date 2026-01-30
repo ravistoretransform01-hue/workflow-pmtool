@@ -435,10 +435,10 @@ export function TimeTrackingLogDialog({
     try {
       await tasksApi.deleteTimeEntry(id);
       setTimeLogs((prev) => prev.filter((log) => log.id !== id));
-      toast.success("Time entry deleted successfully");
+      toast.success("Time Entry Deleted Successfully");
     } catch (error) {
       console.error("Failed to delete time entry:", error);
-      toast.error("Failed to delete time entry");
+      toast.error("Failed to Delete Time Entry");
     }
   };
 
@@ -450,10 +450,10 @@ export function TimeTrackingLogDialog({
           timeLogs.map((log) => tasksApi.deleteTimeEntry(log.id)),
         );
         setTimeLogs([]);
-        toast.success("All time entries deleted successfully");
+        toast.success("All Time Entries Deleted Successfully");
       } catch (error) {
         console.error("Failed to clear time logs:", error);
-        toast.error("Failed to clear time logs");
+        toast.error("Failed to Clear Time Logs");
       }
     }
   };
@@ -539,7 +539,7 @@ export function TimeTrackingLogDialog({
       try {
         setIsLoading(true);
         await tasksApi.addManualTimeEntry(payload);
-        toast.success("Session added successfully");
+        toast.success("Session Added Successfully");
         // Reset form and go back to time logs view
         setShowManualSession(false);
         setSelectedDate(new Date());
@@ -550,7 +550,7 @@ export function TimeTrackingLogDialog({
         await fetchTimeEntries();
       } catch (error) {
         console.error("Failed to add session:", error);
-        toast.error("Failed to add session");
+        toast.error("Failed to Add Session");
       } finally {
         setIsLoading(false);
       }

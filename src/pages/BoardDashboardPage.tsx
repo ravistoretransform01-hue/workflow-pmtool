@@ -89,7 +89,7 @@ export default function BoardDashboardPage() {
       }
     } catch (error) {
       console.error("Failed to load board data:", error);
-      toast({ title: "Error", description: "Failed to load board data", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to Load Board Data", variant: "destructive" });
     }
   };
 
@@ -147,10 +147,10 @@ export default function BoardDashboardPage() {
       try {
         await boardsApi.updateBoard(boardId, { name: currentName });
         setBoardName(currentName);
-        toast({ title: "Success", description: "Board name updated" });
+        toast({ title: "Success", description: "Board Name Updated" });
       } catch (error) {
         console.error(error);
-        toast({ title: "Error", description: "Failed to update board name", variant: "destructive" });
+        toast({ title: "Error", description: "Failed to Update Board Name", variant: "destructive" });
         setCurrentName(boardName);
       }
     }

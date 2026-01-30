@@ -86,10 +86,10 @@ export function TagsColumnCell({
       // Call callback to update tags list in parent component
       onTagCreated?.(newTag);
 
-      toast.success("Tag created successfully");
+      toast.success("Tag Created Successfully");
     } catch (error) {
       console.error("Failed to create tag:", error);
-      toast.error("Failed to create tag");
+      toast.error("Failed to Create Tag");
     } finally {
       setIsCreatingTag(false);
     }
@@ -143,10 +143,10 @@ export function TagsColumnCell({
         .filter(Boolean);
 
       onTagChange?.(task.id, updatedTags);
-      toast.success(isCurrentlySelected ? "Tag removed" : "Tag added");
+      toast.success(isCurrentlySelected ? "Tag Removed" : "Tag Added");
     } catch (error) {
       console.error("Failed to update tag:", error);
-      toast.error("Failed to update tag");
+      toast.error("Failed to Update Tag");
       // Revert selection on error
       setSelectedTagIds(selectedTagIds);
     } finally {

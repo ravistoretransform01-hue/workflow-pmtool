@@ -387,7 +387,7 @@ export function AddBoardDialog({
       if (conflict) {
         toast({
           title: "Selection Conflict",
-          description: `This item is already enabled in "${conflict}". Please disable it there first.`,
+          description: `This Item Is Already Enabled In "${conflict}". Please Disable It There First.`,
           variant: "destructive",
         });
         return;
@@ -408,7 +408,7 @@ export function AddBoardDialog({
       if (conflict) {
         toast({
           title: "Selection Conflict",
-          description: `This item is already enabled in "${conflict}". Please disable it there first.`,
+          description: `This Item Is Already Enabled in "${conflict}". Please disable it there first.`,
           variant: "destructive",
         });
         return;

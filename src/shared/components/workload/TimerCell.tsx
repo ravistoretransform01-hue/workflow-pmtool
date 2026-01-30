@@ -175,7 +175,7 @@ export function TimerCell({
         // Stop timer
         await tasksApi.stopTimer(taskId);
         onTimerStart(null);
-        toast.success("Timer stopped");
+        toast.success("Timer Stopped");
       } else {
         // Check for conflict
         if (activeTimerId && activeTimerId !== taskId) {
@@ -187,7 +187,7 @@ export function TimerCell({
         // Start timer
         await tasksApi.startTimer(taskId);
         onTimerStart(taskId);
-        toast.success("Timer started");
+        toast.success("Timer Started");
       }
     } catch (error) {
       console.error("Failed to update timer:", error);

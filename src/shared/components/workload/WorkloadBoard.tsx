@@ -1127,7 +1127,7 @@ export function WorkloadBoard({
       );
 
       taskState.finishInlineEdit();
-      toast.success("Task name updated successfully");
+      toast.success("Task Name Updated successfully");
     } catch (error) {
       console.error("Failed to update task name:", error);
       toast.error("Failed to update task name");
@@ -1263,10 +1263,10 @@ export function WorkloadBoard({
       setNewGroupNameInput("");
       setNewGroupColorInput("#3b82f6"); // Reset to default color
 
-      toast.success(`Group "${newGroupNameInput.trim()}" created successfully`);
+      toast.success(`Group "${newGroupNameInput.trim()}" Created Successfully`);
     } catch (error) {
       console.error("Failed to create group:", error);
-      toast.error("Failed to create group");
+      toast.error("Failed to Create Group");
     } finally {
       setIsCreatingGroup(false);
     }
@@ -1370,10 +1370,10 @@ export function WorkloadBoard({
       setEditGroupLabelInput("");
       setEditGroupLabelColorInput("#3b82f6");
 
-      toast.success("Group updated successfully");
+      toast.success("Group Updated Successfully");
     } catch (error) {
       console.error("Failed to update group:", error);
-      toast.error("Failed to update group");
+      toast.error("Failed to Update Group");
     }
   };
 
@@ -1449,7 +1449,7 @@ export function WorkloadBoard({
         );
       }
 
-      toast.success("Column renamed successfully");
+      toast.success("Column Renamed Successfully");
     } catch (error) {
       console.error("Failed to update column on server:", error);
       console.warn(
@@ -1504,7 +1504,7 @@ export function WorkloadBoard({
       setGroupToDelete(null);
 
       // Show success toast
-      toast.success(`Group "${groupName}" deleted successfully`);
+      toast.success(`Group "${groupName}" Deleted Successfully`);
     } catch (error) {
       console.error("Failed to delete group:", error);
       toast.error("Failed to delete group");
@@ -1573,7 +1573,7 @@ export function WorkloadBoard({
       setGroups(updatedGroups);
       setNewItemName("");
       setAddingItemToGroup(null);
-      toast.success("Item added successfully");
+      toast.success("Item Added Successfully");
     } catch (error) {
       console.error("Failed to add item:", error);
       toast.error("Failed to add item");
@@ -1660,10 +1660,10 @@ export function WorkloadBoard({
       setGroups(updatedGroups);
       setNewSubitemName("");
       setAddingSubitemToTask(null);
-      toast.success("Subitem added successfully");
+      toast.success("Subitem Added Successfully");
     } catch (error) {
       console.error("Failed to add subitem:", error);
-      toast.error("Failed to add subitem");
+      toast.error("Failed to Add Subitem");
     }
   };
 
@@ -1825,10 +1825,10 @@ export function WorkloadBoard({
       setEditTaskDialogOpen(false);
       taskState.setEditingTask(null);
       setEditTaskName("");
-      toast.success("Task updated successfully");
+      toast.success("Task Updated Successfully");
     } catch (error) {
       console.error("Failed to update task:", error);
-      toast.error("Failed to update task");
+      toast.error("Failed to Update Task");
     }
   };
 
@@ -1913,10 +1913,10 @@ export function WorkloadBoard({
 
       // Close popover after update
       popoverState.closePopover();
-      toast.success("Rating updated successfully");
+      toast.success("Rating Updated Successfully");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to update rating");
+      toast.error("Failed to Update Rating");
     }
   };
 
@@ -1987,10 +1987,10 @@ export function WorkloadBoard({
       // Close the popover to ensure UI refreshes
       popoverState.closePopover();
 
-      toast.success("Person assigned successfully");
+      toast.success("Person Assigned Successfully");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to assign person");
+      toast.error("Failed to Assign Person");
     }
   };
 
@@ -2166,10 +2166,10 @@ export function WorkloadBoard({
         })),
       );
 
-      toast.success("Status updated successfully");
+      toast.success("Status Updated Successfully");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to update status");
+      toast.error("Failed to Update Status");
     }
   };
 
@@ -2219,10 +2219,10 @@ export function WorkloadBoard({
         })),
       );
 
-      toast.success("Priority updated successfully");
+      toast.success("Priority Updated Successfully");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to update priority");
+      toast.error("Failed to Update Priority");
     }
   };
 
@@ -2321,10 +2321,10 @@ export function WorkloadBoard({
 
       setGroups(updatedGroups);
       taskState.clearCheckedTasks();
-      toast.success(`${checkedTaskIds.length} task(s) deleted successfully`);
+      toast.success(`${checkedTaskIds.length} Task(s) Deleted Successfully`);
     } catch (error) {
       console.error("Failed to delete tasks:", error);
-      toast.error("Failed to delete tasks");
+      toast.error("Failed to Delete Tasks");
     }
   };
 
@@ -2540,12 +2540,12 @@ export function WorkloadBoard({
       // Update local state
       setComments((prev) => [...prev, newComment]);
 
-      toast.success("Reply saved successfully");
+      toast.success("Reply Saved Successfully");
 
       console.log("Saving inline reply:", payload);
     } catch (error) {
       console.error("Failed to save reply:", error);
-      toast.error("Failed to save reply");
+      toast.error("Failed to Save Reply");
     }
   };
 
@@ -2558,10 +2558,10 @@ export function WorkloadBoard({
       setComments((prev) =>
         prev.filter((c) => String(c.id) !== String(commentId)),
       );
-      toast.success("Comment deleted successfully");
+      toast.success("Comment Deleted Successfully");
     } catch (error) {
       console.error("Failed to delete comment:", error);
-      toast.error("Failed to delete comment");
+      toast.error("Failed to Delete Comment");
     }
   };
 
@@ -2579,7 +2579,7 @@ export function WorkloadBoard({
       console.log("Updating comment:", payload);
     } catch (error) {
       console.error("Failed to update comment:", error);
-      toast.error("Failed to update comment");
+      toast.error("Failed to Update Comment");
     }
   };
 
@@ -3763,10 +3763,10 @@ export function WorkloadBoard({
                     setInitialColumnOrder(workloadColumns.map((c) => c.id));
                     setHasUnsavedChanges(false);
 
-                    toast.success("Layout saved successfully");
+                    toast.success("Layout Saved Successfully");
                   } catch (error) {
                     console.error("Failed to save layout:", error);
-                    toast.error("Failed to save layout");
+                    toast.error("Failed to Save Layout");
                   }
                 }}
               >
@@ -5109,10 +5109,10 @@ export function WorkloadBoard({
                               );
 
                               setEditingLabelId(null);
-                              toast.success("Label updated successfully");
+                              toast.success("Label Updated Successfully");
                             } catch (error) {
                               console.error("Failed to update label:", error);
-                              toast.error("Failed to update label");
+                              toast.error("Failed to Update Label");
                             }
                           }}
                         >
@@ -5162,10 +5162,10 @@ export function WorkloadBoard({
                                   (l) => String(l.id) !== String(label.id),
                                 ),
                               );
-                              toast.success("Label deleted successfully");
+                              toast.success("Label Deleted Successfully");
                             } catch (error) {
                               console.error("Failed to delete label:", error);
-                              toast.error("Failed to delete label");
+                              toast.error("Failed to Delete Label");
                             }
                           }}
                         >
@@ -5236,10 +5236,10 @@ export function WorkloadBoard({
                         organization_id: organizationIdNum,
                         board_id: boardIdNum,
                       });
-                      toast.success("Label created successfully");
+                      toast.success("Label Created Successfully");
                     } catch (createError) {
                       console.error("Failed to create label:", createError);
-                      toast.error("Failed to create label");
+                      toast.error("Failed to Create Label");
                       return;
                     }
                   }
@@ -5271,7 +5271,7 @@ export function WorkloadBoard({
                     setEditGroupDialogOpen(false);
                   } catch (fetchError) {
                     console.error("Failed to fetch CMS data:", fetchError);
-                    toast.error("Failed to fetch updated labels");
+                    toast.error("Failed to Fetch Updated Labels");
                   }
                 } catch (error) {
                   console.error("Failed to update labels:", error);

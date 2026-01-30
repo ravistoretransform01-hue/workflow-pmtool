@@ -24,7 +24,6 @@ import {
   DropdownMenuSubContent,
 } from "@/shared/components/ui/dropdown-menu";
 
-
 interface ColumnHeaderProps {
   column: any;
   onToggleCollapse?: () => void;
@@ -90,7 +89,7 @@ export const SortableColumnHeader = ({
         // toast.success("Column renamed successfully");
       } catch (error) {
         console.error("Failed to rename column:", error);
-        toast.error("Failed to rename column");
+        toast.error("Failed to Rename Column");
         setEditValue(column.label);
       }
     } else {
@@ -111,8 +110,8 @@ export const SortableColumnHeader = ({
   return (
     <th
       ref={setNodeRef}
-      style={{ 
-        ...style, 
+      style={{
+        ...style,
         width: column.width,
         minWidth: column.minWidth || column.width,
         maxWidth: column.maxWidth || column.width,
@@ -248,7 +247,7 @@ export const SortableColumnHeader = ({
                   )}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => {}}>
+                <DropdownMenuItem className="hidden" onClick={() => {}}>
                   <Lock className="h-4 w-4 mr-2" />
                   <span>Lock column</span>
                 </DropdownMenuItem>

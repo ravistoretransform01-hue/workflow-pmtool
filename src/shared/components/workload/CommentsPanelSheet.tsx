@@ -148,7 +148,7 @@ export function CommentsPanelSheet({
               <SheetTitle className="text-2xl font-semibold">
                 {taskName || "Task Details"}
               </SheetTitle>
-              <div className="flex items-center gap-4">
+              <div className="hidden flex items-center gap-4">
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
@@ -169,7 +169,7 @@ export function CommentsPanelSheet({
 
                 <TabsTrigger
                   value="client-updates"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                  className="hidden rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
                 >
                   <RefreshCcw className="h-4 w-4 mr-2" />
                   Client Updates
@@ -177,7 +177,7 @@ export function CommentsPanelSheet({
 
                 <Button
                   variant="ghost"
-                  className="rounded-none border-b-2 border-transparent hover:bg-transparent h-auto py-3 px-4"
+                  className="hidden rounded-none border-b-2 border-transparent hover:bg-transparent h-auto py-3 px-4"
                   onClick={onTaskButtonClick}
                 >
                   <Pencil className="h-4 w-4 mr-2" />
@@ -186,7 +186,7 @@ export function CommentsPanelSheet({
 
                 <TabsTrigger
                   value="activity"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                  className="hidden rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
                 >
                   <Activity className="h-4 w-4 mr-2" />
                   Activity Log
