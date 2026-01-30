@@ -152,7 +152,7 @@ export function EstimatedTimePicker({
                       const hrsStr = hrs.toString().padStart(2, "0");
                       const minsStr = mins.toString().padStart(2, "0");
                       approvedHours =
-                        mins > 0 ? `${hrsStr}h ${minsStr}m` : `${hrs}h`;
+                        mins > 0 ? `${hrsStr}h ${minsStr}m` : `${hrs}h 00m`;
                     }
 
                     await tasksApi.updateEstimatedDate({

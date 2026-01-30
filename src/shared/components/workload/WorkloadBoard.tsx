@@ -11,6 +11,7 @@ import axios from "@/lib/axios";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { cmsApi } from "@/features/cms/cmsApi";
+// import { boardsApi } from "@/features/boards/boardsApi";
 import {
   getCMSData,
   clearCMSCache,
@@ -422,7 +423,7 @@ export function WorkloadBoard({
   const filterState = useTaskFilters();
 
   // Local state for board-specific UI
-  const [editingBoardName, setEditingBoardName] = useState(false);
+  // const [editingBoardName, setEditingBoardName] = useState(false);
   const [boardNameValue, setBoardNameValue] = useState(boardName);
 
   // Ref for the main flex container (flex-1 flex flex-col)
@@ -817,6 +818,11 @@ export function WorkloadBoard({
     }
   }, [commentsPanelOpen, selectedTaskId]);
 
+  // Sync boardName prop with local state when it changes
+  useEffect(() => {
+    setBoardNameValue(boardName);
+  }, [boardName]);
+
   // Update timer trigger every second when a timer is running to force progress bar recalculation
   useEffect(() => {
     if (!timerState.activeTimerId) return;
@@ -957,23 +963,46 @@ export function WorkloadBoard({
   //   loadGroupsAndTasks();
   // }, [boardId]);
 
-  const handleBoardNameDoubleClick = () => {
-    setEditingBoardName(true);
-    setBoardNameValue(boardName);
-  };
+  // const handleBoardNameDoubleClick = () => {
+  //   setEditingBoardName(true);
+  //   setBoardNameValue(boardName);
+  // };
 
-  const handleBoardNameBlur = () => {
-    setEditingBoardName(false);
-  };
+  // const handleBoardNameBlur = async () => {
+  //   if (boardNameValue.trim() && boardNameValue !== boardName) {
+  //     await updateBoardName();
+  //   }
+  //   setEditingBoardName(false);
+  // };
 
-  const handleBoardNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      setEditingBoardName(false);
-    } else if (e.key === "Escape") {
-      setBoardNameValue(boardName);
-      setEditingBoardName(false);
-    }
-  };
+  // const updateBoardName = async () => {
+  //   if (!boardNameValue.trim() || boardNameValue === boardName) {
+  //     return;
+  //   }
+
+  //   try {
+  //     await boardsApi.updateBoard(boardId, { name: boardNameValue.trim() });
+  //     toast.success("Board name updated successfully");
+      
+  //     // Update the parent component or trigger a refresh if needed
+  //     // The board name in the UI will update via the local state
+  //   } catch (error) {
+  //     console.error("Failed to update board name:", error);
+  //     toast.error("Failed to update board name");
+  //     setBoardNameValue(boardName); // Revert to original name on error
+  //   }
+  // };
+
+  // const handleBoardNameKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+  //   if (e.key === "Enter") {
+  //     e.preventDefault();
+  //     await updateBoardName();
+  //     setEditingBoardName(false);
+  //   } else if (e.key === "Escape") {
+  //     setBoardNameValue(boardName);
+  //     setEditingBoardName(false);
+  //   }
+  // };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -3213,7 +3242,7 @@ export function WorkloadBoard({
       <div className="border-b border-border px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            {editingBoardName ? (
+            {/* {editingBoardName ? (
               <Input
                 autoFocus
                 value={boardNameValue}
@@ -3222,14 +3251,14 @@ export function WorkloadBoard({
                 onKeyDown={handleBoardNameKeyDown}
                 className="text-2xl font-semibold h-10 px-2"
               />
-            ) : (
+            ) : ( */}
               <h1
                 className="text-2xl font-semibold text-foreground cursor-text"
-                onDoubleClick={handleBoardNameDoubleClick}
+                // onDoubleClick={handleBoardNameDoubleClick}
               >
-                {boardName}
+                {boardNameValue}
               </h1>
-            )}
+            {/* )} */}
           </div>
 
           <div className="flex items-center gap-3">
