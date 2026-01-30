@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Input } from "@/shared/components/ui/input";
 import { toast } from "sonner";
@@ -34,6 +34,11 @@ export function PersonPopover({
   );
   const [isSaving, setIsSaving] = useState(false);
 
+  // Sync localSelected with selectedMemberIds when it changes
+  useEffect(() => {
+    setLocalSelected(selectedMemberIds?.[0] || null);
+  }, [selectedMemberIds]);
+
   const filteredMembers = members.filter((member) =>
     (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -42,11 +47,13 @@ export function PersonPopover({
     setLocalSelected(memberId);
     setIsSaving(true);
     try {
-      onPersonChange?.(task.id, [memberId]);
-      toast.success("Assignee updated");
+      await onPersonChange?.(task.id, [memberId]);
+      // Don't show toast here - let the parent handler show it
     } catch (error) {
       console.error("Failed to update assignee:", error);
       toast.error("Failed to update assignee");
+      // Revert local state on error
+      setLocalSelected(selectedMemberIds?.[0] || null);
     } finally {
       setIsSaving(false);
     }
@@ -56,11 +63,13 @@ export function PersonPopover({
     setLocalSelected(null);
     setIsSaving(true);
     try {
-      onPersonChange?.(task.id, []);
-      toast.success("Assignee removed");
+      await onPersonChange?.(task.id, []);
+      // Don't show toast here - let the parent handler show it
     } catch (error) {
       console.error("Failed to clear assignee:", error);
       toast.error("Failed to clear assignee");
+      // Revert local state on error
+      setLocalSelected(selectedMemberIds?.[0] || null);
     } finally {
       setIsSaving(false);
     }
