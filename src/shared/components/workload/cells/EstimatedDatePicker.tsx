@@ -22,7 +22,7 @@ interface EstimatedDatePickerProps {
   onEstimatedDateChange?: (
     taskId: string,
     fromDate: string | null,
-    toDate?: string | null
+    toDate?: string | null,
   ) => void;
 }
 
@@ -51,12 +51,12 @@ export function EstimatedDatePicker({
             const from = parse(
               doubleSpaceParts[0].trim(),
               "dd MMM, yyyy",
-              new Date()
+              new Date(),
             );
             const to = parse(
               doubleSpaceParts[1].trim(),
               "dd MMM, yyyy",
-              new Date()
+              new Date(),
             );
             if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
               return { from, to };
@@ -71,20 +71,60 @@ export function EstimatedDatePicker({
           try {
             const fromStr = singleDashParts[0].trim();
             const toStr = singleDashParts[1].trim();
-            const from = parse(fromStr, "MMM d", new Date());
-            const toDay = parseInt(toStr);
 
-            if (!isNaN(from.getTime()) && !isNaN(toDay)) {
-              const to = new Date(from);
-              to.setDate(toDay);
-              return { from, to };
+            // Check if it's "MMM d - d" format (same month)
+            const toDay = parseInt(toStr);
+            if (!isNaN(toDay) && toDay > 0 && toDay <= 31) {
+              const currentYear = new Date().getFullYear();
+              const from = parse(fromStr, "MMM d", new Date(currentYear, 0, 1));
+
+              if (!isNaN(from.getTime())) {
+                const to = new Date(from);
+                to.setDate(toDay);
+
+                // If from and to are the same date, return single date (not a range)
+                if (from.getTime() === to.getTime()) {
+                  return { from, to: from };
+                }
+
+                return { from, to };
+              }
+            } else {
+              // It's "MMM d - MMM d" format (different months)
+              const currentYear = new Date().getFullYear();
+              const currentMonth = new Date().getMonth();
+
+              const from = parse(fromStr, "MMM d", new Date(currentYear, 0, 1));
+              const to = parse(toStr, "MMM d", new Date(currentYear, 0, 1));
+
+              if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+                // Determine the correct year based on current date
+                // If the from month is in the past (more than 2 months ago), assume it's next year
+                const fromMonth = from.getMonth();
+                if (fromMonth < currentMonth - 2) {
+                  from.setFullYear(currentYear + 1);
+                  to.setFullYear(currentYear + 1);
+                }
+
+                // If 'to' month is before 'from' month, it spans to next year
+                if (to < from) {
+                  to.setFullYear(from.getFullYear() + 1);
+                }
+
+                // If from and to are the same date, return single date (not a range)
+                if (from.getTime() === to.getTime()) {
+                  return { from, to: from };
+                }
+
+                return { from, to };
+              }
             }
           } catch {
             // Continue
           }
         }
 
-        const enDashParts = estimatedDate.split("-");
+        const enDashParts = estimatedDate.split("–");
         if (enDashParts.length === 2) {
           try {
             let fromStr = enDashParts[0].trim();
@@ -104,10 +144,32 @@ export function EstimatedDatePicker({
                 return { from, to };
               }
             } else {
-              let from = parse(fromStr, "MMM d", new Date());
-              let to = parse(toStr, "MMM d", new Date());
+              // Parse dates without year - use current year as reference
+              const currentYear = new Date().getFullYear();
+              const currentMonth = new Date().getMonth();
+
+              let from = parse(fromStr, "MMM d", new Date(currentYear, 0, 1));
+              let to = parse(toStr, "MMM d", new Date(currentYear, 0, 1));
 
               if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+                // Determine the correct year based on current date
+                // If the from month is in the past (more than 2 months ago), assume it's next year
+                const fromMonth = from.getMonth();
+                if (fromMonth < currentMonth - 2) {
+                  from.setFullYear(currentYear + 1);
+                  to.setFullYear(currentYear + 1);
+                }
+
+                // If 'to' month is before 'from' month, it spans to next year
+                if (to < from) {
+                  to.setFullYear(from.getFullYear() + 1);
+                }
+
+                // If from and to are the same date, return single date (not a range)
+                if (from.getTime() === to.getTime()) {
+                  return { from, to: from };
+                }
+
                 return { from, to };
               }
             }
@@ -155,26 +217,26 @@ export function EstimatedDatePicker({
   }, [openPopoverId, popoverId, task.estimation, estimatedDate]);
 
   const handleDateRangeChange = (
-    range: { from?: Date; to?: Date } | undefined
+    range: { from?: Date; to?: Date } | undefined,
   ) => {
     setDateRange(range);
   };
 
   const formatDateDisplay = () => {
     if (estimatedDate === "-") return "-";
-    
+
     // Check if from and to dates are the same
     const range = getInitialDateRange();
     if (range?.from && range?.to) {
       const fromTime = range.from.getTime();
       const toTime = range.to.getTime();
-      
+
       // If dates are the same, show single formatted date
       if (fromTime === toTime) {
         return format(range.from, "d MMM, yy").toLowerCase();
       }
     }
-    
+
     return estimatedDate;
   };
 
