@@ -141,7 +141,7 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
       }
 
       toast.success(
-        `${selectedTaskIds.length} task(s) deleted permanently`
+        `${selectedTaskIds.length} Task(s) Deleted Permanently`
       );
       setDeletedTasks((prev) =>
         prev.filter((task) => !selectedTaskIds.includes(task.id))
@@ -181,7 +181,7 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
       }
 
       await trashApi.deleteTaskPermanently(taskId, orgId);
-      toast.success("Task deleted permanently");
+      toast.success("Task Deleted Permanently");
       setDeletedTasks((prev) => prev.filter((task) => task.id !== taskId));
     } catch (error) {
       console.error("Error deleting task:", error);

@@ -49,10 +49,10 @@ export function FileUploadDropdown({}: FileUploadDropdownProps) {
       //   });
       // }
 
-      toast.success('File uploaded successfully');
+      toast.success('File Uploaded Successfully');
     } catch (error) {
       console.error('Error uploading file:', error);
-      toast.error('Failed to upload file');
+      toast.error('Failed to Upload File');
     } finally {
       setUploading(false);
       // Reset input

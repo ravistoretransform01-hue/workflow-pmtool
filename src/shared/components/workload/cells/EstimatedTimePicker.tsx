@@ -162,10 +162,10 @@ export function EstimatedTimePicker({
 
                     onEstimatedTimeChange?.(task.id, approvedHours);
                     setOpenPopoverId?.(null);
-                    toast.success("Estimated time updated successfully");
+                    toast.success("Estimated Time Updated Successfully");
                   } catch (error) {
                     console.error("Failed to update estimated time:", error);
-                    toast.error("Failed to update estimated time");
+                    toast.error("Failed to Update Estimated Time");
                   }
                 }}
               >

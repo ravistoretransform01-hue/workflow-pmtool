@@ -141,9 +141,9 @@ export default function StatusPopoverCell({
       setNewStatusColor(PRESET_COLORS[0]);
       setShowCreateForm(false);
 
-      toast.success("Status created");
+      toast.success("Status Created");
     } catch {
-      toast.error("Failed to create status");
+      toast.error("Failed to Create Status");
     } finally {
       setIsCreating(false);
     }
@@ -199,9 +199,9 @@ export default function StatusPopoverCell({
       setIsEditMode(false);
       onStatusesUpdated?.(updated);
 
-      toast.success("Statuses updated");
+      toast.success("Statuses Updated");
     } catch {
-      toast.error("Failed to update statuses");
+      toast.error("Failed to Update Statuses");
     }
   };
 

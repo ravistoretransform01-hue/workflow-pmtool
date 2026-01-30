@@ -73,7 +73,7 @@ const SignupPage = () => {
         }
 
         toast({
-          title: "Invitation verified",
+          title: "Invitation Verified",
           description: "Please complete your registration below.",
         });
         clearAllBrowserStorage();
@@ -84,7 +84,7 @@ const SignupPage = () => {
             "This invitation link is invalid or has expired.",
         );
         toast({
-          title: "Invalid invitation",
+          title: "Invalid Vnvitation",
           description: "This invitation link is invalid or has expired.",
           variant: "destructive",
         });
@@ -96,7 +96,7 @@ const SignupPage = () => {
         error.response?.data?.message || "Failed to validate invitation token.";
       setTokenErrorMessage(errorMsg);
       toast({
-        title: "Validation failed",
+        title: "Validation Failed",
         description: errorMsg,
         variant: "destructive",
       });
@@ -111,8 +111,8 @@ const SignupPage = () => {
     // Validation
     if (password !== confirmPassword) {
       toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match.",
+        title: "Passwords Don't Match",
+        description: "Please Make Sure Your Passwords Match.",
         variant: "destructive",
       });
       return;
@@ -120,8 +120,8 @@ const SignupPage = () => {
 
     if (password.length < 6) {
       toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters long.",
+        title: "Password Too Short",
+        description: "Password Must Be at least 6 Characters Long.",
         variant: "destructive",
       });
       return;
@@ -129,8 +129,8 @@ const SignupPage = () => {
 
     if (!firstName.trim() || !lastName.trim()) {
       toast({
-        title: "Name required",
-        description: "Please enter your first and last name.",
+        title: "Name Required",
+        description: "Please Enter Your First And Last Name.",
         variant: "destructive",
       });
       return;
@@ -158,9 +158,9 @@ const SignupPage = () => {
 
         if (response.data && response.data.code === 200) {
           toast({
-            title: "Registration successful!",
+            title: "Registration Successful!",
             description:
-              "Your account has been created. Redirecting to login...",
+              "Your Account Has Been Created. Redirecting to Login...",
           });
 
           // Redirect to login after 2 seconds
@@ -168,24 +168,24 @@ const SignupPage = () => {
             navigate("/login");
           }, 2000);
         } else {
-          throw new Error(response.data?.message || "Registration failed");
+          throw new Error(response.data?.message || "Registration Failed");
         }
       } else {
         // Regular signup (if you want to support it)
         toast({
-          title: "Registration not available",
-          description: "Please use an invitation link to register.",
+          title: "Registration Not Available",
+          description: "Please Use An Invitation Link To Register.",
           variant: "destructive",
         });
       }
     } catch (error: any) {
       console.error("Registration error:", error);
       toast({
-        title: "Registration failed",
+        title: "Registration Failed",
         description:
           error.response?.data?.message ||
           error.message ||
-          "Failed to create account.",
+          "Failed to Create Account.",
         variant: "destructive",
       });
     } finally {

@@ -64,7 +64,7 @@ export function SaveView1({
       const currentState = getCurrentState();
       localStorage.setItem(storageKey, JSON.stringify(currentState));
       setIsSaved(true);
-      toast.success('View saved successfully');
+      toast.success('View Saved Successfully');
       
       // Reset the saved indicator after 2 seconds
       setTimeout(() => {
@@ -72,7 +72,7 @@ export function SaveView1({
       }, 2000);
     } catch (error) {
       console.error('Error saving view:', error);
-      toast.error('Failed to save view');
+      toast.error('Failed to Save View');
     }
   };
 

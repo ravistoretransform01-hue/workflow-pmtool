@@ -104,8 +104,8 @@ const LoginPage = () => {
     });
 
     if (result.type === "auth/login/fulfilled") {
-      toast.success("Login successful!", {
-        description: "Welcome back!",
+      toast.success("Login Successful!", {
+        description: "Welcome Back!",
       });
       navigate("/home");
     }

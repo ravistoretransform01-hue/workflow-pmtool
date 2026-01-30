@@ -162,8 +162,8 @@ export function InviteDialog({
     // }
 
     toast({
-      title: "Member removed",
-      description: "Member has been removed from the workspace",
+      title: "Member Removed",
+      description: "Member Has Been Removed From The Workspace",
     });
 
     loadMembers();

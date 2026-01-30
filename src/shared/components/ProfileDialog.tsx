@@ -90,7 +90,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
         job_title: jobTitle,
       });
       onOpenChange(false);
-      toast.success("Profile updated successfully");
+      toast.success("Profile Updated Successfully");
     } catch (error) {
       console.error("Failed to update profile:", error);
       toast.error("Failed to update profile");

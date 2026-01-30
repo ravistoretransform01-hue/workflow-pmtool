@@ -30,7 +30,7 @@ export function Header() {
   const handleLogout = async () => {
     try {
       await logout();
-      toast.success("Logged out successfully");
+      toast.success("Logged Out Successfully");
       navigate("/login");
     } catch (error) {
       console.error("Logout error:", error);
@@ -79,7 +79,7 @@ export function Header() {
               <Users className="mr-2 h-4 w-4" />
               <span>Members</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTemplateDialogOpen(true)}>
+            <DropdownMenuItem className="hidden" onClick={() => setTemplateDialogOpen(true)}>
               <FileText className="mr-2 h-4 w-4" />
               <span>Edit Templates</span>
             </DropdownMenuItem>

@@ -106,7 +106,7 @@ export const AppSidebar = () => {
       toast.error("Document name is required");
       return;
     }
-    toast.success(`Document "${newDocName}" created`);
+    toast.success(`Document "${newDocName}" Created`);
     setNewDocName("");
     setCreateDocOpen(false);
     setAddMenuOpen(false);
@@ -133,7 +133,7 @@ export const AppSidebar = () => {
         name: renamingBoardName.trim(),
       });
 
-      toast.success(`Board renamed to "${renamingBoardName}"`);
+      toast.success(`Board Renamed to "${renamingBoardName}"`);
       setRenamingBoardId(null);
       setRenamingBoardName("");
 
@@ -147,7 +147,7 @@ export const AppSidebar = () => {
 
   const handleDuplicateBoard = (_boardId: string, boardName: string) => {
     // TODO: Call API to duplicate board with _boardId
-    toast.success(`Board "${boardName}" duplicated`);
+    toast.success(`Board "${boardName}" Duplicated`);
     fetchBoards();
   };
 
@@ -162,13 +162,13 @@ export const AppSidebar = () => {
     setIsDeleting(true);
     try {
       await boardsApi.deleteBoard(deletingBoardId);
-      toast.success(`Board "${deletingBoardName}" deleted successfully`);
+      toast.success(`Board "${deletingBoardName}" Deleted Successfully`);
       setDeletingBoardId(null);
       setDeletingBoardName("");
       fetchBoards();
     } catch (error: any) {
       console.error("Delete board error:", error);
-      toast.error(error.response?.data?.message || "Failed to delete board");
+      toast.error(error.response?.data?.message || "Failed to Delete Board");
     } finally {
       setIsDeleting(false);
     }
@@ -426,6 +426,7 @@ export const AppSidebar = () => {
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
+                          className="hidden"
                             onClick={() =>
                               handleDuplicateBoard(board.id, board.name)
                             }
