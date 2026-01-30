@@ -1099,13 +1099,30 @@ export function WorkloadBoard({
         name: newName.trim(),
       });
 
-      // Update local state
+      // Update local state - handle both parent tasks and subtasks
       setGroups((prevGroups) =>
         prevGroups.map((group) => ({
           ...group,
-          tasks: group.tasks.map((task) =>
-            task.id === taskId ? { ...task, name: newName.trim() } : task,
-          ),
+          tasks: group.tasks.map((task) => {
+            // ✅ Update parent task if it matches
+            if (task.id === taskId) {
+              return { ...task, name: newName.trim() };
+            }
+
+            // ✅ Update subtask if it matches
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((subitem) =>
+                  subitem.id === taskId
+                    ? { ...subitem, name: newName.trim() }
+                    : subitem
+                ),
+              };
+            }
+
+            return task;
+          }),
         })),
       );
 
