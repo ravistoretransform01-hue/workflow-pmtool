@@ -73,6 +73,8 @@ export interface Column {
   width: string;
   align: "left" | "center";
   fixed?: boolean;
+  minWidth?: string;
+  maxWidth?: string;
   collapsed?: boolean;
   render: (task: Task, isSubitem?: boolean) => React.ReactNode;
 }

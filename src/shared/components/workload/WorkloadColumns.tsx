@@ -105,6 +105,8 @@ export const getWorkloadColumns = ({
       id: "item",
       label: "Item",
       width: "300px",
+      minWidth: "300px",
+      maxWidth: "300px",
       align: "left",
       fixed: true,
       render: (task: Task, isSubitem?: boolean) => {
@@ -473,7 +475,7 @@ export const getWorkloadColumns = ({
     {
       id: "timer",
       label: "Timer",
-      width: "160px",
+      width: "180px",
       align: "center",
       render: (task: Task) => {
         const hasAssignee =
