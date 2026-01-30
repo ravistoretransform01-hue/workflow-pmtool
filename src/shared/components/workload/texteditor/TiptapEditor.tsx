@@ -10,7 +10,7 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import TextAlign from "@tiptap/extension-text-align";
 import Mention from "@tiptap/extension-mention";
-import { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Button } from "@/shared/components/ui/button";
 import {
   Bold,
@@ -53,11 +53,89 @@ const colors = [
   "#6b7280", "#71717a", "#d4d4d8", "#fbbf24", "#fb923c", "#f59e0b", "#f97316", "#fde047"
 ];
 
+// MentionList Component for Tiptap
+const MentionList = React.forwardRef<
+  HTMLDivElement,
+  { items: Array<{ id: string; name: string }>; command: (item: any) => void }
+>(({ items, command }, ref) => {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const selectItem = (index: number) => {
+    const item = items[index];
+    if (item) {
+      command({ id: item.id, label: item.name });
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowUp") {
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : items.length - 1));
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        setSelectedIndex((prev) => (prev < items.length - 1 ? prev + 1 : 0));
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "Enter") {
+        selectItem(selectedIndex);
+        e.preventDefault();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedIndex, items, command]);
+
+  return (
+    <div
+      ref={ref}
+      className="bg-card border border-border rounded-lg shadow-2xl w-56 overflow-hidden z-[9999]"
+    >
+      <div className="text-[11px] px-3 py-2 text-muted-foreground uppercase tracking-wider border-b border-border bg-card">
+        Mention
+      </div>
+      <div className="flex flex-col max-h-64 overflow-y-auto bg-card">
+        {items.length > 0 ? (
+          items.map((item, index) => (
+            <button
+              key={item.id}
+              onClick={() => selectItem(index)}
+              className={cn(
+                "flex items-center gap-2 w-full text-left px-3 py-2 transition-colors text-sm text-foreground",
+                index === selectedIndex ? "bg-accent" : "hover:bg-accent"
+              )}
+            >
+              <span className="w-6 h-6 rounded bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
+                {item.name
+                  .split(" ")
+                  .map((n) => n.charAt(0).toUpperCase())
+                  .slice(0, 2)
+                  .join("")}
+              </span>
+              <span className="truncate">{item.name}</span>
+            </button>
+          ))
+        ) : (
+          <div className="px-3 py-4 text-center text-sm text-muted-foreground bg-card">
+            No users found
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+MentionList.displayName = "MentionList";
+
 function getStorageKey(boardId: number): string {
   return `cms_data_board_${boardId}`;
 }
 
-function getMembersFromLocalStorage(boardId?: number): Array<{ id: string; name: string }> {
+function getMembersFromLocalStorage(boardId?: number): Array<{ id: string; name: string, email: string }> {
   if (!boardId) return [];
   
   try {
@@ -66,9 +144,11 @@ function getMembersFromLocalStorage(boardId?: number): Array<{ id: string; name:
     if (stored) {
       const cmsData = JSON.parse(stored);
       if (cmsData.members && Array.isArray(cmsData.members)) {
+        console.log("cmsData.members", cmsData.members)
         return cmsData.members.map((member: any) => ({
           id: member.user_id || member.id,
           name: member.name || member.user_name || "Unknown",
+          email: member.email || "Unknown",
         }));
       }
     }
@@ -86,13 +166,20 @@ export function TiptapEditor({
   boardId,
 }: TiptapEditorProps) {
   const [mentionOpen, setMentionOpen] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionItems, setMentionItems] = useState<Array<{ id: string; name: string }>>([]);
   const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
-  const [, setUpdateTrigger] = useState(0);
-  const mentionRef = useRef<HTMLDivElement | null>(null);
-  const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const isUpdatingRef = useRef(false);
-  const [members, setMembers] = useState<Array<{ id: string; name: string }>>([]);
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
+  const mentionRef = useRef<HTMLDivElement | null>(null);
+  const membersRef = useRef<Array<{ id: string; name: string }>>([]);
+
+  // Load members from localStorage
+  useEffect(() => {
+    if (boardId) {
+      const loadedMembers = getMembersFromLocalStorage(boardId);
+      membersRef.current = loadedMembers;
+    }
+  }, [boardId]);
 
   const editor = useEditor({
     extensions: [
@@ -123,35 +210,48 @@ export function TiptapEditor({
       }),
       Mention.configure({
         HTMLAttributes: {
-          // class: "bg-primary/10 text-primary px-1 rounded hover:underline cursor-pointer",
-          class: "bg-blue-500 text-white px-1 hover:underline cursor-pointer",
+          class: "bg-blue-100 text-blue-600 px-1 rounded hover:bg-blue-200 cursor-pointer",
         },
         suggestion: {
           items: ({ query }) => {
-            return members
+            const filtered = membersRef.current
               .filter((user) =>
                 user.name.toLowerCase().startsWith(query.toLowerCase())
               )
               .slice(0, 5);
+            setMentionItems(filtered);
+            return filtered;
           },
           render: () => {
             return {
               onStart: (props: any) => {
+                setMentionOpen(true);
                 if (editorContainerRef.current) {
                   const editorRect = editorContainerRef.current.getBoundingClientRect();
-                  const scrollTop = editorContainerRef.current.scrollTop || 0;
-                  const scrollLeft = editorContainerRef.current.scrollLeft || 0;
-                  setMentionPosition({ 
-                    top: editorRect.height + 8 + scrollTop, 
-                    left: scrollLeft 
+                  const coords = props.clientRect();
+                  setMentionPosition({
+                    top: coords.bottom - editorRect.top,
+                    left: coords.left - editorRect.left,
                   });
                 }
-                setMentionQuery(props.query);
-                setMentionOpen(true);
               },
 
               onUpdate: (props: any) => {
-                setMentionQuery(props.query);
+                const filtered = membersRef.current
+                  .filter((user) =>
+                    user.name.toLowerCase().startsWith(props.query.toLowerCase())
+                  )
+                  .slice(0, 5);
+                setMentionItems(filtered);
+                
+                if (editorContainerRef.current) {
+                  const editorRect = editorContainerRef.current.getBoundingClientRect();
+                  const coords = props.clientRect();
+                  setMentionPosition({
+                    top: coords.bottom - editorRect.top,
+                    left: coords.left - editorRect.left,
+                  });
+                }
               },
 
               onKeyDown: (props: any) => {
@@ -174,21 +274,15 @@ export function TiptapEditor({
     editorProps: {
       handleKeyDown: (_, event) => {
         if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
-          // Allow Enter to create line breaks (hard breaks)
           return false;
         }
         return false;
       },
     },
     onUpdate: ({ editor }) => {
-        console.log(editor.getHTML())
       if (!isUpdatingRef.current) {
         onChange(editor.getHTML());
       }
-      setUpdateTrigger(prev => prev + 1);
-    },
-    onSelectionUpdate: () => {
-      setUpdateTrigger(prev => prev + 1);
     },
   });
 
@@ -196,50 +290,24 @@ export function TiptapEditor({
   useEffect(() => {
     if (editor && !isUpdatingRef.current) {
       const currentContent = editor.getHTML();
-      if (value !== currentContent && value !== "") {
+      if (value !== currentContent) {
         isUpdatingRef.current = true;
-        editor.commands.setContent(value);
+        if (value === "") {
+          editor.commands.clearContent();
+        } else {
+          editor.commands.setContent(value);
+        }
         isUpdatingRef.current = false;
       }
     }
   }, [value, editor]);
 
-  // Load members from localStorage
+  // Clear editor on mount if value is empty
   useEffect(() => {
-    if (boardId) {
-      const loadedMembers = getMembersFromLocalStorage(boardId);
-      setMembers(loadedMembers);
+    if (editor && value === "") {
+      editor.commands.clearContent();
     }
-  }, [boardId]);
-
-  if (!editor) {
-    return null;
-  }
-
-  const handleLink = () => {
-    editor.chain().focus().toggleLink({ href: "" }).run();
-  };
-
-const insertMention = useCallback(
-  (user: { id: string; name: string }) => {
-    editor
-      .chain()
-      .focus()
-      .command(({ commands }) => {
-        // Delete the @ character that was just inserted
-        return commands.deleteRange({ from: editor.state.selection.from - 1, to: editor.state.selection.from });
-      })
-      .insertContent(
-        `<a href="/profile/${user.id}" class="px-1 hover:underline cursor-pointer" title="View profile of ${user.name}">@${user.name}</a> `
-      )
-      .run();
-    setMentionOpen(false);
-    setMentionQuery("");
-  },
-  [editor]
-);
-
-
+  }, [editor]);
 
   // Handle mention dropdown close on click outside
   useEffect(() => {
@@ -252,15 +320,30 @@ const insertMention = useCallback(
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
-  const filteredUsers = members.filter((user) =>
-    user.name.toLowerCase().includes(mentionQuery.toLowerCase())
-  );
+  if (!editor) {
+    return null;
+  }
+
+  const handleLink = () => {
+    editor.chain().focus().toggleLink({ href: "" }).run();
+  };
+
+  const handleMentionSelect = (user: { id: string; name: string }) => {
+    editor
+      .chain()
+      .focus()
+      .command(({ commands }) => {
+        return commands.deleteRange({ from: editor.state.selection.from - 1, to: editor.state.selection.from });
+      })
+      .insertContent(`<a href="/profile/${user.id}" class="bg-blue-100 text-blue-600 px-1 rounded hover:bg-blue-200 cursor-pointer">@${user.name}</a> `)
+      .run();
+    setMentionOpen(false);
+  };
 
   return (
     <div className="relative z-10 h-full flex flex-col" ref={editorContainerRef}>
@@ -490,7 +573,7 @@ const insertMention = useCallback(
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", mentionOpen && "bg-blue-500 text-white hover:bg-blue-600")}
+            className="h-8 w-8 p-0"
             onClick={() => editor.chain().focus().insertContent("@").run()}
             title="Mention someone"
           >
@@ -521,38 +604,32 @@ const insertMention = useCallback(
         </div>
 
         {/* Mention Dropdown */}
-        {mentionOpen && (
+        {mentionOpen && mentionItems.length > 0 && (
           <div
             ref={mentionRef}
-            className="absolute z-[9999] bg-card border border-border rounded-lg shadow-2xl w-56 backdrop-blur-0"
+            className="absolute z-[9999] bg-card border border-border rounded-lg shadow-2xl w-56"
             style={{ top: `${mentionPosition.top}px`, left: `${mentionPosition.left}px` }}
           >
             <div className="text-[11px] px-3 py-2 text-muted-foreground uppercase tracking-wider border-b border-border bg-card">
               Mention
             </div>
             <div className="flex flex-col max-h-64 overflow-y-auto bg-card">
-              {filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => (
-                  <button
-                    key={user.id}
-                    onClick={() => insertMention(user)}
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-accent transition-colors text-sm text-foreground"
-                  >
-                    <span className="w-6 h-6 rounded bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
-                      {user.name
-                        .split(" ")
-                        .map((n) => n.charAt(0).toUpperCase())
-                        .slice(0, 2)
-                        .join("")}
-                    </span>
-                    <span className="truncate">{user.name}</span>
-                  </button>
-                ))
-              ) : (
-                <div className="px-3 py-4 text-center text-sm text-muted-foreground bg-card">
-                  No users found
-                </div>
-              )}
+              {mentionItems.map((user) => (
+                <button
+                  key={user.id}
+                  onClick={() => handleMentionSelect(user)}
+                  className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-accent transition-colors text-sm text-foreground"
+                >
+                  <span className="w-6 h-6 rounded bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
+                    {user.name
+                      .split(" ")
+                      .map((n) => n.charAt(0).toUpperCase())
+                      .slice(0, 2)
+                      .join("")}
+                  </span>
+                  <span className="truncate">{user.name}</span>
+                </button>
+              ))}
             </div>
           </div>
         )}

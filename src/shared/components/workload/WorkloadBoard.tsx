@@ -805,13 +805,12 @@ export function WorkloadBoard({
       setIsLoadingComments(false);
 
       // Set up interval to auto-refresh comments every 6 seconds
-      // const refreshInterval = setInterval(() => {
-      //   fetchComments(selectedTaskId);
-      // }, 5000); // 5 seconds
+      const refreshInterval = setInterval(() => {
+        fetchComments(selectedTaskId);
+      }, 5000); // 5 seconds
 
-      // // Cleanup interval when panel closes or task changes
-      // return () => clearInterval(refreshInterval);
-
+      // Cleanup interval when panel closes or task changes
+      return () => clearInterval(refreshInterval);
     } else {
       setComments([]);
       setIsLoadingComments(false);
@@ -840,19 +839,19 @@ export function WorkloadBoard({
           const baseUrl = axios.defaults.baseURL || "";
           const url = `${baseUrl}/tasks/time/stop`;
           const payload = JSON.stringify({ task_id: timerState.activeTimerId });
-          
+
           // Get auth token from localStorage
           const token = localStorage.getItem("access_token");
-          
+
           // Create headers object
           const headers: Record<string, string> = {
             "Content-Type": "application/json",
           };
-          
+
           if (typeof token === "string") {
             headers["Authorization"] = `Bearer ${token}`;
           }
-          
+
           // Use fetch with keepalive to ensure request completes even during unload
           fetch(url, {
             method: "POST",
@@ -862,7 +861,7 @@ export function WorkloadBoard({
           }).catch((error) => {
             console.error("Failed to stop timer on page unload:", error);
           });
-          
+
           console.log("Timer stop request sent on page hide");
         } catch (error) {
           console.error("Error stopping timer on unload:", error);
@@ -2402,7 +2401,6 @@ export function WorkloadBoard({
   };
 
   const processHtmlContent = (html: string) => {
-
     if (!html) return "";
 
     let processed = html;
@@ -2452,9 +2450,18 @@ export function WorkloadBoard({
         is_internal: 0,
       };
 
+      const newComment = await tasksApi.createComment(selectedTaskId, payload);
+
+      // Update local state
+      setComments((prev) => [newComment, ...prev]);
+
+      toast.success(
+        replyingTo ? "Reply saved successfully" : "Update saved successfully",
+      );
+
       console.log("Saving update:", payload);
 
-      // Reset the form
+      // Reset the form - clear the editor
       setUpdateText("");
       setUpdateFiles([]);
       setReplyingTo(null);
@@ -2479,6 +2486,13 @@ export function WorkloadBoard({
         is_internal: 0,
       };
 
+      const newComment = await tasksApi.createComment(selectedTaskId, payload);
+
+      // Update local state
+      setComments((prev) => [...prev, newComment]);
+
+      toast.success("Reply saved successfully");
+
       console.log("Saving inline reply:", payload);
     } catch (error) {
       console.error("Failed to save reply:", error);
@@ -2502,9 +2516,7 @@ export function WorkloadBoard({
     }
   };
 
-
-
-   const updateTaskComment = async (
+  const updateTaskComment = async (
     commentId: string | number,
     content: string,
   ) => {
