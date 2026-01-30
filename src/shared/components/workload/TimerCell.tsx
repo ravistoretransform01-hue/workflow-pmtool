@@ -200,7 +200,7 @@ export function TimerCell({
   return (
     <>
       <div
-        className={`flex items-center justify-center gap-2 w-full h-full ${bgColor} rounded`}
+        className={`flex items-center justify-center gap-2 max-w-[180px] mx-auto h-full ${bgColor} rounded`}
       >
         <TooltipProvider>
           <Tooltip>
@@ -230,7 +230,7 @@ export function TimerCell({
         </TooltipProvider>
         <button
           onClick={() => setShowTimeLog(true)}
-          className="rounded px-3 py-1 min-w-14 text-center hover:opacity-80 transition-opacity cursor-pointer"
+          className="rounded px-3 py-1 w-24 text-center hover:opacity-80 transition-opacity cursor-pointer whitespace-nowrap overflow-hidden"
           title="View time tracking log"
         >
           <span className="text-sm font-medium text-white">{formatTime(seconds)}</span>

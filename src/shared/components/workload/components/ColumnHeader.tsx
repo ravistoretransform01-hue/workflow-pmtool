@@ -111,7 +111,12 @@ export const SortableColumnHeader = ({
   return (
     <th
       ref={setNodeRef}
-      style={{ ...style, width: column.width }}
+      style={{ 
+        ...style, 
+        width: column.width,
+        minWidth: column.minWidth || column.width,
+        maxWidth: column.maxWidth || column.width,
+      }}
       className={`p-4 font-medium border-r border-border last:border-r-0 ${
         column.id === "item" ? "sticky left-12 z-10 bg-card" : "bg-muted/30"
       }`}

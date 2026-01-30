@@ -4339,7 +4339,11 @@ export function WorkloadBoard({
                                                   col.id === "item" &&
                                                     "sticky left-12 z-10 bg-card",
                                                 )}
-                                                style={{ width: col.width }}
+                                                style={{ 
+                                                  width: col.width,
+                                                  minWidth: col.minWidth || col.width,
+                                                  maxWidth: col.maxWidth || col.width,
+                                                }}
                                                 onClick={(e) =>
                                                   e.stopPropagation()
                                                 }

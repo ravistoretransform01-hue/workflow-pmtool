@@ -1,20 +1,17 @@
 import { useState, useEffect } from "react";
 import {
   Search,
-  Filter,
   Trash2,
   Archive,
   MoreHorizontal,
   X,
-  ChevronRight,
-  Folder,
   RotateCcw,
-  MessageSquare,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
+  DialogTitle
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
@@ -26,8 +23,6 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/shared/components/ui/tabs";
-// import { supabase } from "@/integrations/supabase/client";
-import { useTestUser } from "@/contexts/TestUserContext";
 import { format } from "date-fns";
 import {
   DropdownMenu,
@@ -35,29 +30,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
-
-interface DeletedItem {
-  id: string;
-  name: string;
-  type: string;
-  deletedFrom: string[];
-  deletedBy: {
-    name: string;
-    initials: string;
-  };
-  deletedDate: string;
-  originalData?: any;
-}
-
-interface DeletedUpdate {
-  id: string;
-  text: string;
-  item_id: string;
-  test_user_id: string;
-  timestamp: string;
-  updated_at: string;
-  deleted_at?: string;
-}
+import { trashApi, type TrashTask } from "@/features/trash/trashApi";
+import { getOrganizationId } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface TrashDialogProps {
   open: boolean;
@@ -66,193 +41,172 @@ interface TrashDialogProps {
 
 export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>(
-    {}
-  );
-  // const [deletedItems, setDeletedItems] = useState<DeletedItem[]>([]);
-  // const [archivedItems, setArchivedItems] = useState<DeletedItem[]>([]);
-  // const [deletedUpdates, setDeletedUpdates] = useState<DeletedUpdate[]>([]);
-  const [deletedItems] = useState<DeletedItem[]>([]);
-  const [archivedItems] = useState<DeletedItem[]>([]);
-  const [deletedUpdates] = useState<DeletedUpdate[]>([]);
-  const { currentUser } = useTestUser();
+  const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>({});
+  const [deletedTasks, setDeletedTasks] = useState<TrashTask[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Load deleted updates and items from database
+  // Helper function to get initials from name
+  const getInitials = (name: string) => {
+    if (!name) return "?";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Load deleted tasks from API
   useEffect(() => {
-    const loadDeletedData = async () => {
-      // if (!open) return;
-      // try {
-      //   // Load deleted updates
-      //   const { data: updatesData, error: updatesError } = await supabase
-      //     .from('updates')
-      //     .select('*')
-      //     .eq('deleted', true)
-      //     .order('updated_at', { ascending: false });
-      //   if (updatesError) throw updatesError;
-      //   setDeletedUpdates(updatesData || []);
-      //   // Load deleted items
-      //   const { data: itemsData, error: itemsError } = await supabase
-      //     .from('items')
-      //     .select('*, groups(name, board_id, boards(name))')
-      //     .eq('deleted', true)
-      //     .order('updated_at', { ascending: false });
-      //   if (itemsError) throw itemsError;
-      //   // Format deleted items for display
-      //   const formattedItems: DeletedItem[] = (itemsData || []).map((item: any) => ({
-      //     id: item.id,
-      //     name: item.name,
-      //     type: item.parent_item_id ? "Subitem" : "Item",
-      //     deletedFrom: [item.groups?.boards?.name || 'Unknown Board', item.groups?.name || 'Unknown Group'],
-      //     deletedBy: { name: currentUser.name, initials: currentUser.name.split(' ').map(n => n[0]).join('') },
-      //     deletedDate: format(new Date(item.updated_at), 'MMM d, yyyy'),
-      //     originalData: item,
-      //   }));
-      //   setDeletedItems(formattedItems);
-      // } catch (error) {
-      //   console.error('Error loading deleted data:', error);
-      // }
+    if (!open) return;
+
+    const loadTrashData = async () => {
+      setLoading(true);
+      try {
+        const orgId = getOrganizationId();
+        if (!orgId) {
+          toast.error("Organization ID not found");
+          return;
+        }
+
+        const data = await trashApi.getTrash(orgId);
+        setDeletedTasks(data.tasks || []);
+      } catch (error) {
+        console.error("Error loading trash data:", error);
+        toast.error("Failed to load trash data");
+      } finally {
+        setLoading(false);
+      }
     };
 
-    loadDeletedData();
-  }, [open, currentUser]);
+    loadTrashData();
+  }, [open]);
 
-  const filteredItems = deletedItems.filter((item) => {
+  const filteredTasks = deletedTasks.filter((task) => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
-
-    return (
-      item.name.toLowerCase().includes(query) ||
-      item.type.toLowerCase().includes(query) ||
-      item.deletedFrom.some((location) =>
-        location.toLowerCase().includes(query)
-      )
-    );
-  });
-
-  const filteredArchivedItems = archivedItems.filter((item) => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return true;
-
-    return (
-      item.name.toLowerCase().includes(query) ||
-      item.type.toLowerCase().includes(query) ||
-      item.deletedFrom.some((location) =>
-        location.toLowerCase().includes(query)
-      )
-    );
-  });
-
-  const filteredUpdates = deletedUpdates.filter((update) => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return true;
-
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = update.text;
-    const textContent = tempDiv.textContent || tempDiv.innerText || "";
-
-    return textContent.toLowerCase().includes(query);
+    return task.name.toLowerCase().includes(query);
   });
 
   const handleRestore = async () => {
-    // const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id]);
-    // if (selectedItemIds.length === 0) return;
-    // try {
-    //   // Check if any selected items are updates
-    //   const updateIds = selectedItemIds.filter(id => deletedUpdates.some(u => u.id === id));
-    //   if (updateIds.length > 0) {
-    //     // Restore updates
-    //     const { error } = await supabase
-    //       .from('updates')
-    //       .update({ deleted: false })
-    //       .in('id', updateIds);
-    //     if (error) throw error;
-    //     // Remove from local state
-    //     setDeletedUpdates(prev => prev.filter(u => !updateIds.includes(u.id)));
-    //   }
-    //   // Check if any selected items are board items
-    //   const itemIds = selectedItemIds.filter(id => deletedItems.some(i => i.id === id));
-    //   if (itemIds.length > 0) {
-    //     // Restore items
-    //     const { error } = await supabase
-    //       .from('items')
-    //       .update({ deleted: false })
-    //       .in('id', itemIds);
-    //     if (error) throw error;
-    //     // Remove from local state
-    //     setDeletedItems(prev => prev.filter(i => !itemIds.includes(i.id)));
-    //   }
-    //   // Remove archived items if any
-    //   const remainingArchived = archivedItems.filter(item => !selectedItemIds.includes(item.id));
-    //   setArchivedItems(remainingArchived);
-    //   localStorage.setItem('archived-items', JSON.stringify(remainingArchived));
-    //   setSelectedItems({});
-    //   window.dispatchEvent(new CustomEvent('updates-restored'));
-    // } catch (error) {
-    //   console.error('Error restoring items:', error);
-    // }
+    const selectedTaskIds = Object.keys(selectedItems).filter(
+      (id) => selectedItems[id]
+    );
+    if (selectedTaskIds.length === 0) return;
+
+    setIsDeleting(true);
+    try {
+      const orgId = getOrganizationId();
+      if (!orgId) {
+        toast.error("Organization ID not found");
+        return;
+      }
+
+      for (const taskId of selectedTaskIds) {
+        await trashApi.restoreTask(taskId, orgId);
+      }
+
+      toast.success(
+        `${selectedTaskIds.length} task(s) restored successfully`
+      );
+      setDeletedTasks((prev) =>
+        prev.filter((task) => !selectedTaskIds.includes(task.id))
+      );
+      setSelectedItems({});
+    } catch (error) {
+      console.error("Error restoring tasks:", error);
+      toast.error("Failed to restore tasks");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleDeletePermanently = async () => {
-    // const selectedItemIds = Object.keys(selectedItems).filter(id => selectedItems[id]);
-    // if (selectedItemIds.length === 0) return;
-    // try {
-    //   // Check if any selected items are updates
-    //   const updateIds = selectedItemIds.filter(id => deletedUpdates.some(u => u.id === id));
-    //   if (updateIds.length > 0) {
-    //     // Permanently delete updates
-    //     const { error } = await supabase
-    //       .from('updates')
-    //       .delete()
-    //       .in('id', updateIds);
-    //     if (error) throw error;
-    //     // Remove from local state
-    //     setDeletedUpdates(prev => prev.filter(u => !updateIds.includes(u.id)));
-    //   }
-    //   // Check if any selected items are board items
-    //   const itemIds = selectedItemIds.filter(id => deletedItems.some(i => i.id === id));
-    //   if (itemIds.length > 0) {
-    //     // Permanently delete items
-    //     const { error } = await supabase
-    //       .from('items')
-    //       .delete()
-    //       .in('id', itemIds);
-    //     if (error) throw error;
-    //     // Remove from local state
-    //     setDeletedItems(prev => prev.filter(i => !itemIds.includes(i.id)));
-    //   }
-    //   // Remove archived items permanently
-    //   const remainingArchived = archivedItems.filter(item => !selectedItemIds.includes(item.id));
-    //   setArchivedItems(remainingArchived);
-    //   localStorage.setItem('archived-items', JSON.stringify(remainingArchived));
-    //   setSelectedItems({});
-    // } catch (error) {
-    //   console.error('Error deleting items permanently:', error);
-    // }
+    const selectedTaskIds = Object.keys(selectedItems).filter(
+      (id) => selectedItems[id]
+    );
+    if (selectedTaskIds.length === 0) return;
+
+    setIsDeleting(true);
+    try {
+      const orgId = getOrganizationId();
+      if (!orgId) {
+        toast.error("Organization ID not found");
+        return;
+      }
+
+      for (const taskId of selectedTaskIds) {
+        await trashApi.deleteTaskPermanently(taskId, orgId);
+      }
+
+      toast.success(
+        `${selectedTaskIds.length} task(s) deleted permanently`
+      );
+      setDeletedTasks((prev) =>
+        prev.filter((task) => !selectedTaskIds.includes(task.id))
+      );
+      setSelectedItems({});
+    } catch (error) {
+      console.error("Error deleting tasks:", error);
+      toast.error("Failed to delete tasks");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleRestoreTask = async (taskId: string) => {
+    try {
+      const orgId = getOrganizationId();
+      if (!orgId) {
+        toast.error("Organization ID not found");
+        return;
+      }
+
+      await trashApi.restoreTask(taskId, orgId);
+      toast.success("Task restored successfully");
+      setDeletedTasks((prev) => prev.filter((task) => task.id !== taskId));
+    } catch (error) {
+      console.error("Error restoring task:", error);
+      toast.error("Failed to restore task");
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const orgId = getOrganizationId();
+      if (!orgId) {
+        toast.error("Organization ID not found");
+        return;
+      }
+
+      await trashApi.deleteTaskPermanently(taskId, orgId);
+      toast.success("Task deleted permanently");
+      setDeletedTasks((prev) => prev.filter((task) => task.id !== taskId));
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      toast.error("Failed to delete task");
+    }
   };
 
   const selectedCount = Object.values(selectedItems).filter(Boolean).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[1400px] h-[90vh] p-0 gap-0">
-        <DialogHeader className="px-8 py-6 border-b border-border">
-          <div>
-            <h2 className="text-3xl font-bold mb-2">Trash</h2>
-            <p className="text-sm text-muted-foreground">
-              This is your account trash for deleted workspaces, boards, docs,
-              dashboards, items and columns.
-              <br />
-              After 30 days from the deletion date it will be deleted
-              permanently and will no longer be accessible.{" "}
-              <a href="#" className="text-primary hover:underline">
-                Learn more
-              </a>
-            </p>
-          </div>
-        </DialogHeader>
+      <DialogContent className="bg-card border-border max-w-5xl p-0 h-[85vh] max-h-[800px] flex flex-col overflow-hidden">
+        <DialogTitle className="sr-only">Trash</DialogTitle>
+        <div className="px-6 py-3 border-b border-border flex-shrink-0">
+          <h2 className="text-3xl font-bold mb-2">Trash</h2>
+          <p className="text-sm text-muted-foreground">
+            This is your account trash for deleted workspaces, boards, docs, dashboards, items and columns.
+            <br />
+            After 30 days from the deletion date it will be deleted
+            permanently and will no longer be accessible.{" "}
+          </p>
+        </div>
 
-        <Tabs defaultValue="trash" className="flex-1 flex flex-col">
-          <div className="px-8 border-b border-border">
+        <Tabs defaultValue="trash" className="flex-1 flex flex-col overflow-hidden min-h-0">
+          <div className="px-8 border-b border-border flex-shrink-0">
             <TabsList className="bg-transparent p-0 h-12">
               <TabsTrigger
                 value="trash"
@@ -271,390 +225,121 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
             </TabsList>
           </div>
 
-          <TabsContent value="trash" className="flex-1 flex flex-col m-0 p-0">
-            <div className="px-8 py-4 border-b border-border">
+          <TabsContent value="trash" className="flex-1 flex flex-col m-0 p-0 overflow-hidden min-h-0 data-[state=inactive]:hidden">
+            <div className="px-8 py-4  border-border flex-shrink-0">
               <div className="flex items-center gap-4">
                 <div className="relative flex-1 max-w-xs">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
                   <Input
                     type="search"
-                    placeholder="Search..."
+                    placeholder="Search tasks..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 bg-muted/50 border-border"
                   />
                 </div>
-                <Button variant="outline" size="sm">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters
-                </Button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto">
-              <table className="w-full">
-                <thead className="sticky top-0 bg-card border-b border-border">
-                  <tr>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-12">
-                      <Checkbox />
-                    </th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground">
-                      Name
-                    </th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">
-                      Type
-                    </th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground">
-                      Deleted from
-                    </th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-48">
-                      Deleted by
-                    </th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">
-                      Date
-                    </th>
-                    <th className="text-left p-4 font-medium text-sm text-muted-foreground w-20">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.length === 0 &&
-                  filteredUpdates.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="p-8 text-center text-muted-foreground"
-                      >
-                        {searchQuery
-                          ? `No items found matching "${searchQuery}"`
-                          : "No deleted items"}
-                      </td>
-                    </tr>
-                  ) : (
-                    <>
-                      {filteredItems.map((item) => (
-                        <tr
-                          key={item.id}
-                          className="border-b border-border hover:bg-hover/50"
-                        >
-                          <td className="p-4">
-                            <Checkbox
-                              checked={selectedItems[item.id] || false}
-                              onCheckedChange={(checked) =>
-                                setSelectedItems((prev) => ({
-                                  ...prev,
-                                  [item.id]: checked as boolean,
-                                }))
-                              }
-                            />
-                          </td>
-                          <td className="p-4">
-                            <span className="font-medium">{item.name}</span>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Folder className="h-4 w-4" />
-                              <span className="text-sm">{item.type}</span>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              {item.deletedFrom.map((location, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-center gap-1"
-                                >
-                                  {idx > 0 && (
-                                    <ChevronRight className="h-3 w-3" />
-                                  )}
-                                  <span>{location}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6">
-                                <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                                  {item.deletedBy.initials}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-sm">
-                                {item.deletedBy.name}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <span className="text-sm text-muted-foreground">
-                              {item.deletedDate}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem>Restore</DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive">
-                                  Delete Permanently
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
-                      ))}
-                      {filteredUpdates.map((update) => {
-                        const tempDiv = document.createElement("div");
-                        tempDiv.innerHTML = update.text;
-                        const textContent =
-                          tempDiv.textContent || tempDiv.innerText || "";
-                        const preview =
-                          textContent.length > 60
-                            ? textContent.substring(0, 60) + "..."
-                            : textContent;
-
-                        return (
-                          <tr
-                            key={update.id}
-                            className="border-b border-border hover:bg-hover/50"
-                          >
-                            <td className="p-4">
-                              <Checkbox
-                                checked={selectedItems[update.id] || false}
-                                onCheckedChange={(checked) =>
-                                  setSelectedItems((prev) => ({
-                                    ...prev,
-                                    [update.id]: checked as boolean,
-                                  }))
-                                }
-                              />
-                            </td>
-                            <td className="p-4">
-                              <span className="font-medium">{preview}</span>
-                            </td>
-                            <td className="p-4">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <MessageSquare className="h-4 w-4" />
-                                <span className="text-sm">Update</span>
-                              </div>
-                            </td>
-                            <td className="p-4">
-                              <span className="text-sm text-muted-foreground">
-                                Board item
-                              </span>
-                            </td>
-                            <td className="p-4">
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-6 w-6">
-                                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                                    {currentUser.name
-                                      .split(" ")
-                                      .map((n) => n[0])
-                                      .join("")}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm">
-                                  {currentUser.name}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="p-4">
-                              <span className="text-sm text-muted-foreground">
-                                {format(
-                                  new Date(update.updated_at),
-                                  "MMM d, yyyy"
-                                )}
-                              </span>
-                            </td>
-                            <td className="p-4">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={async () => {
-                                      try {
-                                        // const { error } = await supabase
-                                        //   .from('updates')
-                                        //   .update({ deleted: false })
-                                        //   .eq('id', update.id);
-
-                                        // if (error) throw error;
-
-                                        // setDeletedUpdates(prev => prev.filter(u => u.id !== update.id));
-                                        // setSelectedItems(prev => {
-                                        //   const updated = { ...prev };
-                                        //   delete updated[update.id];
-                                        //   return updated;
-                                        // });
-                                        window.dispatchEvent(
-                                          new CustomEvent("updates-restored")
-                                        );
-                                      } catch (error) {
-                                        console.error(
-                                          "Error restoring update:",
-                                          error
-                                        );
-                                      }
-                                    }}
-                                  >
-                                    <RotateCcw className="h-4 w-4 mr-2" />
-                                    Restore
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={async () => {
-                                      try {
-                                        // const { error } = await supabase
-                                        //   .from('updates')
-                                        //   .delete()
-                                        //   .eq('id', update.id);
-                                        // if (error) throw error;
-                                        // setDeletedUpdates(prev => prev.filter(u => u.id !== update.id));
-                                        // setSelectedItems(prev => {
-                                        //   const updated = { ...prev };
-                                        //   delete updated[update.id];
-                                        //   return updated;
-                                        // });
-                                      } catch (error) {
-                                        console.error(
-                                          "Error deleting update:",
-                                          error
-                                        );
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete Permanently
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="archive" className="flex-1 flex flex-col m-0 p-0">
-            <div className="flex-1 overflow-auto">
-              {filteredArchivedItems.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center py-12">
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {loading ? (
+                <div className="flex items-center justify-center h-full min-h-[400px]">
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Loading trash...
+                    </span>
+                  </div>
+                </div>
+              ) : filteredTasks.length === 0 ? (
+                <div className="flex items-center justify-center h-full min-h-[400px]">
                   <div className="text-center">
-                    <Archive className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <Trash2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                     <h3 className="text-xl font-semibold mb-2">
-                      No archived items
+                      {searchQuery ? "No tasks found" : "No deleted tasks"}
                     </h3>
                     <p className="text-muted-foreground">
-                      Archived items will appear here
+                      {searchQuery
+                        ? `No tasks matching "${searchQuery}"`
+                        : "Your trash is empty"}
                     </p>
                   </div>
                 </div>
               ) : (
-                <table className="w-full">
-                  <thead className="sticky top-0 bg-card border-b border-border">
-                    <tr>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-12">
-                        <Checkbox />
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground">
-                        Name
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">
-                        Type
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground">
-                        Archived from
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-48">
-                        Archived by
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-32">
-                        Date
-                      </th>
-                      <th className="text-left p-4 font-medium text-sm text-muted-foreground w-20">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredArchivedItems.map((item) => (
-                      <tr
-                        key={item.id}
-                        className="border-b border-border hover:bg-hover/50"
+                <>
+                  {/* Header Row */}
+                  <div className="flex items-center px-6 py-3 border-b border-border bg-card sticky top-0 z-10">
+                    <div className="w-10 flex-shrink-0">
+                      {/* <Checkbox className="rounded-md" /> */}
+                    </div>
+                    <div className="flex-1 min-w-0 px-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Name</span>
+                    </div>
+                    <div className="w-32 flex-shrink-0 px-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Type</span>
+                    </div>
+                    <div className="w-48 flex-shrink-0 px-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Deleted from</span>
+                    </div>
+                    <div className="w-40 flex-shrink-0 px-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Deleted by</span>
+                    </div>
+                    <div className="w-32 flex-shrink-0 px-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Date</span>
+                    </div>
+                    <div className="w-20 flex-shrink-0 px-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Action</span>
+                    </div>
+                  </div>
+
+                  {/* List Items */}
+                  <div className="divide-y divide-border">
+                    {filteredTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className="flex items-center px-6 py-4 hover:bg-hover/50 transition-colors"
                       >
-                        <td className="p-4">
+                        <div className="w-10 flex-shrink-0">
                           <Checkbox
-                            checked={selectedItems[item.id] || false}
+                            checked={selectedItems[task.id] || false}
                             onCheckedChange={(checked) =>
                               setSelectedItems((prev) => ({
                                 ...prev,
-                                [item.id]: checked as boolean,
+                                [task.id]: checked as boolean,
                               }))
                             }
+                            className="rounded-md"
                           />
-                        </td>
-                        <td className="p-4">
-                          <span className="font-medium">{item.name}</span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Folder className="h-4 w-4" />
-                            <span className="text-sm">{item.type}</span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            {item.deletedFrom.map((location, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-1"
-                              >
-                                {idx > 0 && (
-                                  <ChevronRight className="h-3 w-3" />
-                                )}
-                                <span>{location}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="p-4">
+                        </div>
+                        <div className="flex-1 min-w-0 px-3">
+                          <p className="font-medium truncate">{task.name}</p>
+                        </div>
+                        <div className="w-32 flex-shrink-0 px-3">
+                          <span className="text-sm text-muted-foreground">Task</span>
+                        </div>
+                        <div className="w-48 flex-shrink-0 px-3">
+                          <span className="text-sm text-muted-foreground truncate block">
+                            {task.board_name}
+                          </span>
+                        </div>
+                        <div className="w-40 flex-shrink-0 px-3">
                           <div className="flex items-center gap-2">
                             <Avatar className="h-6 w-6">
                               <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                                {item.deletedBy.initials}
+                                {getInitials(task.creator_name || "Unknown")}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-sm">
-                              {item.deletedBy.name}
+                            <span className="text-sm text-muted-foreground truncate">
+                              {task.creator_name || "Unknown"}
                             </span>
                           </div>
-                        </td>
-                        <td className="p-4">
+                        </div>
+                        <div className="w-32 flex-shrink-0 px-3">
                           <span className="text-sm text-muted-foreground">
-                            {item.deletedDate}
+                            {format(new Date(task.deleted_at), "MMM d, yyyy")}
                           </span>
-                        </td>
-                        <td className="p-4">
+                        </div>
+                        <div className="w-20 flex-shrink-0 px-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -666,18 +351,41 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>Restore</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
-                                Delete Permanently
+                              <DropdownMenuItem
+                                onClick={() => handleRestoreTask(task.id)}
+                              >
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                <span>Restore</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                <span>Delete Permanently</span>
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                </>
               )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="archive" className="flex-1 flex flex-col m-0 p-0 overflow-hidden min-h-0 data-[state=inactive]:hidden">
+            <div className="flex-1 flex items-center justify-center overflow-y-auto">
+              <div className="text-center">
+                <Archive className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">
+                  No archived items
+                </h3>
+                <p className="text-muted-foreground">
+                  Archived items will appear here
+                </p>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
@@ -696,7 +404,8 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
               <div className="flex items-center gap-4">
                 <button
                   onClick={handleRestore}
-                  className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors"
+                  disabled={isDeleting}
+                  className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors disabled:opacity-50"
                 >
                   <RotateCcw className="h-5 w-5" />
                   <span>Restore</span>
@@ -704,7 +413,8 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
 
                 <button
                   onClick={handleDeletePermanently}
-                  className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors"
+                  disabled={isDeleting}
+                  className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors disabled:opacity-50"
                 >
                   <Trash2 className="h-5 w-5" />
                   <span>Delete Permanently</span>
@@ -712,7 +422,8 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
 
                 <button
                   onClick={() => setSelectedItems({})}
-                  className="text-gray-400 hover:text-white transition-colors ml-4"
+                  disabled={isDeleting}
+                  className="text-gray-400 hover:text-white transition-colors ml-4 disabled:opacity-50"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -724,3 +435,379 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
     </Dialog>
   );
 }
+
+
+
+// import { useState, useEffect } from "react";
+// import {
+//   Search,
+//   Trash2,
+//   Archive,
+//   MoreHorizontal,
+//   X,
+//   RotateCcw,
+//   Loader2,
+// } from "lucide-react";
+// import {
+//   Dialog,
+//   DialogContent,
+//   DialogTitle
+// } from "@/shared/components/ui/dialog";
+// import { Input } from "@/shared/components/ui/input";
+// import { Button } from "@/shared/components/ui/button";
+// import { Checkbox } from "@/shared/components/ui/checkbox";
+// import {
+//   Tabs,
+//   TabsList,
+//   TabsTrigger,
+//   TabsContent,
+// } from "@/shared/components/ui/tabs";
+// import { format } from "date-fns";
+// import {
+//   DropdownMenu,
+//   DropdownMenuContent,
+//   DropdownMenuItem,
+//   DropdownMenuTrigger,
+// } from "@/shared/components/ui/dropdown-menu";
+// import { trashApi, type TrashTask } from "@/features/trash/trashApi";
+// import { getOrganizationId } from "@/lib/utils";
+// import { toast } from "sonner";
+
+// interface TrashDialogProps {
+//   open: boolean;
+//   onOpenChange: (open: boolean) => void;
+// }
+
+// export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
+//   const [searchQuery, setSearchQuery] = useState("");
+//   const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>({});
+//   const [deletedTasks, setDeletedTasks] = useState<TrashTask[]>([]);
+//   const [loading, setLoading] = useState(false);
+//   const [isDeleting, setIsDeleting] = useState(false);
+
+//   // Load deleted tasks from API
+//   useEffect(() => {
+//     if (!open) return;
+
+//     const loadTrashData = async () => {
+//       setLoading(true);
+//       try {
+//         const orgId = getOrganizationId();
+//         if (!orgId) {
+//           toast.error("Organization ID not found");
+//           return;
+//         }
+
+//         const data = await trashApi.getTrash(orgId);
+//         setDeletedTasks(data.tasks || []);
+//       } catch (error) {
+//         console.error("Error loading trash data:", error);
+//         toast.error("Failed to load trash data");
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     loadTrashData();
+//   }, [open]);
+
+//   const filteredTasks = deletedTasks.filter((task) => {
+//     const query = searchQuery.toLowerCase().trim();
+//     if (!query) return true;
+//     return task.name.toLowerCase().includes(query);
+//   });
+
+//   const handleRestore = async () => {
+//     const selectedTaskIds = Object.keys(selectedItems).filter(
+//       (id) => selectedItems[id]
+//     );
+//     if (selectedTaskIds.length === 0) return;
+
+//     setIsDeleting(true);
+//     try {
+//       const orgId = getOrganizationId();
+//       if (!orgId) {
+//         toast.error("Organization ID not found");
+//         return;
+//       }
+
+//       for (const taskId of selectedTaskIds) {
+//         await trashApi.restoreTask(taskId, orgId);
+//       }
+
+//       toast.success(
+//         `${selectedTaskIds.length} task(s) restored successfully`
+//       );
+//       setDeletedTasks((prev) =>
+//         prev.filter((task) => !selectedTaskIds.includes(task.id))
+//       );
+//       setSelectedItems({});
+//     } catch (error) {
+//       console.error("Error restoring tasks:", error);
+//       toast.error("Failed to restore tasks");
+//     } finally {
+//       setIsDeleting(false);
+//     }
+//   };
+
+//   const handleDeletePermanently = async () => {
+//     const selectedTaskIds = Object.keys(selectedItems).filter(
+//       (id) => selectedItems[id]
+//     );
+//     if (selectedTaskIds.length === 0) return;
+
+//     setIsDeleting(true);
+//     try {
+//       const orgId = getOrganizationId();
+//       if (!orgId) {
+//         toast.error("Organization ID not found");
+//         return;
+//       }
+
+//       for (const taskId of selectedTaskIds) {
+//         await trashApi.deleteTaskPermanently(taskId, orgId);
+//       }
+
+//       toast.success(
+//         `${selectedTaskIds.length} task(s) deleted permanently`
+//       );
+//       setDeletedTasks((prev) =>
+//         prev.filter((task) => !selectedTaskIds.includes(task.id))
+//       );
+//       setSelectedItems({});
+//     } catch (error) {
+//       console.error("Error deleting tasks:", error);
+//       toast.error("Failed to delete tasks");
+//     } finally {
+//       setIsDeleting(false);
+//     }
+//   };
+
+//   const handleRestoreTask = async (taskId: string) => {
+//     try {
+//       const orgId = getOrganizationId();
+//       if (!orgId) {
+//         toast.error("Organization ID not found");
+//         return;
+//       }
+
+//       await trashApi.restoreTask(taskId, orgId);
+//       toast.success("Task restored successfully");
+//       setDeletedTasks((prev) => prev.filter((task) => task.id !== taskId));
+//     } catch (error) {
+//       console.error("Error restoring task:", error);
+//       toast.error("Failed to restore task");
+//     }
+//   };
+
+//   const handleDeleteTask = async (taskId: string) => {
+//     try {
+//       const orgId = getOrganizationId();
+//       if (!orgId) {
+//         toast.error("Organization ID not found");
+//         return;
+//       }
+
+//       await trashApi.deleteTaskPermanently(taskId, orgId);
+//       toast.success("Task deleted permanently");
+//       setDeletedTasks((prev) => prev.filter((task) => task.id !== taskId));
+//     } catch (error) {
+//       console.error("Error deleting task:", error);
+//       toast.error("Failed to delete task");
+//     }
+//   };
+
+//   const selectedCount = Object.values(selectedItems).filter(Boolean).length;
+
+//   return (
+//     <Dialog open={open} onOpenChange={onOpenChange}>
+//       <DialogContent className="bg-card border-border max-w-5xl p-0 h-[85vh] max-h-[800px] flex flex-col overflow-hidden">
+//         <div className="px-6 py-3 border-b border-border flex-shrink-0">
+//           <h2 className="text-3xl font-bold mb-2">Trash</h2>
+//           <p className="text-sm text-muted-foreground">
+//             This is your account trash for deleted workspaces, boards, docs, dashboards, items and columns.
+//             <br />
+//             After 30 days from the deletion date it will be deleted
+//             permanently and will no longer be accessible.{" "}
+//           </p>
+//         </div>
+
+//         <Tabs defaultValue="trash" className="flex-1 flex flex-col overflow-hidden min-h-0">
+//           <div className="px-8 border-b border-border flex-shrink-0">
+//             <TabsList className="bg-transparent p-0 h-12">
+//               <TabsTrigger
+//                 value="trash"
+//                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+//               >
+//                 <Trash2 className="h-4 w-4 mr-2" />
+//                 Trash
+//               </TabsTrigger>
+//               <TabsTrigger
+//                 value="archive"
+//                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+//               >
+//                 <Archive className="h-4 w-4 mr-2" />
+//                 Archive
+//               </TabsTrigger>
+//             </TabsList>
+//           </div>
+
+//           <TabsContent value="trash" className="flex-1 flex flex-col m-0 p-0 overflow-hidden min-h-0">
+//             <div className="px-8 py-4 border-b border-border flex-shrink-0">
+//               <div className="flex items-center gap-4">
+//                 <div className="relative flex-1 max-w-xs">
+//                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+//                   <Input
+//                     type="search"
+//                     placeholder="Search tasks..."
+//                     value={searchQuery}
+//                     onChange={(e) => setSearchQuery(e.target.value)}
+//                     className="pl-10 bg-muted/50 border-border"
+//                   />
+//                 </div>
+//               </div>
+//             </div>
+
+//             <div className="flex-1 overflow-y-auto min-h-0">
+//               {loading ? (
+//                 <div className="flex items-center justify-center h-full min-h-[400px]">
+//                   <div className="flex flex-col items-center gap-2">
+//                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+//                     <span className="text-sm text-muted-foreground">
+//                       Loading trash...
+//                     </span>
+//                   </div>
+//                 </div>
+//               ) : filteredTasks.length === 0 ? (
+//                 <div className="flex items-center justify-center h-full min-h-[400px]">
+//                   <div className="text-center">
+//                     <Trash2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+//                     <h3 className="text-xl font-semibold mb-2">
+//                       {searchQuery ? "No tasks found" : "No deleted tasks"}
+//                     </h3>
+//                     <p className="text-muted-foreground">
+//                       {searchQuery
+//                         ? `No tasks matching "${searchQuery}"`
+//                         : "Your trash is empty"}
+//                     </p>
+//                   </div>
+//                 </div>
+//               ) : (
+//                   <div className="flex flex-col gap-2 p-6">
+//                     {filteredTasks.map((task) => (
+//                       <div
+//                         key={task.id}
+//                         className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-hover/50 transition-colors"
+//                       >
+//                         <div className="flex items-center gap-3 flex-1 min-w-0">
+//                           <Checkbox
+//                             checked={selectedItems[task.id] || false}
+//                             onCheckedChange={(checked) =>
+//                               setSelectedItems((prev) => ({
+//                                 ...prev,
+//                                 [task.id]: checked as boolean,
+//                               }))
+//                             }
+//                           />
+//                           <div className="flex-1 min-w-0">
+//                             <p className="font-medium truncate">{task.name}</p>
+//                             <p className="text-xs text-muted-foreground">
+//                               Deleted {format(new Date(task.deleted_at), "MMM d, yyyy")}
+//                             </p>
+//                           </div>
+//                         </div>
+
+//                         <DropdownMenu>
+//                           <DropdownMenuTrigger asChild>
+//                             <Button
+//                               variant="ghost"
+//                               size="icon"
+//                               className="h-8 w-8 flex-shrink-0"
+//                             >
+//                               <MoreHorizontal className="h-4 w-4" />
+//                             </Button>
+//                           </DropdownMenuTrigger>
+//                           <DropdownMenuContent align="end">
+//                             <DropdownMenuItem
+//                               onClick={() => handleRestoreTask(task.id)}
+//                             >
+//                               <RotateCcw className="h-4 w-4 mr-2" />
+//                               <span>Restore</span>
+//                             </DropdownMenuItem>
+//                             <DropdownMenuItem
+//                               onClick={() => handleDeleteTask(task.id)}
+//                               className="text-destructive focus:text-destructive"
+//                             >
+//                               <Trash2 className="h-4 w-4 mr-2" />
+//                               <span>Delete Permanently</span>
+//                             </DropdownMenuItem>
+//                           </DropdownMenuContent>
+//                         </DropdownMenu>
+//                       </div>
+//                     ))}
+//                   </div>
+                
+//               )}
+//             </div>
+//           </TabsContent>
+
+//           <TabsContent value="archive" className="flex-1 flex flex-col m-0 p-0 overflow-hidden min-h-0">
+//             <div className="flex-1 flex items-center justify-center overflow-y-auto">
+//               <div className="text-center">
+//                 <Archive className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+//                 <h3 className="text-xl font-semibold mb-2">
+//                   No archived items
+//                 </h3>
+//                 <p className="text-muted-foreground">
+//                   Archived items will appear here
+//                 </p>
+//               </div>
+//             </div>
+//           </TabsContent>
+//         </Tabs>
+
+//         {/* Bulk Actions Toolbar */}
+//         {selectedCount > 0 && (
+//           <div className="absolute bottom-0 left-0 right-0 bg-[#1e293b] border-t border-[#334155] shadow-lg py-4 px-6">
+//             <div className="flex items-center justify-between">
+//               <div className="flex items-center gap-2">
+//                 <div className="bg-blue-600 rounded-full w-8 h-8 flex items-center justify-center text-white font-semibold text-sm">
+//                   {selectedCount}
+//                 </div>
+//                 <span className="text-white font-medium">Items selected</span>
+//               </div>
+
+//               <div className="flex items-center gap-4">
+//                 <button
+//                   onClick={handleRestore}
+//                   disabled={isDeleting}
+//                   className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors disabled:opacity-50"
+//                 >
+//                   <RotateCcw className="h-5 w-5" />
+//                   <span>Restore</span>
+//                 </button>
+
+//                 <button
+//                   onClick={handleDeletePermanently}
+//                   disabled={isDeleting}
+//                   className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors disabled:opacity-50"
+//                 >
+//                   <Trash2 className="h-5 w-5" />
+//                   <span>Delete Permanently</span>
+//                 </button>
+
+//                 <button
+//                   onClick={() => setSelectedItems({})}
+//                   disabled={isDeleting}
+//                   className="text-gray-400 hover:text-white transition-colors ml-4 disabled:opacity-50"
+//                 >
+//                   <X className="h-5 w-5" />
+//                 </button>
+//               </div>
+//             </div>
+//           </div>
+//         )}
+//       </DialogContent>
+//     </Dialog>
+//   );
+// }
