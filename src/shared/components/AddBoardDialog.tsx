@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { X, Search, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/app/store";
 // import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -86,8 +88,12 @@ export function AddBoardDialog({
   organizationId,
 }: AddBoardDialogProps) {
     const navigate = useNavigate();
-  const { testUsers, currentUser } = useTestUser();
+  const { testUsers, currentUser: testCurrentUser } = useTestUser();
   const { createBoard, loading } = useBoards();
+  
+  // Get actual logged-in user from Redux
+  const currentUser = useSelector((state: RootState) => state.auth.user);
+  
   const [boardName, setBoardName] = useState("New Board");
 
   const [iconColor, setIconColor] = useState(PRESET_COLORS[0]);
@@ -304,6 +310,30 @@ export function AddBoardDialog({
     { id: "doc-tab", label: "Doc Tab" },
   ];
 
+  // Helper function to get initials from name
+  const getUserInitials = (name: string) => {
+    if (!name) return "?";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Helper function to generate avatar color based on user ID
+  const getAvatarColor = (userId: number) => {
+    const colors = [
+      "#16a249", // green
+      "#3c83f6", // blue
+      "#a855f7", // purple
+      "#dc2828", // red
+      "#facc14", // yellow
+      "#ff8400", // orange
+    ];
+    return colors[userId % colors.length];
+  };
+
   const currentHiddenItems = roleHiddenItems[selectedRole] || {};
   const currentViewOnlyItems = roleViewOnlyItems[selectedRole] || {};
   const currentViewEditItems = roleViewEditItems[selectedRole] || {};
@@ -438,7 +468,7 @@ export function AddBoardDialog({
   // Filter out current user (board creator) and already added members
   const availableUsers = testUsers.filter(
     (user) =>
-      user.id !== currentUser.id &&
+      user.id !== testCurrentUser.id &&
       !members.some((m) => m.test_user_id === user.id)
   );
 
@@ -515,7 +545,7 @@ export function AddBoardDialog({
         
         // Call the parent callback with board details
         const membersWithCreator = [
-          { test_user_id: currentUser.id, role: "owner" },
+          { test_user_id: testCurrentUser.id, role: "owner" },
           ...members,
         ];
         onAddBoard?.(boardName, iconColor, membersWithCreator, templateId);
@@ -720,21 +750,18 @@ export function AddBoardDialog({
                   <div className="flex items-center gap-3 p-3 bg-[#0f172a] rounded-lg border border-[#334155]">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback
-                        style={{ backgroundColor: currentUser.avatarColor }}
+                        style={{ backgroundColor: currentUser ? getAvatarColor(currentUser.user_id) : "#3c83f6" }}
                       >
-                        {currentUser.name.charAt(0)}
+                        {currentUser ? getUserInitials(currentUser.name) : "?"}
                       </AvatarFallback>
                     </Avatar>
 
                     <div className="flex-1">
                       <div className="font-medium text-white">
-                        {currentUser.name}
+                        {currentUser?.name || "Unknown User"}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {testUserEmails[currentUser.id] ||
-                          `${currentUser.name
-                            .toLowerCase()
-                            .replace(" ", "")}@gmail.com`}
+                        {currentUser?.email || "No email"}
                       </div>
                     </div>
 
