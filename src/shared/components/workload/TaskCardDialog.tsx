@@ -52,6 +52,13 @@ export function TaskCardDialog({
     }
   }, [open]);
 
+  // Close any open popovers when task changes (person updated)
+  useEffect(() => {
+    if (task) {
+      setOpenPopoverId(null);
+    }
+  }, [task?.assigned_to_ids, task?.person]);
+
   if (!task) return null;
 
   // Use task directly - it will update in real-time from parent

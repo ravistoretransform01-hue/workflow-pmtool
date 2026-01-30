@@ -1967,6 +1967,9 @@ export function WorkloadBoard({
         })),
       );
 
+      // Close the popover to ensure UI refreshes
+      popoverState.closePopover();
+
       toast.success("Person assigned successfully");
     } catch (err) {
       console.error(err);
@@ -5001,20 +5004,22 @@ export function WorkloadBoard({
 
       {/* */}
       {/* Task Card Dialog */}
-      <TaskCardDialog
-        open={sheetTaskCardOpen}
-        onOpenChange={setSheetTaskCardOpen}
-        task={getTaskById(selectedTaskId)}
-        boardName={boardName}
-        statuses={statuses}
-        priorities={priorities}
-        members={members}
-        onStatusChange={handleStatusChange}
-        onPriorityChange={handlePriorityChange}
-        onPersonChange={handlePersonChange}
-        onRatingChange={handleRatingChange}
-        onEstimatedDateChange={handleEstimatedDateChange}
-      />
+      {selectedTaskId && (
+        <TaskCardDialog
+          open={sheetTaskCardOpen}
+          onOpenChange={setSheetTaskCardOpen}
+          task={getTaskById(selectedTaskId)}
+          boardName={boardName}
+          statuses={statuses}
+          priorities={priorities}
+          members={members}
+          onStatusChange={handleStatusChange}
+          onPriorityChange={handlePriorityChange}
+          onPersonChange={handlePersonChange}
+          onRatingChange={handleRatingChange}
+          onEstimatedDateChange={handleEstimatedDateChange}
+        />
+      )}
 
       {/* Edit Labels Dialog */}
       <Dialog
