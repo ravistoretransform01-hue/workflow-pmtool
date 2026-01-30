@@ -89,38 +89,38 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
     return task.name.toLowerCase().includes(query);
   });
 
-  const handleRestore = async () => {
-    const selectedTaskIds = Object.keys(selectedItems).filter(
-      (id) => selectedItems[id]
-    );
-    if (selectedTaskIds.length === 0) return;
+  // const handleRestore = async () => {
+  //   const selectedTaskIds = Object.keys(selectedItems).filter(
+  //     (id) => selectedItems[id]
+  //   );
+  //   if (selectedTaskIds.length === 0) return;
 
-    setIsDeleting(true);
-    try {
-      const orgId = getOrganizationId();
-      if (!orgId) {
-        toast.error("Organization ID not found");
-        return;
-      }
+  //   setIsDeleting(true);
+  //   try {
+  //     const orgId = getOrganizationId();
+  //     if (!orgId) {
+  //       toast.error("Organization ID not found");
+  //       return;
+  //     }
 
-      for (const taskId of selectedTaskIds) {
-        await trashApi.restoreTask(taskId, orgId);
-      }
+  //     for (const taskId of selectedTaskIds) {
+  //       await trashApi.restoreTask(taskId, orgId);
+  //     }
 
-      toast.success(
-        `${selectedTaskIds.length} task(s) restored successfully`
-      );
-      setDeletedTasks((prev) =>
-        prev.filter((task) => !selectedTaskIds.includes(task.id))
-      );
-      setSelectedItems({});
-    } catch (error) {
-      console.error("Error restoring tasks:", error);
-      toast.error("Failed to restore tasks");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
+  //     toast.success(
+  //       `${selectedTaskIds.length} task(s) restored successfully`
+  //     );
+  //     setDeletedTasks((prev) =>
+  //       prev.filter((task) => !selectedTaskIds.includes(task.id))
+  //     );
+  //     setSelectedItems({});
+  //   } catch (error) {
+  //     console.error("Error restoring tasks:", error);
+  //     toast.error("Failed to restore tasks");
+  //   } finally {
+  //     setIsDeleting(false);
+  //   }
+  // };
 
   const handleDeletePermanently = async () => {
     const selectedTaskIds = Object.keys(selectedItems).filter(
@@ -155,22 +155,22 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
     }
   };
 
-  const handleRestoreTask = async (taskId: string) => {
-    try {
-      const orgId = getOrganizationId();
-      if (!orgId) {
-        toast.error("Organization ID not found");
-        return;
-      }
+  // const handleRestoreTask = async (taskId: string) => {
+  //   try {
+  //     const orgId = getOrganizationId();
+  //     if (!orgId) {
+  //       toast.error("Organization ID not found");
+  //       return;
+  //     }
 
-      await trashApi.restoreTask(taskId, orgId);
-      toast.success("Task restored successfully");
-      setDeletedTasks((prev) => prev.filter((task) => task.id !== taskId));
-    } catch (error) {
-      console.error("Error restoring task:", error);
-      toast.error("Failed to restore task");
-    }
-  };
+  //     await trashApi.restoreTask(taskId, orgId);
+  //     toast.success("Task restored successfully");
+  //     setDeletedTasks((prev) => prev.filter((task) => task.id !== taskId));
+  //   } catch (error) {
+  //     console.error("Error restoring task:", error);
+  //     toast.error("Failed to restore task");
+  //   }
+  // };
 
   const handleDeleteTask = async (taskId: string) => {
     try {
@@ -352,7 +352,8 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                onClick={() => handleRestoreTask(task.id)}
+                                disabled
+                                onClick={() => {}}
                               >
                                 <RotateCcw className="h-4 w-4 mr-2" />
                                 <span>Restore</span>
@@ -403,9 +404,11 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
 
               <div className="flex items-center gap-4">
                 <button
-                  onClick={handleRestore}
-                  disabled={isDeleting}
-                  className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors disabled:opacity-50"
+                  // onClick={handleRestore}
+                  onClick={() => {}}
+                  // disabled={isDeleting}
+                  disabled
+                  className="flex items-center gap-2 text-white transition-colors disabled:opacity-50"
                 >
                   <RotateCcw className="h-5 w-5" />
                   <span>Restore</span>
