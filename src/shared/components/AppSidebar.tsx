@@ -85,7 +85,7 @@ export const AppSidebar = () => {
   // const currentBoard = boards.find((b) => b.id === boardId);
   // const currentBoardName = currentBoard?.name || "Workspace";
   const filteredBoards = boards.filter((b) =>
-    b.name.toLowerCase().includes(boardSearchQuery.toLowerCase())
+    b.name.toLowerCase().includes(boardSearchQuery.toLowerCase()),
   );
 
   const handleAddBoard = () => {
@@ -211,13 +211,31 @@ export const AppSidebar = () => {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  className="bg-red-500/40 hover:bg-red-500/30"
+                  onClick={() =>
+                    window.open(
+                      "https://www.loom.com/share/0355f68386c544959b6247d9c7750e9e",
+                      "_blank",
+                    )
+                  }
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="italic">Working Model</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         {/* Workspace Selector & Add Menu */}
         <SidebarGroup>
           <div className="flex items-center justify-between px-0">
-            <SidebarGroupLabel className="font-bold text-white text-lg">Projects</SidebarGroupLabel>
+            <SidebarGroupLabel className="font-bold text-white text-lg">
+              Projects
+            </SidebarGroupLabel>
             <div className="flex items-center gap-1">
               <Popover open={addMenuOpen} onOpenChange={setAddMenuOpen}>
                 <PopoverTrigger asChild>
@@ -272,7 +290,7 @@ export const AppSidebar = () => {
               <PopoverContent className="w-56 p-2" align="start">
                 <div className="space-y-1">
                   {/* Board Submenu */}
-                  {/* <div
+        {/* <div
                     className="relative"
                     onMouseEnter={() => setHoveredSubmenu("board")}
                     onMouseLeave={() => setHoveredSubmenu(null)}
@@ -305,8 +323,8 @@ export const AppSidebar = () => {
                     )}
                   </div> */}
 
-                  {/* Document Submenu */}
-                  {/* <div
+        {/* Document Submenu */}
+        {/* <div
                     className="relative"
                     onMouseEnter={() => setHoveredSubmenu("doc")}
                     onMouseLeave={() => setHoveredSubmenu(null)}
@@ -339,12 +357,12 @@ export const AppSidebar = () => {
                     )}
                   </div> */}
 
-                  {/* Folder */}
-                  {/* <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-hover hover:text-foreground transition-colors text-left">
+        {/* Folder */}
+        {/* <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-hover hover:text-foreground transition-colors text-left">
                     <Folder className="h-4 w-4 text-muted-foreground" />
                     <span>Folder</span>
                   </button> */}
-                {/* </div>
+        {/* </div>
               </PopoverContent>
             </Popover>
           </div>
@@ -369,7 +387,9 @@ export const AppSidebar = () => {
               {!fetchLoading && boards.length > 0 ? (
                 boards.map((board) => (
                   <SidebarMenuItem key={board.id} className="p-0">
-                    <div className={`flex items-center gap-1 w-full group px-2 py-1.5 rounded-md ${boardId === board.id ? "bg-accent" : "hover:bg-hover"}`}>
+                    <div
+                      className={`flex items-center gap-1 w-full group px-2 py-1.5 rounded-md ${boardId === board.id ? "bg-accent" : "hover:bg-hover"}`}
+                    >
                       <button
                         onClick={() => navigate(`/board/${board.id}`)}
                         className="flex items-center gap-2 flex-1 text-left min-w-0"
