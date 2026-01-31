@@ -111,7 +111,8 @@ api.interceptors.response.use(
       debugLog(`[ERROR] Step 6: Status is 403 Forbidden`);
 
       if (
-        errorData?.code === "jwt_auth_invalid_token"
+        errorData?.code === "jwt_auth_invalid_token" ||
+        errorData?.code === "jwt_auth_bad_config"
       ) {
         debugLog(`[ERROR] Step 7: ✅ Confirmed - Token is expired`);
 
