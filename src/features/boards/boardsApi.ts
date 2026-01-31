@@ -156,4 +156,34 @@ export const boardsApi = {
       throw error;
     }
   },
+
+  /**
+   * Assign board role to a user
+   */
+  assignBoardRole: async (payload: {
+    user_id: number;
+    board_id: number;
+    organization_id: number;
+    role_id: number;
+  }): Promise<{
+    code: number;
+    status: string;
+    message: string;
+    data: {
+      user_id: number;
+      board_id: number;
+      organization_id: number;
+      role_id: number;
+      role_label: string;
+      action: string;
+    };
+  }> => {
+    try {
+      const response = await api.post("/board-roles/assign", payload);
+      return response.data;
+    } catch (error) {
+      console.error("Assign board role API error:", error);
+      throw error;
+    }
+  },
 };

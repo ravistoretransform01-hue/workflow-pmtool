@@ -13,7 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui
 import { useToast } from "@/hooks/use-toast";
 import { boardsApi } from "@/features/boards/boardsApi";
 import { BoardInviteDialog } from "@/shared/components/BoardInviteDialog";
-import { getMembers } from "@/features/cms/cmsStorage";
+import { getMembers, getRoles } from "@/features/cms/cmsStorage";
+import type { Role } from "@/features/cms/types";
+import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
 
 const colorOptions = [
   { name: "Blue", value: "hsl(221, 83%, 53%)" },
@@ -50,12 +52,18 @@ export default function BoardDashboardPage() {
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Mock Members Data (Replace with real API)
-  const [members, setMembers] = useState<Array<{ id: string; name: string; email: string; role: string; avatarColor?: string }>>([]);
+  const [members, setMembers] = useState<Array<{ id: string; name: string; email: string; role: string; role_id?: string; avatarColor?: string }>>([]);
+  
+  // CMS Roles state
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [roleChangingUserId, setRoleChangingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (boardId) {
       loadBoardData(Number(boardId));
       loadMembers(Number(boardId));
+      loadRoles(Number(boardId));
     }
   }, [boardId]);
 
@@ -95,15 +103,15 @@ export default function BoardDashboardPage() {
 
   const loadMembers = async (id: number) => {
     try {
-      // Get organization_id and user_id from localStorage
-      const organizationId = localStorage.getItem('organization_id') || '2';
-      const userId = localStorage.getItem('user_id') || '1';
+      // Get organization_id and user_id using utility functions
+      const organizationId = getOrganizationId() || 2;
+      const userId = getCurrentUserId() || 1;
 
       // Fetch members from CMS API
       const cmsMembers = await getMembers({
-        organization_id: parseInt(organizationId),
+        organization_id: organizationId,
         board_id: id,
-        user_id: parseInt(userId)
+        user_id: userId
       });
 
       // Transform CMS members to dashboard member format
@@ -111,7 +119,8 @@ export default function BoardDashboardPage() {
         id: member.user_id,
         name: member.name,
         email: member.email || `${member.username || 'user'}@example.com`,
-        role: "Project Member", // Default role, can be enhanced later
+        role: member.board_role_label || "Project Member",
+        role_id: member.board_role_id ? String(member.board_role_id) : undefined,
         avatarColor: `hsl(${parseInt(member.user_id) * 137 % 360}, 70%, 50%)` // Generate color from user_id
       }));
 
@@ -121,6 +130,70 @@ export default function BoardDashboardPage() {
       // Don't show error toast, just log it
     }
   }
+
+  const loadRoles = async (id: number) => {
+    try {
+      setLoadingRoles(true);
+      const organizationId = getOrganizationId() || 2;
+      const userId = getCurrentUserId();
+
+      const rolesData = await getRoles({
+        organization_id: organizationId,
+        board_id: id,
+        user_id: userId,
+      });
+
+      setRoles(rolesData);
+    } catch (error) {
+      console.error("Failed to fetch roles:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load roles",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
+
+  const handleRoleChange = async (userId: string, newRoleId: string) => {
+    if (!boardId) return;
+
+    const organizationId = getOrganizationId() || 2;
+    
+    setRoleChangingUserId(userId);
+    try {
+      const response = await boardsApi.assignBoardRole({
+        user_id: Number(userId),
+        board_id: Number(boardId),
+        organization_id: organizationId,
+        role_id: Number(newRoleId),
+      });
+
+      // Update local state with new role_label from API response
+      setMembers(prevMembers =>
+        prevMembers.map(member =>
+          member.id === userId
+            ? { ...member, role: response.data.role_label, role_id: String(response.data.role_id) }
+            : member
+        )
+      );
+
+      toast({
+        title: "Success",
+        description: `Role updated to ${response.data.role_label}`,
+      });
+    } catch (error) {
+      console.error("Failed to update role:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update user role",
+        variant: "destructive",
+      });
+    } finally {
+      setRoleChangingUserId(null);
+    }
+  };
 
   // Effect handles
   useEffect(() => {
@@ -337,16 +410,20 @@ export default function BoardDashboardPage() {
                       {member.email}
                     </div>
 
-                    <Select defaultValue={member.role}>
+                    <Select 
+                      value={member.role_id || member.role}
+                      onValueChange={(value) => handleRoleChange(member.id, value)}
+                      disabled={loadingRoles || roles.length === 0 || roleChangingUserId === member.id}
+                    >
                       <SelectTrigger className="w-[180px] h-8">
-                        <SelectValue />
+                        <SelectValue placeholder={roleChangingUserId === member.id ? "Updating..." : "Select role"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Project Owner">Project Owner</SelectItem>
-                        <SelectItem value="Project Manager">Project Manager</SelectItem>
-                        <SelectItem value="Project Admin">Project Admin</SelectItem>
-                        <SelectItem value="Project Developer">Project Developer</SelectItem>
-                        <SelectItem value="Project Viewer">Project Viewer</SelectItem>
+                        {roles.map((role) => (
+                          <SelectItem key={role.id} value={role.id}>
+                            {role.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
