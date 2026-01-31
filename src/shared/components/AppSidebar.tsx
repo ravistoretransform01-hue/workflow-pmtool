@@ -211,10 +211,14 @@ export const AppSidebar = () => {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  className="bg-red-500/40 hover:bg-red-500/30"
+                  className="  hover:bg-red-500/30"
                   onClick={() =>
                     window.open(
                       "https://www.loom.com/share/0355f68386c544959b6247d9c7750e9e",
@@ -224,6 +228,22 @@ export const AppSidebar = () => {
                 >
                   <ExternalLink className="h-4 w-4" />
                   <span className="italic">Working Model</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  className="  hover:bg-red-500/30"
+                  onClick={() =>
+                    window.open(
+                      "https://www.canva.com/design/DAG_9fIOItw/idRFofw2acd1HKW7AsL1eQ/view",
+                      "_blank",
+                    )
+                  }
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="italic">Tool Guide</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -426,7 +446,7 @@ export const AppSidebar = () => {
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
-                          className="hidden"
+                            className="hidden"
                             onClick={() =>
                               handleDuplicateBoard(board.id, board.name)
                             }

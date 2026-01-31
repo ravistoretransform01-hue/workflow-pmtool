@@ -534,6 +534,38 @@ export function WorkloadBoard({
   const [editingLabelColorPickerOpen, setEditingLabelColorPickerOpen] =
     useState(false);
 
+  // Helper function to update a task in groups state (ensures React detects changes)
+  const updateTaskInGroups = (taskId: string, updates: Partial<Task>) => {
+    setGroups(prevGroups => {
+      // Create a completely new array to ensure React detects the change
+      const newGroups = prevGroups.map(group => {
+        const newTasks = group.tasks.map(task => {
+          if (task.id === taskId) {
+            return { ...task, ...updates };
+          }
+          // Check subitems
+          if (task.subitems?.length) {
+            const updatedSubitems = task.subitems.map(subitem =>
+              subitem.id === taskId ? { ...subitem, ...updates } : subitem
+            );
+            if (updatedSubitems.some((s, i) => s !== task.subitems![i])) {
+              return { ...task, subitems: updatedSubitems };
+            }
+          }
+          return task;
+        });
+        
+        // Only create new group object if tasks changed
+        if (newTasks.some((t, i) => t !== group.tasks[i])) {
+          return { ...group, tasks: newTasks };
+        }
+        return group;
+      });
+      
+      return newGroups;
+    });
+  };
+
   // Fetch groups from API on component mount
   useEffect(() => {
     // Prevent duplicate fetches for the same board (helps with React StrictMode double mount in dev)
@@ -824,11 +856,15 @@ export function WorkloadBoard({
   }, [boardName]);
 
   // Update timer trigger every second when a timer is running to force progress bar recalculation
+  // Also force a re-render to update group progress bars
+  const [, forceUpdate] = useState({});
   useEffect(() => {
     if (!timerState.activeTimerId) return;
 
     const interval = setInterval(() => {
       timerState.triggerTimerUpdate();
+      // Force component re-render to update group progress calculations
+      forceUpdate({});
     }, 1000);
 
     return () => clearInterval(interval);
@@ -2754,6 +2790,9 @@ export function WorkloadBoard({
         activeTimerId: timerState.activeTimerId,
         onTimerStart: handleTimerStart,
         onTimerConflict: handleTimerConflict,
+        onTimeUpdate: (taskId: string, seconds: number) => {
+          updateTaskInGroups(taskId, { tracked_time_seconds: seconds });
+        },
       });
 
       // Apply saved column order
@@ -2949,6 +2988,9 @@ export function WorkloadBoard({
       activeTimerId: timerState.activeTimerId,
       onTimerStart: handleTimerStart,
       onTimerConflict: handleTimerConflict,
+      onTimeUpdate: (taskId: string, seconds: number) => {
+        updateTaskInGroups(taskId, { tracked_time_seconds: seconds });
+      },
     });
 
     // Apply saved column order if available
@@ -3032,6 +3074,9 @@ export function WorkloadBoard({
       activeTimerId: timerState.activeTimerId,
       onTimerStart: handleTimerStart,
       onTimerConflict: handleTimerConflict,
+      onTimeUpdate: (taskId: string, seconds: number) => {
+        updateTaskInGroups(taskId, { tracked_time_seconds: seconds });
+      },
     });
 
     // Apply saved column order

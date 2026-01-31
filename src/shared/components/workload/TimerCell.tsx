@@ -18,6 +18,7 @@ interface TimerCellProps {
   activeTimerId: string | null;
   onTimerStart: (taskId: string | null) => void;
   onTimerConflict?: (taskId: string) => void;
+  onTimeUpdate?: (taskId: string, seconds: number) => void;
   hasAssignee?: boolean;
   estimatedHours?: string | number;
   taskName?: string;
@@ -31,6 +32,7 @@ export function TimerCell({
   activeTimerId,
   onTimerStart,
   onTimerConflict,
+  onTimeUpdate,
   hasAssignee = false,
   estimatedHours = "-",
   taskName = "Task",
@@ -94,11 +96,16 @@ export function TimerCell({
     let interval: ReturnType<typeof setInterval>;
     if (isRunning) {
       interval = setInterval(() => {
-        setSeconds((prev) => prev + 1);
+        setSeconds((prev) => {
+          const newSeconds = prev + 1;
+          // Notify parent component of time update for real-time progress bar updates
+          onTimeUpdate?.(taskId, newSeconds);
+          return newSeconds;
+        });
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isRunning]);
+  }, [isRunning, taskId, onTimeUpdate]);
 
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
