@@ -29,14 +29,14 @@ export function PersonPopover({
   onPersonChange,
 }: PersonPopoverProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [localSelected, setLocalSelected] = useState<string | null>(
-    selectedMemberIds?.[0] || null
+  const [localSelected, setLocalSelected] = useState<string[]>(
+    selectedMemberIds || []
   );
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync localSelected with selectedMemberIds when it changes
   useEffect(() => {
-    setLocalSelected(selectedMemberIds?.[0] || null);
+    setLocalSelected(selectedMemberIds || []);
   }, [selectedMemberIds]);
 
   const filteredMembers = members.filter((member) =>
@@ -44,23 +44,28 @@ export function PersonPopover({
   );
 
   const handleMemberSelect = async (memberId: string) => {
-    setLocalSelected(memberId);
+    // Toggle member selection
+    const newSelected = localSelected.includes(memberId)
+      ? localSelected.filter(id => id !== memberId)
+      : [...localSelected, memberId];
+    
+    setLocalSelected(newSelected);
     setIsSaving(true);
     try {
-      await onPersonChange?.(task.id, [memberId]);
+      await onPersonChange?.(task.id, newSelected);
       // Don't show toast here - let the parent handler show it
     } catch (error) {
       console.error("Failed to update assignee:", error);
       toast.error("Failed to update assignee");
       // Revert local state on error
-      setLocalSelected(selectedMemberIds?.[0] || null);
+      setLocalSelected(selectedMemberIds || []);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleClearAssignee = async () => {
-    setLocalSelected(null);
+    setLocalSelected([]);
     setIsSaving(true);
     try {
       await onPersonChange?.(task.id, []);
@@ -69,7 +74,7 @@ export function PersonPopover({
       console.error("Failed to clear assignee:", error);
       toast.error("Failed to clear assignee");
       // Revert local state on error
-      setLocalSelected(selectedMemberIds?.[0] || null);
+      setLocalSelected(selectedMemberIds || []);
     } finally {
       setIsSaving(false);
     }
@@ -80,7 +85,7 @@ export function PersonPopover({
       open={openPopoverId === popoverId}
       onOpenChange={(open) => {
         if (open) {
-          setLocalSelected(selectedMemberIds?.[0] || null);
+          setLocalSelected(selectedMemberIds || []);
         }
         setOpenPopoverId?.(open ? popoverId : null);
       }}
@@ -90,13 +95,13 @@ export function PersonPopover({
           className="w-full flex justify-center hover:opacity-80 transition-opacity cursor-pointer"
           onClick={(e) => e.stopPropagation()}
         >
-          {!localSelected ? (
+          {localSelected.length === 0 ? (
             <span className="text-muted-foreground text-xs">+ Add</span>
           ) : (
-            <div className="flex justify-center">
-              {(() => {
+            <div className="flex justify-center -space-x-2">
+              {localSelected.slice(0, 3).map((memberId) => {
                 const member = members.find(
-                  (m) => String(m.user_id) === String(localSelected)
+                  (m) => String(m.user_id) === String(memberId)
                 );
                 if (!member) return null;
                 const name = (member?.name ?? "").trim();
@@ -111,7 +116,7 @@ export function PersonPopover({
                   name || String(member?.user_id || "user")
                 );
                 return (
-                  <Avatar className="h-8 w-8 border-2 border-background">
+                  <Avatar key={memberId} className="h-8 w-8 border-2 border-background">
                     <AvatarFallback
                       style={{ background: bgColor, color: "white" }}
                       className="text-[10px] font-semibold"
@@ -120,7 +125,14 @@ export function PersonPopover({
                     </AvatarFallback>
                   </Avatar>
                 );
-              })()}
+              })}
+              {localSelected.length > 3 && (
+                <div className="h-8 w-8 rounded-full bg-muted border-2 border-background flex items-center justify-center">
+                  <span className="text-[10px] font-semibold text-muted-foreground">
+                    +{localSelected.length - 3}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </button>
@@ -146,7 +158,7 @@ export function PersonPopover({
               onClick={handleClearAssignee}
               disabled={isSaving}
               className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed ${
-                localSelected === null
+                localSelected.length === 0
                   ? "bg-primary text-primary-foreground shadow-md"
                   : "bg-secondary/50 text-foreground hover:bg-secondary"
               }`}
@@ -182,29 +194,46 @@ export function PersonPopover({
                   name || String(member?.user_id || "user")
                 );
 
-                const isSelected = localSelected === String(member.user_id);
+                const isSelected = localSelected.includes(String(member.user_id));
 
                 return (
                   <button
                     key={member.user_id}
                     onClick={() => handleMemberSelect(String(member.user_id))}
                     disabled={isSaving}
-                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                       isSelected
                         ? "bg-primary text-primary-foreground shadow-md"
                         : "bg-secondary/50 text-foreground hover:bg-secondary"
                     }`}
                   >
-                    <div className="flex items-center justify-left gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback
-                          style={{ background: bgColor, color: "white" }}
-                          className="text-[10px] font-semibold"
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback
+                            style={{ background: bgColor, color: "white" }}
+                            className="text-[10px] font-semibold"
+                          >
+                            {initials || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate">{member.name}</span>
+                      </div>
+                      {isSelected && (
+                        <svg
+                          className="h-4 w-4 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          {initials || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="truncate">{member.name}</span>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
                     </div>
                   </button>
                 );
