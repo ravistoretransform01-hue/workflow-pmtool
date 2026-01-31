@@ -61,7 +61,7 @@ export const AppSidebar = () => {
   const [addBoardOpen, setAddBoardOpen] = useState(false);
   const [createDocOpen, setCreateDocOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [, setNewBoardName] = useState("");
+  // const [, setNewBoardName] = useState("");
   const [newDocName, setNewDocName] = useState("");
   const [boardSearchQuery, setBoardSearchQuery] = useState("");
   const [boardSearchOpen, setBoardSearchOpen] = useState(false);
@@ -88,18 +88,18 @@ export const AppSidebar = () => {
     b.name.toLowerCase().includes(boardSearchQuery.toLowerCase()),
   );
 
-  const handleAddBoard = () => {
-    // if (!newBoardName.trim()) {
-    //   toast.error("Board name is required");
-    //   return;
-    // }
-    // toast.success(`Board "${newBoardName}" created`);
-    setNewBoardName("");
-    setAddBoardOpen(false);
-    setAddMenuOpen(false);
-    // Refresh boards list
-    fetchBoards();
-  };
+  // const handleAddBoard = () => {
+  //   // if (!newBoardName.trim()) {
+  //   //   toast.error("Board name is required");
+  //   //   return;
+  //   // }
+  //   // toast.success(`Board "${newBoardName}" created`);
+  //   setNewBoardName("");
+  //   setAddBoardOpen(false);
+  //   setAddMenuOpen(false);
+  //   // Refresh boards list
+  //   fetchBoards();
+  // };
 
   const handleCreateDoc = () => {
     if (!newDocName.trim()) {
@@ -470,7 +470,6 @@ export const AppSidebar = () => {
           //   setSelectedTemplateId(null); // Reset template when dialog closes
           // }
         }}
-        onAddBoard={handleAddBoard}
         onBoardCreated={fetchBoards}
         // templateId={selectedTemplateId}
         organizationId={getOrganizationId() || -1}
