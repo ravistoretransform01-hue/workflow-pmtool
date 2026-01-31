@@ -14,6 +14,7 @@ import MyWork from "@/pages/MyWork";
 import MyTeam from "@/pages/MyTeam";
 import AllItems from "@/pages/AllItems";
 import MyHabits from "@/pages/MyHabits";
+import MembersPage from "@/pages/MembersPage";
 import DynamicWorkspace from "@/pages/DynamicWorkspace";
 import DynamicBoard from "@/pages/DynamicBoard";
 import BoardDashboardPage from "@/pages/BoardDashboardPage";
@@ -41,6 +42,7 @@ const App = () => (
                 <Route path="my-team" element={<MyTeam />} />
                 <Route path="all-items" element={<AllItems />} />
                 <Route path="my-habits" element={<MyHabits />} />
+                <Route path="members" element={<MembersPage />} />
 
                 <Route path="workspace/:workspaceId" element={<DynamicWorkspace />} />
                 <Route path="board/:boardId" element={<DynamicBoard />} />
