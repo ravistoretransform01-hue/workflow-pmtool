@@ -170,6 +170,16 @@ export default function BoardDashboardPage() {
         role_id: Number(newRoleId),
       });
 
+      // Check if the API returned a failed status
+      if (response.status === "failed") {
+        toast({
+          title: "Permission Denied",
+          description: response.message || "You don't have permission to assign roles",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Update local state with new role_label from API response
       setMembers(prevMembers =>
         prevMembers.map(member =>
@@ -183,11 +193,17 @@ export default function BoardDashboardPage() {
         title: "Success",
         description: `Role updated to ${response.data.role_label}`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update role:", error);
+      
+      // Handle error response from API
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          "Failed to update user role";
+      
       toast({
         title: "Error",
-        description: "Failed to update user role",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
