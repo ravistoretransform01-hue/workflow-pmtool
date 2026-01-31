@@ -407,6 +407,26 @@ export function updateStatusInCache(boardId: number, updatedStatus: Status): voi
 }
 
 /**
+ * Delete a status from localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param statusId - ID of the status to delete
+ */
+export function deleteStatusFromCache(boardId: number, statusId: string): void {
+  try {
+    let cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      // Filter out the deleted status
+      cachedData.statuses = cachedData.statuses.filter((s) => String(s.id) !== statusId);
+      cachedData.timestamp = Date.now(); // Update timestamp
+      saveToLocalStorage(boardId, cachedData);
+      debugLog(`Deleted status ${statusId} from cache for board ${boardId}`);
+    }
+  } catch (error) {
+    console.error("Error deleting status from cache:", error);
+  }
+}
+
+/**
  * Update an existing priority in localStorage cache
  * @param boardId - Board ID to update cache for
  * @param updatedPriority - Updated priority object

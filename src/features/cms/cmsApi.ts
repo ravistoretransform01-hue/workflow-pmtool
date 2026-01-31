@@ -165,6 +165,25 @@ export const cmsApi = {
   },
 
   /**
+   * Delete an existing status
+   */
+  deleteStatus: async (statusId: string | number): Promise<any> => {
+    try {
+      const response = await axios.delete<any>(
+        CMS_ENDPOINTS.UPDATE_STATUS,
+        {
+          data: { id: Number(statusId) }
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error("Failed to delete status:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Create a new priority
    */
   createPriority: async (payload: {
