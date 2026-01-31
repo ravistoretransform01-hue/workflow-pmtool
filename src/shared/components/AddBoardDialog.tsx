@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Search, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/app/store";
+import { organizationApi, type OrganizationMember } from "@/features/organization/organizationApi";
 // import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -43,7 +44,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
-import { useTestUser, testUserEmails } from "@/contexts/TestUserContext";
 import { BOARD_PERMISSION_CATEGORIES } from "@/lib/permissions";
 import { toast } from "@/hooks/use-toast";
 import { useBoards } from "@/hooks/useBoards";
@@ -65,7 +65,7 @@ interface AddBoardDialogProps {
 }
 
 interface BoardMember {
-  test_user_id: string;
+  user_id: string;
   role: string;
 }
 
@@ -88,20 +88,46 @@ export function AddBoardDialog({
   organizationId,
 }: AddBoardDialogProps) {
     const navigate = useNavigate();
-  const { testUsers, currentUser: testCurrentUser } = useTestUser();
   const { createBoard, loading } = useBoards();
   
   // Get actual logged-in user from Redux
   const currentUser = useSelector((state: RootState) => state.auth.user);
   
   const [boardName, setBoardName] = useState("");
-
   const [iconColor, setIconColor] = useState(PRESET_COLORS[0]);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [members, setMembers] = useState<BoardMember[]>([]);
   const [activeTab, setActiveTab] = useState("user-management");
   const [selectedRole, setSelectedRole] = useState("admin");
+  
+  // Organization members state
+  const [organizationMembers, setOrganizationMembers] = useState<OrganizationMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+
+  // Fetch organization members when dialog opens
+  useEffect(() => {
+    const fetchOrganizationMembers = async () => {
+      if (!open || !organizationId) return;
+      
+      setLoadingMembers(true);
+      try {
+        const membersData = await organizationApi.getOrganizationMembers(organizationId);
+        setOrganizationMembers(membersData);
+      } catch (error) {
+        console.error("Failed to fetch organization members:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load organization members",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+
+    fetchOrganizationMembers();
+  }, [open, organizationId]);
   const [rolePermissions, setRolePermissions] = useState(() => {
     const initialPermissions: Record<string, Record<string, boolean>> = {};
 
@@ -466,35 +492,37 @@ export function AddBoardDialog({
   };
 
   // Filter out current user (board creator) and already added members
-  const availableUsers = testUsers.filter(
-    (user) =>
-      user.id !== testCurrentUser.id &&
-      !members.some((m) => m.test_user_id === user.id)
+  const availableUsers = organizationMembers.filter(
+    (member) =>
+      member.user_id !== String(currentUser?.user_id) &&
+      !members.some((m) => m.user_id === member.user_id)
   );
 
-  const filteredAvailableUsers = availableUsers.filter((user) => {
-    const email = testUserEmails[user.id] || "";
+  const filteredAvailableUsers = availableUsers.filter((member) => {
+    const searchLower = searchQuery.toLowerCase();
     return (
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      email.toLowerCase().includes(searchQuery.toLowerCase())
+      member.display_name.toLowerCase().includes(searchLower) ||
+      member.user_email.toLowerCase().includes(searchLower) ||
+      member.first_name.toLowerCase().includes(searchLower) ||
+      member.last_name.toLowerCase().includes(searchLower)
     );
   });
 
   const handleAddMember = (userId: string) => {
-    setMembers([...members, { test_user_id: userId, role: "member" }]);
+    setMembers([...members, { user_id: userId, role: "member" }]);
     setSearchQuery("");
   };
 
   const handleRoleChange = (userId: string, newRole: string) => {
     setMembers(
       members.map((m) =>
-        m.test_user_id === userId ? { ...m, role: newRole } : m
+        m.user_id === userId ? { ...m, role: newRole } : m
       )
     );
   };
 
   const handleRemoveMember = (userId: string) => {
-    setMembers(members.filter((m) => m.test_user_id !== userId));
+    setMembers(members.filter((m) => m.user_id !== userId));
   };
 
   const handleSubmit = async () => {
@@ -545,7 +573,7 @@ export function AddBoardDialog({
         
         // Call the parent callback with board details
         const membersWithCreator = [
-          { test_user_id: testCurrentUser.id, role: "owner" },
+          { user_id: String(currentUser?.user_id), role: "owner" },
           ...members,
         ];
         onAddBoard?.(boardName, iconColor, membersWithCreator, templateId);
@@ -717,30 +745,35 @@ export function AddBoardDialog({
                   {/* Search Results Dropdown */}
                   {searchQuery && filteredAvailableUsers.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-[#1e293b] border border-[#334155] rounded-md shadow-lg max-h-48 overflow-y-auto">
-                      {filteredAvailableUsers.map((user) => (
+                      {filteredAvailableUsers.map((member) => (
                         <button
-                          key={user.id}
-                          onClick={() => handleAddMember(user.id)}
+                          key={member.user_id}
+                          onClick={() => handleAddMember(member.user_id)}
                           className="w-full px-4 py-2 text-left hover:bg-[#334155] flex items-center gap-3"
                         >
                           <Avatar className="h-8 w-8">
                             <AvatarFallback
-                              style={{ backgroundColor: user.avatarColor }}
+                              style={{ backgroundColor: getAvatarColor(Number(member.user_id)) }}
                             >
-                              {user.name.charAt(0)}
+                              {getUserInitials(member.display_name)}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex flex-col">
-                            <span className="text-white">{user.name}</span>
+                            <span className="text-white">{member.display_name}</span>
                             <span className="text-xs text-muted-foreground">
-                              {testUserEmails[user.id] ||
-                                `${user.name
-                                  .toLowerCase()
-                                  .replace(" ", "")}@gmail.com`}
+                              {member.user_email}
                             </span>
                           </div>
                         </button>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Loading state */}
+                  {loadingMembers && (
+                    <div className="absolute z-10 w-full mt-1 bg-[#1e293b] border border-[#334155] rounded-md shadow-lg p-4 text-center">
+                      <Loader2 className="h-5 w-5 animate-spin mx-auto text-white" />
+                      <p className="text-sm text-muted-foreground mt-2">Loading members...</p>
                     </div>
                   )}
                 </div>
@@ -782,40 +815,37 @@ export function AddBoardDialog({
                       Additional members: {members.length}
                     </p>
                     {members.map((member) => {
-                      const user = testUsers.find(
-                        (u) => u.id === member.test_user_id
+                      const memberData = organizationMembers.find(
+                        (m) => m.user_id === member.user_id
                       );
-                      if (!user) return null;
+                      if (!memberData) return null;
 
                       return (
                         <div
-                          key={member.test_user_id}
+                          key={member.user_id}
                           className="flex items-center gap-3 p-3 bg-[#0f172a] rounded-lg"
                         >
                           <Avatar className="h-10 w-10">
                             <AvatarFallback
-                              style={{ backgroundColor: user.avatarColor }}
+                              style={{ backgroundColor: getAvatarColor(Number(memberData.user_id)) }}
                             >
-                              {user.name.charAt(0)}
+                              {getUserInitials(memberData.display_name)}
                             </AvatarFallback>
                           </Avatar>
 
                           <div className="flex-1">
                             <div className="font-medium text-white">
-                              {user.name}
+                              {memberData.display_name}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {testUserEmails[member.test_user_id] ||
-                                `${user.name
-                                  .toLowerCase()
-                                  .replace(" ", "")}@gmail.com`}
+                              {memberData.user_email}
                             </div>
                           </div>
 
                           <Select
                             value={member.role}
                             onValueChange={(value) =>
-                              handleRoleChange(member.test_user_id, value)
+                              handleRoleChange(member.user_id, value)
                             }
                           >
                             <SelectTrigger className="w-32 bg-[#1e293b] border-[#334155]">
@@ -844,7 +874,7 @@ export function AddBoardDialog({
                             variant="ghost"
                             size="icon"
                             onClick={() =>
-                              handleRemoveMember(member.test_user_id)
+                              handleRemoveMember(member.user_id)
                             }
                             className="h-8 w-8 text-muted-foreground hover:text-white"
                           >
