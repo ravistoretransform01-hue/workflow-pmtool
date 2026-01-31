@@ -94,7 +94,7 @@ export function AddBoardDialog({
   // Get actual logged-in user from Redux
   const currentUser = useSelector((state: RootState) => state.auth.user);
   
-  const [boardName, setBoardName] = useState("New Board");
+  const [boardName, setBoardName] = useState("");
 
   const [iconColor, setIconColor] = useState(PRESET_COLORS[0]);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
@@ -666,6 +666,7 @@ export function AddBoardDialog({
             <Input
               id="board-name"
               value={boardName}
+              placeholder="New Board"
               onChange={(e) => setBoardName(e.target.value)}
               className="bg-[#0f172a] border-[#3b82f6] text-white placeholder:text-gray-400 focus-visible:ring-[#3b82f6]"
             />
