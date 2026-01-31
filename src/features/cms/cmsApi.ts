@@ -229,6 +229,25 @@ export const cmsApi = {
   },
 
   /**
+   * Delete an existing priority
+   */
+  deletePriority: async (priorityId: string | number): Promise<any> => {
+    try {
+      const response = await axios.delete<any>(
+        CMS_ENDPOINTS.UPDATE_PRIORITY,
+        {
+          data: { id: Number(priorityId) }
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error("Failed to delete priority:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Save user group columns configuration
    */
   saveUserGroupColumns: async (payload: {

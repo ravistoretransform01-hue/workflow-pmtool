@@ -449,6 +449,26 @@ export function updatePriorityInCache(boardId: number, updatedPriority: Priority
   }
 }
 
+/**
+ * Delete a priority from localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param priorityId - ID of the priority to delete
+ */
+export function deletePriorityFromCache(boardId: number, priorityId: string): void {
+  try {
+    let cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      // Filter out the deleted priority
+      cachedData.priorities = cachedData.priorities.filter((p) => String(p.id) !== priorityId);
+      cachedData.timestamp = Date.now(); // Update timestamp
+      saveToLocalStorage(boardId, cachedData);
+      debugLog(`Deleted priority ${priorityId} from cache for board ${boardId}`);
+    }
+  } catch (error) {
+    console.error("Error deleting priority from cache:", error);
+  }
+}
+
 
 /**
  * Get user columns configuration from localStorage

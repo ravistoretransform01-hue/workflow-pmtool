@@ -5,6 +5,7 @@ import { cmsApi } from "@/features/cms/cmsApi";
 import {
   addPriorityToCache,
   updatePriorityInCache,
+  deletePriorityFromCache,
 } from "@/features/cms/cmsStorage";
 import { getOrganizationId } from "@/lib/utils";
 import { toast } from "sonner";
@@ -203,6 +204,36 @@ export function PriorityPopoverCell({
     }
   };
 
+  /* ---------------------------------------------
+   * Delete priority
+   * ------------------------------------------- */
+  const handleDeletePriority = async (priorityId: string) => {
+    try {
+      if (!boardId) {
+        toast.error("Board ID is required");
+        return;
+      }
+
+      await cmsApi.deletePriority(priorityId);
+      deletePriorityFromCache(Number(boardId), priorityId);
+
+      const updatedPriorities = editablePriorities.filter(
+        (p) => p.id !== priorityId
+      );
+      setEditablePriorities(updatedPriorities);
+
+      const updatedDisplay = displayPriorities.filter(
+        (p) => String(p.id) !== priorityId
+      );
+      setDisplayPriorities(updatedDisplay);
+      onPrioritiesUpdated?.(updatedDisplay);
+
+      toast.success("Priority deleted");
+    } catch {
+      toast.error("Failed to delete priority");
+    }
+  };
+
   return (
     <Popover
       open={openPopoverId === popoverId}
@@ -213,6 +244,7 @@ export function PriorityPopoverCell({
         }
         setOpenPopoverId?.(open ? popoverId : null);
       }}
+      modal={false}
     >
       <PopoverTrigger asChild>
         <Button
@@ -227,7 +259,7 @@ export function PriorityPopoverCell({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[500px] p-3">
+      <PopoverContent className="w-[500px] p-3 z-[200]" onWheel={(e) => e.stopPropagation()}>
         {!isEditMode ? (
           <>
             {/* Header */}
@@ -323,7 +355,10 @@ export function PriorityPopoverCell({
                       }}
                       className="h-8 text-sm flex-1"
                     />
-                    <Trash className="h-4 w-4 text-destructive cursor-pointer" />
+                    <Trash 
+                      className="h-4 w-4 text-destructive cursor-pointer" 
+                      onClick={() => handleDeletePriority(p.id)}
+                    />
                   </div>
                 ))}
               </div>
