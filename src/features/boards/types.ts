@@ -1,3 +1,8 @@
+export interface BoardMemberAssignment {
+  user_id: number;
+  role_id: number;
+}
+
 export interface CreateBoardRequest {
   name: string;
   organization_id: number;
@@ -5,6 +10,7 @@ export interface CreateBoardRequest {
   icon_type: string;
   icon_value: string;
   icon_color: string;
+  members?: BoardMemberAssignment[];
 }
 
 export interface BoardCreator {

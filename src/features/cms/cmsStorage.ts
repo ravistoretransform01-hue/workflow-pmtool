@@ -1,6 +1,6 @@
 import { debugLog } from "@/lib/debugLog";
 import { cmsApi } from "./cmsApi";
-import type { CMSRequest, CMSData, Status, Priority, Member, Label, Tag } from "./types";
+import type { CMSRequest, CMSData, Status, Priority, Member, Label, Tag, Role } from "./types";
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
@@ -32,6 +32,7 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
 
     // Store in localStorage with board-specific key
     const cmsData: CMSData = {
+      roles: apiResponse.roles || [],
       statuses: apiResponse.statuses,
       priorities: apiResponse.priorities,
       members: apiResponse.members || [],
@@ -64,6 +65,16 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
     // If no cache available, throw error
     throw new Error("Failed to fetch CMS data and no cache available");
   }
+}
+
+/**
+ * Get roles from localStorage or fetch if not available
+ * @param payload - Request payload
+ * @returns Array of Role objects
+ */
+export async function getRoles(payload: CMSRequest): Promise<Role[]> {
+  const cmsData = await getCMSData(payload);
+  return cmsData.roles;
 }
 
 /**
@@ -114,6 +125,20 @@ export async function getLabels(payload: CMSRequest): Promise<Label[]> {
 export async function getTags(payload: CMSRequest): Promise<Tag[]> {
   const cmsData = await getCMSData(payload);
   return cmsData.tags;
+}
+
+/**
+ * Get a specific role by ID
+ * @param payload - Request payload
+ * @param roleId - Role ID to find
+ * @returns Role object or undefined
+ */
+export async function getRoleById(
+  payload: CMSRequest,
+  roleId: string
+): Promise<Role | undefined> {
+  const roles = await getRoles(payload);
+  return roles.find((r) => r.id === roleId);
 }
 
 /**
@@ -276,6 +301,7 @@ export function addStatusToCache(boardId: number, newStatus: Status): void {
     } else {
       // Cache doesn't exist, create a new one with just this status
       const newCacheData: CMSData = {
+        roles: [],
         statuses: [newStatus],
         priorities: [],
         members: [],
@@ -308,6 +334,7 @@ export function addPriorityToCache(boardId: number, newPriority: Priority): void
     } else {
       // Cache doesn't exist, create a new one with just this priority
       const newCacheData: CMSData = {
+        roles: [],
         statuses: [],
         priorities: [newPriority],
         members: [],
@@ -340,6 +367,7 @@ export function addTagToCache(boardId: number, newTag: Tag): void {
     } else {
       // Cache doesn't exist, create a new one with just this tag
       const newCacheData: CMSData = {
+        roles: [],
         statuses: [],
         priorities: [],
         members: [],

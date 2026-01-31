@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/app/store";
 import { organizationApi, type OrganizationMember } from "@/features/organization/organizationApi";
+import { getRoles } from "@/features/cms/cmsStorage";
+import type { Role } from "@/features/cms/types";
+import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
 // import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -66,7 +69,7 @@ interface AddBoardDialogProps {
 
 interface BoardMember {
   user_id: string;
-  role: string;
+  role_id: string;
 }
 
 const PRESET_COLORS = [
@@ -104,6 +107,10 @@ export function AddBoardDialog({
   // Organization members state
   const [organizationMembers, setOrganizationMembers] = useState<OrganizationMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  
+  // CMS Roles state
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
 
   // Fetch organization members when dialog opens
   useEffect(() => {
@@ -127,6 +134,35 @@ export function AddBoardDialog({
     };
 
     fetchOrganizationMembers();
+  }, [open, organizationId]);
+
+  // Fetch CMS roles when dialog opens
+  useEffect(() => {
+    const fetchRoles = async () => {
+      if (!open || !organizationId) return;
+      
+      setLoadingRoles(true);
+      try {
+        const userId = getCurrentUserId();
+        const rolesData = await getRoles({
+          organization_id: organizationId,
+          board_id: 0, // Use 0 for organization-level roles
+          user_id: userId,
+        });
+        setRoles(rolesData);
+      } catch (error) {
+        console.error("Failed to fetch roles:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load roles",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+
+    fetchRoles();
   }, [open, organizationId]);
   const [rolePermissions, setRolePermissions] = useState(() => {
     const initialPermissions: Record<string, Record<string, boolean>> = {};
@@ -509,14 +545,16 @@ export function AddBoardDialog({
   });
 
   const handleAddMember = (userId: string) => {
-    setMembers([...members, { user_id: userId, role: "member" }]);
+    // Default to first role if available, otherwise empty string
+    const defaultRoleId = roles.length > 0 ? roles[0].id : "";
+    setMembers([...members, { user_id: userId, role_id: defaultRoleId }]);
     setSearchQuery("");
   };
 
-  const handleRoleChange = (userId: string, newRole: string) => {
+  const handleRoleChange = (userId: string, newRoleId: string) => {
     setMembers(
       members.map((m) =>
-        m.user_id === userId ? { ...m, role: newRole } : m
+        m.user_id === userId ? { ...m, role_id: newRoleId } : m
       )
     );
   };
@@ -559,6 +597,12 @@ export function AddBoardDialog({
     });
 
     try {
+      // Prepare members array with user_id and role_id as numbers
+      const boardMembers = members.map(m => ({
+        user_id: Number(m.user_id),
+        role_id: Number(m.role_id),
+      }));
+
       // Call API to create board
       const result = await createBoard({
         name: boardName.trim(),
@@ -567,16 +611,10 @@ export function AddBoardDialog({
         icon_type: "letter",
         icon_value: boardName.charAt(0).toUpperCase(),
         icon_color: iconColor,
+        members: boardMembers.length > 0 ? boardMembers : undefined,
       });
 
       if (result.type === "boards/createBoard/fulfilled") {
-        
-        // Call the parent callback with board details
-        const membersWithCreator = [
-          { user_id: String(currentUser?.user_id), role: "owner" },
-          ...members,
-        ];
-        onAddBoard?.(boardName, iconColor, membersWithCreator, templateId);
         
         // Call the board created callback to refresh the board list
         onBoardCreated?.();
@@ -843,30 +881,21 @@ export function AddBoardDialog({
                           </div>
 
                           <Select
-                            value={member.role}
+                            value={member.role_id}
                             onValueChange={(value) =>
                               handleRoleChange(member.user_id, value)
                             }
+                            disabled={loadingRoles || roles.length === 0}
                           >
-                            <SelectTrigger className="w-32 bg-[#1e293b] border-[#334155]">
-                              <SelectValue />
+                            <SelectTrigger className="w-48 bg-[#1e293b] border-[#334155]">
+                              <SelectValue placeholder="Select role" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="projectmanager">
-                                Board Project Manager
-                              </SelectItem>
-                              <SelectItem value="admin">
-                                Board Architect
-                              </SelectItem>
-                              <SelectItem value="client">
-                                Board Client
-                              </SelectItem>
-                              <SelectItem value="developer">
-                                Board Developer
-                              </SelectItem>
-                              <SelectItem value="viewer">
-                                Board Viewer
-                              </SelectItem>
+                              {roles.map((role) => (
+                                <SelectItem key={role.id} value={role.id}>
+                                  {role.name}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
 
