@@ -2020,8 +2020,8 @@ export function WorkloadBoard({
         })),
       );
 
-      // Close the popover to ensure UI refreshes
-      popoverState.closePopover();
+      // Don't close the popover - let user continue selecting multiple assignees
+      // popoverState.closePopover();
 
       toast.success("Person Assigned Successfully");
     } catch (err) {

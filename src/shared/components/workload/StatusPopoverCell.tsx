@@ -16,6 +16,7 @@ import { cmsApi } from "@/features/cms/cmsApi";
 import {
   addStatusToCache,
   updateStatusInCache,
+  deleteStatusFromCache,
 } from "@/features/cms/cmsStorage";
 import { getOrganizationId } from "@/lib/utils";
 
@@ -205,6 +206,37 @@ export default function StatusPopoverCell({
     }
   };
 
+  /* ---------------------------------------------
+   * Delete status
+   * ------------------------------------------- */
+  const handleDeleteStatus = async (statusId: string) => {
+    try {
+      const orgId = getOrganizationId();
+      if (!orgId || !boardId) {
+        toast.error("Missing board or organization");
+        return;
+      }
+
+      await cmsApi.deleteStatus(statusId);
+
+      deleteStatusFromCache(Number(boardId), statusId);
+
+      const updatedEditable = editableStatuses.filter((s) => s.id !== statusId);
+      setEditableStatuses(updatedEditable);
+
+      const updatedDisplay = displayStatuses.filter(
+        (s) => String(s.id) !== statusId,
+      );
+      setDisplayStatuses(updatedDisplay);
+
+      onStatusesUpdated?.(updatedDisplay);
+
+      toast.success("Status Deleted");
+    } catch {
+      toast.error("Failed to Delete Status");
+    }
+  };
+
   return (
     <Popover
       open={openPopoverId === popoverId}
@@ -326,7 +358,10 @@ export default function StatusPopoverCell({
                       }}
                       className="h-8 text-sm flex-1"
                     />
-                    <Trash className="h-4 w-4 text-destructive cursor-pointer" />
+                    <Trash 
+                      className="h-4 w-4 text-destructive cursor-pointer" 
+                      onClick={() => handleDeleteStatus(s.id)}
+                    />
                   </div>
                 ))}
               </div>

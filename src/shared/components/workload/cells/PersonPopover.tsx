@@ -54,6 +54,7 @@ export function PersonPopover({
     try {
       await onPersonChange?.(task.id, newSelected);
       // Don't show toast here - let the parent handler show it
+      // Don't close popover - let user continue selecting
     } catch (error) {
       console.error("Failed to update assignee:", error);
       toast.error("Failed to update assignee");
@@ -70,6 +71,7 @@ export function PersonPopover({
     try {
       await onPersonChange?.(task.id, []);
       // Don't show toast here - let the parent handler show it
+      // Don't close popover - let user continue selecting
     } catch (error) {
       console.error("Failed to clear assignee:", error);
       toast.error("Failed to clear assignee");
