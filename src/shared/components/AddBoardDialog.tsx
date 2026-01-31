@@ -6,7 +6,7 @@ import type { RootState } from "@/app/store";
 import { organizationApi, type OrganizationMember } from "@/features/organization/organizationApi";
 import { getRoles } from "@/features/cms/cmsStorage";
 import type { Role } from "@/features/cms/types";
-import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
+import { getCurrentUserId } from "@/lib/utils";
 // import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -55,14 +55,7 @@ import { debugLog } from "@/lib/debugLog";
 interface AddBoardDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddBoard?: (
-    name: string,
-    iconColor: string,
-    members: BoardMember[],
-    templateId?: string | null
-  ) => void;
   onBoardCreated?: () => void;
-  templateId?: string | null;
   workspaceId?: number;
   organizationId?: number;
 }
@@ -84,9 +77,7 @@ const PRESET_COLORS = [
 export function AddBoardDialog({
   open,
   onOpenChange,
-  onAddBoard,
   onBoardCreated,
-  templateId,
   workspaceId = 1,
   organizationId,
 }: AddBoardDialogProps) {

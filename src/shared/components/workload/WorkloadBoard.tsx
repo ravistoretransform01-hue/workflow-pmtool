@@ -4179,12 +4179,10 @@ export function WorkloadBoard({
                               </div>
 
                               {/* Group Progress Bar - Time Spent vs Estimated Time */}
-                              {useMemo(() => {
+                              {(() => {
                                 const progress = calculateGroupProgress(
                                   group.tasks,
                                 );
-                                // Access timerUpdateTrigger to create dependency
-                                void timerState.timerUpdateTrigger;
                                 return (
                                   <div className="flex items-center gap-3 flex-1 ml-4">
                                     <div className="flex-1 max-w-[250px]">
@@ -4206,7 +4204,7 @@ export function WorkloadBoard({
                                     </span>
                                   </div>
                                 );
-                              }, [group.tasks, timerState.timerUpdateTrigger])}
+                              })()}
                             </div>
 
                             {/* Task Table */}
