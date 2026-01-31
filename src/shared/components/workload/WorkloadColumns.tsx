@@ -59,6 +59,7 @@ interface ColumnDefinitionProps {
   activeTimerId?: string | null;
   onTimerStart?: (taskId: string | null) => void;
   onTimerConflict?: (taskId: string) => void;
+  onTimeUpdate?: (taskId: string, seconds: number) => void;
 }
 
 export const getWorkloadColumns = ({
@@ -94,6 +95,7 @@ export const getWorkloadColumns = ({
   activeTimerId,
   onTimerStart,
   onTimerConflict,
+  onTimeUpdate,
 }: ColumnDefinitionProps): Column[] => {
   // Create lookup maps for statuses and priorities
   // Ensure keys are strings to match task.status_id (which is stored as string)
@@ -489,6 +491,7 @@ export const getWorkloadColumns = ({
             activeTimerId={activeTimerId || null}
             onTimerStart={onTimerStart || (() => {})}
             onTimerConflict={onTimerConflict || (() => {})}
+            onTimeUpdate={onTimeUpdate}
             hasAssignee={hasAssignee}
             estimatedHours={estimatedHours}
             taskName={task.name}
