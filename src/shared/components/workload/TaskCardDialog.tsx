@@ -616,8 +616,8 @@ export function TaskCardDialog({
                           }
                         }}
                       />
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                        <div className="flex items-center gap-1">
+                      <div className="flex items-center justify-end mt-2 pt-2 border-t border-border">
+                        <div className="hidden flex items-center gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7">
                             <AtSign className="h-3 w-3" />
                           </Button>
@@ -936,8 +936,8 @@ export function TaskCardDialog({
                           }
                         }}
                       />
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                        <div className="flex items-center gap-1">
+                      <div className=" flex items-center justify-end mt-2 pt-2 border-t border-border">
+                        <div className="hidden flex items-center gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7">
                             <AtSign className="h-3 w-3" />
                           </Button>
