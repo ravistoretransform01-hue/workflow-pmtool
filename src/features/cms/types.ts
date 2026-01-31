@@ -13,11 +13,19 @@ export interface Priority {
   priority_order: string;
 }
 
+export interface Role {
+  id: string;
+  name: string;
+}
+
 export interface Member {
   user_id: string;
   name: string;
   email?: string;
   username?: string;
+  board_role_id?: number;
+  board_role_label?: string;
+  board_role_active?: boolean;
 }
 
 export interface Label {
@@ -45,6 +53,7 @@ export interface Tag {
 
 export interface CMSResponse {
   status: boolean;
+  roles: Role[];
   statuses: Status[];
   priorities: Priority[];
   members: Member[];
@@ -61,6 +70,7 @@ export interface CMSRequest {
 }
 
 export interface CMSData {
+  roles: Role[];
   statuses: Status[];
   priorities: Priority[];
   members: Member[];
