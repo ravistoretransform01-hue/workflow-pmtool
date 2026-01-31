@@ -11,7 +11,7 @@ let failedQueue: Array<{
 
 // Track retry attempts to prevent infinite loops
 const retryAttempts = new Map<string, number>();
-const MAX_RETRIES = 5; // Only retry once per request
+const MAX_RETRIES = 3; // Only retry once per request
 
 const processQueue = (error: any, token: string | null = null) => {
   debugLog(`[QUEUE] Processing ${failedQueue.length} queued requests...`);
@@ -29,6 +29,13 @@ const processQueue = (error: any, token: string | null = null) => {
   debugLog(`[QUEUE] All queued requests processed`);
   isRefreshing = false;
   failedQueue = [];
+};
+
+const forceLogout = () => {
+  debugWarn("[AUTH] Forcing logout");
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  window.location.href = "/login";
 };
 
 // Create axios instance with production-ready config
@@ -109,6 +116,11 @@ api.interceptors.response.use(
     // Handle 403 Forbidden - Check if it's an expired token
     if (error.response?.status === 403) {
       debugLog(`[ERROR] Step 6: Status is 403 Forbidden`);
+
+      forceLogout();
+      return Promise.reject(
+        new Error("Token refresh failed - max retries exceeded"),
+      );
 
       if (
         errorData?.code === "jwt_auth_invalid_token" ||
