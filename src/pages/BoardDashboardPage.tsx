@@ -97,7 +97,12 @@ export default function BoardDashboardPage() {
       }
     } catch (error) {
       console.error("Failed to load board data:", error);
-      toast({ title: "Error", description: "Failed to Load Board Data", variant: "destructive" });
+      toast({ 
+        title: "Error", 
+        description: "Failed to Load Board Data", 
+        variant: "destructive",
+        duration: 3000,
+      });
     }
   };
 
@@ -150,6 +155,7 @@ export default function BoardDashboardPage() {
         title: "Error",
         description: "Failed to load roles",
         variant: "destructive",
+        duration: 3000,
       });
     } finally {
       setLoadingRoles(false);
@@ -176,6 +182,7 @@ export default function BoardDashboardPage() {
           title: "Permission Denied",
           description: response.message || "You don't have permission to assign roles",
           variant: "destructive",
+          duration: 2000,
         });
         return;
       }
@@ -205,6 +212,7 @@ export default function BoardDashboardPage() {
         title: "Error",
         description: errorMessage,
         variant: "destructive",
+        duration: 3000,
       });
     } finally {
       setRoleChangingUserId(null);
@@ -239,7 +247,12 @@ export default function BoardDashboardPage() {
         toast({ title: "Success", description: "Board Name Updated" });
       } catch (error) {
         console.error(error);
-        toast({ title: "Error", description: "Failed to Update Board Name", variant: "destructive" });
+        toast({ 
+          title: "Error", 
+          description: "Failed to Update Board Name", 
+          variant: "destructive",
+          duration: 3000,
+        });
         setCurrentName(boardName);
       }
     }

@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosResponse } from "axios";
 import "./axios.d";
 import { debugLog, debugWarn, debugError, getTokenInfo } from "./debugLog";
+import { toast } from "@/hooks/use-toast";
 
 // Flag to prevent multiple refresh token requests
 let isRefreshing = false;
@@ -29,13 +30,6 @@ const processQueue = (error: any, token: string | null = null) => {
   debugLog(`[QUEUE] All queued requests processed`);
   isRefreshing = false;
   failedQueue = [];
-};
-
-const forceLogout = () => {
-  debugWarn("[AUTH] Forcing logout");
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
-  window.location.href = "/login";
 };
 
 // Create axios instance with production-ready config
@@ -117,10 +111,30 @@ api.interceptors.response.use(
     if (error.response?.status === 403) {
       debugLog(`[ERROR] Step 6: Status is 403 Forbidden`);
 
-      forceLogout();
-      return Promise.reject(
-        new Error("Token refresh failed - max retries exceeded"),
-      );
+      // Check if it's a permission error (not token expiration)
+      if (
+        errorData?.error_type === "insufficient_permissions" ||
+        (errorData?.status === "failed" && errorData?.message)
+      ) {
+        debugLog(`[ERROR] Step 7: ❌ Permission denied error detected`);
+        debugLog(`[ERROR] Step 8: Error message: ${errorData?.message}`);
+        
+        // Show toast notification for permission errors
+        toast({
+          title: "Permission Denied",
+          description: errorData?.message || "You don't have permission to perform this action",
+          variant: "destructive",
+          duration: 4000,
+        });
+        
+        // Don't retry, just reject the error
+        return Promise.reject(error);
+      }
+
+      // forceLogout();
+      // return Promise.reject(
+      //   new Error("Token refresh failed - max retries exceeded"),
+      // );
 
       if (
         errorData?.code === "jwt_auth_invalid_token" ||
