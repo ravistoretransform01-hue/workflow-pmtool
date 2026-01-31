@@ -5,7 +5,6 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "status",
   "priority",
   "description",
-  "rating",
   "estimatedDate",
   "estimatedTime",
   "progress",

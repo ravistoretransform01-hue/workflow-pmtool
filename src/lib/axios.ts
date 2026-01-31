@@ -54,14 +54,15 @@ api.interceptors.request.use(
     try {
       const token = localStorage.getItem("access_token");
       debugLog(`[REQUEST] Step 2: Token found in localStorage: ${!!token}`);
-      
       if (token) {
         const tokenInfo = getTokenInfo(token);
         config.headers.Authorization = `Bearer ${token}`;
         debugLog(`[REQUEST] Step 3: Token attached to Authorization header`);
         debugLog(`[REQUEST] Step 3.1: Token : `, token);
-        debugLog(`[REQUEST] Step 4: Token expires in: ${tokenInfo?.expiresIn || "unknown"}`);
-        
+        debugLog(
+          `[REQUEST] Step 4: Token expires in: ${tokenInfo?.expiresIn || "unknown"}`,
+        );
+
         if (tokenInfo?.isExpired) {
           debugWarn(`[REQUEST] ⚠️ WARNING: Token is already expired!`);
         }
@@ -77,66 +78,89 @@ api.interceptors.request.use(
   (error) => {
     debugError(`[REQUEST] Error in request interceptor:`, error);
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response interceptor - Handle errors and token refresh
 api.interceptors.response.use(
   (response: AxiosResponse) => {
-    debugLog(`[RESPONSE] ✅ Success: ${response.config.url} - Status: ${response.status}`);
+    debugLog(
+      `[RESPONSE] ✅ Success: ${response.config.url} - Status: ${response.status}`,
+    );
     return response;
   },
   async (error: AxiosError) => {
     debugLog(`\n[ERROR] ========== ERROR DETECTED ==========`);
     const originalRequest = error.config as any;
     const errorData = error.response?.data as any;
-    
+
     // Create a unique key for this request
     const requestKey = `${originalRequest.method}-${originalRequest.url}`;
     const currentRetries = retryAttempts.get(requestKey) || 0;
-    
+
     debugLog(`[ERROR] Step 1: Error Status: ${error.response?.status}`);
     debugLog(`[ERROR] Step 2: Error Code: ${errorData?.code}`);
     debugLog(`[ERROR] Step 3: Error Message: ${errorData?.message}`);
     debugLog(`[ERROR] Step 4: Error URL: ${error.config?.url}`);
-    debugLog(`[ERROR] Step 5: Retry attempt ${currentRetries + 1}/${MAX_RETRIES}`);
+    debugLog(
+      `[ERROR] Step 5: Retry attempt ${currentRetries + 1}/${MAX_RETRIES}`,
+    );
 
     // Handle 403 Forbidden - Check if it's an expired token
     if (error.response?.status === 403) {
       debugLog(`[ERROR] Step 6: Status is 403 Forbidden`);
-      
-      if (errorData?.code === "jwt_auth_invalid_token" && errorData?.message === "Expired token") {
+
+      if (
+        errorData?.code === "jwt_auth_invalid_token"
+      ) {
         debugLog(`[ERROR] Step 7: ✅ Confirmed - Token is expired`);
-        
+
         // Prevent infinite retry loops
         if (currentRetries >= MAX_RETRIES) {
-          debugError(`[ERROR] ❌ Max retries (${MAX_RETRIES}) reached - Stopping refresh attempts`);
-          debugError(`[ERROR] This indicates the new token is also invalid or user has no permission`);
+          debugError(
+            `[ERROR] ❌ Max retries (${MAX_RETRIES}) reached - Stopping refresh attempts`,
+          );
+          debugError(
+            `[ERROR] This indicates the new token is also invalid or user has no permission`,
+          );
           retryAttempts.delete(requestKey);
           localStorage.removeItem("access_token");
           localStorage.removeItem("refresh_token");
+          localStorage.clear();
           window.location.href = "/login";
-          return Promise.reject(new Error("Token refresh failed - max retries exceeded"));
+          return Promise.reject(
+            new Error("Token refresh failed - max retries exceeded"),
+          );
         }
-        
+
         // Increment retry counter
         retryAttempts.set(requestKey, currentRetries + 1);
-        
+
         debugLog(`\n[REFRESH] ========== STARTING TOKEN REFRESH ==========`);
 
         // Prevent multiple refresh requests
         if (!isRefreshing) {
-          debugLog(`[REFRESH] Step 1: Not currently refreshing - Starting refresh process`);
+          debugLog(
+            `[REFRESH] Step 1: Not currently refreshing - Starting refresh process`,
+          );
           isRefreshing = true;
 
           try {
-            debugLog(`[REFRESH] Step 2: Retrieving refresh_token from localStorage`);
+            debugLog(
+              `[REFRESH] Step 2: Retrieving refresh_token from localStorage`,
+            );
             const refreshToken = localStorage.getItem("refresh_token");
-            debugLog(`[REFRESH] Step 3: Refresh token found: ${!!refreshToken}`);
+            debugLog(
+              `[REFRESH] Step 3: Refresh token found: ${!!refreshToken}`,
+            );
 
             if (!refreshToken) {
-              debugError(`[REFRESH] ❌ Step 4: No refresh token available - Cannot refresh`);
-              debugLog(`[REFRESH] Step 5: Clearing all tokens from localStorage`);
+              debugError(
+                `[REFRESH] ❌ Step 4: No refresh token available - Cannot refresh`,
+              );
+              debugLog(
+                `[REFRESH] Step 5: Clearing all tokens from localStorage`,
+              );
               localStorage.removeItem("access_token");
               localStorage.removeItem("refresh_token");
               debugLog(`[REFRESH] Step 6: Redirecting to login page`);
@@ -144,8 +168,12 @@ api.interceptors.response.use(
               return Promise.reject(error);
             }
 
-            debugLog(`[REFRESH] Step 4: Refresh token available - Proceeding with refresh`);
-            debugLog(`[REFRESH] Step 5: Preparing POST request to /refresh endpoint`);
+            debugLog(
+              `[REFRESH] Step 4: Refresh token available - Proceeding with refresh`,
+            );
+            debugLog(
+              `[REFRESH] Step 5: Preparing POST request to /refresh endpoint`,
+            );
             debugLog(`[REFRESH] Step 6: Sending refresh token to server...`);
 
             // Make refresh token request using plain axios (not our api instance)
@@ -158,58 +186,88 @@ api.interceptors.response.use(
                 headers: {
                   "Content-Type": "application/json",
                 },
-              }
+              },
             );
 
-            debugLog(`[REFRESH] ✅ Step 7: Refresh request successful - Status: ${response.status}`);
+            debugLog(
+              `[REFRESH] ✅ Step 7: Refresh request successful - Status: ${response.status}`,
+            );
             debugLog(`[REFRESH] Step 8: Extracting new tokens from response`);
             const { access_token, refresh_token } = response.data;
-            debugLog(`[REFRESH] Step 9: New access_token received: ${!!access_token}`);
-            debugLog(`[REFRESH] Step 10: New refresh_token received: ${!!refresh_token}`);
+            debugLog(
+              `[REFRESH] Step 9: New access_token received: ${!!access_token}`,
+            );
+            debugLog(
+              `[REFRESH] Step 10: New refresh_token received: ${!!refresh_token}`,
+            );
 
             // Update tokens in localStorage
-            debugLog(`[REFRESH] Step 11: Storing new access_token in localStorage`);
+            debugLog(
+              `[REFRESH] Step 11: Storing new access_token in localStorage`,
+            );
             localStorage.setItem("access_token", access_token);
-            
+
             if (refresh_token) {
-              debugLog(`[REFRESH] Step 12: Storing new refresh_token in localStorage`);
+              debugLog(
+                `[REFRESH] Step 12: Storing new refresh_token in localStorage`,
+              );
               localStorage.setItem("refresh_token", refresh_token);
             } else {
-              debugLog(`[REFRESH] Step 12: No new refresh_token in response - keeping old one`);
+              debugLog(
+                `[REFRESH] Step 12: No new refresh_token in response - keeping old one`,
+              );
             }
 
             const tokenInfo = getTokenInfo(access_token);
-            debugLog(`[REFRESH] Step 13: New token expires in: ${tokenInfo?.expiresIn}`);
+            debugLog(
+              `[REFRESH] Step 13: New token expires in: ${tokenInfo?.expiresIn}`,
+            );
 
             // Update the original request with new token
-            debugLog(`[REFRESH] Step 14: Updating original request with new token`);
+            debugLog(
+              `[REFRESH] Step 14: Updating original request with new token`,
+            );
             originalRequest.headers.Authorization = `Bearer ${access_token}`;
 
             // Process queued requests
-            debugLog(`[REFRESH] Step 15: Processing ${failedQueue.length} queued requests`);
+            debugLog(
+              `[REFRESH] Step 15: Processing ${failedQueue.length} queued requests`,
+            );
             processQueue(null, access_token);
 
             // Retry the original request
-            debugLog(`[REFRESH] Step 16: Retrying original request with new token`);
-            debugLog(`[REFRESH] ========== TOKEN REFRESH COMPLETE ==========\n`);
-            
+            debugLog(
+              `[REFRESH] Step 16: Retrying original request with new token`,
+            );
+            debugLog(
+              `[REFRESH] ========== TOKEN REFRESH COMPLETE ==========\n`,
+            );
+
             // Clear retry counter on successful refresh
             retryAttempts.delete(requestKey);
-            
+
             return api(originalRequest);
           } catch (refreshError: any) {
             debugError(`[REFRESH] ❌ Step 7: Token refresh failed`);
-            debugError(`[REFRESH] Step 8: Error message: ${refreshError.message}`);
-            debugError(`[REFRESH] Step 9: Error status: ${refreshError.response?.status}`);
+            debugError(
+              `[REFRESH] Step 8: Error message: ${refreshError.message}`,
+            );
+            debugError(
+              `[REFRESH] Step 9: Error status: ${refreshError.response?.status}`,
+            );
 
             // Clear tokens and redirect to login
-            debugLog(`[REFRESH] Step 10: Clearing all tokens from localStorage`);
+            debugLog(
+              `[REFRESH] Step 10: Clearing all tokens from localStorage`,
+            );
             localStorage.removeItem("access_token");
             localStorage.removeItem("refresh_token");
-            
-            debugLog(`[REFRESH] Step 11: Processing queued requests with error`);
+
+            debugLog(
+              `[REFRESH] Step 11: Processing queued requests with error`,
+            );
             processQueue(refreshError, null);
-            
+
             debugLog(`[REFRESH] Step 12: Redirecting to login page`);
             window.location.href = "/login";
 
@@ -217,21 +275,30 @@ api.interceptors.response.use(
           }
         } else {
           // If already refreshing, queue the request
-          debugLog(`[REFRESH] Step 1: Already refreshing - Queueing this request`);
-          debugLog(`[REFRESH] Step 2: Current queue size: ${failedQueue.length}`);
-          
+          debugLog(
+            `[REFRESH] Step 1: Already refreshing - Queueing this request`,
+          );
+          debugLog(
+            `[REFRESH] Step 2: Current queue size: ${failedQueue.length}`,
+          );
+
           return new Promise((resolve, reject) => {
             debugLog(`[REFRESH] Step 3: Adding request to queue`);
             failedQueue.push({ resolve, reject });
             debugLog(`[REFRESH] Step 4: Queue size now: ${failedQueue.length}`);
           })
             .then((token) => {
-              debugLog(`[REFRESH] Step 5: Queue resolved - Retrying with new token`);
+              debugLog(
+                `[REFRESH] Step 5: Queue resolved - Retrying with new token`,
+              );
               originalRequest.headers.Authorization = `Bearer ${token}`;
               return api(originalRequest);
             })
             .catch((err) => {
-              debugError(`[REFRESH] Step 5: Queue rejected - Error:`, err.message);
+              debugError(
+                `[REFRESH] Step 5: Queue rejected - Error:`,
+                err.message,
+              );
               return Promise.reject(err);
             });
         }
@@ -260,7 +327,7 @@ api.interceptors.response.use(
 
     debugLog(`[ERROR] ========== ERROR HANDLING COMPLETE ==========\n`);
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;
