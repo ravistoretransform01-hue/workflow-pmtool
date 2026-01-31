@@ -248,6 +248,7 @@ export default function StatusPopoverCell({
         }
         setOpenPopoverId?.(open ? popoverId : null);
       }}
+      modal={false}
     >
       <PopoverTrigger asChild>
         <Button
@@ -262,7 +263,10 @@ export default function StatusPopoverCell({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[500px] p-3">
+      <PopoverContent 
+        className="w-[500px] p-3 z-[200]"
+        onWheel={(e) => e.stopPropagation()}
+      >
         {!isEditMode ? (
           <>
             {/* Header */}
