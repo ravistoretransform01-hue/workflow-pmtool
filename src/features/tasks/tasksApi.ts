@@ -24,12 +24,15 @@ const TASKS_ENDPOINTS = {
   REMOVE_TAG: (taskTagId: string | number) => `/tasks/tag/${taskTagId}`,
   GET_COMMENTS: (taskId: string | number) => `/tasks/${taskId}/comments`,
   CREATE_COMMENT: (taskId: string | number) => `/tasks/${taskId}/comments`,
-  UPDATE_COMMENT: (taskId: string | number, commentId: string | number) => `/tasks/${taskId}/comments/${commentId}`,
-  DELETE_COMMENT: (taskId: string | number, commentId: string | number) => `/tasks/${taskId}/comments/${commentId}`,
+  UPDATE_COMMENT: (taskId: string | number, commentId: string | number) =>
+    `/tasks/${taskId}/comments/${commentId}`,
+  DELETE_COMMENT: (taskId: string | number, commentId: string | number) =>
+    `/tasks/${taskId}/comments/${commentId}`,
   START_TIMER: `/tasks/time/start`,
   STOP_TIMER: `/tasks/time/stop`,
   GET_TIME_ENTRIES: `/tasks/time/entries`,
   ADD_MANUAL_TIME_ENTRY: `/tasks/time/manual`,
+  GET_ACTIVITY: `/activity`,
 };
 
 export const tasksApi = {
@@ -37,11 +40,11 @@ export const tasksApi = {
    * Get all tasks for a board or group
    */
   getTasksByBoardId: async (
-    boardId: string | number
+    boardId: string | number,
   ): Promise<TaskResponse[]> => {
     try {
       const response = await axios.get<{ data: TaskResponse[] }>(
-        TASKS_ENDPOINTS.GET_ALL_TASKS_BY_BOARDID(boardId)
+        TASKS_ENDPOINTS.GET_ALL_TASKS_BY_BOARDID(boardId),
       );
       return response.data.data || [];
     } catch (error) {
@@ -53,7 +56,7 @@ export const tasksApi = {
   getSingleTasks: async (boardId: string | number): Promise<TaskResponse> => {
     try {
       const response = await axios.get<{ data: TaskResponse }>(
-        TASKS_ENDPOINTS.GET_SINGLE_TASK(boardId)
+        TASKS_ENDPOINTS.GET_SINGLE_TASK(boardId),
       );
       return response.data.data || [];
     } catch (error) {
@@ -84,7 +87,7 @@ export const tasksApi = {
     try {
       const response = await axios.post<{ data: TaskResponse }>(
         TASKS_ENDPOINTS.CREATE_TASK,
-        payload
+        payload,
       );
       return response.data.data;
     } catch (error) {
@@ -113,7 +116,7 @@ export const tasksApi = {
     try {
       const response = await axios.put<{ data: TaskResponse }>(
         TASKS_ENDPOINTS.UPDATE_TASK,
-        payload
+        payload,
       );
       return response.data.data;
     } catch (error) {
@@ -147,7 +150,7 @@ export const tasksApi = {
     try {
       const response = await axios.post<{ data: EstimatedDateResponse }>(
         TASKS_ENDPOINTS.CREATE_ESTIMATED_DATE,
-        payload
+        payload,
       );
       return response.data.data;
     } catch (error) {
@@ -168,7 +171,7 @@ export const tasksApi = {
     try {
       const response = await axios.put<{ data: EstimatedDateResponse }>(
         TASKS_ENDPOINTS.UPDATE_ESTIMATED_DATE,
-        payload
+        payload,
       );
       return response.data.data;
     } catch (error) {
@@ -188,7 +191,7 @@ export const tasksApi = {
     try {
       const response = await axios.put<{ data: TaskResponse }>(
         TASKS_ENDPOINTS.UPDATE_TASK,
-        payload
+        payload,
       );
       return response.data.data;
     } catch (error) {
@@ -205,10 +208,7 @@ export const tasksApi = {
     tag_id: string | number;
   }): Promise<any> => {
     try {
-      const response = await axios.post(
-        TASKS_ENDPOINTS.ADD_TAG,
-        payload
-      );
+      const response = await axios.post(TASKS_ENDPOINTS.ADD_TAG, payload);
       return response.data.data;
     } catch (error) {
       console.error("Failed to add tag:", error);
@@ -234,7 +234,7 @@ export const tasksApi = {
   getComments: async (taskId: string | number): Promise<TaskComment[]> => {
     try {
       const response = await axios.get<any>(
-        TASKS_ENDPOINTS.GET_COMMENTS(taskId)
+        TASKS_ENDPOINTS.GET_COMMENTS(taskId),
       );
 
       let data = response.data;
@@ -273,12 +273,12 @@ export const tasksApi = {
    */
   createComment: async (
     taskId: string | number,
-    payload: CreateCommentRequest
+    payload: CreateCommentRequest,
   ): Promise<TaskComment> => {
     try {
       const response = await axios.post<{ data: TaskComment }>(
         TASKS_ENDPOINTS.CREATE_COMMENT(taskId),
-        payload
+        payload,
       );
       return response.data.data;
     } catch (error) {
@@ -293,12 +293,12 @@ export const tasksApi = {
   updateComment: async (
     taskId: string | number,
     commentId: string | number,
-    payload: UpdateCommentRequest
+    payload: UpdateCommentRequest,
   ): Promise<TaskComment> => {
     try {
       const response = await axios.put<{ data: TaskComment }>(
         TASKS_ENDPOINTS.UPDATE_COMMENT(taskId, commentId),
-        payload
+        payload,
       );
       return response.data.data;
     } catch (error) {
@@ -312,7 +312,7 @@ export const tasksApi = {
    */
   deleteComment: async (
     taskId: string | number,
-    commentId: string | number
+    commentId: string | number,
   ): Promise<void> => {
     try {
       await axios.delete(TASKS_ENDPOINTS.DELETE_COMMENT(taskId, commentId));
@@ -327,10 +327,9 @@ export const tasksApi = {
    */
   startTimer: async (taskId: string | number): Promise<any> => {
     try {
-      const response = await axios.post<any>(
-        TASKS_ENDPOINTS.START_TIMER,
-        { task_id: taskId }
-      );
+      const response = await axios.post<any>(TASKS_ENDPOINTS.START_TIMER, {
+        task_id: taskId,
+      });
       return response.data.data;
     } catch (error) {
       console.error("Failed to start timer:", error);
@@ -343,10 +342,9 @@ export const tasksApi = {
    */
   stopTimer: async (taskId: string | number): Promise<any> => {
     try {
-      const response = await axios.post<any>(
-        TASKS_ENDPOINTS.STOP_TIMER,
-        { task_id: taskId }
-      );
+      const response = await axios.post<any>(TASKS_ENDPOINTS.STOP_TIMER, {
+        task_id: taskId,
+      });
       return response.data.data;
     } catch (error) {
       console.error("Failed to stop timer:", error);
@@ -357,10 +355,12 @@ export const tasksApi = {
   /**
    * Get time entries for a task
    */
-  getTimeEntries: async (taskId: string | number): Promise<TimeEntriesResponse["data"]> => {
+  getTimeEntries: async (
+    taskId: string | number,
+  ): Promise<TimeEntriesResponse["data"]> => {
     try {
       const response = await axios.get<TimeEntriesResponse>(
-        `/tasks/time/entries?task_id=${taskId}`
+        `/tasks/time/entries?task_id=${taskId}`,
       );
       return response.data.data;
     } catch (error) {
@@ -381,7 +381,7 @@ export const tasksApi = {
     try {
       const response = await axios.post<any>(
         TASKS_ENDPOINTS.ADD_MANUAL_TIME_ENTRY,
-        payload
+        payload,
       );
       return response.data.data;
     } catch (error) {
@@ -398,6 +398,63 @@ export const tasksApi = {
       await axios.delete(`/tasks/time/entries/${entryId}`);
     } catch (error) {
       console.error("Failed to delete time entry:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get activity log for a task
+   */
+  getActivity: async (params: {
+    organization_id: number;
+    user_id?: number;
+    task_id: string | number;
+    page?: number;
+    per_page?: number;
+  }): Promise<{
+    data: Array<{
+      id: string;
+      organization_id: string;
+      board_id: string;
+      task_id: string;
+      user_id: string;
+      action: string;
+      old_value: string | null;
+      new_value: string;
+      created_at: string;
+      user: {
+        id: number;
+        name: string;
+        email: string;
+      };
+      old_value_parsed: any;
+      new_value_parsed: any;
+      action_label: string;
+    }>;
+    meta: {
+      total: number;
+      count: number;
+      page: number;
+      per_page: number;
+      total_pages: number;
+    };
+  }> => {
+    try {
+      const queryParams = new URLSearchParams({
+        organization_id: params.organization_id.toString(),
+        user_id: params.user_id?.toString() ?? "",
+        task_id: params.task_id.toString(),
+        page: (params.page || 1).toString(),
+        per_page: (params.per_page || 50).toString(),
+      });
+
+      const response = await axios.get<any>(
+        `${TASKS_ENDPOINTS.GET_ACTIVITY}?${queryParams}`,
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error("Failed to fetch activity:", error);
       throw error;
     }
   },

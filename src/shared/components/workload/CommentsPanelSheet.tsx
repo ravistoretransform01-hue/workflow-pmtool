@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import {
   Sheet,
@@ -34,8 +34,12 @@ import {
   Trash2,
   AtSign,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import type { TaskComment } from "@/features/tasks/types";
+import { tasksApi } from "@/features/tasks/tasksApi";
+import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
 
 // Helper to render HTML content from Tiptap editor
 const renderFormattedContent = (content: string) => {
@@ -81,7 +85,7 @@ interface CommentsPanelSheetProps {
   onUpdateTextChange: (text: string) => void;
   updateFiles: Array<{ name: string; size: number; type: string; url: string }>;
   onUpdateFilesChange: (
-    files: Array<{ name: string; size: number; type: string; url: string }>
+    files: Array<{ name: string; size: number; type: string; url: string }>,
   ) => void;
   onSaveUpdate: () => void;
   onDeleteComment: (commentId: string | number) => void;
@@ -95,6 +99,7 @@ export function CommentsPanelSheet({
   open,
   onOpenChange,
   taskName,
+  taskId,
   comments,
   isLoadingComments,
   updateText,
@@ -116,10 +121,91 @@ export function CommentsPanelSheet({
   >(null);
   const [editCommentText, setEditCommentText] = useState("");
   const [inlineReplyId, setInlineReplyId] = useState<string | number | null>(
-    null
+    null,
   );
   const [inlineReplyText, setInlineReplyText] = useState("");
   const [replyingTo, setReplyingTo] = useState<TaskComment | null>(null);
+
+  // Activity state
+  const [activityData, setActivityData] = useState<any[]>([]);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+  const [activityMeta, setActivityMeta] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingPage, setIsLoadingPage] = useState(false);
+
+  // Load activity when taskId changes or component opens
+  useEffect(() => {
+    if (open && taskId) {
+      setCurrentPage(1); // Reset to first page when opening
+      loadActivity(1);
+    }
+  }, [open, taskId]);
+
+  // Keyboard navigation for pagination
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!open || !activityMeta) return;
+      
+      if (event.key === 'ArrowLeft' && event.ctrlKey && currentPage > 1) {
+        event.preventDefault();
+        handlePreviousPage();
+      } else if (event.key === 'ArrowRight' && event.ctrlKey && currentPage < activityMeta.total_pages) {
+        event.preventDefault();
+        handleNextPage();
+      }
+    };
+
+    if (open) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [open, currentPage, activityMeta]);
+
+  const loadActivity = async (page: number = currentPage) => {
+    if (!taskId) return;
+    
+    // Use different loading states for initial load vs pagination
+    if (page === 1) {
+      setIsLoadingActivity(true);
+    } else {
+      setIsLoadingPage(true);
+    }
+    
+    try {
+      const organizationId = getOrganizationId() || 27;
+      const userId = getCurrentUserId() || 19;
+      
+      const response = await tasksApi.getActivity({
+        organization_id: organizationId,
+        user_id: userId,
+        task_id: taskId,
+        page: page,
+        per_page: 20, // Reduced per page for better pagination
+      });
+      
+      setActivityData(response.data);
+      setActivityMeta(response.meta);
+      setCurrentPage(page);
+    } catch (error) {
+      console.error("Failed to load activity:", error);
+      setActivityData([]);
+    } finally {
+      setIsLoadingActivity(false);
+      setIsLoadingPage(false);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      loadActivity(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (activityMeta && currentPage < activityMeta.total_pages) {
+      loadActivity(currentPage + 1);
+    }
+  };
 
   const handleDeleteComment = (commentId: string | number) => {
     onDeleteComment(commentId);
@@ -186,7 +272,7 @@ export function CommentsPanelSheet({
 
                 <TabsTrigger
                   value="activity"
-                  className="hidden rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
                 >
                   <Activity className="h-4 w-4 mr-2" />
                   Activity Log
@@ -194,9 +280,10 @@ export function CommentsPanelSheet({
               </TabsList>
             </div>
 
+            {/* update content */}
             <TabsContent
               value="updates"
-              className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0"
+              className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0 data-[state=inactive]:hidden"
             >
               <div className="px-6 pt-2 pb-4 border-b border-border relative z-10 flex flex-col gap-2">
                 {replyingTo && (
@@ -247,7 +334,7 @@ export function CommentsPanelSheet({
                     onGifSelect={(gifUrl) =>
                       onUpdateTextChange(
                         updateText +
-                        `<img src="${gifUrl}" alt="GIF" style="max-width: 200px; border-radius: 8px;" />`
+                          `<img src="${gifUrl}" alt="GIF" style="max-width: 200px; border-radius: 8px;" />`,
                       )
                     }
                   />
@@ -290,14 +377,14 @@ export function CommentsPanelSheet({
                       .sort(
                         (a, b) =>
                           new Date(b.created_at).getTime() -
-                          new Date(a.created_at).getTime()
+                          new Date(a.created_at).getTime(),
                       )
                       .map((comment) => {
                         const getDescendants = (
-                          parentId: string | number
+                          parentId: string | number,
                         ): TaskComment[] => {
                           const directChildren = comments.filter(
-                            (c) => String(c.parent_id) === String(parentId)
+                            (c) => String(c.parent_id) === String(parentId),
                           );
                           let allDescendants = [...directChildren];
                           directChildren.forEach((child) => {
@@ -310,11 +397,11 @@ export function CommentsPanelSheet({
                         };
 
                         const allThreadComments = getDescendants(
-                          comment.id
+                          comment.id,
                         ).sort(
                           (a, b) =>
                             new Date(a.created_at).getTime() -
-                            new Date(b.created_at).getTime()
+                            new Date(b.created_at).getTime(),
                         );
 
                         const isExpanded = expandedThreads[comment.id];
@@ -330,7 +417,7 @@ export function CommentsPanelSheet({
                           inlineReplyId &&
                           (String(inlineReplyId) === String(comment.id) ||
                             allThreadComments.some(
-                              (rtc) => String(rtc.id) === String(inlineReplyId)
+                              (rtc) => String(rtc.id) === String(inlineReplyId),
                             ));
 
                         return (
@@ -353,9 +440,9 @@ export function CommentsPanelSheet({
                                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
                                       {comment.created_at
                                         ? format(
-                                          new Date(comment.created_at),
-                                          "MMM d, h:mm a"
-                                        )
+                                            new Date(comment.created_at),
+                                            "MMM d, h:mm a",
+                                          )
                                         : ""}
                                     </span>
                                   </div>
@@ -398,7 +485,9 @@ export function CommentsPanelSheet({
                                       value={editCommentText}
                                       onChange={setEditCommentText}
                                       placeholder="Edit your comment..."
-                                      boardId={boardId ? parseInt(boardId) : undefined}
+                                      boardId={
+                                        boardId ? parseInt(boardId) : undefined
+                                      }
                                     />
                                     <div className="flex gap-2">
                                       <Button
@@ -407,7 +496,7 @@ export function CommentsPanelSheet({
                                         onClick={() => {
                                           updateTaskComment(
                                             comment.id,
-                                            editCommentText
+                                            editCommentText,
                                           );
                                           setEditingCommentId(null);
                                         }}
@@ -431,7 +520,9 @@ export function CommentsPanelSheet({
                                   <>
                                     <div
                                       className="text-sm text-foreground/90 leading-relaxed break-words pr-4"
-                                      dangerouslySetInnerHTML={renderFormattedContent(comment.content)}
+                                      dangerouslySetInnerHTML={renderFormattedContent(
+                                        comment.content,
+                                      )}
                                     />
 
                                     <div className="pt-0.5 flex items-center gap-4">
@@ -518,9 +609,9 @@ export function CommentsPanelSheet({
                                         <span className="text-[10px] text-muted-foreground italic">
                                           {reply.created_at
                                             ? format(
-                                              new Date(reply.created_at),
-                                              "MMM d, h:mm a"
-                                            )
+                                                new Date(reply.created_at),
+                                                "MMM d, h:mm a",
+                                              )
                                             : ""}
                                         </span>
                                       </div>
@@ -564,7 +655,11 @@ export function CommentsPanelSheet({
                                           value={editCommentText}
                                           onChange={setEditCommentText}
                                           placeholder="Edit your reply..."
-                                          boardId={boardId ? parseInt(boardId) : undefined}
+                                          boardId={
+                                            boardId
+                                              ? parseInt(boardId)
+                                              : undefined
+                                          }
                                         />
                                         <div className="flex gap-2">
                                           <Button
@@ -573,7 +668,7 @@ export function CommentsPanelSheet({
                                             onClick={() => {
                                               updateTaskComment(
                                                 reply.id,
-                                                editCommentText
+                                                editCommentText,
                                               );
                                               setEditingCommentId(null);
                                             }}
@@ -597,7 +692,9 @@ export function CommentsPanelSheet({
                                       <>
                                         <div
                                           className="text-sm text-foreground/80 leading-relaxed break-words"
-                                          dangerouslySetInnerHTML={renderFormattedContent(reply.content)}
+                                          dangerouslySetInnerHTML={renderFormattedContent(
+                                            reply.content,
+                                          )}
                                         />
                                         <div className="pt-0.5 flex items-center gap-4">
                                           <Button
@@ -637,7 +734,8 @@ export function CommentsPanelSheet({
                                       Replying to{" "}
                                       {comments.find(
                                         (c) =>
-                                          String(c.id) === String(inlineReplyId)
+                                          String(c.id) ===
+                                          String(inlineReplyId),
                                       )?.user?.name || "User"}
                                     </span>
                                     <Button
@@ -654,7 +752,9 @@ export function CommentsPanelSheet({
                                       placeholder="Write a reply..."
                                       value={inlineReplyText}
                                       onChange={setInlineReplyText}
-                                      boardId={boardId ? parseInt(boardId) : undefined}
+                                      boardId={
+                                        boardId ? parseInt(boardId) : undefined
+                                      }
                                     />
                                   </div>
                                   <div className="mt-3 flex justify-end gap-2">
@@ -687,13 +787,135 @@ export function CommentsPanelSheet({
                 )}
               </div>
             </TabsContent>
+
+            {/* activity log content */}
+            <TabsContent
+              value="activity"
+              className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0 data-[state=inactive]:hidden"
+            >
+              <div className="flex-1 overflow-auto px-6 py-4 relative">
+                {/* Loading overlay for pagination */}
+                {isLoadingPage && (
+                  <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      Loading page {currentPage}...
+                    </div>
+                  </div>
+                )}
+                
+                {isLoadingActivity ? (
+                  <div className="flex items-center justify-center py-8">
+                    <p className="text-sm text-muted-foreground">
+                      Loading activity...
+                    </p>
+                  </div>
+                ) : activityData.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground">
+                      No activity found for this task.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {activityData.map((activity) => (
+                      <div key={activity.id} className="flex gap-4 group relative">
+                        <Avatar className="h-8 w-8 shrink-0 border border-border/50 shadow-sm">
+                          <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
+                            {activity.user?.name?.charAt(0).toUpperCase() || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">
+                              {activity.user?.name || "Unknown User"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {activity.created_at
+                                ? format(new Date(activity.created_at), "MMM d, h:mm a")
+                                : ""}
+                            </span>
+                          </div>
+                          <div className="text-sm text-foreground/90">
+                            <span className="font-medium text-primary">
+                              {activity.action_label}
+                            </span>
+                          </div>
+                          {activity.old_value && activity.old_value.trim() && (
+                            <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-destructive/30">
+                              <span className="font-medium">Previous:</span>
+                              <div className="mt-1 break-words">
+                                {activity.old_value.length > 200 
+                                  ? `${activity.old_value.substring(0, 200)}...`
+                                  : activity.old_value
+                                }
+                              </div>
+                            </div>
+                          )}
+                          {activity.new_value && activity.new_value !== "Task updated" && activity.new_value.trim() && (
+                            <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30">
+                              <span className="font-medium">New:</span>
+                              <div className="mt-1 break-words">
+                                {activity.new_value.length > 200 
+                                  ? `${activity.new_value.substring(0, 200)}...`
+                                  : activity.new_value
+                                }
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Fixed Pagination Controls */}
+              {activityMeta && activityMeta.total_pages > 1 && (
+                <div className="border-t border-border bg-background px-6 py-3 flex-shrink-0">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground">
+                      Showing {activityMeta.count} of {activityMeta.total} activities
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePreviousPage}
+                        disabled={currentPage <= 1 || isLoadingPage}
+                        className="h-8 px-2"
+                        title="Previous page (Ctrl+←)"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground px-2">
+                        {isLoadingPage ? (
+                          <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          `${currentPage} of ${activityMeta.total_pages}`
+                        )}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNextPage}
+                        disabled={currentPage >= activityMeta.total_pages || isLoadingPage}
+                        className="h-8 px-2"
+                        title="Next page (Ctrl+→)"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
           </Tabs>
         </div>
       </SheetContent>
     </Sheet>
   );
 }
-
 
 // import { useState } from "react";
 // import { format } from "date-fns";
