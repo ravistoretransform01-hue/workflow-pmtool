@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/label";
@@ -34,12 +34,20 @@ const LoginPage = () => {
       let title = "Login failed";
       let description = error;
 
-      if (error.toLowerCase().includes("unknown email") || error.toLowerCase().includes("email address")) {
+      if (
+        error.toLowerCase().includes("unknown email") ||
+        error.toLowerCase().includes("email address")
+      ) {
         title = "Invalid email";
-        description = "The email address you entered is not registered. Please check and try again.";
-      } else if (error.toLowerCase().includes("incorrect password") || error.toLowerCase().includes("password")) {
+        description =
+          "The email address you entered is not registered. Please check and try again.";
+      } else if (
+        error.toLowerCase().includes("incorrect password") ||
+        error.toLowerCase().includes("password")
+      ) {
         title = "Invalid password";
-        description = "The password you entered is incorrect. Please try again.";
+        description =
+          "The password you entered is incorrect. Please try again.";
       }
 
       toast.error(title, {
@@ -164,6 +172,14 @@ const LoginPage = () => {
                   disabled={loading}
                   className="h-12 bg-background border-border"
                 />
+              </div>
+              <div className="flex justify-end">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-primary hover:underline font-medium"
+                >
+                  Forgot Password?
+                </Link>
               </div>
               <Button
                 type="submit"

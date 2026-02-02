@@ -8,6 +8,7 @@ import { ProtectedRoute,  ProtectedLayout} from "@/shared/components/ProtectedRo
 // Pages
 import LoginPage from "@/features/auth/pages/LoginPage";
 import SignupPage from "@/features/auth/pages/SignupPage";
+import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage";
 import LandingPage from "@/features/landing/pages/LandingPage";
 import HomePage from "@/features/home/pages/HomePage";
 import MyWork from "@/pages/MyWork";
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
