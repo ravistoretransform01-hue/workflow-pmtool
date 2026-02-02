@@ -99,6 +99,7 @@ import { useBeforeUnload } from "./hooks/useBeforeUnload";
 import { SortableColumnHeader } from "./components/ColumnHeader";
 import { ColorPickerPopover } from "./ColorPickerPopover";
 import { debugLog } from "@/lib/debugLog";
+// kanaban commented intentionally
 // import { KanbanView } from "./KanbanView";
 
 interface WorkloadBoardProps {
@@ -4766,10 +4767,13 @@ export function WorkloadBoard({
         </div>
       )}
 
+      {/* KANBAN VIEW */}
+      {/* kanban commented intentionally */}
       {/* {activeTab === "Kanban" && (
         <KanbanView
           groups={getFilteredGroups()}
           statuses={statuses}
+          boardId={boardId}
           onTaskMove={handleStatusChange}
           onTaskClick={openTaskCard}
           searchQuery={mainTableSearchQuery}
