@@ -43,6 +43,7 @@ interface EditableStatus {
   id: string;
   name: string;
   color_code: string;
+  required_rating: number | string;
 }
 
 interface StatusPopoverCellProps {
@@ -104,6 +105,7 @@ export default function StatusPopoverCell({
           id: String(s.id),
           name: s.name,
           color_code: s.color_code,
+          required_rating: s.required_rating || 0,
         })),
       );
     }
@@ -320,7 +322,12 @@ export default function StatusPopoverCell({
               </div>
             </div>
 
-            <Button className="w-full" onClick={() => setIsEditMode(true)} variant="outline" size="sm">
+            <Button
+              className="w-full"
+              onClick={() => setIsEditMode(true)}
+              variant="outline"
+              size="sm"
+            >
               Edit Labels
             </Button>
           </>
@@ -342,7 +349,10 @@ export default function StatusPopoverCell({
             <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-2">
               <div className="grid grid-cols-2 gap-2 p-2">
                 {editableStatuses.map((s, i) => (
-                  <div key={s.id} className="flex gap-2 items-center p-2 border border-border rounded">
+                  <div
+                    key={s.id}
+                    className="flex gap-2 items-center p-2 border border-border rounded"
+                  >
                     <ColorPickerPopover
                       color={s.color_code}
                       onColorChange={(c) => {
@@ -362,9 +372,16 @@ export default function StatusPopoverCell({
                       }}
                       className="h-8 text-sm flex-1"
                     />
-                    <Trash 
-                      className="h-4 w-4 text-destructive cursor-pointer" 
-                      onClick={() => handleDeleteStatus(s.id)}
+                    <Trash
+                      className={`h-4 w-4 cursor-pointer ${
+                        s.required_rating === 1
+                          ? "text-muted-foreground cursor-not-allowed opacity-50"
+                          : "text-destructive"
+                      }`}
+                      onClick={() => {
+                        if (s.required_rating === 1) return;
+                        handleDeleteStatus(s.id);
+                      }}
                     />
                   </div>
                 ))}
