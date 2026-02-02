@@ -5129,6 +5129,11 @@ export function WorkloadBoard({
                                 return;
                               }
 
+                              // Capture the old label data before updating
+                              const oldLabel = labels.find(l => String(l.id) === editingLabelId);
+                              const oldLabelName = oldLabel?.label_name;
+                              const oldLabelColor = oldLabel?.label_color;
+
                               // Call API to update label
                               await cmsApi.updateLabel({
                                 label_id: editingLabelId!,
@@ -5150,6 +5155,83 @@ export function WorkloadBoard({
                                     : l,
                                 ),
                               );
+
+                              // Update group labels if any group is using this label
+                              if (oldLabelName) {
+                                // First, identify which groups need to be updated
+                                const groupsToUpdate: string[] = [];
+                                
+                                // Check current group labels to find matches (match by name or id as a fallback)
+                                Object.entries(groupLabels).forEach(([groupId, gLabel]) => {
+                                  if (gLabel === oldLabelName || gLabel === String(editingLabelId)) {
+                                    groupsToUpdate.push(groupId);
+                                  }
+                                });
+
+                                console.log("Groups to update:", groupsToUpdate);
+                                console.log("Old label name:", oldLabelName);
+                                console.log("New label name:", editingLabelName);
+                                
+                                // Update local state
+                                setGroupLabels((prevGroupLabels) => {
+                                  const updatedGroupLabels = { ...prevGroupLabels };
+                                  let hasUpdates = false;
+
+                                  // Find groups that are using the old label name
+                                  Object.keys(updatedGroupLabels).forEach((groupId) => {
+                                    if (updatedGroupLabels[groupId] === oldLabelName) {
+                                      updatedGroupLabels[groupId] = editingLabelName;
+                                      hasUpdates = true;
+                                    }
+                                  });
+
+                                  return hasUpdates ? updatedGroupLabels : prevGroupLabels;
+                                });
+
+                                // Update groups on backend
+                                if (groupsToUpdate.length > 0) {
+                                  console.log("Calling group update API for groups:", groupsToUpdate);
+                                  try {
+                                    await Promise.all(
+                                      groupsToUpdate.map(async (groupId) => {
+                                        console.log(`Updating group ${groupId} with label: ${editingLabelName}`);
+                                        await groupsApi.updateGroup(groupId, {
+                                          label: editingLabelName,
+                                          label_color: editingLabelColor,
+                                        });
+                                        console.log(`Successfully updated group ${groupId}`);
+                                      }),
+                                    );
+
+                                    setTimeout(() => {
+                                      toast.success(`Updated ${groupsToUpdate.length} group${groupsToUpdate.length > 1 ? 's' : ''} using this label`);
+                                    }, 500);
+                                  } catch (error) {
+                                    console.error("Failed to update some groups:", error);
+                                    toast.error("Some groups failed to update on the server");
+                                  }
+                                } else {
+                                  console.log("No groups found to update");
+                                }
+                              }
+
+                              // Update group label colors if any group is using this label
+                              if (oldLabelColor) {
+                                setGroupLabelColors((prevGroupLabelColors) => {
+                                  const updatedGroupLabelColors = { ...prevGroupLabelColors };
+                                  let hasUpdates = false;
+
+                                  // Find groups that are using the old label color and update them
+                                  Object.keys(updatedGroupLabelColors).forEach((groupId) => {
+                                    if (updatedGroupLabelColors[groupId] === oldLabelColor) {
+                                      updatedGroupLabelColors[groupId] = editingLabelColor;
+                                      hasUpdates = true;
+                                    }
+                                  });
+
+                                  return hasUpdates ? updatedGroupLabelColors : prevGroupLabelColors;
+                                });
+                              }
 
                               setEditingLabelId(null);
                               toast.success("Label Updated Successfully");
@@ -5196,6 +5278,9 @@ export function WorkloadBoard({
                           className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                           onClick={async () => {
                             try {
+                              // Capture the label data before deleting
+                              const labelToDelete = label;
+
                               // Call API to delete label
                               await cmsApi.deleteLabel(label.id);
 
@@ -5205,6 +5290,79 @@ export function WorkloadBoard({
                                   (l) => String(l.id) !== String(label.id),
                                 ),
                               );
+
+                              // Clear group labels that were using this deleted label
+                              // First, identify which groups need to be updated
+                              const groupsToUpdate: string[] = [];
+                              
+                              // Check current group labels to find matches (match by name or id as a fallback)
+                              Object.entries(groupLabels).forEach(([groupId, gLabel]) => {
+                                if (gLabel === labelToDelete.label_name || gLabel === String(labelToDelete.id)) {
+                                  groupsToUpdate.push(groupId);
+                                }
+                              });
+
+                              console.log("Groups to clear labels from:", groupsToUpdate);
+                              console.log("Deleted label name:", labelToDelete.label_name);
+                              console.log("Current group labels:", groupLabels);
+                              
+                              setGroupLabels((prevGroupLabels) => {
+                                const updatedGroupLabels = { ...prevGroupLabels };
+                                let hasUpdates = false;
+
+                                // Find groups that are using the deleted label name
+                                Object.keys(updatedGroupLabels).forEach((groupId) => {
+                                  if (updatedGroupLabels[groupId] === labelToDelete.label_name) {
+                                    delete updatedGroupLabels[groupId];
+                                    hasUpdates = true;
+                                  }
+                                });
+
+                                return hasUpdates ? updatedGroupLabels : prevGroupLabels;
+                              });
+
+                              // Update groups on backend to clear labels
+                              if (groupsToUpdate.length > 0) {
+                                console.log("Calling group update API to clear labels for groups:", groupsToUpdate);
+                                try {
+                                  await Promise.all(
+                                    groupsToUpdate.map(async (groupId) => {
+                                      console.log(`Clearing labels from group ${groupId}`);
+                                      await groupsApi.updateGroup(groupId, {
+                                        label: null,
+                                        label_color: null,
+                                      });
+                                      console.log(`Successfully cleared labels from group ${groupId}`);
+                                    }),
+                                  );
+
+                                  setTimeout(() => {
+                                    toast.success(`Cleared labels from ${groupsToUpdate.length} group${groupsToUpdate.length > 1 ? 's' : ''}`);
+                                  }, 500);
+                                } catch (error) {
+                                  console.error("Failed to clear labels from some groups:", error);
+                                  toast.error("Some groups failed to clear labels on the server");
+                                }
+                              } else {
+                                console.log("No groups found to clear labels from");
+                              }
+
+                              // Clear group label colors that were using this deleted label
+                              setGroupLabelColors((prevGroupLabelColors) => {
+                                const updatedGroupLabelColors = { ...prevGroupLabelColors };
+                                let hasUpdates = false;
+
+                                // Find groups that are using the deleted label color and clear them
+                                Object.keys(updatedGroupLabelColors).forEach((groupId) => {
+                                  if (updatedGroupLabelColors[groupId] === labelToDelete.label_color) {
+                                    delete updatedGroupLabelColors[groupId];
+                                    hasUpdates = true;
+                                  }
+                                });
+
+                                return hasUpdates ? updatedGroupLabelColors : prevGroupLabelColors;
+                              });
+
                               toast.success("Label Deleted Successfully");
                             } catch (error) {
                               console.error("Failed to delete label:", error);
