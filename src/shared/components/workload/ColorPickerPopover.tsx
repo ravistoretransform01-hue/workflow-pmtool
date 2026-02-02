@@ -61,7 +61,7 @@ export function ColorPickerPopover({
         </div>
       </PopoverTrigger>
       <PopoverContent
-        className="p-3 bg-card border border-border shadow-lg rounded-lg"
+        className="p-3 bg-card border border-border shadow-lg rounded-lg z-[250]"
         style={{ width: "400px" }}
         align="start"
       >

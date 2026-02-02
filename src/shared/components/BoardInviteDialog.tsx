@@ -7,17 +7,19 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
-import { X, Plus, UserPlus } from "lucide-react";
+import { Plus, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { tasksApi } from "@/features/tasks/tasksApi";
+import { organizationApi, type OrganizationMember } from "@/features/organization/organizationApi";
+import { boardsApi } from "@/features/boards/boardsApi";
+import { clearCMSCache } from "@/features/cms/cmsStorage";
+import { getOrganizationId, getCurrentUserId } from "@/lib/utils";
 import api from "@/lib/axios";
-// import { supabase } from "@/integrations/supabase/client"; // To be replaced with your API
-// import { useTestUser } from "@/contexts/TestUserContext"; // To be replaced
 
 interface BoardInviteDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     boardId: string;
+    currentMembers?: Array<{ id: string; name: string; email: string; role: string; avatarColor?: string }>;
     onMembersUpdate?: () => void;
 }
 
@@ -27,19 +29,28 @@ const isValidEmail = (email: string): boolean => {
     return emailRegex.test(email);
 };
 
-// Temporary Mock Data for users available in the system
-// In your full app, you would fetch this from an endpoint like /users/search or similar
-const MOCK_AVAILABLE_USERS = [
-    { id: "101", name: "Alice Johnson", avatarColor: "hsl(221, 83%, 53%)" },
-    { id: "102", name: "Bob Smith", avatarColor: "hsl(142, 71%, 45%)" },
-    { id: "103", name: "Charlie Davis", avatarColor: "hsl(330, 81%, 60%)" },
-    { id: "104", name: "David Wilson", avatarColor: "hsl(262, 83%, 58%)" },
-];
+// Generate avatar color based on user name
+const getAvatarColor = (name: string): string => {
+    const colors = [
+        "hsl(221, 83%, 53%)",
+        "hsl(142, 71%, 45%)",
+        "hsl(330, 81%, 60%)",
+        "hsl(262, 83%, 58%)",
+        "hsl(25, 95%, 53%)",
+        "hsl(197, 71%, 52%)",
+        "hsl(271, 81%, 60%)",
+        "hsl(142, 76%, 36%)",
+    ];
+    const index = name.charCodeAt(0) % colors.length;
+    return colors[index];
+};
 
-export function BoardInviteDialog({ open, onOpenChange, boardId, onMembersUpdate }: BoardInviteDialogProps) {
+export function BoardInviteDialog({ open, onOpenChange, boardId, currentMembers = [], onMembersUpdate }: BoardInviteDialogProps) {
     const [searchQuery, setSearchQuery] = useState("");
-    const [members, setMembers] = useState<Array<{ id: string; test_user_id: string; role: string; name: string; avatarColor?: string }>>([]);
+    const [organizationMembers, setOrganizationMembers] = useState<OrganizationMember[]>([]);
+    const [isLoadingOrgMembers, setIsLoadingOrgMembers] = useState(false);
     const [isInviting, setIsInviting] = useState(false);
+    const [addingUserId, setAddingUserId] = useState<string | null>(null);
     const { toast } = useToast();
 
     // Check if search query is a valid email
@@ -47,7 +58,7 @@ export function BoardInviteDialog({ open, onOpenChange, boardId, onMembersUpdate
 
     useEffect(() => {
         if (open && boardId) {
-            loadMembers();
+            loadOrganizationMembers();
         }
     }, [open, boardId]);
 
@@ -57,93 +68,107 @@ export function BoardInviteDialog({ open, onOpenChange, boardId, onMembersUpdate
         }
     }, [open]);
 
-    const loadMembers = async () => {
-        if (!boardId) return;
-
-        // Using your tasksApi from before to mock getting members
+    const loadOrganizationMembers = async () => {
+        setIsLoadingOrgMembers(true);
         try {
-            const tasks = await tasksApi.getTasksByBoardId(Number(boardId));
-            const uniqueMembers = new Map();
-
-            tasks.forEach((t: any) => {
-                if (t.assignee) {
-                    uniqueMembers.set(String(t.assignee.id), {
-                        id: String(t.assignee.id), // Member ID (using user id for simplicity here)
-                        test_user_id: String(t.assignee.id),
-                        name: t.assignee.name,
-                        role: "viewer", // Default logic
-                        avatarColor: "hsl(221, 83%, 53%)"
-                    });
-                }
+            const organizationId = getOrganizationId() || 2;
+            const orgMembers = await organizationApi.getOrganizationMembers(organizationId);
+            setOrganizationMembers(orgMembers);
+        } catch (error) {
+            console.error("Failed to load organization members:", error);
+            toast({
+                title: "Error",
+                description: "Failed to load organization members",
+                variant: "destructive",
             });
-            setMembers(Array.from(uniqueMembers.values()));
-
-        } catch (e) {
-            console.error(e);
+        } finally {
+            setIsLoadingOrgMembers(false);
         }
     };
 
-    // Filter available users (not already in board) based on search
+    // Filter available users (organization members not already in board) based on search
     const availableUsers = useMemo(() => {
-        const memberIds = new Set(members.map(m => m.test_user_id));
-        const available = MOCK_AVAILABLE_USERS.filter(user => !memberIds.has(user.id));
-
+        // Get current member user IDs to filter them out
+        const currentMemberIds = new Set(currentMembers.map(member => member.id));
+        
+        // Get current user ID to filter them out from search results
+        const currentUserId = getCurrentUserId();
+        
         if (!searchQuery.trim()) {
             return [];
         }
 
-        return available.filter(user =>
-            user.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    }, [members, searchQuery]);
+        return organizationMembers.filter(orgMember => {
+            // Filter out members who are already in the board
+            const isAlreadyMember = currentMemberIds.has(orgMember.user_id);
+            if (isAlreadyMember) return false;
 
-    // Filter current members based on search
-    const filteredMembers = useMemo(() => {
-        if (!searchQuery.trim()) {
-            return members;
-        }
+            // Filter out current user to prevent self-invitation
+            const isCurrentUser = currentUserId && orgMember.user_id === String(currentUserId);
+            if (isCurrentUser) return false;
 
-        return members.filter(member => {
-            return member.name.toLowerCase().includes(searchQuery.toLowerCase());
+            // Filter by search query
+            return orgMember.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                   orgMember.user_email.toLowerCase().includes(searchQuery.toLowerCase());
         });
-    }, [members, searchQuery]);
+    }, [organizationMembers, currentMembers, searchQuery]);
+
+    // Filter current members based on search - REMOVED: Don't filter current members
+    const filteredMembers = useMemo(() => {
+        // Always show all current members, don't filter them by search
+        return currentMembers;
+    }, [currentMembers]);
 
     const handleAddMember = async (userId: string) => {
-        // In a real implementation: call API to add member
-        // await api.addBoardMember(boardId, userId);
+        setAddingUserId(userId);
+        try {
+            const organizationId = getOrganizationId() ?? 2;
 
-        toast({
-            title: "Member added",
-            description: "Member has been added to the project (Mock)",
-        });
+            const response = await boardsApi.assignMembers({
+                board_id: parseInt(boardId),
+                user_id: parseInt(userId),
+                role_id: 2, // Default role_id
+                organization_id: organizationId
+            });
 
-        setSearchQuery("");
-        // Simulate updating list
-        const user = MOCK_AVAILABLE_USERS.find(u => u.id === userId);
-        if (user) {
-            setMembers(prev => [...prev, {
-                id: user.id,
-                test_user_id: user.id,
-                name: user.name,
-                role: "Viewer",
-                avatarColor: user.avatarColor
-            }])
+            if (response.status === "success") {
+                toast({
+                    title: "Member added",
+                    description: "Member has been successfully added to the board",
+                });
+
+                // Clear CMS cache to ensure fresh data is loaded
+                clearCMSCache(parseInt(boardId));
+                
+                setSearchQuery("");
+                
+                // Add a small delay to ensure API operations are complete
+                setTimeout(() => {
+                    onMembersUpdate?.();
+                }, 500);
+            } else {
+                throw new Error(response.message || "Failed to add member");
+            }
+        } catch (error: any) {
+            console.error('Error adding member:', error);
+            
+            // Handle specific error cases
+            if (error.response?.data?.error_type === "duplicate_entry") {
+                toast({
+                    title: "Already a member",
+                    description: "This user is already a member of this board",
+                    variant: "destructive",
+                });
+            } else {
+                toast({
+                    title: "Error",
+                    description: error.response?.data?.message || error.message || "Failed to add member to board",
+                    variant: "destructive",
+                });
+            }
+        } finally {
+            setAddingUserId(null);
         }
-
-        onMembersUpdate?.();
-    };
-
-    const handleRemoveMember = async (memberUserId: string) => {
-        // In a real implementation: call API to remove member
-        // await api.removeBoardMember(boardId, memberId);
-
-        toast({
-            title: "Member removed",
-            description: "Member has been removed from the board (Mock)",
-        });
-
-        setMembers(prev => prev.filter(m => m.test_user_id !== memberUserId));
-        onMembersUpdate?.();
     };
 
     const handleInviteByEmail = async () => {
@@ -151,16 +176,11 @@ export function BoardInviteDialog({ open, onOpenChange, boardId, onMembersUpdate
 
         setIsInviting(true);
         try {
-            // Get organization_id from localStorage or context
-            const userData = localStorage.getItem("user_data");
-
-            const organizationId = userData
-            ? JSON.parse(userData).organization_id
-            : '2';
+            const organizationId = getOrganizationId() || 2;
 
             await api.post('/invite-user', {
                 email: searchQuery.trim(),
-                organization_id: parseInt(organizationId),
+                organization_id: organizationId,
                 board_id: parseInt(boardId),
                 role_id: 2 // Default role_id, you can make this configurable
             });
@@ -170,9 +190,15 @@ export function BoardInviteDialog({ open, onOpenChange, boardId, onMembersUpdate
                 description: `Invitation has been sent to ${searchQuery.trim()}`,
             });
 
+            // Clear CMS cache to ensure fresh data is loaded
+            clearCMSCache(parseInt(boardId));
+            
             setSearchQuery("");
-            loadMembers();
-            onMembersUpdate?.();
+            
+            // Add a small delay to ensure API operations are complete
+            setTimeout(() => {
+                onMembersUpdate?.();
+            }, 500);
         } catch (error: any) {
             console.error('Error inviting user:', error);
             toast({
@@ -229,25 +255,49 @@ export function BoardInviteDialog({ open, onOpenChange, boardId, onMembersUpdate
                         {/* Available users dropdown */}
                         {searchQuery.trim() && !isEmail && availableUsers.length > 0 && (
                             <div className="absolute top-full left-0 right-0 mt-2 bg-[#404463] border-2 border-primary rounded-lg shadow-lg z-50 max-h-[200px] overflow-y-auto">
-                                {availableUsers.map((user) => (
+                                {availableUsers.map((orgMember) => (
                                     <button
-                                        key={user.id}
-                                        onClick={() => handleAddMember(user.id)}
-                                        className="w-full flex items-center gap-4 p-4 hover:bg-[#4a4e6b] transition-colors"
+                                        key={orgMember.user_id}
+                                        onClick={() => handleAddMember(orgMember.user_id)}
+                                        disabled={addingUserId === orgMember.user_id}
+                                        className="w-full flex items-center gap-4 p-4 hover:bg-[#4a4e6b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Avatar className="w-10 h-10">
-                                            <AvatarFallback style={{ backgroundColor: user.avatarColor }}>
+                                            <AvatarFallback style={{ backgroundColor: getAvatarColor(orgMember.display_name) }}>
                                                 <span className="text-white font-semibold">
-                                                    {user.name.charAt(0)}
+                                                    {orgMember.display_name.charAt(0).toUpperCase()}
                                                 </span>
                                             </AvatarFallback>
                                         </Avatar>
                                         <div className="flex-1 text-left">
-                                            <p className="text-base font-medium text-white">{user.name}</p>
+                                            <p className="text-base font-medium text-white">{orgMember.display_name}</p>
+                                            <p className="text-sm text-gray-400">{orgMember.user_email}</p>
                                         </div>
-                                        <Plus className="h-5 w-5 text-gray-400" />
+                                        {addingUserId === orgMember.user_id ? (
+                                            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                        ) : (
+                                            <Plus className="h-5 w-5 text-gray-400" />
+                                        )}
                                     </button>
                                 ))}
+                            </div>
+                        )}
+
+                        {/* Loading state for organization members */}
+                        {searchQuery.trim() && !isEmail && isLoadingOrgMembers && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-[#404463] border-2 border-primary rounded-lg shadow-lg z-50">
+                                <div className="p-4 text-center text-gray-400">
+                                    Loading members...
+                                </div>
+                            </div>
+                        )}
+
+                        {/* No results message */}
+                        {searchQuery.trim() && !isEmail && !isLoadingOrgMembers && availableUsers.length === 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-[#404463] border-2 border-primary rounded-lg shadow-lg z-50">
+                                <div className="p-4 text-center text-gray-400">
+                                    No available members found
+                                </div>
                             </div>
                         )}
                     </div>
@@ -257,7 +307,7 @@ export function BoardInviteDialog({ open, onOpenChange, boardId, onMembersUpdate
 
                         {filteredMembers.length === 0 ? (
                             <p className="text-gray-400 text-center py-8">
-                                {searchQuery.trim() ? "No members found" : "No members in this board"}
+                                No members in this board
                             </p>
                         ) : (
                             <div className="space-y-3">
@@ -268,22 +318,17 @@ export function BoardInviteDialog({ open, onOpenChange, boardId, onMembersUpdate
                                             className="flex items-center gap-4 py-2"
                                         >
                                             <Avatar className="w-12 h-12">
-                                                <AvatarFallback style={{ backgroundColor: member.avatarColor || "hsl(221, 83%, 53%)" }}>
+                                                <AvatarFallback style={{ backgroundColor: member.avatarColor || getAvatarColor(member.name) }}>
                                                     <span className="text-white font-semibold text-lg">
-                                                        {member.name.charAt(0)}
+                                                        {member.name.charAt(0).toUpperCase()}
                                                     </span>
                                                 </AvatarFallback>
                                             </Avatar>
                                             <div className="flex-1">
                                                 <p className="text-lg font-medium text-white">{member.name}</p>
-                                                <p className="text-sm text-gray-400 capitalize">{member.role}</p>
+                                                <p className="text-sm text-gray-400">{member.email}</p>
+                                                <p className="text-xs text-gray-500 capitalize">{member.role}</p>
                                             </div>
-                                            <button
-                                                onClick={() => handleRemoveMember(member.test_user_id)}
-                                                className="p-2 hover:bg-[#404463] rounded-lg transition-colors"
-                                            >
-                                                <X className="h-5 w-5 text-gray-400 hover:text-white" />
-                                            </button>
                                         </div>
                                     );
                                 })}

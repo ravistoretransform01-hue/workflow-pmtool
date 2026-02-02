@@ -1,19 +1,49 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { MoreHorizontal, UserPlus, LayoutDashboard } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/shared/components/ui/alert-dialog";
+import { MoreHorizontal, UserPlus, LayoutDashboard, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Button } from "@/shared/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/shared/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/shared/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { boardsApi } from "@/features/boards/boardsApi";
 import { BoardInviteDialog } from "@/shared/components/BoardInviteDialog";
 import { getMembers, getRoles } from "@/features/cms/cmsStorage";
+import { clearCMSCache } from "@/features/cms/cmsStorage";
 import type { Role } from "@/features/cms/types";
 import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
 
@@ -52,12 +82,24 @@ export default function BoardDashboardPage() {
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Mock Members Data (Replace with real API)
-  const [members, setMembers] = useState<Array<{ id: string; name: string; email: string; role: string; role_id?: string; avatarColor?: string }>>([]);
-  
+  const [members, setMembers] = useState<
+    Array<{
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      role_id?: string;
+      avatarColor?: string;
+    }>
+  >([]);
+
   // CMS Roles state
   const [roles, setRoles] = useState<Role[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
-  const [roleChangingUserId, setRoleChangingUserId] = useState<string | null>(null);
+  const [roleChangingUserId, setRoleChangingUserId] = useState<string | null>(
+    null,
+  );
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (boardId) {
@@ -79,8 +121,8 @@ export default function BoardDashboardPage() {
         // Add creator to members if available
         const creator = board.creator;
         if (creator) {
-          setMembers(prev => {
-            const exists = prev.some(m => m.id === String(creator.id));
+          setMembers((prev) => {
+            const exists = prev.some((m) => m.id === String(creator.id));
             if (exists) return prev;
             return [
               ...prev,
@@ -89,17 +131,17 @@ export default function BoardDashboardPage() {
                 name: creator.name,
                 email: creator.email,
                 role: "Project Owner",
-                avatarColor: board.icon_color || "hsl(221, 83%, 53%)"
-              }
+                avatarColor: board.icon_color || "hsl(221, 83%, 53%)",
+              },
             ];
           });
         }
       }
     } catch (error) {
       console.error("Failed to load board data:", error);
-      toast({ 
-        title: "Error", 
-        description: "Failed to Load Board Data", 
+      toast({
+        title: "Error",
+        description: "Failed to Load Board Data",
         variant: "destructive",
         duration: 3000,
       });
@@ -116,25 +158,46 @@ export default function BoardDashboardPage() {
       const cmsMembers = await getMembers({
         organization_id: organizationId,
         board_id: id,
-        user_id: userId
+        user_id: userId,
       });
 
       // Transform CMS members to dashboard member format
-      const transformedMembers = cmsMembers.map(member => ({
+      const transformedMembers = cmsMembers.map((member) => ({
         id: member.user_id,
         name: member.name,
-        email: member.email || `${member.username || 'user'}@example.com`,
+        email: member.email || `${member.username || "user"}@example.com`,
         role: member.board_role_label || "Project Member",
-        role_id: member.board_role_id ? String(member.board_role_id) : undefined,
-        avatarColor: `hsl(${parseInt(member.user_id) * 137 % 360}, 70%, 50%)` // Generate color from user_id
+        role_id: member.board_role_id
+          ? String(member.board_role_id)
+          : undefined,
+        avatarColor: `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`, // Generate color from user_id
       }));
+
+      // Check if current user is in the list, if not add them
+      const currentUserExists = transformedMembers.some(member => member.id === String(userId));
+      
+      if (!currentUserExists) {
+        // Get current user data from localStorage
+        const userData = localStorage.getItem("user_data");
+        if (userData) {
+          const currentUser = JSON.parse(userData);
+          transformedMembers.unshift({
+            id: String(userId),
+            name: currentUser.display_name || currentUser.name || "Current User",
+            email: currentUser.email || "current@user.com",
+            role: "Project Owner", // Default role for current user
+            role_id: undefined,
+            avatarColor: `hsl(${(userId * 137) % 360}, 70%, 50%)`,
+          });
+        }
+      }
 
       setMembers(transformedMembers);
     } catch (e) {
-      console.error('Failed to load members:', e);
+      console.error("Failed to load members:", e);
       // Don't show error toast, just log it
     }
-  }
+  };
 
   const loadRoles = async (id: number) => {
     try {
@@ -165,8 +228,8 @@ export default function BoardDashboardPage() {
   const handleRoleChange = async (userId: string, newRoleId: string) => {
     if (!boardId) return;
 
-    const organizationId = getOrganizationId() || 2;
-    
+    const organizationId = getOrganizationId() || 0;
+
     setRoleChangingUserId(userId);
     try {
       const response = await boardsApi.assignBoardRole({
@@ -180,20 +243,28 @@ export default function BoardDashboardPage() {
       if (response.status === "failed") {
         toast({
           title: "Permission Denied",
-          description: response.message || "You don't have permission to assign roles",
+          description:
+            response.message || "You don't have permission to assign roles",
           variant: "destructive",
           duration: 2000,
         });
         return;
       }
 
+      console.log("response", response)
+      console.log("response.data.role_label", response.message)
+
       // Update local state with new role_label from API response
-      setMembers(prevMembers =>
-        prevMembers.map(member =>
+      setMembers((prevMembers) =>
+        prevMembers.map((member) =>
           member.id === userId
-            ? { ...member, role: response.data.role_label, role_id: String(response.data.role_id) }
-            : member
-        )
+            ? {
+                ...member,
+                role: response.data.role_label,
+                role_id: String(response.data.role_id),
+              }
+            : member,
+        ),
       );
 
       toast({
@@ -202,12 +273,13 @@ export default function BoardDashboardPage() {
       });
     } catch (error: any) {
       console.error("Failed to update role:", error);
-      
+
       // Handle error response from API
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          "Failed to update user role";
-      
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to update user role";
+
       toast({
         title: "Error",
         description: errorMessage,
@@ -216,6 +288,49 @@ export default function BoardDashboardPage() {
       });
     } finally {
       setRoleChangingUserId(null);
+    }
+  };
+
+  const handleRemoveMember = async (memberUserId: string) => {
+    setRemovingUserId(memberUserId);
+    try {
+      const organizationId = getOrganizationId() || 2;
+
+      const response = await boardsApi.removeMembers({
+        board_id: parseInt(boardId!),
+        user_id: parseInt(memberUserId),
+        role_id: 2, // Default role_id (required by API)
+        organization_id: organizationId,
+      });
+
+      if (response.status === "success") {
+        toast({
+          title: "Member removed",
+          description: "Member has been successfully removed from the board",
+        });
+
+        // Clear CMS cache to ensure fresh data is loaded
+        clearCMSCache(parseInt(boardId!));
+
+        // Reload members with a small delay to ensure API operations are complete
+        setTimeout(() => {
+          loadMembers(Number(boardId));
+        }, 500);
+      } else {
+        throw new Error(response.message || "Failed to remove member");
+      }
+    } catch (error: any) {
+      console.error("Error removing member:", error);
+      toast({
+        title: "Error",
+        description:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to remove member from board",
+        variant: "destructive",
+      });
+    } finally {
+      setRemovingUserId(null);
     }
   };
 
@@ -247,9 +362,9 @@ export default function BoardDashboardPage() {
         toast({ title: "Success", description: "Board Name Updated" });
       } catch (error) {
         console.error(error);
-        toast({ 
-          title: "Error", 
-          description: "Failed to Update Board Name", 
+        toast({
+          title: "Error",
+          description: "Failed to Update Board Name",
           variant: "destructive",
           duration: 3000,
         });
@@ -287,7 +402,10 @@ export default function BoardDashboardPage() {
                 </span>
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-64 p-4 bg-popover z-50 shadow-lg border" align="start">
+            <PopoverContent
+              className="w-64 p-4 bg-popover z-50 shadow-lg border"
+              align="start"
+            >
               <div className="space-y-3">
                 <h3 className="font-semibold text-sm">Choose icon color</h3>
                 <div className="grid grid-cols-5 gap-2">
@@ -299,8 +417,12 @@ export default function BoardDashboardPage() {
                         setColorPickerOpen(false);
                         if (boardId) {
                           try {
-                            await boardsApi.updateBoard(boardId, { icon_color: color.value });
-                          } catch (e) { console.error(e); }
+                            await boardsApi.updateBoard(boardId, {
+                              icon_color: color.value,
+                            });
+                          } catch (e) {
+                            console.error(e);
+                          }
                         }
                       }}
                       className="w-10 h-10 rounded-lg transition-transform hover:scale-110 focus:ring-2 focus:ring-primary focus:ring-offset-2"
@@ -333,9 +455,15 @@ export default function BoardDashboardPage() {
 
                   {/* Small profile icon next to board name for members */}
                   <div className="flex -space-x-2">
-                    {members.slice(0, 3).map(m => (
-                      <Avatar key={m.id} className="w-6 h-6 border-2 border-background">
-                        <AvatarFallback style={{ backgroundColor: m.avatarColor }} className="text-[10px] text-white">
+                    {members.slice(0, 3).map((m) => (
+                      <Avatar
+                        key={m.id}
+                        className="w-6 h-6 border-2 border-background"
+                      >
+                        <AvatarFallback
+                          style={{ backgroundColor: m.avatarColor }}
+                          className="text-[10px] text-white"
+                        >
                           {m.name.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
@@ -351,14 +479,19 @@ export default function BoardDashboardPage() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuItem onClick={() => navigate(`/board/${boardId}`)}>
+                  <DropdownMenuItem
+                    onClick={() => navigate(`/board/${boardId}`)}
+                  >
                     <LayoutDashboard className="h-4 w-4 mr-2" />
                     Go to Board
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setIsEditingName(true)}>
                     Rename project
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)} className="text-destructive">
+                  <DropdownMenuItem
+                    onClick={() => setDeleteDialogOpen(true)}
+                    className="text-destructive"
+                  >
                     Delete project
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -398,7 +531,8 @@ export default function BoardDashboardPage() {
           <TabsContent value="user-management" className="space-y-6">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing: {members.length} result{members.length !== 1 ? 's' : ''}
+                Showing: {members.length} result
+                {members.length !== 1 ? "s" : ""}
               </p>
               <Button
                 size="lg"
@@ -412,51 +546,94 @@ export default function BoardDashboardPage() {
 
             {/* Members Table */}
             <div className="border border-border rounded-lg overflow-hidden bg-card">
-              <div className="grid grid-cols-[1fr_2fr_1fr] gap-4 px-6 py-4 bg-muted/30 border-b border-border">
-                <div className="text-sm font-medium text-muted-foreground">Name</div>
-                <div className="text-sm font-medium text-muted-foreground">Email</div>
-                <div className="text-sm font-medium text-muted-foreground">User role</div>
+              <div className="grid grid-cols-[1fr_2fr_1fr_auto] gap-4 px-6 py-4 bg-muted/30 border-b border-border">
+                <div className="text-sm font-medium text-muted-foreground">
+                  Name
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Email
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  User role
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Actions
+                </div>
               </div>
 
               <div className="divide-y divide-border">
-                {members.length > 0 ? members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="grid grid-cols-[1fr_2fr_1fr] gap-4 px-6 py-4 items-center hover:bg-muted/10 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback style={{ backgroundColor: member.avatarColor }}>
-                          <span className="text-white text-xs font-semibold">
-                            {member.name.charAt(0)}
-                          </span>
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium text-foreground">{member.name}</span>
-                    </div>
-
-                    <div className="text-muted-foreground text-sm">
-                      {member.email}
-                    </div>
-
-                    <Select 
-                      value={member.role_id || member.role}
-                      onValueChange={(value) => handleRoleChange(member.id, value)}
-                      disabled={loadingRoles || roles.length === 0 || roleChangingUserId === member.id}
+                {members.length > 0 ? (
+                  members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="grid grid-cols-[1fr_2fr_1fr_auto] gap-4 px-6 py-4 items-center hover:bg-muted/10 transition-colors"
                     >
-                      <SelectTrigger className="w-[180px] h-8">
-                        <SelectValue placeholder={roleChangingUserId === member.id ? "Updating..." : "Select role"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roles.map((role) => (
-                          <SelectItem key={role.id} value={role.id}>
-                            {role.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )) : (
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback
+                            style={{ backgroundColor: member.avatarColor }}
+                          >
+                            <span className="text-white text-xs font-semibold">
+                              {member.name.charAt(0)}
+                            </span>
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium text-foreground">
+                          {member.name}
+                        </span>
+                      </div>
+
+                      <div className="text-muted-foreground text-sm">
+                        {member.email}
+                      </div>
+
+                      <Select
+                        value={member.role_id || member.role}
+                        onValueChange={(value) =>
+                          handleRoleChange(member.id, value)
+                        }
+                        disabled={
+                          loadingRoles ||
+                          roles.length === 0 ||
+                          roleChangingUserId === member.id
+                        }
+                      >
+                        <SelectTrigger className="w-[180px] h-8">
+                          <SelectValue
+                            placeholder={
+                              roleChangingUserId === member.id
+                                ? "Updating..."
+                                : "Select role"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roles.map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <div className="flex items-center justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveMember(member.id)}
+                          disabled={removingUserId === member.id}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        >
+                          {removingUserId === member.id ? (
+                            <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <X className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
                   <div className="px-6 py-8 text-center text-muted-foreground">
                     No members found.
                   </div>
@@ -482,7 +659,6 @@ export default function BoardDashboardPage() {
               Schedule view coming soon.
             </div>
           </TabsContent>
-
         </Tabs>
       </div>
 
@@ -492,7 +668,8 @@ export default function BoardDashboardPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete project?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{currentName}"? This action cannot be undone.
+              Are you sure you want to delete "{currentName}"? This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -510,12 +687,23 @@ export default function BoardDashboardPage() {
           setInviteDialogOpen(open);
           if (!open) {
             // Reload members when dialog closes to ensure main list is fresh
-            if (boardId) loadMembers(Number(boardId));
+            if (boardId) {
+              // Add a small delay to ensure API operations are complete
+              setTimeout(() => {
+                loadMembers(Number(boardId));
+              }, 500);
+            }
           }
         }}
         boardId={boardId || ""}
+        currentMembers={members}
         onMembersUpdate={() => {
-          if (boardId) loadMembers(Number(boardId));
+          if (boardId) {
+            // Add a small delay to ensure API operations are complete
+            setTimeout(() => {
+              loadMembers(Number(boardId));
+            }, 500);
+          }
         }}
       />
     </div>

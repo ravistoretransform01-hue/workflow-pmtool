@@ -186,4 +186,59 @@ export const boardsApi = {
       throw error;
     }
   },
+
+  /**
+   * Assign member to board
+   */
+  assignMembers: async (payload: {
+    board_id: number;
+    user_id: number;
+    role_id: number;
+    organization_id: number;
+  }): Promise<{
+    code: number;
+    status: string;
+    message: string;
+    data: {
+      user_id: number;
+      role_id: number;
+      board_id: number;
+    };
+  }> => {
+    try {
+      const response = await api.post("/boards/assign-members", payload);
+      return response.data;
+    } catch (error) {
+      console.error("Assign members API error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove member from board
+   */
+  removeMembers: async (payload: {
+    board_id: number;
+    user_id: number;
+    role_id: number;
+    organization_id: number;
+  }): Promise<{
+    code: number;
+    status: string;
+    message: string;
+    data: {
+      user_id: number;
+      board_id: number;
+    };
+  }> => {
+    try {
+      const response = await api.delete("/boards/assign-members", {
+        data: payload
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Remove members API error:", error);
+      throw error;
+    }
+  },
 };
