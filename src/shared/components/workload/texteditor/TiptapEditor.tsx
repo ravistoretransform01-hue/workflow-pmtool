@@ -168,6 +168,7 @@ export function TiptapEditor({
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionItems, setMentionItems] = useState<Array<{ id: string; name: string }>>([]);
   const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
+  const [mentionCommand, setMentionCommand] = useState<((item: any) => void) | null>(null);
   const isUpdatingRef = useRef(false);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const mentionRef = useRef<HTMLDivElement | null>(null);
@@ -260,6 +261,7 @@ export function TiptapEditor({
             return {
               onStart: (props: any) => {
                 setMentionOpen(true);
+                setMentionCommand(() => props.command);
                 if (editorContainerRef.current) {
                   const editorRect = editorContainerRef.current.getBoundingClientRect();
                   const coords = props.clientRect();
@@ -277,6 +279,7 @@ export function TiptapEditor({
                   )
                   .slice(0, 5);
                 setMentionItems(filtered);
+                setMentionCommand(() => props.command);
                 
                 if (editorContainerRef.current) {
                   const editorRect = editorContainerRef.current.getBoundingClientRect();
@@ -298,6 +301,7 @@ export function TiptapEditor({
 
               onExit: () => {
                 setMentionOpen(false);
+                setMentionCommand(null);
               },
             };
           },
@@ -383,14 +387,17 @@ export function TiptapEditor({
   };
 
   const handleMentionSelect = (user: { id: string; name: string }) => {
-    editor
-      .chain()
-      .focus()
-      .command(({ commands }) => {
-        return commands.deleteRange({ from: editor.state.selection.from - 1, to: editor.state.selection.from });
-      })
-      .insertContent(`<a href="/profile/${user.id}" class="bg-blue-100 text-blue-600 px-1 rounded hover:bg-blue-200 cursor-pointer">@${user.name}</a> `)
-      .run();
+    if (mentionCommand) {
+      // Use Tiptap's suggestion command which properly handles text replacement
+      mentionCommand({ id: user.id, label: user.name });
+    } else {
+      // Fallback for manual @ button click (when there's no active suggestion)
+      editor
+        .chain()
+        .focus()
+        .insertContent(`<span class="bg-blue-100 text-blue-600 px-1 rounded hover:bg-blue-200 cursor-pointer">@${user.name}</span> `)
+        .run();
+    }
     setMentionOpen(false);
   };
 
