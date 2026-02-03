@@ -637,13 +637,13 @@ export function TiptapEditor({
             <Minus className="h-4 w-4" />
           </Button>
 
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="hidden w-px h-6 bg-border mx-1" />
 
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", editor.isActive("taskList") && "bg-blue-500 text-white hover:bg-blue-600")}
+            className={cn("hidden h-8 w-8 p-0", editor.isActive("taskList") && "bg-blue-500 text-white hover:bg-blue-600")}
             onClick={() => editor.chain().focus().toggleTaskList().run()}
             title="Add checklist"
           >
