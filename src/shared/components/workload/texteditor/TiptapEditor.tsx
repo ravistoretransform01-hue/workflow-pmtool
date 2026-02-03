@@ -1,6 +1,3 @@
-
-
-
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TextStyle } from "@tiptap/extension-text-style";
@@ -10,12 +7,15 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import TextAlign from "@tiptap/extension-text-align";
 import Mention from "@tiptap/extension-mention";
+import UnderlineExtension from "@tiptap/extension-underline";
+import LinkExtension from "@tiptap/extension-link";
+import { Extension } from "@tiptap/core";
 import React, { useEffect, useState, useRef } from "react";
 import { Button } from "@/shared/components/ui/button";
 import {
   Bold,
   Italic,
-  Underline,
+  Underline as UnderlineIcon,
   Strikethrough,
   Type,
   List,
@@ -181,6 +181,32 @@ export function TiptapEditor({
     }
   }, [boardId]);
 
+  // Custom extension for font size
+  const FontSize = Extension.create({
+    name: 'fontSize',
+    addGlobalAttributes() {
+      return [
+        {
+          types: ['textStyle'],
+          attributes: {
+            fontSize: {
+              default: null,
+              parseHTML: element => element.style.fontSize || null,
+              renderHTML: attributes => {
+                if (!attributes.fontSize) {
+                  return {};
+                }
+                return {
+                  style: `font-size: ${attributes.fontSize}`,
+                };
+              },
+            },
+          },
+        },
+      ];
+    },
+  });
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -197,7 +223,15 @@ export function TiptapEditor({
         },
       }),
       TextStyle,
+      FontSize,
       Color,
+      UnderlineExtension,
+      LinkExtension.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-primary hover:underline cursor-pointer',
+        },
+      }),
       Highlight.configure({
         multicolor: true,
       }),
@@ -330,7 +364,22 @@ export function TiptapEditor({
   }
 
   const handleLink = () => {
-    editor.chain().focus().toggleLink({ href: "" }).run();
+    const previousUrl = editor.getAttributes('link').href;
+    const url = window.prompt('Enter URL:', previousUrl);
+
+    // cancelled
+    if (url === null) {
+      return;
+    }
+
+    // empty
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+
+    // update link
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
   const handleMentionSelect = (user: { id: string; name: string }) => {
@@ -419,8 +468,7 @@ export function TiptapEditor({
                   type="button"
                   className="w-full text-left px-3 py-2 hover:bg-muted rounded text-sm"
                   onClick={() => {
-                    const sizeValue = parseInt(size);
-                    editor.chain().focus().setMark("textStyle", { fontSize: `${sizeValue}px` }).run();
+                    editor.chain().focus().setMark('textStyle', { fontSize: size }).run();
                   }}
                 >
                   {size}
@@ -429,9 +477,9 @@ export function TiptapEditor({
               <button
                 type="button"
                 className="w-full text-left px-3 py-2 hover:bg-muted rounded text-sm"
-                onClick={() => editor.chain().focus().unsetMark("textStyle").run()}
+                onClick={() => editor.chain().focus().unsetMark('textStyle').run()}
               >
-                Remove font size
+                Reset font size
               </button>
             </PopoverContent>
           </Popover>
@@ -463,7 +511,7 @@ export function TiptapEditor({
             className={cn("h-8 w-8 p-0", editor.isActive("underline") && "bg-blue-500 text-white hover:bg-blue-600")}
             onClick={() => editor.chain().focus().toggleUnderline().run()}
           >
-            <Underline className="h-4 w-4" />
+            <UnderlineIcon className="h-4 w-4" />
           </Button>
           <Button
             type="button"
