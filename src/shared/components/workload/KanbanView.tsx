@@ -15,6 +15,7 @@ import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard } from "./KanbanCard";
 import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover";
 import { ChevronDown } from "lucide-react";
+import { toast } from "sonner";
 
 interface KanbanViewProps {
   groups: Array<{ id: string; name: string; color: string; tasks: Task[] }>;
@@ -42,6 +43,9 @@ export function KanbanView({
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  
+  // Track optimistic status changes: taskId -> newStatusId
+  const [optimisticStatusChanges, setOptimisticStatusChanges] = useState<Record<string, string>>({});
 
   // Visible statuses (persisted per board when boardId is provided)
   const [visibleStatuses, setVisibleStatuses] = useState<Set<string>>(() => {
@@ -90,7 +94,7 @@ export function KanbanView({
     persistVisibleStatuses(next);
   };
 
-  // Organize tasks by status
+  // Organize tasks by status (with optimistic updates applied)
   const tasksByStatus = useMemo(() => {
     const organized: Record<string, Task[]> = {};
 
@@ -102,9 +106,13 @@ export function KanbanView({
     // Distribute tasks from all groups
     groups.forEach((group) => {
       group.tasks.forEach((task) => {
-        const statusId = String(task.status_id || "");
-        if (organized[statusId]) {
-          organized[statusId].push(task);
+        // Apply optimistic status change if exists
+        const effectiveStatusId = optimisticStatusChanges[task.id] 
+          ? optimisticStatusChanges[task.id] 
+          : String(task.status_id || "");
+        
+        if (organized[effectiveStatusId]) {
+          organized[effectiveStatusId].push(task);
         }
       });
     });
@@ -120,7 +128,7 @@ export function KanbanView({
     }
 
     return organized;
-  }, [groups, statuses, searchQuery]);
+  }, [groups, statuses, searchQuery, optimisticStatusChanges]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id));
@@ -141,11 +149,47 @@ export function KanbanView({
     if (!statusMatch) return;
 
     const statusId = statusMatch[1];
+    
+    // Find the task to get its original status
+    let originalStatusId: string | null = null;
+    for (const group of groups) {
+      const task = group.tasks.find((t) => t.id === taskId);
+      if (task) {
+        originalStatusId = String(task.status_id);
+        break;
+      }
+    }
+    
+    // Don't do anything if dropping in the same column
+    if (originalStatusId === statusId) return;
+
+    // Optimistically update the UI immediately
+    setOptimisticStatusChanges((prev) => ({
+      ...prev,
+      [taskId]: statusId,
+    }));
 
     try {
+      // Call the API
       await onTaskMove(taskId, statusId);
+      
+      // If successful, remove the optimistic change (the real data will update)
+      setOptimisticStatusChanges((prev) => {
+        const next = { ...prev };
+        delete next[taskId];
+        return next;
+      });
     } catch (error) {
       console.error("Failed to move task:", error);
+      
+      // Revert the optimistic change on error
+      setOptimisticStatusChanges((prev) => {
+        const next = { ...prev };
+        delete next[taskId];
+        return next;
+      });
+      
+      toast.error("Failed to move task. Please try again.");
     }
   };
 

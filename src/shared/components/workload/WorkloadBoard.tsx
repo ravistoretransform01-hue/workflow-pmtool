@@ -422,6 +422,11 @@ export function WorkloadBoard({
   const columnState = useColumnPersistence(boardId);
   const filterState = useTaskFilters();
 
+  // Ensure the primary 'item' column is always visible — protect against any stored setting that hides it.
+  useEffect(() => {
+    columnState.showColumn("item");
+  }, [boardId, columnState.showColumn]);
+
   // Local state for board-specific UI
   // const [editingBoardName, setEditingBoardName] = useState(false);
   const [boardNameValue, setBoardNameValue] = useState(boardName);
@@ -2485,24 +2490,56 @@ export function WorkloadBoard({
       .filter((group) => group.tasks.length > 0); // Only show groups with matching tasks
   };
 
-  // Auto-expand parent tasks when search matches a subitem so the matched subtask is visible ✅
-  useEffect(() => {
-    const query = mainTableSearchQuery.trim().toLowerCase();
-    if (!query) return;
+  // Compute tasks that should be auto-expanded based on current search (name, status, status_id, priority, priority_id, tags)
+  const searchAutoExpandedTaskIds = useMemo(() => {
+    const q = mainTableSearchQuery.trim().toLowerCase();
+    if (!q) return new Set<string>();
 
-    // Expand any task that has a subitem matching the search query
+    const ids = new Set<string>();
     groups.forEach((group) => {
       group.tasks.forEach((task) => {
-        const subitemMatches = task.subitems?.some((sub) =>
-          String(sub.name || "").toLowerCase().includes(query),
-        );
-
-        if (subitemMatches) {
-          taskState.expandTask(task.id);
+        const taskParts: string[] = [];
+        taskParts.push(String(task.name || ""));
+        taskParts.push(String(task.status || ""));
+        taskParts.push(String(task.status_id || ""));
+        taskParts.push(String(task.priority || ""));
+        taskParts.push(String(task.priority_id || ""));
+        if (Array.isArray(task.tags)) {
+          taskParts.push(...task.tags.map((t) => String((t.tag_name || t.tag_slug) || "")));
         }
+
+        const taskMatches = taskParts.join(" ").toLowerCase().includes(q);
+        const subMatches = (task.subitems || []).some((sub) => {
+          const subParts: string[] = [];
+          subParts.push(String(sub.name || ""));
+          subParts.push(String(sub.status || ""));
+          subParts.push(String(sub.status_id || ""));
+          subParts.push(String(sub.priority || ""));
+          subParts.push(String(sub.priority_id || ""));
+          if (Array.isArray(sub.tags)) {
+            subParts.push(...sub.tags.map((t) => String((t.tag_name || t.tag_slug) || "")));
+          }
+          return subParts.join(" ").toLowerCase().includes(q);
+        });
+
+        if (taskMatches || subMatches) ids.add(task.id);
       });
     });
-  }, [mainTableSearchQuery, groups, taskState.expandTask]);
+
+    return ids;
+  }, [mainTableSearchQuery, groups]);
+
+  // Derived expanded tasks map used throughout render (merged user toggles with auto-expanded results)
+  const effectiveExpandedTasks = useMemo(() => {
+    if (!searchAutoExpandedTaskIds || searchAutoExpandedTaskIds.size === 0) {
+      return taskState.expandedTasks;
+    }
+    const additions = Array.from(searchAutoExpandedTaskIds).reduce(
+      (acc: Record<string, boolean>, id) => ((acc[id] = true), acc),
+      {},
+    );
+    return { ...taskState.expandedTasks, ...additions };
+  }, [taskState.expandedTasks, searchAutoExpandedTaskIds]);
 
   const processHtmlContent = (html: string) => {
     if (!html) return "";
@@ -2777,7 +2814,7 @@ export function WorkloadBoard({
 
       // Recompute columns with new collapsed state and widths, preserving column order
       const allColumns = getWorkloadColumns({
-        expandedTasks: taskState.expandedTasks,
+        expandedTasks: effectiveExpandedTasks,
         toggleTask: taskState.toggleTask,
         onOpenComments: openCommentsPanel,
         onEditTask: openEditTaskDialog,
@@ -2973,7 +3010,7 @@ export function WorkloadBoard({
 
   const [workloadColumns, setWorkloadColumns] = useState(() => {
     const allColumns = getWorkloadColumns({
-      expandedTasks: taskState.expandedTasks,
+      expandedTasks: effectiveExpandedTasks,
       toggleTask: taskState.toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
@@ -3059,7 +3096,7 @@ export function WorkloadBoard({
   // Preserve column order by using columnOrder state
   useEffect(() => {
     const allColumns = getWorkloadColumns({
-      expandedTasks: taskState.expandedTasks,
+      expandedTasks: effectiveExpandedTasks,
       toggleTask: taskState.toggleTask,
       onOpenComments: openCommentsPanel,
       onEditTask: openEditTaskDialog,
@@ -3848,12 +3885,32 @@ export function WorkloadBoard({
                 </PopoverTrigger>
 
                 <PopoverContent align="start" className="w-56">
-                  <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">
-                    Columns
+                  {/* Header with Select All checkbox */}
+                  <div className="px-2 py-1.5 flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        // Check whether all non-required columns are visible (item is always required)
+                        checked={ALL_AVAILABLE_COLUMNS.filter((c) => c !== "item").every((c) => columnState.visibleColumns[c] !== false)}
+                        onChange={() => {
+                          const others = ALL_AVAILABLE_COLUMNS.filter((c) => c !== "item");
+                          const allOthersOn = others.every((c) => columnState.visibleColumns[c] !== false);
+                          // Toggle only the non-required columns; always keep 'item' visible
+                          const next = Object.fromEntries(others.map((c) => [c, !allOthersOn]));
+                          next["item"] = true;
+                          columnState.setVisibleColumns((prev) => ({ ...prev, ...next }));
+                        }}
+                        className="cursor-pointer"
+                      />
+                      <span className="text-sm font-medium">All Columns</span>
+                    </label>
+                    <div className="text-sm text-muted-foreground">
+                      {ALL_AVAILABLE_COLUMNS.filter((c) => columnState.visibleColumns[c] === true).length}/{ALL_AVAILABLE_COLUMNS.length}
+                    </div>
                   </div>
                   <div className="border-t border-border my-2" />
 
-                  <div className="p-2 space-y-1">
+                  <div className=" space-y-1">
                     {ALL_AVAILABLE_COLUMNS.map((columnId) => {
                       const columnLabel =
                         {
@@ -3870,7 +3927,21 @@ export function WorkloadBoard({
                           time: "Time Spent",
                         }[columnId] || columnId;
 
-                      return (
+                      return columnId === "item" ? (
+                        <label
+                          key={columnId}
+                          className="flex items-center gap-2 cursor-default px-2 py-1 rounded"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={true}
+                            disabled
+                            title="Item column is required"
+                            className="cursor-not-allowed opacity-50"
+                          />
+                          <span className="text-sm font-medium">{columnLabel}</span>
+                        </label>
+                      ) : (
                         <label
                           key={columnId}
                           className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
@@ -4570,7 +4641,7 @@ export function WorkloadBoard({
                                             })}
 
                                           {/* ================= ADD SUBITEM ================= */}
-                                          {taskState.expandedTasks[task.id] && (
+                                          {effectiveExpandedTasks[task.id] && (
                                             <tr>
                                               <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
                                                 {/* Empty Cell */}

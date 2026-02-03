@@ -12,9 +12,8 @@ import { Calendar } from "@/shared/components/ui/calendar";
 import { Input } from "@/shared/components/ui/input";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import type { TimeEntry } from "@/features/tasks/types";
-import { format } from "date-fns";
+import { format, parse, addDays } from "date-fns";
 import { TimePickerInput } from "@/shared/components/TimePickerInput";
-import { parse } from "date-fns";
 import { debugLog } from "@/lib/debugLog";
 
 interface TimeLogEntry extends TimeEntry {
@@ -206,6 +205,9 @@ export function TimeTrackingLogDialog({
   const [endTime, setEndTime] = useState("1:00 PM");
   const [tag, setTag] = useState("");
   const [duration, setDuration] = useState("01h 00m 00s");
+  // If a log had an end datetime on the next day, we store the exact end date here so
+  // the manual session submission can use the correct date for end_time.
+  const [endDateOverride, setEndDateOverride] = useState<Date | null>(null);
 
   const getDateRange = () => {
     if (!estimatedDate || estimatedDate === "-") {
@@ -347,7 +349,7 @@ export function TimeTrackingLogDialog({
       return date > new Date();
     }
 
-    console.log("date", date);
+    // console.log("date", date);
     // Disable dates outside the range
     return date < startDate || date > endDate;
   };
@@ -356,6 +358,8 @@ export function TimeTrackingLogDialog({
   useEffect(() => {
     if (open) {
       setShowManualSession(false);
+      // Reset any previously-set end date override
+      setEndDateOverride(null);
       fetchTimeEntries();
     }
   }, [open, taskId]);
@@ -525,7 +529,34 @@ export function TimeTrackingLogDialog({
 
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     const startTimeUTC = convertLocalToUTC(dateStr, startTime);
-    const endTimeUTC = convertLocalToUTC(dateStr, endTime);
+
+    // Compute end date string: prefer explicit endDateOverride (if log had a different day),
+    // otherwise, if end time is earlier than or equal to start time, assume next day.
+    let endDateStr = dateStr;
+    if (endDateOverride) {
+      endDateStr = format(endDateOverride, "yyyy-MM-dd");
+    } else {
+      // parse times to minutes to decide if end belongs to next day
+      const parseMinutes = (timeStr: string | undefined) => {
+        if (!timeStr) return null;
+        const m = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (!m) return null;
+        let hrs = Number(m[1]);
+        const mins = Number(m[2]);
+        const period = m[3].toUpperCase();
+        if (period === "PM" && hrs !== 12) hrs += 12;
+        if (period === "AM" && hrs === 12) hrs = 0;
+        return hrs * 60 + mins;
+      };
+
+      const sM = parseMinutes(startTime);
+      const eM = parseMinutes(endTime);
+      if (sM !== null && eM !== null && eM <= sM) {
+        endDateStr = format(addDays(selectedDate, 1), "yyyy-MM-dd");
+      }
+    }
+
+    const endTimeUTC = convertLocalToUTC(endDateStr, endTime);
 
     const payload = {
       task_id: taskId,
@@ -563,6 +594,122 @@ export function TimeTrackingLogDialog({
     setStartTime("12:00 PM");
     setEndTime("01:00 PM");
     setTag("");
+  };
+
+  // Open manual session editor pre-filled from a time log entry
+  // const openManualFromLog = (log: TimeLogEntry) => {
+  //   try {
+  //     // Use the raw UTC timestamps to get reliable Date objects in local time
+  //     const startDate = parseUtcToLocalDate(log.start_time);
+  //     setSelectedDate(startDate);
+
+  //     // Helper: round minutes to nearest 15-minute increment and return formatted "h:mm a"
+  //     const formatTimeRounded = (date: Date) => {
+  //       let hrs = date.getHours();
+  //       let mins = date.getMinutes();
+
+  //       // Round to nearest quarter-hour
+  //       let rounded = Math.round(mins / 15) * 15;
+  //       if (rounded === 60) {
+  //         rounded = 0;
+  //         hrs = (hrs + 1) % 24;
+  //       }
+
+  //       const period = hrs >= 12 ? "PM" : "AM";
+  //       const displayHour = ((hrs + 11) % 12) + 1; // 1..12
+  //       return `${displayHour}:${String(rounded).padStart(2, "0")} ${period}`;
+  //     };
+
+  //     // Determine start time based on the accurate startDate
+  //     setStartTime(formatTimeRounded(startDate));
+
+  //     // If we have an explicit end_time, use that exact local date/time and keep an override
+  //     if (log.end_time) {
+  //       const endDate = parseUtcToLocalDate(log.end_time);
+  //       setEndDateOverride(endDate);
+  //       setEndTime(formatTimeRounded(endDate));
+  //     } else if (log.endTime && log.endTime !== "Active...") {
+  //       // Fallback: if API didn't provide raw end_time but formatted string exists, parse it
+  //       const m = log.endTime.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)/i);
+  //       if (m) {
+  //         // Convert to a Date anchored at startDate (we will still round minutes)
+  //         let hrs = Number(m[1]);
+  //         const mins = Number(m[2]);
+  //         const period = m[3].toUpperCase();
+  //         if (period === "PM" && hrs !== 12) hrs += 12;
+  //         if (period === "AM" && hrs === 12) hrs = 0;
+  //         const endDate = new Date(startDate);
+  //         endDate.setHours(hrs, mins, 0, 0);
+  //         setEndDateOverride(endDate);
+  //         setEndTime(formatTimeRounded(endDate));
+  //       } else {
+  //         // as a last resort, default to one hour after start
+  //         const defaultEnd = new Date(startDate.getTime() + 60 * 60 * 1000);
+  //         setEndDateOverride(null);
+  //         setEndTime(formatTimeRounded(defaultEnd));
+  //       }
+  //     } else {
+  //       // Active session or no end time - default to one hour after start
+  //       const defaultEnd = new Date(startDate.getTime() + 60 * 60 * 1000);
+  //       setEndDateOverride(null);
+  //       setEndTime(formatTimeRounded(defaultEnd));
+  //     }
+
+  //     setTag(log.note || "");
+  //     setShowManualSession(true);
+  //   } catch (err) {
+  //     console.error("Failed to open manual session from log:", err);
+  //     toast.error("Failed to open session");
+  //   }
+  // };
+
+  const openManualFromLog = (log: TimeLogEntry) => {
+    try {
+      // Parse the UTC start_time to get the local date
+      const parseUtcToLocalDate = (timeStr: string): Date => {
+        // Convert "YYYY-MM-DD HH:mm:ss" → "YYYY-MM-DDTHH:mm:ssZ"
+        return new Date(timeStr.replace(" ", "T") + "Z");
+      };
+
+      // Normalize time format: remove seconds and ensure proper spacing
+      const normalizeTimeForPicker = (time: string): string => {
+        if (!time || time === "Active...") return time;
+
+        // Match: HH:MM(:SS)? AM/PM
+        const match = time.match(
+          /(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM|am|pm)/i,
+        );
+
+        if (!match) return time;
+
+        const hour = match[1];
+        const minute = match[2];
+        const period = match[3].toUpperCase();
+
+        return `${hour}:${minute} ${period}`;
+      };
+
+      // Set the date from the log's start_time
+      const startDate = parseUtcToLocalDate(log.start_time);
+      setSelectedDate(startDate);
+
+      // Set the times with normalized format
+      setStartTime(normalizeTimeForPicker(log.startTime));
+      setEndTime(
+        log.endTime !== "Active..." ? normalizeTimeForPicker(log.endTime) : "1:00 PM",
+      );
+
+      // Set the tag/note
+      setTag(log.note || "");
+
+      // Reset end date override since we're editing
+      setEndDateOverride(null);
+
+      setShowManualSession(true);
+    } catch (err) {
+      console.error("Failed to open manual session from log:", err);
+      toast.error("Failed to open session");
+    }
   };
 
   return (
@@ -764,7 +911,13 @@ export function TimeTrackingLogDialog({
                   {timeLogs.map((log) => (
                     <div
                       key={log.id}
-                      className="flex items-center gap-2 px-6 py-2 border-border/30 hover:bg-muted/80 transition-colors group bg-background hover:shadow-sm rounded-md"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openManualFromLog(log)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") openManualFromLog(log);
+                      }}
+                      className="cursor-pointer flex items-center gap-2 px-6 py-2 border-border/30 hover:bg-muted/80 transition-colors group bg-background hover:shadow-sm rounded-md"
                     >
                       {/* User Avatar */}
                       <Avatar className="h-10 w-10 flex-shrink-0">
@@ -805,7 +958,13 @@ export function TimeTrackingLogDialog({
                             {log.note}
                           </span>
                         ) : (
-                          <button className="text-xs text-primary hover:underline font-medium">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              /* TODO: open tag editor */
+                            }}
+                            className="text-xs text-primary hover:underline font-medium"
+                          >
                             + Add tag
                           </button>
                         )}
@@ -813,7 +972,10 @@ export function TimeTrackingLogDialog({
 
                       {/* Delete Button */}
                       <button
-                        onClick={() => handleDeleteLog(log.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteLog(log.id);
+                        }}
                         className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
                         title="Delete log entry"
                       >
