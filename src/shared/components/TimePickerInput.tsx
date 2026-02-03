@@ -13,16 +13,23 @@ interface TimePickerInputProps {
 export function TimePickerInput({ value, onChange, onBlur, className }: TimePickerInputProps) {
   // Parse the incoming value to get hour, minute, and period
   const parseTime = (timeStr: string): { hour: string; minute: string; period: "AM" | "PM" } => {
-    if (!timeStr || timeStr === "-") {
+    if (!timeStr || timeStr === "-" || timeStr.trim() === "") {
       return { hour: "12", minute: "00", period: "AM" };
     }
     
-    // Match patterns like "10:00am", "10:00 AM", "10:00AM"
-    const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)/i);
+    // Match patterns like "10:00am", "10:00 AM", "10:00AM", "10:00:00 AM" (with optional seconds)
+    const match = timeStr.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM|am|pm)/i);
     if (match) {
-      const hour = match[1];
+      let hour = match[1];
       const minute = match[2];
       const period = match[3].toUpperCase() as "AM" | "PM";
+      
+      // Ensure hour is in 1-12 range and pad with leading zero
+      let hourNum = parseInt(hour, 10);
+      if (hourNum === 0) hourNum = 12;
+      if (hourNum > 12) hourNum = hourNum % 12 || 12;
+      hour = String(hourNum).padStart(2, "0");
+      
       return { hour, minute, period };
     }
     
@@ -62,14 +69,14 @@ export function TimePickerInput({ value, onChange, onBlur, className }: TimePick
     formatAndEmit(hour, minute, newPeriod);
   };
 
-  // Generate hour options (1-12)
+  // Generate hour options (01-12)
   const hourOptions = Array.from({ length: 12 }, (_, i) => {
     const h = i + 1;
-    return h.toString();
+    return String(h).padStart(2, "0");
   });
 
-  // Generate minute options (00, 15, 30, 45)
-  const minuteOptions = ["00", "15", "30", "45"];
+  // Generate minute options (00 to 59)
+  const minuteOptions = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
 
   return (
     <div 

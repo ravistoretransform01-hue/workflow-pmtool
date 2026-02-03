@@ -41,13 +41,14 @@ import type { TaskComment } from "@/features/tasks/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
 
-// Helper to render HTML content from Tiptap editor
+// Helper to render HTML content from Tiptap editor with proper styling
 const renderFormattedContent = (content: string) => {
   if (!content) return { __html: "" };
 
   // Check if content is already HTML (from Tiptap)
   if (content.includes("<") && content.includes(">")) {
     // It's HTML, return as-is (Tiptap already sanitizes)
+    // We'll apply styling via CSS classes in the container
     return { __html: content };
   }
 
@@ -519,7 +520,23 @@ export function CommentsPanelSheet({
                                 ) : (
                                   <>
                                     <div
-                                      className="text-sm text-foreground/90 leading-relaxed break-words pr-4"
+                                      className="text-sm text-foreground/90 leading-relaxed break-words pr-4
+                                        [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2
+                                        [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2
+                                        [&_li]:my-1
+                                        [&_ul_ul]:list-circle [&_ul_ul]:ml-6
+                                        [&_ol_ol]:ml-6
+                                        [&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground
+                                        [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto
+                                        [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2
+                                        [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
+                                        [&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer
+                                        [&_strong]:font-bold
+                                        [&_em]:italic
+                                        [&_s]:line-through
+                                        [&_hr]:my-4 [&_hr]:border-border
+                                        [&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary [&_input[type='checkbox']]:mr-2
+                                        [&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:ml-0"
                                       dangerouslySetInnerHTML={renderFormattedContent(
                                         comment.content,
                                       )}
@@ -691,7 +708,23 @@ export function CommentsPanelSheet({
                                     ) : (
                                       <>
                                         <div
-                                          className="text-sm text-foreground/80 leading-relaxed break-words"
+                                          className="text-sm text-foreground/80 leading-relaxed break-words
+                                            [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2
+                                            [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2
+                                            [&_li]:my-1
+                                            [&_ul_ul]:list-circle [&_ul_ul]:ml-6
+                                            [&_ol_ol]:ml-6
+                                            [&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground
+                                            [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto
+                                            [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2
+                                            [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
+                                            [&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer
+                                            [&_strong]:font-bold
+                                            [&_em]:italic
+                                            [&_s]:line-through
+                                            [&_hr]:my-4 [&_hr]:border-border
+                                            [&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary [&_input[type='checkbox']]:mr-2
+                                            [&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:ml-0"
                                           dangerouslySetInnerHTML={renderFormattedContent(
                                             reply.content,
                                           )}
