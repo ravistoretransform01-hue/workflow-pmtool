@@ -5156,6 +5156,7 @@ export function WorkloadBoard({
           onPersonChange={handlePersonChange}
           onRatingChange={handleRatingChange}
           onEstimatedDateChange={handleEstimatedDateChange}
+          boardId={Number(boardId)}
         />
       )}
 

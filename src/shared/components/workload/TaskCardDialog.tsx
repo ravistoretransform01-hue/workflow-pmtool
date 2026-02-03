@@ -6,7 +6,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { Button } from "@/shared/components/ui/button";
-import { Textarea } from "@/shared/components/ui/textarea";
+// import { Textarea } from "@/shared/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import {
   DropdownMenu,
@@ -22,6 +22,7 @@ import { DialogTitle } from "@radix-ui/react-dialog";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { TiptapEditor } from "./texteditor/TiptapEditor";
 
 interface TaskCardDialogProps {
   open: boolean;
@@ -36,12 +37,14 @@ interface TaskCardDialogProps {
   onPersonChange?: (taskId: string, memberIds: string[]) => void;
   onRatingChange?: (taskId: string, rating: number) => void;
   onEstimatedDateChange?: (taskId: string, fromDate: string | null, toDate?: string | null) => void;
+  boardId?: number;
 }
 
 export function TaskCardDialog({
   open,
   onOpenChange,
   task,
+  boardId,
   boardName = "Board",
   statuses = [],
   priorities = [],
@@ -408,11 +411,14 @@ export function TaskCardDialog({
                                   </div>
                                   {editingCommentId === comment.id ? (
                                     <div className="space-y-2 pt-1">
-                                      <Textarea
-                                        value={editCommentText}
-                                        onChange={(e) => setEditCommentText(e.target.value)}
-                                        className="min-h-[60px] text-sm"
-                                      />
+                                      <div className="border border-input rounded-md min-h-[100px]">
+                                        <TiptapEditor
+                                          value={editCommentText}
+                                          onChange={setEditCommentText}
+                                          placeholder="Edit comment..."
+                                          boardId={boardId}
+                                        />
+                                      </div>
                                       <div className="flex gap-2">
                                         <Button size="sm" className="h-7 text-xs" onClick={() => handleUpdateComment(comment.id, editCommentText)}>
                                           Save
@@ -424,9 +430,10 @@ export function TaskCardDialog({
                                     </div>
                                   ) : (
                                     <>
-                                      <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words">
-                                        {comment.content}
-                                      </p>
+                                      <div 
+                                        className="text-sm text-foreground/90 whitespace-normal break-words [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-md [&_h3]:font-bold [&_blockquote]:border-l-4 [&_blockquote]:border-primary/50 [&_blockquote]:pl-4 [&_blockquote]:italic [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:rounded [&_a]:text-primary [&_a]:underline"
+                                        dangerouslySetInnerHTML={{ __html: comment.content }}
+                                      />
                                       <div className="flex items-center gap-3 pt-0.5">
                                         <Button
                                           variant="ghost"
@@ -513,11 +520,19 @@ export function TaskCardDialog({
                                       </div>
                                       {editingCommentId === reply.id ? (
                                         <div className="space-y-2 pt-1">
-                                          <Textarea
+                                          {/* <Textarea
                                             value={editCommentText}
                                             onChange={(e) => setEditCommentText(e.target.value)}
                                             className="min-h-[60px] text-sm"
-                                          />
+                                          /> */}
+                                          <div className="border border-input rounded-md min-h-[100px]">
+                                            <TiptapEditor
+                                              value={editCommentText}
+                                              onChange={setEditCommentText}
+                                              placeholder="Edit reply..."
+                                              boardId={boardId}
+                                            />
+                                          </div>
                                           <div className="flex gap-2">
                                             <Button size="sm" className="h-7 text-xs" onClick={() => handleUpdateComment(reply.id, editCommentText)}>
                                               Save
@@ -529,9 +544,10 @@ export function TaskCardDialog({
                                         </div>
                                       ) : (
                                         <>
-                                          <p className="text-sm text-foreground/80 whitespace-pre-wrap break-words">
-                                            {reply.content}
-                                          </p>
+                                            <div 
+                                              className="text-sm text-foreground/80 whitespace-normal break-words [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-md [&_h3]:font-bold [&_blockquote]:border-l-4 [&_blockquote]:border-primary/50 [&_blockquote]:pl-4 [&_blockquote]:italic [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:rounded [&_a]:text-primary [&_a]:underline"
+                                              dangerouslySetInnerHTML={{ __html: reply.content }}
+                                            />
                                           <div className="flex items-center gap-3 pt-0.5">
                                             <Button
                                               variant="ghost"
@@ -567,12 +583,20 @@ export function TaskCardDialog({
                                         <X className="h-3 w-3" />
                                       </Button>
                                     </div>
-                                    <Textarea
+                                    {/* <Textarea
                                       value={inlineReplyText}
                                       onChange={(e) => setInlineReplyText(e.target.value)}
                                       placeholder="Write a reply..."
                                       className="min-h-[60px] text-sm mb-2"
-                                    />
+                                    /> */}
+                                    <div className="border border-input rounded-md bg-background min-h-[100px] mb-2">
+                                      <TiptapEditor
+                                        value={inlineReplyText}
+                                        onChange={setInlineReplyText}
+                                        placeholder="Write a reply..."
+                                        boardId={boardId}
+                                      />
+                                    </div>
                                     <div className="flex justify-end gap-2">
                                       <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setInlineReplyId(null)}>
                                         Cancel
@@ -605,7 +629,7 @@ export function TaskCardDialog({
                       <span>Give feedback</span>
                     </div>
                     <div className="bg-muted rounded-lg p-2">
-                      <Textarea
+                      {/* <Textarea
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         placeholder="Write an update and mention others with @"
@@ -615,7 +639,15 @@ export function TaskCardDialog({
                             handleSubmitComment();
                           }
                         }}
-                      />
+                      /> */}
+                      <div className="min-h-[100px]">
+                        <TiptapEditor
+                          value={newComment}
+                          onChange={setNewComment}
+                          placeholder="Write an update and mention others with @..."
+                          boardId={boardId}
+                        />
+                      </div>
                       <div className="flex items-center justify-end mt-2 pt-2 border-t border-border">
                         <div className="hidden flex items-center gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -728,11 +760,14 @@ export function TaskCardDialog({
                                   </div>
                                   {editingCommentId === comment.id ? (
                                     <div className="space-y-2 pt-1">
-                                      <Textarea
-                                        value={editCommentText}
-                                        onChange={(e) => setEditCommentText(e.target.value)}
-                                        className="min-h-[60px] text-sm"
-                                      />
+                                      <div className="border border-input rounded-md min-h-[100px]">
+                                        <TiptapEditor
+                                          value={editCommentText}
+                                          onChange={setEditCommentText}
+                                          placeholder="Edit comment..."
+                                          boardId={boardId}
+                                        />
+                                      </div>
                                       <div className="flex gap-2">
                                         <Button size="sm" className="h-7 text-xs" onClick={() => handleUpdateComment(comment.id, editCommentText)}>
                                           Save
@@ -744,9 +779,10 @@ export function TaskCardDialog({
                                     </div>
                                   ) : (
                                     <>
-                                      <p className="text-sm text-foreground/90 whitespace-pre-wrap break-words">
-                                        {comment.content}
-                                      </p>
+                                      <div 
+                                        className="text-sm text-foreground/90 whitespace-normal break-words [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-md [&_h3]:font-bold [&_blockquote]:border-l-4 [&_blockquote]:border-primary/50 [&_blockquote]:pl-4 [&_blockquote]:italic [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:rounded [&_a]:text-primary [&_a]:underline"
+                                        dangerouslySetInnerHTML={{ __html: comment.content }}
+                                      />
                                       <div className="flex items-center gap-3 pt-0.5">
                                         <Button
                                           variant="ghost"
@@ -833,11 +869,14 @@ export function TaskCardDialog({
                                       </div>
                                       {editingCommentId === reply.id ? (
                                         <div className="space-y-2 pt-1">
-                                          <Textarea
-                                            value={editCommentText}
-                                            onChange={(e) => setEditCommentText(e.target.value)}
-                                            className="min-h-[60px] text-sm"
-                                          />
+                                          <div className="border border-input rounded-md min-h-[100px]">
+                                            <TiptapEditor
+                                              value={editCommentText}
+                                              onChange={setEditCommentText}
+                                              placeholder="Edit reply..."
+                                              boardId={boardId}
+                                            />
+                                          </div>
                                           <div className="flex gap-2">
                                             <Button size="sm" className="h-7 text-xs" onClick={() => handleUpdateComment(reply.id, editCommentText)}>
                                               Save
@@ -849,9 +888,10 @@ export function TaskCardDialog({
                                         </div>
                                       ) : (
                                         <>
-                                          <p className="text-sm text-foreground/80 whitespace-pre-wrap break-words">
-                                            {reply.content}
-                                          </p>
+                                          <div 
+                                            className="text-sm text-foreground/80 whitespace-normal break-words [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-md [&_h3]:font-bold [&_blockquote]:border-l-4 [&_blockquote]:border-primary/50 [&_blockquote]:pl-4 [&_blockquote]:italic [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:rounded [&_a]:text-primary [&_a]:underline"
+                                            dangerouslySetInnerHTML={{ __html: reply.content }}
+                                          />
                                           <div className="flex items-center gap-3 pt-0.5">
                                             <Button
                                               variant="ghost"
@@ -887,12 +927,14 @@ export function TaskCardDialog({
                                         <X className="h-3 w-3" />
                                       </Button>
                                     </div>
-                                    <Textarea
-                                      value={inlineReplyText}
-                                      onChange={(e) => setInlineReplyText(e.target.value)}
-                                      placeholder="Write a reply..."
-                                      className="min-h-[60px] text-sm mb-2"
-                                    />
+                                    <div className="border border-input rounded-md bg-background min-h-[100px] mb-2">
+                                      <TiptapEditor
+                                        value={inlineReplyText}
+                                        onChange={setInlineReplyText}
+                                        placeholder="Write a reply..."
+                                        boardId={boardId}
+                                      />
+                                    </div>
                                     <div className="flex justify-end gap-2">
                                       <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setInlineReplyId(null)}>
                                         Cancel
@@ -925,17 +967,14 @@ export function TaskCardDialog({
                       <span>Give feedback</span>
                     </div>
                     <div className="bg-muted rounded-lg p-2">
-                      <Textarea
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Write a client update and mention others with @"
-                        className="min-h-[80px] text-sm border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                            handleSubmitClientComment();
-                          }
-                        }}
-                      />
+                      <div className="min-h-[100px]">
+                        <TiptapEditor
+                          value={newComment}
+                          onChange={setNewComment}
+                          placeholder="Write a client update and mention others with @..."
+                          boardId={boardId}
+                        />
+                      </div>
                       <div className=" flex items-center justify-end mt-2 pt-2 border-t border-border">
                         <div className="hidden flex items-center gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7">
