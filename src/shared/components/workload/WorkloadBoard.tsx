@@ -2663,40 +2663,25 @@ export function WorkloadBoard({
   ) => {
     if (!selectedTaskId) return;
     try {
-      const payload = {
+      const updatedComment = await tasksApi.updateComment(
+        selectedTaskId,
         commentId,
-        content: processHtmlContent(content),
-      };
-
-      console.log("Updating comment:", payload);
+        { content: content }, // Send the HTML content directly without processing
+      );
+      
+      // Update local state with the updated comment
+      setComments((prev) =>
+        prev.map((c) =>
+          String(c.id) === String(commentId) ? updatedComment : c,
+        ),
+      );
+      
+      toast.success("Comment Updated Successfully");
     } catch (error) {
       console.error("Failed to update comment:", error);
       toast.error("Failed to Update Comment");
     }
   };
-
-  // const updateTaskComment = async (
-  //   commentId: string | number,
-  //   content: string,
-  // ) => {
-  //   if (!selectedTaskId) return;
-  //   try {
-  //     const updatedComment = await tasksApi.updateComment(
-  //       selectedTaskId,
-  //       commentId,
-  //       { content: processHtmlContent(content) },
-  //     );
-  //     setComments((prev) =>
-  //       prev.map((c) =>
-  //         String(c.id) === String(commentId) ? updatedComment : c,
-  //       ),
-  //     );
-  //     toast.success("Comment updated successfully");
-  //   } catch (error) {
-  //     console.error("Failed to update comment:", error);
-  //     toast.error("Failed to update comment");
-  //   }
-  // };
 
   // NEW : Start
   // Note: toggleTask is now provided by taskState hook
