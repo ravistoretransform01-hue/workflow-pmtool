@@ -99,7 +99,6 @@ import { useBeforeUnload } from "./hooks/useBeforeUnload";
 import { SortableColumnHeader } from "./components/ColumnHeader";
 import { ColorPickerPopover } from "./ColorPickerPopover";
 import { debugLog } from "@/lib/debugLog";
-// kanaban commented intentionally
 // import { KanbanView } from "./KanbanView";
 
 interface WorkloadBoardProps {
@@ -2485,6 +2484,25 @@ export function WorkloadBoard({
       }))
       .filter((group) => group.tasks.length > 0); // Only show groups with matching tasks
   };
+
+  // Auto-expand parent tasks when search matches a subitem so the matched subtask is visible ✅
+  useEffect(() => {
+    const query = mainTableSearchQuery.trim().toLowerCase();
+    if (!query) return;
+
+    // Expand any task that has a subitem matching the search query
+    groups.forEach((group) => {
+      group.tasks.forEach((task) => {
+        const subitemMatches = task.subitems?.some((sub) =>
+          String(sub.name || "").toLowerCase().includes(query),
+        );
+
+        if (subitemMatches) {
+          taskState.expandTask(task.id);
+        }
+      });
+    });
+  }, [mainTableSearchQuery, groups, taskState.expandTask]);
 
   const processHtmlContent = (html: string) => {
     if (!html) return "";
