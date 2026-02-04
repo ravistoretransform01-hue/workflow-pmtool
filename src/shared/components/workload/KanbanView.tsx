@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -9,17 +9,22 @@ import {
   DragOverlay,
 } from "@dnd-kit/core";
 import type { DragStartEvent } from "@dnd-kit/core";
-import type { Status } from "@/features/cms/types";
+import type { Priority, Status } from "@/features/cms/types";
 import type { Task } from "./WorkloadBoard";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard } from "./KanbanCard";
-import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/shared/components/ui/popover";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 interface KanbanViewProps {
   groups: Array<{ id: string; name: string; color: string; tasks: Task[] }>;
   statuses: Status[];
+  priorities: Priority[];
   boardId?: string; // used for persisting visible statuses
   onTaskMove: (taskId: string, newStatusId: string) => Promise<void>;
   onTaskClick: (task: Task) => void;
@@ -29,6 +34,7 @@ interface KanbanViewProps {
 export function KanbanView({
   groups,
   statuses,
+  priorities,
   boardId,
   onTaskMove,
   onTaskClick,
@@ -39,39 +45,38 @@ export function KanbanView({
       activationConstraint: {
         distance: 8,
       },
-    })
+    }),
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  
+
   // Track optimistic status changes: taskId -> newStatusId
-  const [optimisticStatusChanges, setOptimisticStatusChanges] = useState<Record<string, string>>({});
+  const [optimisticStatusChanges, setOptimisticStatusChanges] = useState<
+    Record<string, string>
+  >({});
 
   // Visible statuses (persisted per board when boardId is provided)
   const [visibleStatuses, setVisibleStatuses] = useState<Set<string>>(() => {
     try {
       if (!boardId) return new Set(statuses.map((s) => String(s.id)));
       const raw = localStorage.getItem(`kanban-visible-statuses-${boardId}`);
-      return raw ? new Set(JSON.parse(raw)) : new Set(statuses.map((s) => String(s.id)));
+      return raw
+        ? new Set(JSON.parse(raw))
+        : new Set(statuses.map((s) => String(s.id)));
     } catch {
       return new Set(statuses.map((s) => String(s.id)));
     }
   });
 
   // Keep visible statuses in sync if statuses list changes (add any new statuses by default)
-  useEffect(() => {
-    setVisibleStatuses((prev) => {
-      const next = new Set(prev);
-      statuses.forEach((s) => next.add(String(s.id)));
-      return next;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statuses]);
 
   const persistVisibleStatuses = (set: Set<string>) => {
     try {
       if (!boardId) return;
-      localStorage.setItem(`kanban-visible-statuses-${boardId}`, JSON.stringify(Array.from(set)));
+      localStorage.setItem(
+        `kanban-visible-statuses-${boardId}`,
+        JSON.stringify(Array.from(set)),
+      );
     } catch {}
   };
 
@@ -106,13 +111,26 @@ export function KanbanView({
     // Distribute tasks from all groups
     groups.forEach((group) => {
       group.tasks.forEach((task) => {
-        // Apply optimistic status change if exists
-        const effectiveStatusId = optimisticStatusChanges[task.id] 
-          ? optimisticStatusChanges[task.id] 
+        // Process main task
+        const effectiveStatusId = optimisticStatusChanges[task.id]
+          ? optimisticStatusChanges[task.id]
           : String(task.status_id || "");
-        
+
         if (organized[effectiveStatusId]) {
           organized[effectiveStatusId].push(task);
+        }
+
+        // Process subtasks
+        if (task.subitems && task.subitems.length > 0) {
+          task.subitems.forEach((subtask) => {
+            const subtaskEffectiveStatusId = optimisticStatusChanges[subtask.id]
+              ? optimisticStatusChanges[subtask.id]
+              : String(subtask.status_id || "");
+
+            if (organized[subtaskEffectiveStatusId]) {
+              organized[subtaskEffectiveStatusId].push(subtask);
+            }
+          });
         }
       });
     });
@@ -122,7 +140,7 @@ export function KanbanView({
       const query = searchQuery.toLowerCase();
       Object.keys(organized).forEach((statusId) => {
         organized[statusId] = organized[statusId].filter((task) =>
-          task.name.toLowerCase().includes(query)
+          task.name.toLowerCase().includes(query),
         );
       });
     }
@@ -149,7 +167,7 @@ export function KanbanView({
     if (!statusMatch) return;
 
     const statusId = statusMatch[1];
-    
+
     // Find the task to get its original status
     let originalStatusId: string | null = null;
     for (const group of groups) {
@@ -158,8 +176,17 @@ export function KanbanView({
         originalStatusId = String(task.status_id);
         break;
       }
+      // Check subitems
+      for (const t of group.tasks) {
+        const subtask = t.subitems?.find((st) => st.id === taskId);
+        if (subtask) {
+          originalStatusId = String(subtask.status_id);
+          break;
+        }
+      }
+      if (originalStatusId) break;
     }
-    
+
     // Don't do anything if dropping in the same column
     if (originalStatusId === statusId) return;
 
@@ -172,7 +199,7 @@ export function KanbanView({
     try {
       // Call the API
       await onTaskMove(taskId, statusId);
-      
+
       // If successful, remove the optimistic change (the real data will update)
       setOptimisticStatusChanges((prev) => {
         const next = { ...prev };
@@ -181,14 +208,14 @@ export function KanbanView({
       });
     } catch (error) {
       console.error("Failed to move task:", error);
-      
+
       // Revert the optimistic change on error
       setOptimisticStatusChanges((prev) => {
         const next = { ...prev };
         delete next[taskId];
         return next;
       });
-      
+
       toast.error("Failed to move task. Please try again.");
     }
   };
@@ -199,9 +226,85 @@ export function KanbanView({
     for (const group of groups) {
       const t = group.tasks.find((task) => task.id === activeId);
       if (t) return t;
+      // Check subitems
+      for (const task of group.tasks) {
+        const subtask = task.subitems?.find((st) => st.id === activeId);
+        if (subtask) return subtask;
+      }
     }
     return null;
   })();
+
+  // Create a map of group metadata for quick lookup
+  const groupMap = useMemo(() => {
+    const map: Record<string, { name: string; color: string }> = {};
+    groups.forEach((g) => {
+      map[String(g.id)] = { name: g.name, color: g.color };
+    });
+    return map;
+  }, [groups]);
+
+  // Create lookup maps for status and priority
+  const statusMap = useMemo(() => {
+    const map: Record<string, { name: string; color: string }> = {};
+    statuses.forEach((s) => {
+      map[String(s.id)] = { name: s.name, color: s.color_code };
+    });
+    return map;
+  }, [statuses]);
+
+  const priorityMap = useMemo(() => {
+    const map: Record<string, { name: string; color: string }> = {};
+    priorities.forEach((p) => {
+      map[String(p.id)] = { name: p.name, color: p.color_code };
+    });
+    return map;
+  }, [priorities]);
+
+  // Card visibility configuration
+  const CARD_FIELDS = [
+    { id: "group", label: "Group" },
+    { id: "status", label: "Status" },
+    { id: "priority", label: "Priority" },
+    { id: "description", label: "Description" },
+    { id: "assignees", label: "Assignees" },
+  ];
+
+  // Visible card fields (persisted per board)
+  const [visibleCardFields, setVisibleCardFields] = useState<Set<string>>(
+    () => {
+      try {
+        if (!boardId) return new Set(CARD_FIELDS.map((f) => f.id));
+        const raw = localStorage.getItem(
+          `kanban-visible-card-fields-${boardId}`,
+        );
+        return raw
+          ? new Set(JSON.parse(raw))
+          : new Set(CARD_FIELDS.map((f) => f.id));
+      } catch {
+        return new Set(CARD_FIELDS.map((f) => f.id));
+      }
+    },
+  );
+
+  const toggleCardField = (id: string) => {
+    setVisibleCardFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+
+      try {
+        if (boardId) {
+          localStorage.setItem(
+            `kanban-visible-card-fields-${boardId}`,
+            JSON.stringify(Array.from(next)),
+          );
+        }
+      } catch {}
+
+      return next;
+    });
+  };
 
   return (
     <DndContext
@@ -210,9 +313,9 @@ export function KanbanView({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {/* Columns visibility popover */}
       <div className="px-6 py-2">
         <div className="flex items-center gap-3">
+          {/* Columns visibility popover */}
           <Popover>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 px-3 py-2 rounded bg-muted border border-border text-sm">
@@ -220,7 +323,10 @@ export function KanbanView({
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-72 p-3 bg-popover border-border z-50" align="start">
+            <PopoverContent
+              className="w-74 p-3 bg-popover border-border z-50"
+              align="start"
+            >
               <div className="space-y-3 max-h-64 overflow-auto pr-2">
                 {statuses.map((s) => {
                   const id = String(s.id);
@@ -241,7 +347,9 @@ export function KanbanView({
                           className="w-6 h-6 rounded-full"
                           style={{ backgroundColor: s.color_code }}
                         />
-                        <div className="text-sm max-w-[160px] truncate">{s.name}</div>
+                        <div className="text-sm max-w-[160px] truncate">
+                          {s.name}
+                        </div>
                       </div>
 
                       <div className="ml-auto">
@@ -255,7 +363,9 @@ export function KanbanView({
               </div>
 
               <div className="pt-3 border-t border-border flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">Select which statuses will show as Kanban columns</div>
+                <div className="text-sm text-muted-foreground">
+                  Select which statuses will show as Kanban columns
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setAllStatuses(true)}
@@ -273,6 +383,40 @@ export function KanbanView({
               </div>
             </PopoverContent>
           </Popover>
+
+          {/* Card Fields Popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="flex items-center gap-2 px-3 py-2 rounded bg-muted border border-border text-sm">
+                <span className="font-medium">Card Fields</span>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-56 p-3 bg-popover border-border z-50"
+              align="start"
+            >
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground mb-2">
+                  Show on card
+                </div>
+                {CARD_FIELDS.map((field) => (
+                  <label
+                    key={field.id}
+                    className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleCardFields.has(field.id)}
+                      onChange={() => toggleCardField(field.id)}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-sm">{field.label}</span>
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -285,12 +429,28 @@ export function KanbanView({
               status={status}
               tasks={tasksByStatus[String(status.id)] || []}
               onTaskClick={onTaskClick}
+              groupMap={groupMap}
+              visibleCardFields={visibleCardFields}
+              statusMap={statusMap}
+              priorityMap={priorityMap}
             />
           ))}
       </div>
 
       <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
-        {activeTask ? <KanbanCard task={activeTask} overlay /> : null}
+        {activeTask ? (
+          <KanbanCard
+            task={activeTask}
+            overlay
+            groupName={groupMap[String(activeTask.group_id)]?.name}
+            groupColor={groupMap[String(activeTask.group_id)]?.color}
+            statusName={statusMap[String(activeTask.status_id)]?.name}
+            statusColor={statusMap[String(activeTask.status_id)]?.color}
+            priorityName={priorityMap[String(activeTask.priority_id)]?.name}
+            priorityColor={priorityMap[String(activeTask.priority_id)]?.color}
+            visibleCardFields={visibleCardFields}
+          />
+        ) : null}
       </DragOverlay>
     </DndContext>
   );

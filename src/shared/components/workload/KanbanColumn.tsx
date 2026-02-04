@@ -1,4 +1,3 @@
-
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -12,21 +11,33 @@ interface KanbanColumnProps {
   status: Status;
   tasks: Task[];
   onTaskClick: (task: Task) => void;
+  groupMap: Record<string, { name: string; color: string }>;
+  visibleCardFields: Set<string>;
+  statusMap: Record<string, { name: string; color: string }>;
+  priorityMap: Record<string, { name: string; color: string }>;
 }
 
 export function KanbanColumn({
   status,
   tasks,
   onTaskClick,
+  groupMap,
+  visibleCardFields,
+  statusMap,
+  priorityMap,
 }: KanbanColumnProps) {
-  const { setNodeRef } = useDroppable({
+  const { setNodeRef, isOver } = useDroppable({
     id: `status-${status.id}`,
   });
 
   return (
     <div
       ref={setNodeRef}
-      className="flex-shrink-0 w-80 bg-muted rounded-lg border border-border flex flex-col"
+      className={`flex-shrink-0 w-80 rounded-lg border flex flex-col transition-colors ${
+        isOver
+          ? "bg-primary/10 border-primary/50 ring-2 ring-primary/20"
+          : "bg-muted border-border"
+      }`}
     >
       {/* Column Header */}
       <div className="p-4 border-b border-border">
@@ -48,16 +59,27 @@ export function KanbanColumn({
           items={tasks.map((t) => t.id)}
           strategy={verticalListSortingStrategy}
         >
-          {tasks.map((task) => (
-            <KanbanCard
-              key={task.id}
-              task={task}
-              onClick={() => onTaskClick(task)}
-            />
-          ))}
+          {tasks.map((task) => {
+            const groupInfo = groupMap[String(task.group_id)];
+            const statusInfo = statusMap[String(task.status_id)];
+            const priorityInfo = priorityMap[String(task.priority_id)];
+
+            return (
+              <KanbanCard
+                key={task.id}
+                task={task}
+                onClick={() => onTaskClick(task)}
+                groupName={groupInfo?.name}
+                groupColor={groupInfo?.color}
+                statusName={statusInfo?.name}
+                statusColor={statusInfo?.color}
+                priorityName={priorityInfo?.name}
+                priorityColor={priorityInfo?.color}
+                visibleCardFields={visibleCardFields}
+              />
+            );
+          })}
         </SortableContext>
-
-
       </div>
     </div>
   );
