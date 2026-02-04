@@ -438,14 +438,22 @@ export function WorkloadBoard({
   // Local state for task card and comments
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
   const [sheetTaskCardOpen, setSheetTaskCardOpen] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedTaskCardId, setSelectedTaskCardId] = useState<string | null>(
+    null,
+  );
+  const [selectedCommentsId, setSelectedCommentsId] = useState<string | null>(
+    null,
+  );
 
   // Sync URL <-> State
   useEffect(() => {
     const taskIdFromUrl = searchParams.get("task");
+    const commentsIdFromUrl = searchParams.get("comments");
+
+    // Sync Task Card State
     if (taskIdFromUrl) {
-      if (taskIdFromUrl !== selectedTaskId) {
-        setSelectedTaskId(taskIdFromUrl);
+      if (taskIdFromUrl !== selectedTaskCardId) {
+        setSelectedTaskCardId(taskIdFromUrl);
       }
       if (!sheetTaskCardOpen) {
         setSheetTaskCardOpen(true);
@@ -454,8 +462,25 @@ export function WorkloadBoard({
       if (sheetTaskCardOpen) {
         setSheetTaskCardOpen(false);
       }
-      if (selectedTaskId) {
-        setSelectedTaskId(null);
+      if (selectedTaskCardId) {
+        setSelectedTaskCardId(null);
+      }
+    }
+
+    // Sync Comments Panel State
+    if (commentsIdFromUrl) {
+      if (commentsIdFromUrl !== selectedCommentsId) {
+        setSelectedCommentsId(commentsIdFromUrl);
+      }
+      if (!commentsPanelOpen) {
+        setCommentsPanelOpen(true);
+      }
+    } else {
+      if (commentsPanelOpen) {
+        setCommentsPanelOpen(false);
+      }
+      if (selectedCommentsId) {
+        setSelectedCommentsId(null);
       }
     }
   }, [searchParams]);
@@ -859,14 +884,14 @@ export function WorkloadBoard({
       }
     };
 
-    if (commentsPanelOpen && selectedTaskId) {
+    if (commentsPanelOpen && selectedCommentsId) {
       // Initial fetch without loading state to avoid flickering
-      fetchComments(selectedTaskId);
+      fetchComments(selectedCommentsId);
       setIsLoadingComments(false);
 
       // Set up interval to auto-refresh comments every 6 seconds
       const refreshInterval = setInterval(() => {
-        fetchComments(selectedTaskId);
+        fetchComments(selectedCommentsId);
       }, 5000); // 5 seconds
 
       // Cleanup interval when panel closes or task changes
@@ -875,7 +900,7 @@ export function WorkloadBoard({
       setComments([]);
       setIsLoadingComments(false);
     }
-  }, [commentsPanelOpen, selectedTaskId]);
+  }, [commentsPanelOpen, selectedCommentsId]);
 
   // Sync boardName prop with local state when it changes
   useEffect(() => {
@@ -1139,8 +1164,19 @@ export function WorkloadBoard({
   };
 
   const openCommentsPanel = (task: Task) => {
-    setSelectedTaskId(task.id);
-    setCommentsPanelOpen(true);
+    setSearchParams((prev: URLSearchParams) => {
+      const next = new URLSearchParams(prev);
+      next.set("comments", task.id);
+      return next;
+    });
+  };
+
+  const closeCommentsPanel = () => {
+    setSearchParams((prev: URLSearchParams) => {
+      const next = new URLSearchParams(prev);
+      next.delete("comments");
+      return next;
+    });
   };
 
   const openTaskCard = (task: Task) => {
@@ -2616,7 +2652,7 @@ export function WorkloadBoard({
   };
 
   const saveUpdate = async () => {
-    if (!updateText.trim() || !selectedTaskId) {
+    if (!updateText.trim() || !selectedCommentsId) {
       return;
     }
 
@@ -2628,7 +2664,10 @@ export function WorkloadBoard({
         is_internal: 0,
       };
 
-      const newComment = await tasksApi.createComment(selectedTaskId, payload);
+      const newComment = await tasksApi.createComment(
+        selectedCommentsId,
+        payload,
+      );
 
       // Update local state
       setComments((prev) => [newComment, ...prev]);
@@ -2653,7 +2692,7 @@ export function WorkloadBoard({
     parentId: string | number,
     replyText: string,
   ) => {
-    if (!replyText.trim() || !selectedTaskId) {
+    if (!replyText.trim() || !selectedCommentsId) {
       return;
     }
 
@@ -2664,7 +2703,10 @@ export function WorkloadBoard({
         is_internal: 0,
       };
 
-      const newComment = await tasksApi.createComment(selectedTaskId, payload);
+      const newComment = await tasksApi.createComment(
+        selectedCommentsId,
+        payload,
+      );
 
       // Update local state
       setComments((prev) => [...prev, newComment]);
@@ -2679,11 +2721,11 @@ export function WorkloadBoard({
   };
 
   const handleDeleteComment = async (commentId: string | number) => {
-    if (!selectedTaskId) return;
+    if (!selectedCommentsId) return;
 
     // In a real app, you might want to show a confirmation dialog
     try {
-      await tasksApi.deleteComment(selectedTaskId, commentId);
+      await tasksApi.deleteComment(selectedCommentsId, commentId);
       setComments((prev) =>
         prev.filter((c) => String(c.id) !== String(commentId)),
       );
@@ -2698,10 +2740,10 @@ export function WorkloadBoard({
     commentId: string | number,
     content: string,
   ) => {
-    if (!selectedTaskId) return;
+    if (!selectedCommentsId) return;
     try {
       const updatedComment = await tasksApi.updateComment(
-        selectedTaskId,
+        selectedCommentsId,
         commentId,
         { content: content }, // Send the HTML content directly without processing
       );
@@ -4523,8 +4565,7 @@ export function WorkloadBoard({
                                           <tr
                                             className="border-t border-b border-border hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
                                             onClick={() => {
-                                              setSelectedTaskId(task.id);
-                                              setSheetTaskCardOpen(true);
+                                              openTaskCard(task);
                                             }}
                                           >
                                             <td
@@ -5136,12 +5177,14 @@ export function WorkloadBoard({
       </Dialog>
 
       {/* ALL SHEETS WILL GO HERE */}
-      {/* Comments Panel Sheet */}
       <CommentsPanelSheet
         open={commentsPanelOpen}
-        onOpenChange={setCommentsPanelOpen}
-        taskName={getTaskById(selectedTaskId)?.name || "Task Details"}
-        taskId={selectedTaskId}
+        onOpenChange={(open) => {
+          if (!open) closeCommentsPanel();
+          else setCommentsPanelOpen(true);
+        }}
+        taskName={getTaskById(selectedCommentsId)?.name || "Task Details"}
+        taskId={selectedCommentsId}
         comments={comments}
         isLoadingComments={isLoadingComments}
         updateText={updateText}
@@ -5153,8 +5196,14 @@ export function WorkloadBoard({
         onUpdateComment={updateTaskComment}
         onSaveInlineReply={saveInlineReply}
         onTaskButtonClick={() => {
-          setCommentsPanelOpen(false);
-          setSheetTaskCardOpen(true);
+          closeCommentsPanel();
+          // Use search params to switch to task
+          setSearchParams((prev: URLSearchParams) => {
+            const next = new URLSearchParams(prev);
+            next.delete("comments");
+            if (selectedCommentsId) next.set("task", selectedCommentsId);
+            return next;
+          });
         }}
         boardId={boardId}
       />
@@ -5200,14 +5249,14 @@ export function WorkloadBoard({
 
       {/* */}
       {/* Task Card Dialog */}
-      {selectedTaskId && (
+      {selectedTaskCardId && (
         <TaskCardDialog
           open={sheetTaskCardOpen}
           onOpenChange={(open) => {
             if (!open) closeTaskCard();
             else setSheetTaskCardOpen(true);
           }}
-          task={getTaskById(selectedTaskId)}
+          task={getTaskById(selectedTaskCardId)}
           boardName={boardName}
           statuses={statuses}
           priorities={priorities}
