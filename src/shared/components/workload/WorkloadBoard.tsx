@@ -1166,6 +1166,7 @@ export function WorkloadBoard({
   const openCommentsPanel = (task: Task) => {
     setSearchParams((prev: URLSearchParams) => {
       const next = new URLSearchParams(prev);
+      next.delete("task");
       next.set("comments", task.id);
       return next;
     });
@@ -1182,6 +1183,7 @@ export function WorkloadBoard({
   const openTaskCard = (task: Task) => {
     setSearchParams((prev: URLSearchParams) => {
       const next = new URLSearchParams(prev);
+      next.delete("comments");
       next.set("task", task.id);
       return next;
     });
