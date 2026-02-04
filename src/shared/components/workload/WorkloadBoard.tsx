@@ -5,7 +5,7 @@ import { format, parseISO } from "date-fns";
 // Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
 // const _loadedGroupsForBoard = new Set<string>();
 // const _loadedCMSForBoard = new Set<string>();
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import axios from "@/lib/axios";
 import { groupsApi } from "@/features/groups/groupsApi";
@@ -414,6 +414,7 @@ export function WorkloadBoard({
   // workspaceName,
 }: WorkloadBoardProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Initialize hooks for state management
   const taskState = useTaskState();
@@ -438,6 +439,27 @@ export function WorkloadBoard({
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
   const [sheetTaskCardOpen, setSheetTaskCardOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  // Sync URL <-> State
+  useEffect(() => {
+    const taskIdFromUrl = searchParams.get("task");
+    if (taskIdFromUrl) {
+      if (taskIdFromUrl !== selectedTaskId) {
+        setSelectedTaskId(taskIdFromUrl);
+      }
+      if (!sheetTaskCardOpen) {
+        setSheetTaskCardOpen(true);
+      }
+    } else {
+      if (sheetTaskCardOpen) {
+        setSheetTaskCardOpen(false);
+      }
+      if (selectedTaskId) {
+        setSelectedTaskId(null);
+      }
+    }
+  }, [searchParams]);
+
   const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
   const [editTaskName, setEditTaskName] = useState("");
   const [updateText, setUpdateText] = useState("");
@@ -1122,8 +1144,19 @@ export function WorkloadBoard({
   };
 
   const openTaskCard = (task: Task) => {
-    setSelectedTaskId(task.id);
-    setSheetTaskCardOpen(true);
+    setSearchParams((prev: URLSearchParams) => {
+      const next = new URLSearchParams(prev);
+      next.set("task", task.id);
+      return next;
+    });
+  };
+
+  const closeTaskCard = () => {
+    setSearchParams((prev: URLSearchParams) => {
+      const next = new URLSearchParams(prev);
+      next.delete("task");
+      return next;
+    });
   };
 
   const handleInlineEditTaskName = async (taskId: string, newName: string) => {
@@ -5170,7 +5203,10 @@ export function WorkloadBoard({
       {selectedTaskId && (
         <TaskCardDialog
           open={sheetTaskCardOpen}
-          onOpenChange={setSheetTaskCardOpen}
+          onOpenChange={(open) => {
+            if (!open) closeTaskCard();
+            else setSheetTaskCardOpen(true);
+          }}
           task={getTaskById(selectedTaskId)}
           boardName={boardName}
           statuses={statuses}
