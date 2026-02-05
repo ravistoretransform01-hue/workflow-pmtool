@@ -232,7 +232,7 @@ export function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
                   <Input
                     type="search"
-                    placeholder="Search tasks..."
+                    placeholder="Search tasks by name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 bg-muted/50 border-border"
