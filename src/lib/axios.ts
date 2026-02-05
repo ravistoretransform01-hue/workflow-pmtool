@@ -342,8 +342,15 @@ api.interceptors.response.use(
       debugLog(`[ERROR] Step 7: Clearing all tokens from localStorage`);
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
-      debugLog(`[ERROR] Step 8: Redirecting to login page`);
-      window.location.href = "/login";
+
+      // Don't redirect if we are already on the login page
+      // This allows the error to be handled by the login page and show a toast
+      if (window.location.pathname !== "/login") {
+        debugLog(`[ERROR] Step 8: Redirecting to login page`);
+        window.location.href = "/login";
+      } else {
+        debugLog(`[ERROR] Step 8: Already on login page, skipping redirect`);
+      }
     }
 
     // Handle 500 Server Error

@@ -47,11 +47,12 @@ const LoginPage = () => {
       ) {
         title = "Invalid password";
         description =
-          "The password you entered is incorrect. Please try again.";
+          error ?? "The password you entered is incorrect. Please try again.";
       }
 
       toast.error(title, {
         description: description,
+        className: "bg-red-500 text-white",
       });
       clearAuthError();
     }
