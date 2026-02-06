@@ -15,9 +15,12 @@ export interface User {
   username: string;
   email: string;
   name: string;
-  role: string[];
+  organization_id: number;
+  role_id: number;
+  role_label: string;
   avatar?: string;
   createdAt?: string;
+  role: string[];
   // User meta fields from API
   phone?: string;
   mobile_phone?: string;
