@@ -102,7 +102,8 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   // Use real user information from API
   const displayName = user?.name || "User";
   const displayEmail = user?.email || "";
-  const displayUsername = user?.username || "";
+  // const displayUsername = user?.username || "";
+  const displayRole = user?.role_label || "";
 
   return (
     <>
@@ -135,8 +136,11 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                       className="border-none p-0 text-muted-foreground focus-visible:ring-0"
                     />
 
-                    <Badge variant="secondary" className="w-fit">
+                    {/* <Badge variant="secondary" className="w-fit">
                       {displayUsername}
+                    </Badge> */}
+                    <Badge variant="secondary" className="w-fit">
+                      {displayRole}
                     </Badge>
 
                     <div className="space-y-3 pt-4">
