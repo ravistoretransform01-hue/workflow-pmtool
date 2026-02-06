@@ -42,6 +42,7 @@ import {
   updateColumnLabel,
   updateFullColumnConfiguration,
   getColumnConfiguration,
+  getColumnLabel,
   mergeColumnConfigWithAPI,
 } from "@/lib/columnPersistence";
 import { Input } from "@/shared/components/ui/input";
@@ -180,6 +181,20 @@ const ALL_AVAILABLE_COLUMNS = [
   "tags",
   "timer",
 ];
+
+const COLUMN_DEFAULT_LABELS: Record<string, string> = {
+  item: "Item",
+  status: "Status",
+  priority: "Priority",
+  description: "Description",
+  rating: "Rating",
+  estimatedDate: "Estimated Date",
+  estimatedTime: "Estimated Time",
+  progress: "Progress",
+  person: "Person",
+  tags: "Tags",
+  timer: "Timer",
+};
 
 const PRESET_COLORS = [
   "#16a249", // green
@@ -3994,20 +4009,11 @@ export function WorkloadBoard({
 
                   <div className=" space-y-1">
                     {ALL_AVAILABLE_COLUMNS.map((columnId) => {
-                      const columnLabel =
-                        {
-                          item: "Item",
-                          status: "Status",
-                          priority: "Priority",
-                          description: "Description",
-                          rating: "Rating",
-                          estimatedDate: "Estimated Date",
-                          estimatedTime: "Estimated Time",
-                          date: "Date",
-                          person: "Person",
-                          timer: "Timer",
-                          time: "Time Spent",
-                        }[columnId] || columnId;
+                      const columnLabel = getColumnLabel(
+                        parseInt(boardId, 10),
+                        columnId,
+                        COLUMN_DEFAULT_LABELS[columnId] || columnId,
+                      );
 
                       return columnId === "item" ? (
                         <label
@@ -4021,7 +4027,7 @@ export function WorkloadBoard({
                             title="Item column is required"
                             className="cursor-not-allowed opacity-50"
                           />
-                          <span className="text-sm font-medium">
+                          <span className="text-sm font-medium capitalize">
                             {columnLabel}
                           </span>
                         </label>
@@ -4038,7 +4044,9 @@ export function WorkloadBoard({
                             onChange={() => toggleColumnVisibility(columnId)}
                             className="cursor-pointer"
                           />
-                          <span className="text-sm">{columnLabel}</span>
+                          <span className="text-sm capitalize">
+                            {columnLabel}
+                          </span>
                         </label>
                       );
                     })}
