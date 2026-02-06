@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import type { TaskComment } from "@/features/tasks/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
-import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
+import { getCurrentUserId, getOrganizationId, cn } from "@/lib/utils";
 
 // Helper to render HTML content from Tiptap editor with proper styling
 const renderFormattedContent = (content: string) => {
@@ -96,6 +96,347 @@ interface CommentsPanelSheetProps {
   boardId?: string;
 }
 
+/**
+ * Individual comment item component that renders recursively for nested replies
+ */
+const CommentItem = ({
+  comment,
+  allComments,
+  depth = 0,
+  boardId,
+  expandedThreads,
+  setExpandedThreads,
+  editingCommentId,
+  setEditingCommentId,
+  editCommentText,
+  setEditCommentText,
+  inlineReplyId,
+  setInlineReplyId,
+  inlineReplyText,
+  setInlineReplyText,
+  handleDeleteComment,
+  updateTaskComment,
+  saveInlineReply,
+  renderFormattedContent,
+}: {
+  comment: TaskComment;
+  allComments: TaskComment[];
+  depth?: number;
+  boardId?: string;
+  expandedThreads: Record<string | number, boolean>;
+  setExpandedThreads: React.Dispatch<
+    React.SetStateAction<Record<string | number, boolean>>
+  >;
+  editingCommentId: string | number | null;
+  setEditingCommentId: (id: string | number | null) => void;
+  editCommentText: string;
+  setEditCommentText: (text: string) => void;
+  inlineReplyId: string | number | null;
+  setInlineReplyId: (id: string | number | null) => void;
+  inlineReplyText: string;
+  setInlineReplyText: (text: string) => void;
+  handleDeleteComment: (id: string | number) => void;
+  updateTaskComment: (id: string | number, text: string) => void;
+  saveInlineReply: (parentId: string | number) => void;
+  renderFormattedContent: (content: string) => { __html: string };
+}) => {
+  // Find immediate children only for this level
+  const directReplies = allComments
+    .filter((c) => String(c.parent_id) === String(comment.id))
+    .sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+
+  const isExpanded = expandedThreads[comment.id];
+  // Like Reddit: show first 2 replies, then a "Show more" button
+  const visibleReplies = isExpanded
+    ? directReplies
+    : directReplies.length > 2
+      ? directReplies.slice(0, 2)
+      : directReplies;
+  const hiddenCount = directReplies.length - visibleReplies.length;
+
+  const isReplyingToThis = String(inlineReplyId) === String(comment.id);
+
+  return (
+    <div key={comment.id} className="space-y-4 relative">
+      {/* Main Comment Row */}
+      <div className="flex gap-4 group relative">
+        <Avatar
+          className={cn(
+            "shrink-0 border border-border/50 shadow-sm relative",
+            depth === 0 ? "h-10 w-10" : "h-8 w-8",
+          )}
+        >
+          <AvatarFallback
+            className={cn(
+              "text-primary font-medium",
+              depth === 0 ? "bg-primary/10" : "bg-primary/5 text-[10px]",
+            )}
+          >
+            {comment.user?.name?.charAt(0).toUpperCase() || "U"}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 space-y-1.5 min-w-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "font-semibold text-foreground",
+                  depth === 0 ? "text-sm" : "text-sm text-foreground/80",
+                )}
+              >
+                {comment.user?.name || "Unknown User"}
+              </span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                {comment.created_at
+                  ? format(new Date(comment.created_at), "MMM d, h:mm a")
+                  : ""}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 hover:bg-muted"
+                  >
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setInlineReplyId(comment.id);
+                      setInlineReplyText("");
+                    }}
+                  >
+                    Reply
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => handleDeleteComment(comment.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          {editingCommentId === comment.id ? (
+            <div className="space-y-3 pt-2 mr-4">
+              <TiptapEditor
+                value={editCommentText}
+                onChange={setEditCommentText}
+                placeholder="Edit your comment..."
+                boardId={boardId ? parseInt(boardId) : undefined}
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="h-8 text-xs px-4"
+                  onClick={() => {
+                    updateTaskComment(comment.id, editCommentText);
+                    setEditingCommentId(null);
+                  }}
+                  disabled={!editCommentText.trim()}
+                >
+                  Save
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs px-3"
+                  onClick={() => setEditingCommentId(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div
+                className={cn(
+                  "text-foreground/90 leading-relaxed break-words pr-4",
+                  depth === 0 ? "text-sm" : "text-sm text-foreground/80",
+                  "[&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2",
+                  "[&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2",
+                  "[&_li]:my-1",
+                  "[&_ul_ul]:list-circle [&_ul_ul]:ml-6",
+                  "[&_ol_ol]:ml-6",
+                  "[&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground",
+                  "[&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto",
+                  "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2",
+                  "[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm",
+                  "[&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer",
+                  "[&_strong]:font-bold",
+                  "[&_em]:italic",
+                  "[&_s]:line-through",
+                  "[&_hr]:my-4 [&_hr]:border-border",
+                  "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary [&_input[type='checkbox']]:mr-2",
+                  "[&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:ml-0",
+                )}
+                dangerouslySetInnerHTML={renderFormattedContent(
+                  comment.content,
+                )}
+              />
+
+              <div className="pt-0.5 flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 -ml-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
+                  onClick={() => {
+                    setInlineReplyId(comment.id);
+                    setInlineReplyText("");
+                  }}
+                >
+                  <MessageCirclePlus className="h-3.5 w-3.5 mr-1.5" />
+                  Reply
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
+                  onClick={() => {
+                    setEditingCommentId(comment.id);
+                    setEditCommentText(comment.content);
+                  }}
+                >
+                  <Pencil className="h-3 w-3 mr-1.5" />
+                  Edit
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Replies Container */}
+      {(directReplies.length > 0 || isReplyingToThis) && (
+        <div className="pl-6 sm:pl-10 relative">
+          {/* Vertical threading line */}
+          <div className="absolute left-[19px] top-0 bottom-4 w-0.5 bg-muted/40 z-0" />
+
+          <div className="space-y-4 pt-4">
+            {visibleReplies.map((reply) => (
+              <div key={reply.id} className="relative">
+                {/* Horizontal connector */}
+                <div className="absolute -left-[19px] top-5 w-4 h-0.5 bg-muted/40" />
+                <CommentItem
+                  comment={reply}
+                  allComments={allComments}
+                  depth={depth + 1}
+                  boardId={boardId}
+                  expandedThreads={expandedThreads}
+                  setExpandedThreads={setExpandedThreads}
+                  editingCommentId={editingCommentId}
+                  setEditingCommentId={setEditingCommentId}
+                  editCommentText={editCommentText}
+                  setEditCommentText={setEditCommentText}
+                  inlineReplyId={inlineReplyId}
+                  setInlineReplyId={setInlineReplyId}
+                  inlineReplyText={inlineReplyText}
+                  setInlineReplyText={setInlineReplyText}
+                  handleDeleteComment={handleDeleteComment}
+                  updateTaskComment={updateTaskComment}
+                  saveInlineReply={saveInlineReply}
+                  renderFormattedContent={renderFormattedContent}
+                />
+              </div>
+            ))}
+
+            {/* Toggle button logic for this level */}
+            {directReplies.length > 2 && (
+              <div className="relative py-1">
+                <div className="absolute -left-[19px] top-4 w-4 h-0.5 bg-muted/40" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-7 px-3 text-xs transition-colors flex items-center gap-2",
+                    isExpanded
+                      ? "text-muted-foreground bg-muted/5 hover:bg-muted/10"
+                      : "text-primary bg-primary/5 hover:bg-primary/10",
+                  )}
+                  onClick={() =>
+                    setExpandedThreads((prev) => ({
+                      ...prev,
+                      [comment.id]: !isExpanded,
+                    }))
+                  }
+                >
+                  {isExpanded ? (
+                    <>
+                      <div className="text-primary">Show less</div>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCcw className="h-3 w-3" />
+                      Show {hiddenCount} more{" "}
+                      {hiddenCount === 1 ? "reply" : "replies"}
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* Inline reply editor for this comment */}
+            {isReplyingToThis && (
+              <div className="relative mt-4 mr-4 bg-muted/30 p-4 rounded-xl border border-border/50 shadow-inner animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute -left-[19px] top-8 w-4 h-0.5 bg-muted/40" />
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-primary/80">
+                    Replying to {comment.user?.name || "User"}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-background"
+                    onClick={() => setInlineReplyId(null)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="mb-3">
+                  <TiptapEditor
+                    placeholder="Write a reply..."
+                    value={inlineReplyText}
+                    onChange={setInlineReplyText}
+                    boardId={boardId ? parseInt(boardId) : undefined}
+                  />
+                </div>
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs px-3"
+                    onClick={() => setInlineReplyId(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs px-4 font-semibold"
+                    onClick={() => saveInlineReply(comment.id)}
+                    disabled={!inlineReplyText.trim()}
+                  >
+                    Reply
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export function CommentsPanelSheet({
   open,
   onOpenChange,
@@ -146,36 +487,40 @@ export function CommentsPanelSheet({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!open || !activityMeta) return;
-      
-      if (event.key === 'ArrowLeft' && event.ctrlKey && currentPage > 1) {
+
+      if (event.key === "ArrowLeft" && event.ctrlKey && currentPage > 1) {
         event.preventDefault();
         handlePreviousPage();
-      } else if (event.key === 'ArrowRight' && event.ctrlKey && currentPage < activityMeta.total_pages) {
+      } else if (
+        event.key === "ArrowRight" &&
+        event.ctrlKey &&
+        currentPage < activityMeta.total_pages
+      ) {
         event.preventDefault();
         handleNextPage();
       }
     };
 
     if (open) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
     }
   }, [open, currentPage, activityMeta]);
 
   const loadActivity = async (page: number = currentPage) => {
     if (!taskId) return;
-    
+
     // Use different loading states for initial load vs pagination
     if (page === 1) {
       setIsLoadingActivity(true);
     } else {
       setIsLoadingPage(true);
     }
-    
+
     try {
       const organizationId = getOrganizationId() || 27;
       const userId = getCurrentUserId() || 19;
-      
+
       const response = await tasksApi.getActivity({
         organization_id: organizationId,
         user_id: userId,
@@ -183,7 +528,7 @@ export function CommentsPanelSheet({
         page: page,
         per_page: 20, // Reduced per page for better pagination
       });
-      
+
       setActivityData(response.data);
       setActivityMeta(response.meta);
       setCurrentPage(page);
@@ -281,7 +626,7 @@ export function CommentsPanelSheet({
               </TabsList>
             </div>
 
-            {/* update content */}
+            {/* comments content */}
             <TabsContent
               value="updates"
               className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0 data-[state=inactive]:hidden"
@@ -380,442 +725,29 @@ export function CommentsPanelSheet({
                           new Date(b.created_at).getTime() -
                           new Date(a.created_at).getTime(),
                       )
-                      .map((comment) => {
-                        const getDescendants = (
-                          parentId: string | number,
-                        ): TaskComment[] => {
-                          const directChildren = comments.filter(
-                            (c) => String(c.parent_id) === String(parentId),
-                          );
-                          let allDescendants = [...directChildren];
-                          directChildren.forEach((child) => {
-                            allDescendants = [
-                              ...allDescendants,
-                              ...getDescendants(child.id),
-                            ];
-                          });
-                          return allDescendants;
-                        };
-
-                        const allThreadComments = getDescendants(
-                          comment.id,
-                        ).sort(
-                          (a, b) =>
-                            new Date(a.created_at).getTime() -
-                            new Date(b.created_at).getTime(),
-                        );
-
-                        const isExpanded = expandedThreads[comment.id];
-                        const visibleReplies = isExpanded
-                          ? allThreadComments
-                          : allThreadComments.length > 2
-                            ? [allThreadComments[allThreadComments.length - 1]]
-                            : allThreadComments;
-                        const hiddenCount =
-                          allThreadComments.length - visibleReplies.length;
-
-                        const isReplyingInThisThread =
-                          inlineReplyId &&
-                          (String(inlineReplyId) === String(comment.id) ||
-                            allThreadComments.some(
-                              (rtc) => String(rtc.id) === String(inlineReplyId),
-                            ));
-
-                        return (
-                          <div key={comment.id} className="space-y-4 relative">
-                            {/* Main Comment */}
-                            <div className="flex gap-4 group relative">
-                              <Avatar className="h-10 w-10 shrink-0 border border-border/50 shadow-sm relative">
-                                <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                                  {comment.user?.name
-                                    ?.charAt(0)
-                                    .toUpperCase() || "U"}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 space-y-1.5 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-semibold text-foreground">
-                                      {comment.user?.name || "Unknown User"}
-                                    </span>
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                                      {comment.created_at
-                                        ? format(
-                                            new Date(comment.created_at),
-                                            "MMM d, h:mm a",
-                                          )
-                                        : ""}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-7 w-7 p-0 hover:bg-muted"
-                                        >
-                                          <MoreHorizontal className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuItem
-                                          onClick={() => {
-                                            setInlineReplyId(comment.id);
-                                            setInlineReplyText("");
-                                          }}
-                                        >
-                                          Reply
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="text-destructive focus:text-destructive"
-                                          onClick={() =>
-                                            handleDeleteComment(comment.id)
-                                          }
-                                        >
-                                          <Trash2 className="h-4 w-4 mr-2" />
-                                          Delete
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </div>
-                                </div>
-                                {editingCommentId === comment.id ? (
-                                  <div className="space-y-3 pt-2 mr-4">
-                                    <TiptapEditor
-                                      value={editCommentText}
-                                      onChange={setEditCommentText}
-                                      placeholder="Edit your comment..."
-                                      boardId={
-                                        boardId ? parseInt(boardId) : undefined
-                                      }
-                                    />
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        className="h-8 text-xs px-4"
-                                        onClick={() => {
-                                          updateTaskComment(
-                                            comment.id,
-                                            editCommentText,
-                                          );
-                                          setEditingCommentId(null);
-                                        }}
-                                        disabled={!editCommentText.trim()}
-                                      >
-                                        Save
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 text-xs px-3"
-                                        onClick={() =>
-                                          setEditingCommentId(null)
-                                        }
-                                      >
-                                        Cancel
-                                      </Button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div
-                                      className="text-sm text-foreground/90 leading-relaxed break-words pr-4
-                                        [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2
-                                        [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2
-                                        [&_li]:my-1
-                                        [&_ul_ul]:list-circle [&_ul_ul]:ml-6
-                                        [&_ol_ol]:ml-6
-                                        [&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground
-                                        [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto
-                                        [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2
-                                        [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
-                                        [&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer
-                                        [&_strong]:font-bold
-                                        [&_em]:italic
-                                        [&_s]:line-through
-                                        [&_hr]:my-4 [&_hr]:border-border
-                                        [&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary [&_input[type='checkbox']]:mr-2
-                                        [&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:ml-0"
-                                      dangerouslySetInnerHTML={renderFormattedContent(
-                                        comment.content,
-                                      )}
-                                    />
-
-                                    <div className="pt-0.5 flex items-center gap-4">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 px-2 -ml-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
-                                        onClick={() => {
-                                          setInlineReplyId(comment.id);
-                                          setInlineReplyText("");
-                                        }}
-                                      >
-                                        <MessageCirclePlus className="h-3.5 w-3.5 mr-1.5" />
-                                        Reply
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 px-2 text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
-                                        onClick={() => {
-                                          setEditingCommentId(comment.id);
-                                          setEditCommentText(comment.content);
-                                        }}
-                                      >
-                                        <Pencil className="h-3 w-3 mr-1.5" />
-                                        Edit
-                                      </Button>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Thread Guide Line */}
-                            {allThreadComments.length > 0 && (
-                              <div className="absolute left-[19px] top-10 bottom-4 w-0.5 bg-muted/40 z-0" />
-                            )}
-
-                            {/* Collapse/Expand Information */}
-                            {allThreadComments.length > 1 &&
-                              hiddenCount > 0 && (
-                                <div className="pl-14 py-1 relative z-10">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-3 text-xs text-primary bg-primary/5 hover:bg-primary/10 transition-colors flex items-center gap-2"
-                                    onClick={() =>
-                                      setExpandedThreads((prev) => ({
-                                        ...prev,
-                                        [comment.id]: true,
-                                      }))
-                                    }
-                                  >
-                                    <RefreshCcw className="h-3 w-3" />
-                                    Show {hiddenCount} more{" "}
-                                    {hiddenCount === 1 ? "reply" : "replies"}
-                                  </Button>
-                                </div>
-                              )}
-
-                            {/* Replies Container */}
-                            <div className="pl-14 space-y-4 relative z-10">
-                              {visibleReplies.map((reply) => (
-                                <div
-                                  key={reply.id}
-                                  className="flex gap-3 group relative py-1"
-                                >
-                                  {/* Horizontal Connection Line */}
-                                  <div className="absolute -left-[37px] top-5 w-5 h-0.5 bg-muted/40" />
-
-                                  <Avatar className="h-8 w-8 shrink-0 border border-border/50 shadow-sm">
-                                    <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-semibold">
-                                      {reply.user?.name
-                                        ?.charAt(0)
-                                        .toUpperCase() || "U"}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div className="flex-1 space-y-0.5 min-w-0">
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-sm font-semibold text-foreground/80">
-                                          {reply.user?.name || "Unknown User"}
-                                        </span>
-                                        <span className="text-[10px] text-muted-foreground italic">
-                                          {reply.created_at
-                                            ? format(
-                                                new Date(reply.created_at),
-                                                "MMM d, h:mm a",
-                                              )
-                                            : ""}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <DropdownMenu>
-                                          <DropdownMenuTrigger asChild>
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-6 w-6 p-0 hover:bg-muted"
-                                            >
-                                              <MoreHorizontal className="h-3 w-3" />
-                                            </Button>
-                                          </DropdownMenuTrigger>
-                                          <DropdownMenuContent align="end">
-                                            <DropdownMenuItem
-                                              onClick={() => {
-                                                setInlineReplyId(reply.id);
-                                                setInlineReplyText("");
-                                              }}
-                                            >
-                                              Reply
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                              className="text-destructive focus:text-destructive"
-                                              onClick={() =>
-                                                handleDeleteComment(reply.id)
-                                              }
-                                            >
-                                              <Trash2 className="h-4 w-4 mr-2" />
-                                              Delete
-                                            </DropdownMenuItem>
-                                          </DropdownMenuContent>
-                                        </DropdownMenu>
-                                      </div>
-                                    </div>
-
-                                    {editingCommentId === reply.id ? (
-                                      <div className="space-y-3 pt-2">
-                                        <TiptapEditor
-                                          value={editCommentText}
-                                          onChange={setEditCommentText}
-                                          placeholder="Edit your reply..."
-                                          boardId={
-                                            boardId
-                                              ? parseInt(boardId)
-                                              : undefined
-                                          }
-                                        />
-                                        <div className="flex gap-2">
-                                          <Button
-                                            size="sm"
-                                            className="h-8 text-xs px-4"
-                                            onClick={() => {
-                                              updateTaskComment(
-                                                reply.id,
-                                                editCommentText,
-                                              );
-                                              setEditingCommentId(null);
-                                            }}
-                                            disabled={!editCommentText.trim()}
-                                          >
-                                            Save
-                                          </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-8 text-xs px-3"
-                                            onClick={() =>
-                                              setEditingCommentId(null)
-                                            }
-                                          >
-                                            Cancel
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <>
-                                        <div
-                                          className="text-sm text-foreground/80 leading-relaxed break-words
-                                            [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2
-                                            [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2
-                                            [&_li]:my-1
-                                            [&_ul_ul]:list-circle [&_ul_ul]:ml-6
-                                            [&_ol_ol]:ml-6
-                                            [&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground
-                                            [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto
-                                            [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2
-                                            [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm
-                                            [&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer
-                                            [&_strong]:font-bold
-                                            [&_em]:italic
-                                            [&_s]:line-through
-                                            [&_hr]:my-4 [&_hr]:border-border
-                                            [&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary [&_input[type='checkbox']]:mr-2
-                                            [&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:ml-0"
-                                          dangerouslySetInnerHTML={renderFormattedContent(
-                                            reply.content,
-                                          )}
-                                        />
-                                        <div className="pt-0.5 flex items-center gap-4">
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 px-1.5 -ml-1.5 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
-                                            onClick={() => {
-                                              setInlineReplyId(reply.id);
-                                              setInlineReplyText("");
-                                            }}
-                                          >
-                                            Reply
-                                          </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors font-medium"
-                                            onClick={() => {
-                                              setEditingCommentId(reply.id);
-                                              setEditCommentText(reply.content);
-                                            }}
-                                          >
-                                            Edit
-                                          </Button>
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-
-                              {/* Inline reply editor */}
-                              {isReplyingInThisThread && (
-                                <div className="mt-4 mr-4 bg-muted/30 p-4 rounded-xl border border-border/50 shadow-inner relative transition-all animate-in fade-in slide-in-from-top-2 duration-200">
-                                  <div className="mb-3 flex items-center justify-between">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-primary/80">
-                                      Replying to{" "}
-                                      {comments.find(
-                                        (c) =>
-                                          String(c.id) ===
-                                          String(inlineReplyId),
-                                      )?.user?.name || "User"}
-                                    </span>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 hover:bg-background"
-                                      onClick={() => setInlineReplyId(null)}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                  <div className="mb-3">
-                                    <TiptapEditor
-                                      placeholder="Write a reply..."
-                                      value={inlineReplyText}
-                                      onChange={setInlineReplyText}
-                                      boardId={
-                                        boardId ? parseInt(boardId) : undefined
-                                      }
-                                    />
-                                  </div>
-                                  <div className="mt-3 flex justify-end gap-2">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 text-xs px-3"
-                                      onClick={() => setInlineReplyId(null)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      className="h-8 text-xs px-4 font-semibold"
-                                      onClick={() =>
-                                        saveInlineReply(inlineReplyId!)
-                                      }
-                                      disabled={!inlineReplyText.trim()}
-                                    >
-                                      Reply
-                                    </Button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                      .map((comment) => (
+                        <CommentItem
+                          key={comment.id}
+                          comment={comment}
+                          allComments={comments}
+                          depth={0}
+                          boardId={boardId}
+                          expandedThreads={expandedThreads}
+                          setExpandedThreads={setExpandedThreads}
+                          editingCommentId={editingCommentId}
+                          setEditingCommentId={setEditingCommentId}
+                          editCommentText={editCommentText}
+                          setEditCommentText={setEditCommentText}
+                          inlineReplyId={inlineReplyId}
+                          setInlineReplyId={setInlineReplyId}
+                          inlineReplyText={inlineReplyText}
+                          setInlineReplyText={setInlineReplyText}
+                          handleDeleteComment={handleDeleteComment}
+                          updateTaskComment={updateTaskComment}
+                          saveInlineReply={saveInlineReply}
+                          renderFormattedContent={renderFormattedContent}
+                        />
+                      ))}
                   </div>
                 )}
               </div>
@@ -836,7 +768,7 @@ export function CommentsPanelSheet({
                     </div>
                   </div>
                 )}
-                
+
                 {isLoadingActivity ? (
                   <div className="flex items-center justify-center py-8">
                     <p className="text-sm text-muted-foreground">
@@ -852,10 +784,14 @@ export function CommentsPanelSheet({
                 ) : (
                   <div className="space-y-4">
                     {activityData.map((activity) => (
-                      <div key={activity.id} className="flex gap-4 group relative">
+                      <div
+                        key={activity.id}
+                        className="flex gap-4 group relative"
+                      >
                         <Avatar className="h-8 w-8 shrink-0 border border-border/50 shadow-sm">
                           <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
-                            {activity.user?.name?.charAt(0).toUpperCase() || "U"}
+                            {activity.user?.name?.charAt(0).toUpperCase() ||
+                              "U"}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 space-y-1 min-w-0">
@@ -865,7 +801,10 @@ export function CommentsPanelSheet({
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {activity.created_at
-                                ? format(new Date(activity.created_at), "MMM d, h:mm a")
+                                ? format(
+                                    new Date(activity.created_at),
+                                    "MMM d, h:mm a",
+                                  )
                                 : ""}
                             </span>
                           </div>
@@ -878,37 +817,38 @@ export function CommentsPanelSheet({
                             <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-destructive/30">
                               <span className="font-medium">Previous:</span>
                               <div className="mt-1 break-words">
-                                {activity.old_value.length > 200 
+                                {activity.old_value.length > 200
                                   ? `${activity.old_value.substring(0, 200)}...`
-                                  : activity.old_value
-                                }
+                                  : activity.old_value}
                               </div>
                             </div>
                           )}
-                          {activity.new_value && activity.new_value !== "Task updated" && activity.new_value.trim() && (
-                            <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30">
-                              <span className="font-medium">New:</span>
-                              <div className="mt-1 break-words">
-                                {activity.new_value.length > 200 
-                                  ? `${activity.new_value.substring(0, 200)}...`
-                                  : activity.new_value
-                                }
+                          {activity.new_value &&
+                            activity.new_value !== "Task updated" &&
+                            activity.new_value.trim() && (
+                              <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30">
+                                <span className="font-medium">New:</span>
+                                <div className="mt-1 break-words">
+                                  {activity.new_value.length > 200
+                                    ? `${activity.new_value.substring(0, 200)}...`
+                                    : activity.new_value}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-              
+
               {/* Fixed Pagination Controls */}
               {activityMeta && activityMeta.total_pages > 1 && (
                 <div className="border-t border-border bg-background px-6 py-3 flex-shrink-0">
                   <div className="flex items-center justify-between">
                     <div className="text-xs text-muted-foreground">
-                      Showing {activityMeta.count} of {activityMeta.total} activities
+                      Showing {activityMeta.count} of {activityMeta.total}{" "}
+                      activities
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -932,7 +872,10 @@ export function CommentsPanelSheet({
                         variant="outline"
                         size="sm"
                         onClick={handleNextPage}
-                        disabled={currentPage >= activityMeta.total_pages || isLoadingPage}
+                        disabled={
+                          currentPage >= activityMeta.total_pages ||
+                          isLoadingPage
+                        }
                         className="h-8 px-2"
                         title="Next page (Ctrl+→)"
                       >
