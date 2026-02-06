@@ -4554,6 +4554,11 @@ export function WorkloadBoard({
                                               }
                                             />
                                           ))}
+                                          {/* Filler column to absorb extra space and prevent stretching */}
+                                          <th
+                                            className="p-0 border-none"
+                                            style={{ width: "auto" }}
+                                          />
                                         </tr>
                                       </thead>
                                     </SortableContext>
@@ -4644,6 +4649,11 @@ export function WorkloadBoard({
                                                 )}
                                               </td>
                                             ))}
+                                            {/* Filler column to absorb extra space and prevent stretching */}
+                                            <td
+                                              className="p-0 border-none"
+                                              style={{ width: "auto" }}
+                                            />
                                           </tr>
 
                                           {/* ================= SUBITEM ROWS ================= */}
@@ -4729,6 +4739,11 @@ export function WorkloadBoard({
                                                       </td>
                                                     ),
                                                   )}
+                                                  {/* Filler column to absorb extra space and prevent stretching */}
+                                                  <td
+                                                    className="p-0 border-none"
+                                                    style={{ width: "auto" }}
+                                                  />
                                                 </tr>
                                               );
                                             })}
