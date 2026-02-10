@@ -14,6 +14,15 @@ import {
   MessageCirclePlus,
   Link2,
   Activity,
+  Circle,
+  LayoutGrid,
+  Clock,
+  Calendar,
+  Users,
+  AlertCircle,
+  Star,
+  Tag,
+  AlignLeft,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/shared/components/ui/dialog";
 import {
@@ -50,16 +59,28 @@ interface TaskCardDialogProps {
   statuses?: Status[];
   priorities?: Priority[];
   members?: any[];
-  onStatusChange?: (taskId: string, statusId: string) => void;
-  onPriorityChange?: (taskId: string, priorityId: string) => void;
-  onPersonChange?: (taskId: string, memberIds: string[]) => void;
-  onRatingChange?: (taskId: string, rating: number) => void;
+  onStatusChange?: (taskId: string, statusId: string) => Promise<void>;
+  onPriorityChange?: (taskId: string, priorityId: string) => Promise<void>;
+  onPersonChange?: (taskId: string, memberIds: string[]) => Promise<void>;
+  onRatingChange?: (taskId: string, rating: number) => Promise<void>;
   onEstimatedDateChange?: (
     taskId: string,
     fromDate: string | null,
     toDate?: string | null,
-  ) => void;
+  ) => Promise<void>;
+  onEstimatedTimeChange?: (
+    taskId: string,
+    hours: string | number | null,
+  ) => Promise<void>;
   boardId?: number;
+  groupName?: string;
+  groupColor?: string;
+  onInlineEditTaskName?: (taskId: string, newName: string) => void;
+  tags?: any[];
+  onTagChange?: (taskId: string, tags: any[]) => void;
+  onTagCreated?: (newTag: any) => void;
+  onStatusCreated?: (newStatus: any) => void;
+  onPriorityCreated?: (newPriority: any) => void;
 }
 
 export function TaskCardDialog({
@@ -71,11 +92,20 @@ export function TaskCardDialog({
   statuses = [],
   priorities = [],
   members = [],
-  // onStatusChange,
+  onStatusChange,
   onPriorityChange,
   onPersonChange,
   onRatingChange,
   onEstimatedDateChange,
+  onEstimatedTimeChange,
+  groupName,
+  groupColor,
+  onInlineEditTaskName,
+  tags,
+  onTagChange,
+  onTagCreated,
+  onStatusCreated,
+  onPriorityCreated,
 }: TaskCardDialogProps) {
   const [activeTab, setActiveTab] = useState("dev-updates");
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
@@ -353,13 +383,21 @@ export function TaskCardDialog({
     statuses,
     priorities,
     members,
-    // onStatusChange,
+    onStatusChange,
     onPriorityChange,
     onPersonChange,
     onRatingChange,
     onEstimatedDateChange,
+    onEstimatedTimeChange,
+    onTagChange,
+    tags,
+    onTagCreated,
+    onStatusCreated,
+    onPriorityCreated,
+    onInlineEditTaskName,
     openPopoverId,
     setOpenPopoverId,
+    boardId,
   });
 
   return (
@@ -391,86 +429,173 @@ export function TaskCardDialog({
               Board
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onOpenChange(false)}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              className="bg-[#0084ff] hover:bg-[#0073e6] text-white font-medium px-4 h-8 text-sm"
+              onClick={() => onOpenChange(false)}
+            >
+              Save
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={() => onOpenChange(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogTitle>
 
         {/* Content */}
         <div className="flex flex-1 overflow-hidden">
           {/* Left: Fields */}
-          <div className="w-1/2 border-r border-border overflow-y-auto p-3 pt-2">
-            <div className="space-y-3">
-              {/* Status */}
-              <div className="flex items-center gap-4 bg-muted/40 rounded-lg p-3 hover:bg-muted/60 transition-colors">
-                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm font-medium">
-                  Status
-                </div>
-                <div className="flex-1 flex justify-center">
-                  {columns.find((c) => c.id === "status")?.render(displayTask)}
-                </div>
+          <div className="w-1/2 border-r border-border overflow-y-auto p-4 space-y-3">
+            {/* Group */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <Circle className="h-4 w-4" />
+                <span>Group</span>
               </div>
-
-              {/* Priority */}
-              <div className="flex items-center gap-4 bg-muted/40 rounded-lg p-3 hover:bg-muted/60 transition-colors">
-                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm font-medium">
-                  Priority
-                </div>
-                <div className="flex-1 flex justify-center">
-                  {columns
-                    .find((c) => c.id === "priority")
-                    ?.render(displayTask)}
-                </div>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 flex items-center gap-2 min-h-[36px]">
+                {groupColor && (
+                  <div
+                    className="h-3 w-3 rounded-full shrink-0"
+                    style={{ backgroundColor: groupColor }}
+                  />
+                )}
+                <span className="text-sm text-foreground/90">{groupName}</span>
               </div>
+            </div>
 
-              {/* People */}
-              <div className="flex items-center gap-4 bg-muted/40 rounded-lg p-3 hover:bg-muted/60 transition-colors">
-                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm font-medium">
-                  People
-                </div>
-                <div className="flex-1 flex justify-center">
-                  {columns.find((c) => c.id === "person")?.render(displayTask)}
-                </div>
+            {/* Name */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <LayoutGrid className="h-4 w-4" />
+                <span>Name</span>
               </div>
-
-              {/* Estimated Date */}
-              <div className="flex items-center gap-4 bg-muted/40 rounded-lg p-3 hover:bg-muted/60 transition-colors">
-                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm font-medium">
-                  Timeline
-                </div>
-                <div className="flex-1 flex justify-center">
-                  {columns
-                    .find((c) => c.id === "estimatedDate")
-                    ?.render(displayTask)}
-                </div>
+              <div
+                className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center cursor-pointer hover:bg-black/30 transition-colors"
+                onClick={() => {
+                  onOpenChange(false); // Close dialog to edit on board? No, mockup shows it here.
+                  // For now keep it as display, but stylised.
+                }}
+              >
+                <span className="text-sm text-foreground/90 truncate font-medium">
+                  {displayTask?.name}
+                </span>
               </div>
+            </div>
 
-              {/* Rating */}
-              <div className="flex items-center gap-4 bg-muted/40 rounded-lg p-3 hover:bg-muted/60 transition-colors">
-                <div className="flex items-center gap-2 w-32 text-muted-foreground text-sm font-medium">
-                  Rating
-                </div>
-                <div className="flex-1 flex justify-center">
-                  {columns.find((c) => c.id === "rating")?.render(displayTask)}
-                </div>
+            {/* Status */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <LayoutGrid className="h-4 w-4" />
+                <span>Status</span>
               </div>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
+                {columns.find((c) => c.id === "status")?.render(displayTask)}
+              </div>
+            </div>
 
-              {/* Description */}
-              {displayTask?.description && (
-                <div className="mt-2">
-                  <label className="text-sm font-semibold text-foreground">
-                    Description
-                  </label>
-                  <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
-                    {displayTask?.description}
+            {/* Priority */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <AlertCircle className="h-4 w-4" />
+                <span>Priority</span>
+              </div>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
+                {columns.find((c) => c.id === "priority")?.render(displayTask)}
+              </div>
+            </div>
+
+            {/* Estimated Time */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <Clock className="h-4 w-4" />
+                <span>Estimated Time</span>
+              </div>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
+                {columns
+                  .find((c) => c.id === "estimatedTime")
+                  ?.render(displayTask)}
+              </div>
+            </div>
+
+            {/* Timeline */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <Calendar className="h-4 w-4" />
+                <span>Timeline</span>
+              </div>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
+                {columns
+                  .find((c) => c.id === "estimatedDate")
+                  ?.render(displayTask)}
+              </div>
+            </div>
+
+            {/* People */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <Users className="h-4 w-4" />
+                <span>People</span>
+              </div>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
+                {columns.find((c) => c.id === "person")?.render(displayTask)}
+              </div>
+            </div>
+
+            {/* Rating */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <Star className="h-4 w-4" />
+                <span>Rating</span>
+              </div>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
+                {columns.find((c) => c.id === "rating")?.render(displayTask)}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <Tag className="h-4 w-4" />
+                <span>Tags</span>
+              </div>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
+                {columns.find((c) => c.id === "tags")?.render(displayTask)}
+              </div>
+            </div>
+
+            {/* Timer / Hours */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <Clock className="h-4 w-4" />
+                <span>Hours</span>
+              </div>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
+                {columns.find((c) => c.id === "timer")?.render(displayTask)}
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="pt-2 border-t border-border/50">
+              <div className="flex items-center gap-2 mb-2 text-muted-foreground text-[13px] font-medium">
+                <AlignLeft className="h-4 w-4" />
+                <span>Description</span>
+              </div>
+              <div className="bg-gray-500/10 rounded p-3 min-h-[80px]">
+                {displayTask?.description ? (
+                  <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
+                    {displayTask.description}
                   </p>
-                </div>
-              )}
+                ) : (
+                  <span className="text-sm text-muted-foreground italic">
+                    Add a description...
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

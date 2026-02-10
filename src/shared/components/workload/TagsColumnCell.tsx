@@ -34,7 +34,7 @@ export function TagsColumnCell({
   const taskTags = task.tags || [];
   const popoverId = `tags-${task.id}`;
   const [selectedTagIds, setSelectedTagIds] = useState<Set<number | string>>(
-    () => new Set(taskTags.map((t: any) => String(t.tag_id)))
+    () => new Set(taskTags.map((t: any) => String(t.tag_id))),
   );
   const [isSaving, setIsSaving] = useState(false);
   const [newTagName, setNewTagName] = useState("");
@@ -111,21 +111,38 @@ export function TagsColumnCell({
     // Save to API immediately
     setIsSaving(true);
     try {
-      await tasksApi.updateTaskTags({
-        id: task.id,
-        tag_id: Number(cmsTag.id),
-      });
+      if (isCurrentlySelected) {
+        // Handle Removal
+        const tagToRemove = task.tags?.find(
+          (t: any) => String(t.tag_id) === tagIdStr,
+        );
+        if (tagToRemove?.task_tag_id) {
+          await tasksApi.removeTaskTag(tagToRemove.task_tag_id);
+        } else {
+          // Fallback if task_tag_id is missing for some reason
+          await tasksApi.updateTaskTags({
+            id: task.id,
+            tag_id: Number(cmsTag.id),
+          });
+        }
+      } else {
+        // Handle Addition
+        await tasksApi.updateTaskTags({
+          id: task.id,
+          tag_id: Number(cmsTag.id),
+        });
+      }
 
-      // Update local state with new tags
+      // Update local state with new tags (this logic remains same as it reconstructs the tags array)
       const updatedTags = Array.from(newSelected)
         .map((tagId) => {
           const existingTag = task.tags?.find(
-            (t: any) => String(t.tag_id) === String(tagId)
+            (t: any) => String(t.tag_id) === String(tagId),
           );
           if (existingTag) return existingTag;
 
           const cmsTagData = availableTags.find(
-            (t: any) => String(t.id) === String(tagId)
+            (t: any) => String(t.id) === String(tagId),
           );
           if (!cmsTagData) return null;
 
@@ -147,8 +164,9 @@ export function TagsColumnCell({
     } catch (error) {
       console.error("Failed to update tag:", error);
       toast.error("Failed to Update Tag");
-      // Revert selection on error
-      setSelectedTagIds(selectedTagIds);
+      // Revert selection on error (use the previous selectedTagIds)
+      const reverted = new Set(selectedTagIds);
+      setSelectedTagIds(reverted);
     } finally {
       setIsSaving(false);
     }
@@ -160,7 +178,7 @@ export function TagsColumnCell({
       onOpenChange={(open) => {
         if (open) {
           setSelectedTagIds(
-            new Set(taskTags.map((t: any) => String(t.tag_id)))
+            new Set(taskTags.map((t: any) => String(t.tag_id))),
           );
         }
         // Only allow closing from outside (when open is false)
@@ -243,7 +261,6 @@ export function TagsColumnCell({
               </div>
             )}
           </div>
-
         </div>
       </PopoverContent>
     </Popover>
