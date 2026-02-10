@@ -263,11 +263,11 @@ export function KanbanView({
 
   // Card visibility configuration
   const CARD_FIELDS = [
-    { id: "group", label: "Group" },
+    { id: "group", label: "Group Name" },
+    { id: "assignees", label: "Assignees" },
     { id: "status", label: "Status" },
     { id: "priority", label: "Priority" },
     { id: "description", label: "Description" },
-    { id: "assignees", label: "Assignees" },
   ];
 
   // Visible card fields (persisted per board)
@@ -398,7 +398,7 @@ export function KanbanView({
             >
               <div className="space-y-2">
                 <div className="text-xs font-semibold text-muted-foreground mb-2">
-                  Show on card
+                  Visible Card Fields
                 </div>
                 {CARD_FIELDS.map((field) => (
                   <label
