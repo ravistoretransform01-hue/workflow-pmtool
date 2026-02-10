@@ -2121,7 +2121,7 @@ export function WorkloadBoard({
     }
   };
 
-  const handleEstimatedDateChange = (
+  const handleEstimatedDateChange = async (
     taskId: string,
     fromDate: string | null,
     toDate?: string | null,
@@ -2170,7 +2170,7 @@ export function WorkloadBoard({
     popoverState.closePopover();
   };
 
-  const handleEstimatedTimeChange = (
+  const handleEstimatedTimeChange = async (
     taskId: string,
     hours: string | number | null,
   ) => {
@@ -2210,7 +2210,7 @@ export function WorkloadBoard({
     popoverState.closePopover();
   };
 
-  const handleTagChange = (taskId: string, tags: any[]) => {
+  const handleTagChange = async (taskId: string, tags: any[]) => {
     setGroups((prevGroups) =>
       prevGroups.map((group) => ({
         ...group,
@@ -5292,6 +5292,32 @@ export function WorkloadBoard({
           onRatingChange={handleRatingChange}
           onEstimatedDateChange={handleEstimatedDateChange}
           boardId={Number(boardId)}
+          groupName={
+            groups.find((g) =>
+              g.tasks.some(
+                (t) =>
+                  t.id === selectedTaskCardId ||
+                  t.subitems?.some((s) => s.id === selectedTaskCardId),
+              ),
+            )?.name
+          }
+          groupColor={
+            groups.find((g) =>
+              g.tasks.some(
+                (t) =>
+                  t.id === selectedTaskCardId ||
+                  t.subitems?.some((s) => s.id === selectedTaskCardId),
+              ),
+            )?.color
+          }
+          onInlineEditTaskName={handleInlineEditTaskName}
+          tags={tags}
+          onTagChange={handleTagChange}
+          onTagCreated={(newTag) => {
+            setTags((prevTags) => [...prevTags, newTag]);
+          }}
+          onStatusCreated={handleStatusCreated}
+          onPriorityCreated={handlePriorityCreated}
         />
       )}
 
