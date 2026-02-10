@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   X,
   ChevronRight,
+  ChevronLeft,
   Mail,
   MessageSquare,
   AtSign,
@@ -12,6 +13,7 @@ import {
   Pencil,
   MessageCirclePlus,
   Link2,
+  Activity,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/shared/components/ui/dialog";
 import {
@@ -38,6 +40,7 @@ import { tasksApi } from "@/features/tasks/tasksApi";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TiptapEditor } from "./texteditor/TiptapEditor";
+import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
 
 interface TaskCardDialogProps {
   open: boolean;
@@ -94,15 +97,23 @@ export function TaskCardDialog({
     Record<string | number, boolean>
   >({});
 
+  // Activity state
+  const [activityData, setActivityData] = useState<any[]>([]);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+  const [activityMeta, setActivityMeta] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingPage, setIsLoadingPage] = useState(false);
+
   const handleCopyLink = () => {
     if (!task?.id) return;
-    
+
     // Construct the absolute URL with the task parameter
     const url = new URL(window.location.href);
     url.searchParams.set("task", task.id);
-    
+
     // Copy to clipboard
-    navigator.clipboard.writeText(url.toString())
+    navigator.clipboard
+      .writeText(url.toString())
       .then(() => {
         toast.success("Task link copied to clipboard");
       })
@@ -134,6 +145,38 @@ export function TaskCardDialog({
     }
   }, [open, task?.id]);
 
+  // Load activity when dialog opens or task changes
+  useEffect(() => {
+    if (open && task?.id) {
+      setCurrentPage(1); // Reset to first page when opening
+      loadActivity(1);
+    }
+  }, [open, task?.id]);
+
+  // Keyboard navigation for pagination
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!open || !activityMeta) return;
+
+      if (event.key === "ArrowLeft" && event.ctrlKey && currentPage > 1) {
+        event.preventDefault();
+        handlePreviousPage();
+      } else if (
+        event.key === "ArrowRight" &&
+        event.ctrlKey &&
+        currentPage < activityMeta.total_pages
+      ) {
+        event.preventDefault();
+        handleNextPage();
+      }
+    };
+
+    if (open) {
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [open, currentPage, activityMeta]);
+
   const fetchComments = async () => {
     if (!task?.id) return;
 
@@ -146,6 +189,52 @@ export function TaskCardDialog({
       toast.error("Failed to load comments");
     } finally {
       setIsLoadingComments(false);
+    }
+  };
+
+  const loadActivity = async (page: number = currentPage) => {
+    if (!task?.id) return;
+
+    // Use different loading states for initial load vs pagination
+    if (page === 1) {
+      setIsLoadingActivity(true);
+    } else {
+      setIsLoadingPage(true);
+    }
+
+    try {
+      const organizationId = getOrganizationId() || 27;
+      const userId = getCurrentUserId() || 19;
+
+      const response = await tasksApi.getActivity({
+        organization_id: organizationId,
+        user_id: userId,
+        task_id: task.id,
+        page: page,
+        per_page: 20,
+      });
+
+      setActivityData(response.data);
+      setActivityMeta(response.meta);
+      setCurrentPage(page);
+    } catch (error) {
+      console.error("Failed to load activity:", error);
+      setActivityData([]);
+    } finally {
+      setIsLoadingActivity(false);
+      setIsLoadingPage(false);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      loadActivity(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (activityMeta && currentPage < activityMeta.total_pages) {
+      loadActivity(currentPage + 1);
     }
   };
 
@@ -401,10 +490,29 @@ export function TaskCardDialog({
                   <Mail className="h-4 w-4" />
                   Dev Updates
                 </TabsTrigger>
-                {/* <TabsTrigger value="client-updates" className=" flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                {/* <TabsTrigger
+                  value="client-updates"
+                  className=" flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+                >
                   <Mail className="h-4 w-4" />
                   Client Updates
                 </TabsTrigger> */}
+                <TabsTrigger
+                  value="activity"
+                  className=" flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+                >
+                  <Activity className="h-4 w-4" />
+                  Activity Log
+                </TabsTrigger>
+                <Button
+                  variant="ghost"
+                  value="copy-link"
+                  className=" flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+                  onClick={handleCopyLink}
+                >
+                  <Link2 className="h-4 w-4" />
+                  Copy Link
+                </Button>
               </TabsList>
 
               <TabsContent
@@ -1437,6 +1545,140 @@ export function TaskCardDialog({
                     </div>
                   </div>
                 </div>
+              </TabsContent>
+
+              <TabsContent
+                value="activity"
+                className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0 data-[state=inactive]:hidden"
+              >
+                <div className="flex-1 overflow-auto px-6 py-4 relative">
+                  {/* Loading overlay for pagination */}
+                  {isLoadingPage && (
+                    <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        Loading page {currentPage}...
+                      </div>
+                    </div>
+                  )}
+
+                  {isLoadingActivity ? (
+                    <div className="flex items-center justify-center py-8">
+                      <p className="text-sm text-muted-foreground">
+                        Loading activity...
+                      </p>
+                    </div>
+                  ) : activityData.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-muted-foreground">
+                        No activity found for this task.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {activityData.map((activity) => (
+                        <div
+                          key={activity.id}
+                          className="flex gap-4 group relative"
+                        >
+                          <Avatar className="h-8 w-8 shrink-0 border border-border/50 shadow-sm">
+                            <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
+                              {activity.user?.name?.charAt(0).toUpperCase() ||
+                                "U"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 space-y-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-foreground">
+                                {activity.user?.name || "Unknown User"}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {activity.created_at
+                                  ? format(
+                                      new Date(activity.created_at),
+                                      "MMM d, h:mm a",
+                                    )
+                                  : ""}
+                              </span>
+                            </div>
+                            <div className="text-sm text-foreground/90">
+                              <span className="font-medium text-primary">
+                                {activity.action_label}
+                              </span>
+                            </div>
+                            {activity.old_value &&
+                              activity.old_value.trim() && (
+                                <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-destructive/30">
+                                  <span className="font-medium">Previous:</span>
+                                  <div className="mt-1 break-words">
+                                    {activity.old_value.length > 200
+                                      ? `${activity.old_value.substring(0, 200)}...`
+                                      : activity.old_value}
+                                  </div>
+                                </div>
+                              )}
+                            {activity.new_value &&
+                              activity.new_value !== "Task updated" &&
+                              activity.new_value.trim() && (
+                                <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30">
+                                  <span className="font-medium">New:</span>
+                                  <div className="mt-1 break-words">
+                                    {activity.new_value.length > 200
+                                      ? `${activity.new_value.substring(0, 200)}...`
+                                      : activity.new_value}
+                                  </div>
+                                </div>
+                              )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Fixed Pagination Controls */}
+                {activityMeta && activityMeta.total_pages > 1 && (
+                  <div className="border-t border-border bg-background px-6 py-3 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-muted-foreground">
+                        Showing {activityMeta.count} of {activityMeta.total}{" "}
+                        activities
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePreviousPage}
+                          disabled={currentPage <= 1 || isLoadingPage}
+                          className="h-8 px-2"
+                          title="Previous page (Ctrl+←)"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-xs text-muted-foreground px-2">
+                          {isLoadingPage ? (
+                            <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            `${currentPage} of ${activityMeta.total_pages}`
+                          )}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleNextPage}
+                          disabled={
+                            currentPage >= activityMeta.total_pages ||
+                            isLoadingPage
+                          }
+                          className="h-8 px-2"
+                          title="Next page (Ctrl+→)"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
