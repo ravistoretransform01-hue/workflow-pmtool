@@ -325,10 +325,17 @@ export function EstimatedDatePicker({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setDateRange(undefined);
-                  onEstimatedDateChange?.(task.id, null);
-                  setOpenPopoverId?.(null);
+                onClick={async () => {
+                  try {
+                    await tasksApi.deleteEstimatedDate({ task_id: task.id });
+                    setDateRange(undefined);
+                    onEstimatedDateChange?.(task.id, null);
+                    setOpenPopoverId?.(null);
+                    toast.success("Estimated Date Cleared Successfully");
+                  } catch (error) {
+                    console.error("Failed to clear estimated date:", error);
+                    toast.error("Failed to Clear Estimated Date");
+                  }
                 }}
               >
                 Clear

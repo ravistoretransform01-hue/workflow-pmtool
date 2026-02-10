@@ -118,7 +118,7 @@ export function PersonPopover({
                   name || String(member?.user_id || "user")
                 );
                 return (
-                  <Avatar key={memberId} className="h-8 w-8 border-2 border-background">
+                  <Avatar key={memberId} className="h-8 w-8  border-background">
                     <AvatarFallback
                       style={{ background: bgColor, color: "white" }}
                       className="text-[10px] font-semibold"
@@ -129,7 +129,7 @@ export function PersonPopover({
                 );
               })}
               {localSelected.length > 3 && (
-                <div className="h-8 w-8 rounded-full bg-muted border-2 border-background flex items-center justify-center">
+                <div className="h-8 w-8 rounded-full bg-muted  border-background flex items-center justify-center">
                   <span className="text-[10px] font-semibold text-muted-foreground">
                     +{localSelected.length - 3}
                   </span>

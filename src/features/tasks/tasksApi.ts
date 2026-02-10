@@ -20,6 +20,7 @@ const TASKS_ENDPOINTS = {
   UPDATE_TASK: `/tasks`,
   CREATE_ESTIMATED_DATE: `/tasks/estimate/date`,
   UPDATE_ESTIMATED_DATE: `/tasks/estimate/date`,
+  DELETE_ESTIMATED_DATE: `/tasks/estimate`,
   ADD_TAG: `/tasks/tag`,
   REMOVE_TAG: (taskTagId: string | number) => `/tasks/tag/${taskTagId}`,
   GET_COMMENTS: (taskId: string | number) => `/tasks/${taskId}/comments`,
@@ -176,6 +177,24 @@ export const tasksApi = {
       return response.data.data;
     } catch (error) {
       console.error("Failed to update estimated date:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update estimated date for a task
+   */
+  deleteEstimatedDate: async (payload: {
+    task_id: string | number;
+  }): Promise<EstimatedDateResponse> => {
+    try {
+      const response = await axios.delete<{ data: EstimatedDateResponse }>(
+        TASKS_ENDPOINTS.DELETE_ESTIMATED_DATE,
+        { data: payload },
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to delete estimated date:", error);
       throw error;
     }
   },
