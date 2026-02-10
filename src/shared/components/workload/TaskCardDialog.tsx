@@ -430,12 +430,12 @@ export function TaskCardDialog({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
+            {/* <Button
               className="bg-[#0084ff] hover:bg-[#0073e6] text-white font-medium px-4 h-8 text-sm"
               onClick={() => onOpenChange(false)}
             >
               Save
-            </Button>
+            </Button> */}
             <Button
               variant="ghost"
               size="icon"
