@@ -139,9 +139,20 @@ export function KanbanView({
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       Object.keys(organized).forEach((statusId) => {
-        organized[statusId] = organized[statusId].filter((task) =>
-          task.name.toLowerCase().includes(query),
-        );
+        organized[statusId] = organized[statusId].filter((task) => {
+          const content = [
+            task.name,
+            task.status,
+            task.priority,
+            ...(task.assignee_names || []),
+            ...(Array.isArray(task.tags)
+              ? task.tags.map((t: any) => t.tag_name)
+              : []),
+          ]
+            .join(" ")
+            .toLowerCase();
+          return content.includes(query);
+        });
       });
     }
 

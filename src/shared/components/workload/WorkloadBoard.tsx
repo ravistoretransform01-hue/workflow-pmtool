@@ -166,6 +166,7 @@ export interface Task {
     tagged_at: string;
   }>;
   subitems?: Task[];
+  assignee_names?: string[];
 }
 
 // All available columns (for the dropdown menu)
@@ -719,6 +720,9 @@ export function WorkloadBoard({
               ? `${task.time_spent_hours}h`
               : "0h",
             tracked_time_seconds: task.tracked_time_seconds || 0,
+            assignee_names:
+              task.assignees?.map((a) => a.name || a.username || "") ||
+              (task.assignee?.name ? [task.assignee.name] : []),
 
             subitems: subtasks
               .filter((st) => String(st.parent_id) === String(task.id))
@@ -756,6 +760,9 @@ export function WorkloadBoard({
                   : "0h",
                 group_id: String(task.group_id),
                 tracked_time_seconds: st.tracked_time_seconds || 0,
+                assignee_names:
+                  st.assignees?.map((a) => a.name || a.username || "") ||
+                  (st.assignee?.name ? [st.assignee.name] : []),
                 subitems: [],
               })),
           };
@@ -1711,6 +1718,11 @@ export function WorkloadBoard({
         timeSpent: `${newTaskResponse.time_spent_hours}h`,
         group_id: String(newTaskResponse.group_id),
         subitems: [],
+        assignee_names:
+          newTaskResponse.assignees?.map((a) => a.name || a.username || "") ||
+          (newTaskResponse.assignee?.name
+            ? [newTaskResponse.assignee.name]
+            : []),
       };
 
       // Update groups with new task
@@ -1790,6 +1802,13 @@ export function WorkloadBoard({
         timeSpent: `${newSubitemResponse.time_spent_hours}h`,
         group_id: String(newSubitemResponse.group_id),
         subitems: [],
+        assignee_names:
+          newSubitemResponse.assignees?.map(
+            (a) => a.name || a.username || "",
+          ) ||
+          (newSubitemResponse.assignee?.name
+            ? [newSubitemResponse.assignee.name]
+            : []),
       };
 
       // Update groups with new subitem
@@ -1980,6 +1999,9 @@ export function WorkloadBoard({
                   updated.assignees?.[0]?.user_id ||
                   String(updated.assigned_to),
                 assigned_to_ids: assigneeIds,
+                assignee_names:
+                  updated.assignees?.map((a) => a.name || a.username || "") ||
+                  (updated.assignee?.name ? [updated.assignee.name] : []),
               };
             }
 
@@ -1997,6 +2019,11 @@ export function WorkloadBoard({
                         updated.assignees?.[0]?.user_id ||
                         String(updated.assigned_to),
                       assigned_to_ids: assigneeIds,
+                      assignee_names:
+                        updated.assignees?.map(
+                          (a) => a.name || a.username || "",
+                        ) ||
+                        (updated.assignee?.name ? [updated.assignee.name] : []),
                     };
                   }
                   return sub;
@@ -2495,6 +2522,7 @@ export function WorkloadBoard({
                 item.name,
                 item.status,
                 item.priority,
+                ...(item.assignee_names || []),
                 ...(Array.isArray(item.tags)
                   ? item.tags.map((t: any) => t.tag_name)
                   : []),
