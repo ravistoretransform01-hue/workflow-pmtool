@@ -25,9 +25,9 @@ export function KanbanCard({
   groupColor,
   visibleCardFields,
   statusName,
-  statusColor,
+  // statusColor,
   priorityName,
-  priorityColor,
+  // priorityColor,
 }: KanbanCardProps) {
   const {
     attributes,
