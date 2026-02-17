@@ -459,6 +459,8 @@ export function WorkloadBoard({
   const [selectedCommentsId, setSelectedCommentsId] = useState<string | null>(
     null,
   );
+  const [taskCardInitialEditDescription, setTaskCardInitialEditDescription] =
+    useState(false);
 
   // Sync URL <-> State
   useEffect(() => {
@@ -500,8 +502,6 @@ export function WorkloadBoard({
     }
   }, [searchParams]);
 
-  const [editTaskDialogOpen, setEditTaskDialogOpen] = useState(false);
-  const [editTaskName, setEditTaskName] = useState("");
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
     Array<{ name: string; size: number; type: string; url: string }>
@@ -782,15 +782,23 @@ export function WorkloadBoard({
 
         setGroups(groupedData);
 
-        // Seed label state from API response (server-side labels)
+        // Seed state from API response
         const seedLabels: Record<string, string> = {};
         const seedLabelColors: Record<string, string> = {};
+        const names: Record<string, string> = {};
+        const colors: Record<string, string> = {};
+
         groupsRes.forEach((g: any) => {
           if (g.label) seedLabels[String(g.id)] = g.label;
           if (g.label_color) seedLabelColors[String(g.id)] = g.label_color;
+          names[String(g.id)] = g.name;
+          colors[String(g.id)] = g.color ?? "#3b82f6";
         });
+
         setGroupLabels(seedLabels);
         setGroupLabelColors(seedLabelColors);
+        setGroupNames(names);
+        setGroupColors(colors);
 
         // expand all groups by default
         setExpandedGroups(
@@ -1195,7 +1203,11 @@ export function WorkloadBoard({
     });
   };
 
-  const openTaskCard = (task: Task) => {
+  const openTaskCard = (
+    task: Task,
+    initialEditDescription: boolean = false,
+  ) => {
+    setTaskCardInitialEditDescription(initialEditDescription);
     setSearchParams((prev: URLSearchParams) => {
       const next = new URLSearchParams(prev);
       next.delete("comments");
@@ -1205,6 +1217,7 @@ export function WorkloadBoard({
   };
 
   const closeTaskCard = () => {
+    setTaskCardInitialEditDescription(false);
     setSearchParams((prev: URLSearchParams) => {
       const next = new URLSearchParams(prev);
       next.delete("task");
@@ -1828,135 +1841,6 @@ export function WorkloadBoard({
       allExpanded[group.id] = true;
     });
     setExpandedGroups(allExpanded);
-  };
-
-  // Which field to focus when opening the edit dialog
-  const [editTaskDialogFocus, setEditTaskDialogFocus] = useState<
-    "name" | "description"
-  >("name");
-
-  // Refs to inputs inside the edit dialog
-  const editNameRef = useRef<HTMLInputElement | null>(null);
-  const editDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
-
-  const openEditTaskDialog = (
-    task: Task,
-    focus: "name" | "description" = "name",
-  ) => {
-    taskState.setEditingTask(task);
-    setEditTaskName(task.name);
-    setEditTaskDialogFocus(focus);
-    setEditTaskDialogOpen(true);
-  };
-
-  // Focus appropriate input when the dialog opens
-  useEffect(() => {
-    if (!editTaskDialogOpen) return;
-    // allow dialog to mount
-    const id = window.setTimeout(() => {
-      if (editTaskDialogFocus === "name") {
-        editNameRef.current?.focus();
-        editNameRef.current?.select?.();
-      } else {
-        editDescriptionRef.current?.focus();
-      }
-    }, 0);
-
-    return () => window.clearTimeout(id);
-  }, [editTaskDialogOpen, editTaskDialogFocus]);
-
-  const handleUpdateTask = async () => {
-    if (!taskState.editingTask || !editTaskName.trim()) {
-      return;
-    }
-
-    try {
-      const boardIdNum = parseInt(boardId, 10);
-
-      // Call API to update task
-      const payload: UpdateTaskRequest = {
-        id: taskState.editingTask.id,
-        board_id: boardIdNum,
-        name: editTaskName.trim(),
-        description: taskState.editingTask.description,
-      };
-
-      const updatedTaskResponse = await tasksApi.updateTask(payload);
-
-      // Extract numeric rating from average_rating field
-      const extractRating = (taskData: any): number | undefined => {
-        if (!taskData) return undefined;
-        if (
-          typeof taskData.average_rating === "number" &&
-          taskData.average_rating !== null
-        ) {
-          return Math.round(taskData.average_rating);
-        }
-        if (
-          typeof taskData.rating === "object" &&
-          "rating" in taskData.rating
-        ) {
-          return Number(taskData.rating.rating);
-        }
-        if (typeof taskData.rating === "number") {
-          return taskData.rating;
-        }
-        return undefined;
-      };
-
-      // Update local state with API response
-      const updatedGroups = groups.map((group) => ({
-        ...group,
-        tasks: group.tasks.map((task) => {
-          if (task.id === taskState.editingTask?.id) {
-            return {
-              ...task,
-              name: updatedTaskResponse.name,
-              description: updatedTaskResponse.description,
-              status: updatedTaskResponse.status_label,
-              priority: updatedTaskResponse.priority_label,
-              estimatedDate: updatedTaskResponse.due_date || "-",
-              person: updatedTaskResponse.assignee?.name,
-              rating: extractRating(updatedTaskResponse),
-              ratingCount: updatedTaskResponse.rating_count || 0,
-              ratings: updatedTaskResponse.ratings,
-              timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
-            };
-          }
-          // Also update in subitems
-          return {
-            ...task,
-            subitems: task.subitems?.map((subitem) => {
-              if (subitem.id === taskState.editingTask?.id) {
-                return {
-                  ...subitem,
-                  name: updatedTaskResponse.name,
-                  description: updatedTaskResponse.description,
-                  status: updatedTaskResponse.status_label,
-                  priority: updatedTaskResponse.priority_label,
-                  estimatedDate: updatedTaskResponse.due_date || "-",
-                  person: updatedTaskResponse.assignee?.name,
-                  rating: extractRating(updatedTaskResponse),
-                  ratingCount: updatedTaskResponse.rating_count || 0,
-                  ratings: updatedTaskResponse.ratings,
-                  timeSpent: `${updatedTaskResponse.time_spent_hours}h`,
-                };
-              }
-              return subitem;
-            }),
-          };
-        }),
-      }));
-
-      setGroups(updatedGroups);
-      setEditTaskDialogOpen(false);
-      taskState.setEditingTask(null);
-      setEditTaskName("");
-      toast.success("Task Updated Successfully");
-    } catch (error) {
-      console.error("Failed to update task:", error);
-      toast.error("Failed to Update Task");
-    }
   };
 
   const handleRatingChange = async (taskId: string, rating: number) => {
@@ -2951,7 +2835,6 @@ export function WorkloadBoard({
         expandedTasks: effectiveExpandedTasks,
         toggleTask: taskState.toggleTask,
         onOpenComments: openCommentsPanel,
-        onEditTask: openEditTaskDialog,
         onOpenTaskCard: openTaskCard,
         statuses,
         priorities,
@@ -3147,7 +3030,6 @@ export function WorkloadBoard({
       expandedTasks: effectiveExpandedTasks,
       toggleTask: taskState.toggleTask,
       onOpenComments: openCommentsPanel,
-      onEditTask: openEditTaskDialog,
       onOpenTaskCard: openTaskCard,
       statuses,
       priorities,
@@ -3233,7 +3115,6 @@ export function WorkloadBoard({
       expandedTasks: effectiveExpandedTasks,
       toggleTask: taskState.toggleTask,
       onOpenComments: openCommentsPanel,
-      onEditTask: openEditTaskDialog,
       onOpenTaskCard: openTaskCard,
       statuses,
       priorities,
@@ -5135,7 +5016,8 @@ export function WorkloadBoard({
               <p className="text-sm font-medium mt-2">
                 Group:{" "}
                 <span className="text-foreground">
-                  {groupNames[groupToDelete] || "Unknown"}
+                  {groups.find((g) => g.id === groupToDelete)?.name ||
+                    "Unknown"}
                 </span>
               </p>
             )}
@@ -5163,72 +5045,6 @@ export function WorkloadBoard({
       </Dialog>
 
       {/* Edit Task Dialog */}
-      <Dialog open={editTaskDialogOpen} onOpenChange={setEditTaskDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Task</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <label htmlFor="edit-task-name" className="text-sm font-medium">
-                Task Name
-              </label>
-              <Input
-                id="edit-task-name"
-                placeholder="Enter task name..."
-                value={editTaskName}
-                onChange={(e) => setEditTaskName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleUpdateTask();
-                  }
-                }}
-                autoFocus
-                ref={editNameRef}
-              />
-            </div>
-            <div className="grid gap-2">
-              <label
-                htmlFor="edit-task-description"
-                className="text-sm font-medium"
-              >
-                Description
-              </label>
-              <textarea
-                id="edit-task-description"
-                placeholder="Enter task description..."
-                value={taskState.editingTask?.description || ""}
-                onChange={(e) => {
-                  if (taskState.editingTask) {
-                    taskState.setEditingTask({
-                      ...taskState.editingTask,
-                      description: e.target.value,
-                    });
-                  }
-                }}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                rows={4}
-                ref={editDescriptionRef}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEditTaskDialogOpen(false);
-                taskState.setEditingTask(null);
-                setEditTaskName("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateTask} disabled={!editTaskName.trim()}>
-              Update Task
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Timer Conflict Dialog */}
       <Dialog
@@ -5372,6 +5188,7 @@ export function WorkloadBoard({
           onStatusCreated={handleStatusCreated}
           onPriorityCreated={handlePriorityCreated}
           onDescriptionChange={handleUpdateTaskDescription}
+          initialEditDescription={taskCardInitialEditDescription}
           onEstimatedTimeChange={handleEstimatedTimeChange}
         />
       )}
