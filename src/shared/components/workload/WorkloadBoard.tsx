@@ -2446,6 +2446,15 @@ export function WorkloadBoard({
     const query = mainTableSearchQuery.trim().toLowerCase();
     const autoExpandedIds = new Set<string>();
 
+    // Lookup maps for dynamic name resolution during search
+    const statusNameMap = new Map(statuses.map((s) => [String(s.id), s.name]));
+    const priorityNameMap = new Map(
+      priorities.map((p) => [String(p.id), p.name]),
+    );
+    const labelNameMap = new Map(
+      labels.map((l) => [String(l.id), l.label_name]),
+    );
+
     // Final result set
     const resultGroups = groups
       .filter((group) => {
@@ -2518,10 +2527,19 @@ export function WorkloadBoard({
             // Helper to check if a task (or subtask) matches the SEARCH query
             const matchesSearchQuery = (item: any) => {
               if (!query) return true;
+
+              // Resolve readable names dynamically for better search accuracy
+              const statusName = statusNameMap.get(item.status_id || "") || "";
+              const priorityName =
+                priorityNameMap.get(item.priority_id || "") || "";
+              const groupLabelName =
+                labelNameMap.get(item.label_id || "") || "";
+
               const content = [
                 item.name,
-                item.status,
-                item.priority,
+                statusName,
+                priorityName,
+                groupLabelName,
                 ...(item.assignee_names || []),
                 ...(Array.isArray(item.tags)
                   ? item.tags.map((t: any) => t.tag_name)
@@ -4952,6 +4970,7 @@ export function WorkloadBoard({
           groups={groups}
           statuses={statuses}
           priorities={priorities}
+          labels={labels}
           boardId={boardId}
           onTaskMove={handleStatusChange}
           onTaskClick={openTaskCard}
