@@ -428,7 +428,7 @@ export const AppSidebar = () => {
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuContent align="start" className="w-48">
                           <DropdownMenuItem
                             onClick={() => handleOpenBoardInNewTab(board.id)}
                           >

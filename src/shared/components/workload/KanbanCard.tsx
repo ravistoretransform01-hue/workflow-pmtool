@@ -96,36 +96,18 @@ export function KanbanCard({
           </p>
 
           {(showStatus || showPriority) && (
-            <div className="flex items-center gap-2 mt-1.5">
+            <div className="mt-1.5 flex flex-col gap-0.5">
               {showStatus && statusName && (
-                <span
-                  className="text-[10px] px-1.5 py-0.5 rounded-md text-muted-foreground font-medium border border-border"
-                  style={{
-                    backgroundColor: statusColor
-                      ? `${statusColor}20`
-                      : undefined,
-                    color: statusColor,
-                    borderColor: statusColor ? `${statusColor}40` : undefined,
-                  }}
-                >
-                  {statusName}
-                </span>
+                <p className="text-sm text-muted-foreground leading-tight">
+                  <span className="font-medium">Status:</span>{" "}
+                  <span className="font-medium">{statusName}</span>
+                </p>
               )}
               {showPriority && priorityName && (
-                <span
-                  className="text-[10px] px-1.5 py-0.5 rounded-md text-muted-foreground font-medium border border-border"
-                  style={{
-                    backgroundColor: priorityColor
-                      ? `${priorityColor}20`
-                      : undefined,
-                    color: priorityColor,
-                    borderColor: priorityColor
-                      ? `${priorityColor}40`
-                      : undefined,
-                  }}
-                >
-                  {priorityName}
-                </span>
+                <p className="text-sm text-muted-foreground leading-tight">
+                  <span className="font-medium">Priority:</span>{" "}
+                  <span className="font-medium">{priorityName}</span>
+                </p>
               )}
             </div>
           )}

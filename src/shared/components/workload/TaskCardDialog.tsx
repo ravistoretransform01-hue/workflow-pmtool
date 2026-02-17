@@ -81,6 +81,7 @@ interface TaskCardDialogProps {
   onTagCreated?: (newTag: any) => void;
   onStatusCreated?: (newStatus: any) => void;
   onPriorityCreated?: (newPriority: any) => void;
+  onDescriptionChange?: (taskId: string, description: string) => Promise<void>;
 }
 
 export function TaskCardDialog({
@@ -106,6 +107,7 @@ export function TaskCardDialog({
   onTagCreated,
   onStatusCreated,
   onPriorityCreated,
+  onDescriptionChange,
 }: TaskCardDialogProps) {
   const [activeTab, setActiveTab] = useState("dev-updates");
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
@@ -133,6 +135,14 @@ export function TaskCardDialog({
   const [activityMeta, setActivityMeta] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingPage, setIsLoadingPage] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [tempDescription, setTempDescription] = useState("");
+
+  useEffect(() => {
+    if (task?.description) {
+      setTempDescription(task.description);
+    }
+  }, [task?.description]);
 
   const handleCopyLink = () => {
     if (!task?.id) return;
@@ -509,19 +519,6 @@ export function TaskCardDialog({
               </div>
             </div>
 
-            {/* Estimated Time */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
-                <Clock className="h-4 w-4" />
-                <span>Estimated Time</span>
-              </div>
-              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
-                {columns
-                  .find((c) => c.id === "estimatedTime")
-                  ?.render(displayTask)}
-              </div>
-            </div>
-
             {/* Timeline */}
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
@@ -531,6 +528,19 @@ export function TaskCardDialog({
               <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
                 {columns
                   .find((c) => c.id === "estimatedDate")
+                  ?.render(displayTask)}
+              </div>
+            </div>
+            
+            {/* Estimated Time */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <Clock className="h-4 w-4" />
+                <span>Estimated Time</span>
+              </div>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
+                {columns
+                 .find((c) => c.id === "estimatedTime")
                   ?.render(displayTask)}
               </div>
             </div>
@@ -581,19 +591,83 @@ export function TaskCardDialog({
 
             {/* Description */}
             <div className="pt-2 border-t border-border/50">
-              <div className="flex items-center gap-2 mb-2 text-muted-foreground text-[13px] font-medium">
-                <AlignLeft className="h-4 w-4" />
-                <span>Description</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-muted-foreground text-[13px] font-medium">
+                  <AlignLeft className="h-4 w-4" />
+                  <span>Description</span>
+                </div>
+                {!isEditingDescription && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setTempDescription(displayTask?.description || "");
+                      setIsEditingDescription(true);
+                    }}
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                )}
               </div>
-              <div className="bg-gray-500/10 rounded p-3 min-h-[80px]">
-                {displayTask?.description ? (
-                  <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
-                    {displayTask.description}
-                  </p>
+              <div className="bg-gray-500/10 rounded overflow-hidden min-h-[80px]">
+                {isEditingDescription ? (
+                  <div className="flex flex-col p-1">
+                    <TiptapEditor
+                      value={tempDescription}
+                      onChange={setTempDescription}
+                      placeholder="Add a description..."
+                      boardId={boardId}
+                    />
+                    <div className="flex items-center justify-end gap-2 p-2 bg-muted/30">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => setIsEditingDescription(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={async () => {
+                          if (displayTask?.id && onDescriptionChange) {
+                            await onDescriptionChange(
+                              displayTask.id,
+                              tempDescription,
+                            );
+                            setIsEditingDescription(false);
+                          }
+                        }}
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  </div>
                 ) : (
-                  <span className="text-sm text-muted-foreground italic">
-                    Add a description...
-                  </span>
+                  <div className="p-3">
+                    {displayTask?.description ? (
+                      <div
+                        className="text-sm text-foreground/80 leading-relaxed prose prose-sm prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{
+                          __html: displayTask.description,
+                        }}
+                      />
+                    ) : (
+                      <span
+                        className="text-sm text-muted-foreground italic cursor-pointer hover:text-foreground/60 transition-colors block w-full"
+                        onClick={() => {
+                          setTempDescription("");
+                          setIsEditingDescription(true);
+                        }}
+                      >
+                        Add a description...
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

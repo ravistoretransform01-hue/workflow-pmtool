@@ -2300,6 +2300,59 @@ export function WorkloadBoard({
     }
   };
 
+  const handleUpdateTaskDescription = async (
+    taskId: string,
+    description: string,
+  ) => {
+    try {
+      const boardIdNum = Number(boardId);
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        description,
+      };
+
+      await tasksApi.updateTask(payload);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (task.id === taskId) {
+              return {
+                ...task,
+                description,
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  sub.id === taskId
+                    ? {
+                        ...sub,
+                        description,
+                      }
+                    : sub,
+                ),
+              };
+            }
+
+            return task;
+          }),
+        })),
+      );
+
+      toast.success("Description Updated Successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to Update Description");
+    }
+  };
+
   const handlePriorityChange = async (taskId: string, priorityId: string) => {
     try {
       const boardIdNum = Number(boardId);
@@ -5318,6 +5371,8 @@ export function WorkloadBoard({
           }}
           onStatusCreated={handleStatusCreated}
           onPriorityCreated={handlePriorityCreated}
+          onDescriptionChange={handleUpdateTaskDescription}
+          onEstimatedTimeChange={handleEstimatedTimeChange}
         />
       )}
 
