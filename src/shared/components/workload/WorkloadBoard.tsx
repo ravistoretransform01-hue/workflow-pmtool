@@ -114,6 +114,7 @@ export interface TaskGroup {
   name: string;
   color: string;
   tasks: Task[];
+  label_id?: string;
 }
 
 export interface Task {
@@ -769,14 +770,27 @@ export function WorkloadBoard({
 
         // debugLog("Sorted Groups:", sortedGroups);
 
-        const groupedData: TaskGroup[] = sortedGroups.map((group) => ({
-          id: String(group.id),
-          name: group.name,
-          color: group.color ?? "#3b82f6",
-          tasks: tasksWithSubtasks.filter(
-            (task) => String(task.group_id) === String(group.id),
-          ),
-        }));
+        const groupedData: TaskGroup[] = sortedGroups.map((group) => {
+          const groupIdStr = String(group.id);
+          const groupLabelId = group.label ? String(group.label) : undefined;
+
+          return {
+            id: groupIdStr,
+            name: group.name,
+            color: group.color ?? "#3b82f6",
+            label_id: groupLabelId,
+            tasks: tasksWithSubtasks
+              .filter((task) => String(task.group_id) === groupIdStr)
+              .map((task) => ({
+                ...task,
+                label_id: groupLabelId,
+                subitems: task.subitems?.map((sub) => ({
+                  ...sub,
+                  label_id: groupLabelId,
+                })),
+              })),
+          };
+        });
 
         debugLog("Final Groups with Tasks:", groupedData);
 
@@ -2400,173 +2414,178 @@ export function WorkloadBoard({
   {
     /* This is list of groups that are shown to screen */
   }
-  const getFilteredGroups = () => {
+  // Consolidate filtering and auto-expansion logic into one memoized result
+  const memoizedFilteredData = useMemo(() => {
     const query = mainTableSearchQuery.trim().toLowerCase();
+    const autoExpandedIds = new Set<string>();
 
-    let filteredGroups = groups;
-
-    // Apply search filter
-    if (query) {
-      filteredGroups = groups
-        .map((group) => {
-          const groupMatches = group.name.toLowerCase().includes(query);
-
-          const filteredTasks = group.tasks
-            .map((task) => {
-              const taskMatches = task.name.toLowerCase().includes(query);
-
-              const filteredSubitems =
-                task.subitems?.filter((sub) =>
-                  sub.name.toLowerCase().includes(query),
-                ) || [];
-
-              // keep task if task OR any subitem matches
-              if (taskMatches || filteredSubitems.length > 0) {
-                return {
-                  ...task,
-                  subitems: filteredSubitems,
-                };
-              }
-
-              return null;
-            })
-            .filter(Boolean) as Task[];
-
-          // keep group if:
-          // - group name matches
-          // - OR any task/subitem matches
-          if (groupMatches || filteredTasks.length > 0) {
-            return {
-              ...group,
-              tasks: groupMatches ? group.tasks : filteredTasks,
-            };
-          }
-
-          return null;
-        })
-        .filter(Boolean) as TaskGroup[];
-    }
-
-    // Apply attribute filters (Person, Status, Priority, Label, Group)
-    if (
-      filterState.taskFilters.persons.size === 0 &&
-      filterState.taskFilters.statuses.size === 0 &&
-      filterState.taskFilters.priorities.size === 0 &&
-      filterState.taskFilters.labels.size === 0 &&
-      filterState.taskFilters.groups.size === 0 &&
-      !filterState.showDoneItemsOnly
-    ) {
-      return filteredGroups;
-    }
-
-    return filteredGroups
+    // Final result set
+    const resultGroups = groups
       .filter((group) => {
-        // Filter by group if group filter is active
+        // 1. Group Filter
         if (filterState.taskFilters.groups.size > 0) {
-          return filterState.taskFilters.groups.has(group.id);
+          if (!filterState.taskFilters.groups.has(group.id)) return false;
         }
+
+        // 2. Label Filter (Group Level)
+        if (filterState.taskFilters.labels.size > 0) {
+          // Get the names of the selected labels to match against group.label (which is often a name)
+          const selectedLabelNames = labels
+            .filter((l) => filterState.taskFilters.labels.has(String(l.id)))
+            .map((l) => l.label_name);
+
+          // Also allow matching by ID just in case
+          const hasMatch =
+            filterState.taskFilters.labels.has(group.label_id || "") ||
+            selectedLabelNames.includes(group.label_id || "");
+
+          if (!hasMatch) return false;
+        }
+
         return true;
       })
-      .map((group) => ({
-        ...group,
-        tasks: group.tasks.filter((task) => {
-          // Check done items filter
-          if (filterState.showDoneItemsOnly) {
-            // Find the "Done" status ID
-            const doneStatus = statuses.find(
-              (s) => s.name.toLowerCase() === "done",
+      .map((group) => {
+        // Process tasks for this group
+        const filteredTasksForGroup = group.tasks
+          .map((task) => {
+            // Helper to check if a task (or subtask) matches the active ATTRIBUTE filters
+            const matchesAttributeFilters = (item: any) => {
+              // Check done items filter
+              if (filterState.showDoneItemsOnly) {
+                const doneStatus = statuses.find(
+                  (s) => s.name.toLowerCase() === "done",
+                );
+                if (!doneStatus || item.status_id !== String(doneStatus.id)) {
+                  return false;
+                }
+              }
+
+              // Check person filter
+              if (filterState.taskFilters.persons.size > 0) {
+                const hasMatchingPerson = item.assigned_to_ids?.some(
+                  (id: any) => filterState.taskFilters.persons.has(String(id)),
+                );
+                if (!hasMatchingPerson) return false;
+              }
+
+              // Check status filter
+              if (filterState.taskFilters.statuses.size > 0) {
+                if (!filterState.taskFilters.statuses.has(item.status_id || ""))
+                  return false;
+              }
+
+              // Check priority filter
+              if (filterState.taskFilters.priorities.size > 0) {
+                if (
+                  !filterState.taskFilters.priorities.has(
+                    item.priority_id || "",
+                  )
+                )
+                  return false;
+              }
+
+              // Note: Label filter is now at group level so we don't check item.label_id here
+              return true;
+            };
+
+            // Helper to check if a task (or subtask) matches the SEARCH query
+            const matchesSearchQuery = (item: any) => {
+              if (!query) return true;
+              const content = [
+                item.name,
+                item.status,
+                item.priority,
+                ...(Array.isArray(item.tags)
+                  ? item.tags.map((t: any) => t.tag_name)
+                  : []),
+              ]
+                .join(" ")
+                .toLowerCase();
+              return content.includes(query);
+            };
+
+            const isFullMatch = (item: any) =>
+              matchesAttributeFilters(item) && matchesSearchQuery(item);
+
+            // 1. Check if the parent task itself matches
+            const parentMatches = isFullMatch(task);
+
+            // 2. Filter subitems - find those that match
+            const matchingSubitems = (task.subitems || []).filter((sub) =>
+              isFullMatch(sub),
             );
-            if (!doneStatus || task.status_id !== String(doneStatus.id)) {
-              return false;
+
+            // 3. Determine if we keep the task and if we should expand it
+            if (parentMatches || matchingSubitems.length > 0) {
+              // If only subitems match, or if any subitem matches while a filter/search is active, expand
+              const hasActiveFilters =
+                query.length > 0 ||
+                filterState.taskFilters.persons.size > 0 ||
+                filterState.taskFilters.statuses.size > 0 ||
+                filterState.taskFilters.priorities.size > 0 ||
+                filterState.showDoneItemsOnly;
+
+              if (hasActiveFilters && matchingSubitems.length > 0) {
+                autoExpandedIds.add(task.id);
+              }
+
+              return {
+                ...task,
+                subitems: matchingSubitems,
+              };
             }
-          }
 
-          // Check person filter
-          if (filterState.taskFilters.persons.size > 0) {
-            const hasMatchingPerson = task.assigned_to_ids?.some((id) =>
-              filterState.taskFilters.persons.has(String(id)),
-            );
-            if (!hasMatchingPerson) return false;
-          }
+            return null;
+          })
+          .filter(Boolean) as Task[];
 
-          // Check status filter
-          if (filterState.taskFilters.statuses.size > 0) {
-            if (!filterState.taskFilters.statuses.has(task.status_id || ""))
-              return false;
-          }
+        return {
+          ...group,
+          tasks: filteredTasksForGroup,
+        };
+      })
+      .filter((group) => {
+        // Determine if any filters are active
+        const hasActiveFilters =
+          query.length > 0 ||
+          filterState.taskFilters.persons.size > 0 ||
+          filterState.taskFilters.statuses.size > 0 ||
+          filterState.taskFilters.priorities.size > 0 ||
+          filterState.taskFilters.labels.size > 0 ||
+          filterState.taskFilters.groups.size > 0 ||
+          filterState.showDoneItemsOnly;
 
-          // Check priority filter
-          if (filterState.taskFilters.priorities.size > 0) {
-            if (!filterState.taskFilters.priorities.has(task.priority_id || ""))
-              return false;
-          }
-
-          // Check label filter
-          if (filterState.taskFilters.labels.size > 0) {
-            if (!filterState.taskFilters.labels.has(task.label_id || ""))
-              return false;
-          }
-
-          return true;
-        }),
-      }))
-      .filter((group) => group.tasks.length > 0); // Only show groups with matching tasks
-  };
-
-  // Compute tasks that should be auto-expanded based on current search (name, status, status_id, priority, priority_id, tags)
-  const searchAutoExpandedTaskIds = useMemo(() => {
-    const q = mainTableSearchQuery.trim().toLowerCase();
-    if (!q) return new Set<string>();
-
-    const ids = new Set<string>();
-    groups.forEach((group) => {
-      group.tasks.forEach((task) => {
-        const taskParts: string[] = [];
-        taskParts.push(String(task.name || ""));
-        taskParts.push(String(task.status || ""));
-        taskParts.push(String(task.status_id || ""));
-        taskParts.push(String(task.priority || ""));
-        taskParts.push(String(task.priority_id || ""));
-        if (Array.isArray(task.tags)) {
-          taskParts.push(
-            ...task.tags.map((t) => String(t.tag_name || t.tag_slug || "")),
-          );
+        // If filtering, only show groups with matching tasks
+        if (hasActiveFilters) {
+          return group.tasks.length > 0;
         }
-
-        const taskMatches = taskParts.join(" ").toLowerCase().includes(q);
-        const subMatches = (task.subitems || []).some((sub) => {
-          const subParts: string[] = [];
-          subParts.push(String(sub.name || ""));
-          subParts.push(String(sub.status || ""));
-          subParts.push(String(sub.status_id || ""));
-          subParts.push(String(sub.priority || ""));
-          subParts.push(String(sub.priority_id || ""));
-          if (Array.isArray(sub.tags)) {
-            subParts.push(
-              ...sub.tags.map((t) => String(t.tag_name || t.tag_slug || "")),
-            );
-          }
-          return subParts.join(" ").toLowerCase().includes(q);
-        });
-
-        if (taskMatches || subMatches) ids.add(task.id);
+        // Default state (no filters): show all groups
+        return true;
       });
-    });
 
-    return ids;
-  }, [mainTableSearchQuery, groups]);
+    return {
+      groups: resultGroups,
+      autoExpandedTaskIds: autoExpandedIds,
+    };
+  }, [
+    groups,
+    mainTableSearchQuery,
+    filterState.taskFilters,
+    filterState.showDoneItemsOnly,
+    statuses,
+    labels,
+  ]);
+
+  // Compatibility function to return groups (maintains existing usage)
+  const getFilteredGroups = () => memoizedFilteredData.groups;
 
   // Derived expanded tasks map used throughout render (merged user toggles with auto-expanded results)
   const effectiveExpandedTasks = useMemo(() => {
-    if (!searchAutoExpandedTaskIds || searchAutoExpandedTaskIds.size === 0) {
-      return taskState.expandedTasks;
-    }
-    const additions = Array.from(searchAutoExpandedTaskIds).reduce(
-      (acc: Record<string, boolean>, id) => ((acc[id] = true), acc),
-      {},
-    );
+    const additions = Array.from(
+      memoizedFilteredData.autoExpandedTaskIds,
+    ).reduce((acc: Record<string, boolean>, id) => ((acc[id] = true), acc), {});
     return { ...taskState.expandedTasks, ...additions };
-  }, [taskState.expandedTasks, searchAutoExpandedTaskIds]);
+  }, [taskState.expandedTasks, memoizedFilteredData.autoExpandedTaskIds]);
 
   const processHtmlContent = (html: string) => {
     if (!html) return "";
