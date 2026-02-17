@@ -23,8 +23,7 @@ interface ColumnDefinitionProps {
   expandedTasks: Record<string, boolean>;
   toggleTask: (taskId: string) => void;
   onOpenComments?: (task: any) => void;
-  onEditTask?: (task: any, focus?: "name" | "description") => void;
-  onOpenTaskCard?: (task: any) => void;
+  onOpenTaskCard?: (task: any, initialEditDescription?: boolean) => void;
   statuses?: Status[];
   priorities?: Priority[];
   members?: any[];
@@ -66,7 +65,6 @@ export const getWorkloadColumns = ({
   expandedTasks,
   toggleTask,
   onOpenComments,
-  onEditTask,
   onOpenTaskCard,
   statuses = [],
   priorities = [],
@@ -124,14 +122,14 @@ export const getWorkloadColumns = ({
                     value={inlineEditingTaskName}
                     onChange={(e) => setInlineEditingTaskName?.(e.target.value)}
                     onKeyDown={(e) => {
-                    const isSubmitKey = e.key === "Enter" || e.key === "Tab";
+                      const isSubmitKey = e.key === "Enter" || e.key === "Tab";
 
-                    if (isSubmitKey && inlineEditingTaskName?.trim()) {
-                      e.preventDefault(); // prevent losing value before save
-                      onInlineEditTaskName?.(task.id, inlineEditingTaskName);
-                      setInlineEditingTaskId?.(null);
-                      setInlineEditingTaskName?.("");
-                    }
+                      if (isSubmitKey && inlineEditingTaskName?.trim()) {
+                        e.preventDefault(); // prevent losing value before save
+                        onInlineEditTaskName?.(task.id, inlineEditingTaskName);
+                        setInlineEditingTaskId?.(null);
+                        setInlineEditingTaskName?.("");
+                      }
                       if (e.key === "Escape") {
                         setInlineEditingTaskId?.(null);
                         setInlineEditingTaskName?.("");
@@ -310,30 +308,29 @@ export const getWorkloadColumns = ({
       width: "250px",
       align: "left",
       render: (task: Task) => {
-        const description = task.description ?? "";
-        const hasDescription = description.trim().length > 0;
-
         return (
-          <button
+          <div
             onClick={(e) => {
               e.stopPropagation();
-              onEditTask?.(task, "description");
+              onOpenTaskCard?.(task, true);
             }}
-            className="w-full text-left group"
-            title={description}
+            className="cursor-pointer min-h-[40px] w-full hover:bg-muted/30 rounded p-1 transition-colors group relative"
+            title="Click to view/edit description"
           >
-            {hasDescription ? (
-              <div className="space-y-1">
-                <p className="text-md text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-                  {description}
-                </p>
-              </div>
+            {task.description ? (
+              <div
+                className="text-sm text-foreground/80 line-clamp-2 prose prose-sm prose-invert max-w-none [&_p]:m-0"
+                dangerouslySetInnerHTML={{ __html: task.description }}
+              />
             ) : (
-              <div className="text-sm text-muted-foreground italic group-hover:text-foreground transition-colors">
+              <span className="text-sm text-muted-foreground italic">
                 No description
-              </div>
+              </span>
             )}
-          </button>
+            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Pencil className="h-3 w-3 text-muted-foreground" />
+            </div>
+          </div>
         );
       },
     },
@@ -439,10 +436,10 @@ export const getWorkloadColumns = ({
       width: "128px",
       align: "center",
       render: (task: Task) => {
-        const selectedMemberIds = (
-          task.assigned_to_ids ||
-          (task.assigned_to_id ? [String(task.assigned_to_id)] : [])
-        ) as string[];
+        const selectedMemberIds = (task.assigned_to_ids ||
+          (task.assigned_to_id
+            ? [String(task.assigned_to_id)]
+            : [])) as string[];
         const popoverId = `person-${task.id}`;
         return (
           <PersonPopover
