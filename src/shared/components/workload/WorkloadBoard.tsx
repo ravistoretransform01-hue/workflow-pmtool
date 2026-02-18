@@ -101,6 +101,7 @@ import { SortableColumnHeader } from "./components/ColumnHeader";
 import { ColorPickerPopover } from "./ColorPickerPopover";
 import { debugLog } from "@/lib/debugLog";
 import { KanbanView } from "./KanbanView";
+import { ListView } from "./ListView";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -126,6 +127,7 @@ export interface Task {
   priority?: string;
   priority_id?: string;
   estimatedDate?: string;
+  estimatedDateRaw?: string; // Raw ISO date for sorting/categorization
   estimatedHours?: string | number; // Approved hours from estimation
   person?: string;
   assigned_to_id?: string | number;
@@ -167,6 +169,7 @@ export interface Task {
   }>;
   subitems?: Task[];
   assignee_names?: string[];
+  recurrence?: any;
 }
 
 // All available columns (for the dropdown menu)
@@ -705,6 +708,10 @@ export function WorkloadBoard({
                   )
                 : formatDateRange(task.estimation.estimated_date_from)
               : task.due_date,
+            estimatedDateRaw:
+              task.estimation?.estimated_date_from ||
+              task.due_date ||
+              undefined,
             estimatedHours: task.estimation?.approved_hours || "-",
             person: task.assignee?.name,
             assigned_to_id: task.assigned_to,
@@ -720,6 +727,7 @@ export function WorkloadBoard({
               ? `${task.time_spent_hours}h`
               : "0h",
             tracked_time_seconds: task.tracked_time_seconds || 0,
+            recurrence: task.recurrence,
             assignee_names:
               task.assignees?.map((a) => a.name || a.username || "") ||
               (task.assignee?.name ? [task.assignee.name] : []),
@@ -745,6 +753,10 @@ export function WorkloadBoard({
                       )
                     : formatDateRange(st.estimation.estimated_date_from)
                   : st.due_date,
+                estimatedDateRaw:
+                  st.estimation?.estimated_date_from ||
+                  st.due_date ||
+                  undefined,
                 estimatedHours: st.estimation?.approved_hours || "-",
                 person: st.assignee?.name,
                 assigned_to_id: st.assigned_to,
@@ -760,6 +772,7 @@ export function WorkloadBoard({
                   : "0h",
                 group_id: String(task.group_id),
                 tracked_time_seconds: st.tracked_time_seconds || 0,
+                recurrence: st.recurrence,
                 assignee_names:
                   st.assignees?.map((a) => a.name || a.username || "") ||
                   (st.assignee?.name ? [st.assignee.name] : []),
@@ -5061,20 +5074,67 @@ export function WorkloadBoard({
         />
       )}
 
-      {/* Other Views - Coming Soon */}
-      {activeTab !== "Main Table" && (
-        <div className="flex-1 overflow-auto flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <h2 className="text-2xl font-semibold text-foreground">
-              Coming Soon
-            </h2>
-            <p className="text-muted-foreground">
-              The <span className="font-medium">{activeTab}</span> view is
-              coming soon
-            </p>
-          </div>
-        </div>
+      {/* List VIEW */}
+      {activeTab === "List" && (
+        <ListView
+          groups={groups}
+          statuses={statuses}
+          priorities={priorities}
+          members={members}
+          tags={tags}
+          onTaskClick={openTaskCard}
+          searchQuery={mainTableSearchQuery}
+          expandedTasks={effectiveExpandedTasks}
+          toggleTask={taskState.toggleTask}
+          onOpenComments={openCommentsPanel}
+          onOpenTaskCard={openTaskCard}
+          onStatusChange={handleStatusChange}
+          onPriorityChange={handlePriorityChange}
+          onPersonChange={handlePersonChange}
+          onRatingChange={handleRatingChange}
+          onEstimatedDateChange={handleEstimatedDateChange}
+          onEstimatedTimeChange={handleEstimatedTimeChange}
+          onTagChange={handleTagChange}
+          openPopoverId={popoverState.openPopoverId}
+          setOpenPopoverId={popoverState.setOpenPopoverId}
+          boardId={parseInt(boardId, 10)}
+          onTagCreated={(newTag) => {
+            setTags((prevTags) => [...prevTags, newTag]);
+          }}
+          onStatusCreated={handleStatusCreated}
+          onStatusesUpdated={handleStatusesUpdated}
+          onPriorityCreated={handlePriorityCreated}
+          onPrioritiesUpdated={handlePrioritiesUpdated}
+          inlineEditingTaskId={taskState.inlineEditingTaskId}
+          setInlineEditingTaskId={taskState.setInlineEditingTaskId}
+          inlineEditingTaskName={taskState.inlineEditingTaskName}
+          setInlineEditingTaskName={taskState.setInlineEditingTaskName}
+          onInlineEditTaskName={handleInlineEditTaskName}
+          activeTimerId={timerState.activeTimerId}
+          onTimerStart={handleTimerStart}
+          onTimerConflict={handleTimerConflict}
+          onTimeUpdate={(taskId: string, seconds: number) => {
+            updateTaskInGroups(taskId, { tracked_time_seconds: seconds });
+          }}
+        />
       )}
+
+      {/* Other Views - Coming Soon */}
+      {activeTab !== "Main Table" &&
+        activeTab !== "Kanban" &&
+        activeTab !== "List" && (
+          <div className="flex-1 overflow-auto flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <h2 className="text-2xl font-semibold text-foreground">
+                Coming Soon
+              </h2>
+              <p className="text-muted-foreground">
+                The <span className="font-medium">{activeTab}</span> view is
+                coming soon
+              </p>
+            </div>
+          </div>
+        )}
 
       {/* ALL DIALOGS WILL GO HERE */}
       {/* New Group Dialog */}
