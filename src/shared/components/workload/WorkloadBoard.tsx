@@ -1746,6 +1746,93 @@ export function WorkloadBoard({
     }
   };
 
+  const handleKanbanAddTask = async (
+    name: string,
+    statusId: string,
+    groupId: string,
+    parentId?: string,
+  ) => {
+    try {
+      const boardIdNum = parseInt(boardId, 10);
+      const organizationIdNum = getOrganizationId();
+
+      if (organizationIdNum === null) {
+        toast.error("Organization not found");
+        return;
+      }
+
+      // Call API to create task
+      const payload: CreateTaskRequest = {
+        group_id: parseInt(groupId, 10),
+        organization_id: organizationIdNum,
+        name: name.trim(),
+        board_id: boardIdNum,
+        parent_id: parentId ? parseInt(parentId, 10) : null,
+        status_id: parseInt(statusId, 10),
+        task_priority_id:
+          priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
+      };
+
+      const newTaskResponse = await tasksApi.createTask(payload);
+
+      // Transform API response to Task format
+      const newTask: Task = {
+        id: String(newTaskResponse.id),
+        name: newTaskResponse.name,
+        description: newTaskResponse.description,
+        status: newTaskResponse.status_label,
+        status_id: String(newTaskResponse.status_id),
+        priority: newTaskResponse.priority_label,
+        priority_id: String(newTaskResponse.task_priority_id),
+        estimatedDate: newTaskResponse.due_date || "-",
+        person: newTaskResponse.assignee?.name,
+        timeSpent: `${newTaskResponse.time_spent_hours}h`,
+        group_id: String(newTaskResponse.group_id),
+        subitems: [],
+        assignee_names:
+          newTaskResponse.assignees?.map((a) => a.name || a.username || "") ||
+          (newTaskResponse.assignee?.name
+            ? [newTaskResponse.assignee.name]
+            : []),
+        label_id: groupLabels[String(newTaskResponse.group_id)],
+      };
+
+      // Update groups with new task
+      const updatedGroups = groups.map((group) => {
+        if (group.id === groupId) {
+          if (parentId) {
+            // Add as subtask
+            return {
+              ...group,
+              tasks: group.tasks.map((task) => {
+                if (task.id === parentId) {
+                  return {
+                    ...task,
+                    subitems: [...(task.subitems || []), newTask],
+                  };
+                }
+                return task;
+              }),
+            };
+          } else {
+            // Add as main task
+            return {
+              ...group,
+              tasks: [...group.tasks, newTask],
+            };
+          }
+        }
+        return group;
+      });
+
+      setGroups(updatedGroups);
+      toast.success("Item Added Successfully");
+    } catch (error) {
+      console.error("Failed to add item from Kanban:", error);
+      toast.error("Failed to add item");
+    }
+  };
+
   // const handleNewItemKeyDown = (
   //   e: React.KeyboardEvent<HTMLInputElement>,
   //   groupId: string
@@ -4969,6 +5056,7 @@ export function WorkloadBoard({
           boardId={boardId}
           onTaskMove={handleStatusChange}
           onTaskClick={openTaskCard}
+          onAddTask={handleKanbanAddTask}
           searchQuery={mainTableSearchQuery}
         />
       )}

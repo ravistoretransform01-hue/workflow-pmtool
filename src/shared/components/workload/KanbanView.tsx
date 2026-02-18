@@ -29,6 +29,12 @@ interface KanbanViewProps {
   boardId?: string; // used for persisting visible statuses
   onTaskMove: (taskId: string, newStatusId: string) => Promise<void>;
   onTaskClick: (task: Task) => void;
+  onAddTask: (
+    name: string,
+    statusId: string,
+    groupId: string,
+    parentId?: string,
+  ) => Promise<void>;
   searchQuery?: string;
 }
 
@@ -40,6 +46,7 @@ export function KanbanView({
   boardId,
   onTaskMove,
   onTaskClick,
+  onAddTask,
   searchQuery = "",
 }: KanbanViewProps) {
   const sensors = useSensors(
@@ -461,6 +468,10 @@ export function KanbanView({
               status={status}
               tasks={tasksByStatus[String(status.id)] || []}
               onTaskClick={onTaskClick}
+              onAddTask={(name, groupId, parentId) =>
+                onAddTask(name, String(status.id), groupId, parentId)
+              }
+              groups={groups}
               groupMap={groupMap}
               visibleCardFields={visibleCardFields}
               statusMap={statusMap}
