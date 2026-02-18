@@ -3464,20 +3464,15 @@ export function WorkloadBoard({
 
           <div className="flex items-center gap-3">
             {/* Board Members Display */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center -space-x-2">
-                <Avatar
-                  className="w-8 h-8 border-2 border-background"
-                  onClick={handleOpenProfile}
-                >
-                  <AvatarFallback className="bg-blue-500">
-                    <span className="text-white text-xs font-semibold">
-                      {userInitials}
-                    </span>
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-            </div>
+            <button onClick={handleOpenProfile}>
+              <Avatar className="w-8 h-8 border-2 border-background">
+                <AvatarFallback className="bg-blue-500">
+                  <span className="text-white text-xs font-semibold">
+                    {userInitials}
+                  </span>
+                </AvatarFallback>
+              </Avatar>
+            </button>
 
             {/* Dashboard Button */}
             <Button
