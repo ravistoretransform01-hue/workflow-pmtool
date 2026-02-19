@@ -13,7 +13,6 @@ interface ListViewProps {
   members: any[];
   tags: any[];
   onTaskClick: (task: Task) => void;
-  searchQuery?: string;
 
   // Handlers and state for columns
   expandedTasks: Record<string, boolean>;
@@ -51,6 +50,7 @@ interface ListViewProps {
   onTimerStart: (taskId: string | null) => void;
   onTimerConflict: (taskId: string) => void;
   onTimeUpdate: (taskId: string, seconds: number) => void;
+  workloadColumns?: any[]; // Allow passing pre-filtered columns from parent
 }
 
 interface ListViewTask extends Task {
@@ -91,12 +91,17 @@ const SECTIONS = [
 ];
 
 export function ListView(props: ListViewProps) {
-  const { groups, onTaskClick, searchQuery = "", expandedTasks } = props;
+  const {
+    groups,
+    onTaskClick,
+    expandedTasks,
+    workloadColumns: propsColumns,
+  } = props;
 
-  // Initialize shared columns
+  // Initialize shared columns - use props columns if available, otherwise generate them
   const workloadColumns = useMemo(() => {
-    return getWorkloadColumns(props);
-  }, [props]);
+    return propsColumns || getWorkloadColumns(props);
+  }, [props, propsColumns]);
 
   // Flatten all tasks from groups (main tasks only; subitems rendered inline)
   const allTasks = useMemo<ListViewTask[]>(() => {
@@ -140,18 +145,12 @@ export function ListView(props: ListViewProps) {
     };
 
     allTasks.forEach((task) => {
-      if (
-        searchQuery &&
-        !task.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ) {
-        return;
-      }
       const cat = categorizeTask(task);
       categories[cat].push(task);
     });
 
     return categories;
-  }, [allTasks, searchQuery]);
+  }, [allTasks]);
 
   const totalTasks = allTasks.length;
 
