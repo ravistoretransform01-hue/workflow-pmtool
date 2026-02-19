@@ -90,6 +90,7 @@ export interface TaskResponse {
     tagged_by_name: string;
     tagged_at: string;
   }>;
+  recurrence?: any;
 }
 
 export interface GetTasksResponse {

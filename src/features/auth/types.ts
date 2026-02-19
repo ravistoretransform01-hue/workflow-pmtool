@@ -10,6 +10,16 @@ export interface SignupRequest {
   name: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  key: string;
+  login: string;
+  new_password: string;
+}
+
 export interface User {
   user_id: number;
   username: string;

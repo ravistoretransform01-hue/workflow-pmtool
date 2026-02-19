@@ -9,7 +9,7 @@ import {
   DragOverlay,
 } from "@dnd-kit/core";
 import type { DragStartEvent } from "@dnd-kit/core";
-import type { Priority, Status, Label } from "@/features/cms/types";
+import type { Priority, Status } from "@/features/cms/types";
 import type { Task } from "./WorkloadBoard";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard } from "./KanbanCard";
@@ -25,22 +25,25 @@ interface KanbanViewProps {
   groups: Array<{ id: string; name: string; color: string; tasks: Task[] }>;
   statuses: Status[];
   priorities: Priority[];
-  labels?: Label[];
   boardId?: string; // used for persisting visible statuses
   onTaskMove: (taskId: string, newStatusId: string) => Promise<void>;
   onTaskClick: (task: Task) => void;
-  searchQuery?: string;
+  onAddTask: (
+    name: string,
+    statusId: string,
+    groupId: string,
+    parentId?: string,
+  ) => Promise<void>;
 }
 
 export function KanbanView({
   groups,
   statuses,
   priorities,
-  labels = [],
   boardId,
   onTaskMove,
   onTaskClick,
-  searchQuery = "",
+  onAddTask,
 }: KanbanViewProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -137,48 +140,8 @@ export function KanbanView({
       });
     });
 
-    // Filter by search query if provided
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-
-      // Lookup maps for dynamic name resolution during search
-      const statusNameMap = new Map(
-        statuses.map((s) => [String(s.id), s.name]),
-      );
-      const priorityNameMap = new Map(
-        priorities.map((p) => [String(p.id), p.name]),
-      );
-      const labelNameMap = new Map(
-        labels.map((l) => [String(l.id), l.label_name]),
-      );
-
-      Object.keys(organized).forEach((statusId) => {
-        organized[statusId] = organized[statusId].filter((task) => {
-          // Resolve readable names dynamically for better search accuracy
-          const statusName = statusNameMap.get(task.status_id || "") || "";
-          const priorityName =
-            priorityNameMap.get(task.priority_id || "") || "";
-          const groupLabelName = labelNameMap.get(task.label_id || "") || "";
-
-          const content = [
-            task.name,
-            statusName,
-            priorityName,
-            groupLabelName,
-            ...(task.assignee_names || []),
-            ...(Array.isArray(task.tags)
-              ? task.tags.map((t: any) => t.tag_name)
-              : []),
-          ]
-            .join(" ")
-            .toLowerCase();
-          return content.includes(query);
-        });
-      });
-    }
-
     return organized;
-  }, [groups, statuses, searchQuery, optimisticStatusChanges]);
+  }, [groups, statuses, optimisticStatusChanges]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id));
@@ -461,6 +424,10 @@ export function KanbanView({
               status={status}
               tasks={tasksByStatus[String(status.id)] || []}
               onTaskClick={onTaskClick}
+              onAddTask={(name, groupId, parentId) =>
+                onAddTask(name, String(status.id), groupId, parentId)
+              }
+              groups={groups}
               groupMap={groupMap}
               visibleCardFields={visibleCardFields}
               statusMap={statusMap}

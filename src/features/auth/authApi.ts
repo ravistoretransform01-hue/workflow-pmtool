@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import type { LoginRequest, SignupRequest, AuthResponse } from "./types";
+import type { LoginRequest, SignupRequest, AuthResponse, ResetPasswordRequest } from "./types";
 
 const AUTH_ENDPOINTS = {
   LOGIN: "/loginup",
@@ -7,6 +7,8 @@ const AUTH_ENDPOINTS = {
   LOGOUT: "/logout",
   REFRESH: "/refresh",
   ME: "/me",
+  FORGOT_PASSWORD: "/auth/forgot-password",
+  RESET_PASSWORD: "/auth/reset-password",
 };
 
 export const authApi = {
@@ -60,6 +62,29 @@ export const authApi = {
    */
   getCurrentUser: async (): Promise<AuthResponse> => {
     const response = await api.get<AuthResponse>(AUTH_ENDPOINTS.ME);
+    return response.data;
+  },
+
+  /**
+   * Request a password reset link
+   */
+  forgotPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post<{ success: boolean; message: string }>(
+      AUTH_ENDPOINTS.FORGOT_PASSWORD,
+      null,
+      { params: { email } }
+    );
+    return response.data;
+  },
+
+  /**
+   * Reset password with key and login
+   */
+  resetPassword: async (data: ResetPasswordRequest): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post<{ success: boolean; message: string }>(
+      AUTH_ENDPOINTS.RESET_PASSWORD,
+      data
+    );
     return response.data;
   },
 };

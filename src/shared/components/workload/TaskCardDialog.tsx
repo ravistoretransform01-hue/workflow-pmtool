@@ -910,7 +910,7 @@ export function TaskCardDialog({
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          className="h-6 px-1.5 -ml-1.5 text-[11px] text-muted-foreground hover:text-primary"
+                                          className="h-6 px-1.5 -ml-1.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                           onClick={() => {
                                             setInlineReplyId(comment.id);
                                             setInlineReplyText("");
@@ -919,10 +919,11 @@ export function TaskCardDialog({
                                           <MessageCirclePlus className="h-3 w-3 mr-1" />
                                           Reply
                                         </Button>
+
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-primary"
+                                          className="h-6 px-1.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                           onClick={() => {
                                             setEditingCommentId(comment.id);
                                             setEditCommentText(comment.content);
@@ -1086,25 +1087,27 @@ export function TaskCardDialog({
                                             <Button
                                               variant="ghost"
                                               size="sm"
-                                              className="h-5 px-1 text-[10px] text-muted-foreground hover:text-primary"
+                                              className="h-6 px-1.5 -ml-1.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                               onClick={() => {
-                                                setInlineReplyId(reply.id);
+                                                setInlineReplyId(comment.id);
                                                 setInlineReplyText("");
                                               }}
                                             >
+                                              <MessageCirclePlus className="h-3 w-3 mr-1" />
                                               Reply
                                             </Button>
                                             <Button
                                               variant="ghost"
                                               size="sm"
-                                              className="h-5 px-1 text-[10px] text-muted-foreground hover:text-primary"
+                                              className="h-6 px-1.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                               onClick={() => {
-                                                setEditingCommentId(reply.id);
+                                                setEditingCommentId(comment.id);
                                                 setEditCommentText(
-                                                  reply.content,
+                                                  comment.content,
                                                 );
                                               }}
                                             >
+                                              <Pencil className="h-3 w-3 mr-1" />
                                               Edit
                                             </Button>
                                           </div>

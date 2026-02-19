@@ -25,7 +25,6 @@ import type { Status, Priority } from "@/features/cms/types";
 import {
   LayoutDashboard,
   Eye,
-  EyeOff,
   ChevronDown,
   ChevronRight,
   Search,
@@ -101,6 +100,7 @@ import { SortableColumnHeader } from "./components/ColumnHeader";
 import { ColorPickerPopover } from "./ColorPickerPopover";
 import { debugLog } from "@/lib/debugLog";
 import { KanbanView } from "./KanbanView";
+import { ListView } from "./ListView";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -126,6 +126,7 @@ export interface Task {
   priority?: string;
   priority_id?: string;
   estimatedDate?: string;
+  estimatedDateRaw?: string; // Raw ISO date for sorting/categorization
   estimatedHours?: string | number; // Approved hours from estimation
   person?: string;
   assigned_to_id?: string | number;
@@ -167,6 +168,7 @@ export interface Task {
   }>;
   subitems?: Task[];
   assignee_names?: string[];
+  recurrence?: any;
 }
 
 // All available columns (for the dropdown menu)
@@ -705,6 +707,10 @@ export function WorkloadBoard({
                   )
                 : formatDateRange(task.estimation.estimated_date_from)
               : task.due_date,
+            estimatedDateRaw:
+              task.estimation?.estimated_date_from ||
+              task.due_date ||
+              undefined,
             estimatedHours: task.estimation?.approved_hours || "-",
             person: task.assignee?.name,
             assigned_to_id: task.assigned_to,
@@ -720,6 +726,7 @@ export function WorkloadBoard({
               ? `${task.time_spent_hours}h`
               : "0h",
             tracked_time_seconds: task.tracked_time_seconds || 0,
+            recurrence: task.recurrence,
             assignee_names:
               task.assignees?.map((a) => a.name || a.username || "") ||
               (task.assignee?.name ? [task.assignee.name] : []),
@@ -745,6 +752,10 @@ export function WorkloadBoard({
                       )
                     : formatDateRange(st.estimation.estimated_date_from)
                   : st.due_date,
+                estimatedDateRaw:
+                  st.estimation?.estimated_date_from ||
+                  st.due_date ||
+                  undefined,
                 estimatedHours: st.estimation?.approved_hours || "-",
                 person: st.assignee?.name,
                 assigned_to_id: st.assigned_to,
@@ -760,6 +771,7 @@ export function WorkloadBoard({
                   : "0h",
                 group_id: String(task.group_id),
                 tracked_time_seconds: st.tracked_time_seconds || 0,
+                recurrence: st.recurrence,
                 assignee_names:
                   st.assignees?.map((a) => a.name || a.username || "") ||
                   (st.assignee?.name ? [st.assignee.name] : []),
@@ -1742,6 +1754,93 @@ export function WorkloadBoard({
       toast.success("Item Added Successfully");
     } catch (error) {
       console.error("Failed to add item:", error);
+      toast.error("Failed to add item");
+    }
+  };
+
+  const handleKanbanAddTask = async (
+    name: string,
+    statusId: string,
+    groupId: string,
+    parentId?: string,
+  ) => {
+    try {
+      const boardIdNum = parseInt(boardId, 10);
+      const organizationIdNum = getOrganizationId();
+
+      if (organizationIdNum === null) {
+        toast.error("Organization not found");
+        return;
+      }
+
+      // Call API to create task
+      const payload: CreateTaskRequest = {
+        group_id: parseInt(groupId, 10),
+        organization_id: organizationIdNum,
+        name: name.trim(),
+        board_id: boardIdNum,
+        parent_id: parentId ? parseInt(parentId, 10) : null,
+        status_id: parseInt(statusId, 10),
+        task_priority_id:
+          priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
+      };
+
+      const newTaskResponse = await tasksApi.createTask(payload);
+
+      // Transform API response to Task format
+      const newTask: Task = {
+        id: String(newTaskResponse.id),
+        name: newTaskResponse.name,
+        description: newTaskResponse.description,
+        status: newTaskResponse.status_label,
+        status_id: String(newTaskResponse.status_id),
+        priority: newTaskResponse.priority_label,
+        priority_id: String(newTaskResponse.task_priority_id),
+        estimatedDate: newTaskResponse.due_date || "-",
+        person: newTaskResponse.assignee?.name,
+        timeSpent: `${newTaskResponse.time_spent_hours}h`,
+        group_id: String(newTaskResponse.group_id),
+        subitems: [],
+        assignee_names:
+          newTaskResponse.assignees?.map((a) => a.name || a.username || "") ||
+          (newTaskResponse.assignee?.name
+            ? [newTaskResponse.assignee.name]
+            : []),
+        label_id: groupLabels[String(newTaskResponse.group_id)],
+      };
+
+      // Update groups with new task
+      const updatedGroups = groups.map((group) => {
+        if (group.id === groupId) {
+          if (parentId) {
+            // Add as subtask
+            return {
+              ...group,
+              tasks: group.tasks.map((task) => {
+                if (task.id === parentId) {
+                  return {
+                    ...task,
+                    subitems: [...(task.subitems || []), newTask],
+                  };
+                }
+                return task;
+              }),
+            };
+          } else {
+            // Add as main task
+            return {
+              ...group,
+              tasks: [...group.tasks, newTask],
+            };
+          }
+        }
+        return group;
+      });
+
+      setGroups(updatedGroups);
+      toast.success("Item Added Successfully");
+    } catch (error) {
+      console.error("Failed to add item from Kanban:", error);
       toast.error("Failed to add item");
     }
   };
@@ -3464,20 +3563,15 @@ export function WorkloadBoard({
 
           <div className="flex items-center gap-3">
             {/* Board Members Display */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center -space-x-2">
-                <Avatar
-                  className="w-8 h-8 border-2 border-background"
-                  onClick={handleOpenProfile}
-                >
-                  <AvatarFallback className="bg-blue-500">
-                    <span className="text-white text-xs font-semibold">
-                      {userInitials}
-                    </span>
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-            </div>
+            <button onClick={handleOpenProfile}>
+              <Avatar className="w-8 h-8 border-2 border-background">
+                <AvatarFallback className="bg-blue-500">
+                  <span className="text-white text-xs font-semibold">
+                    {userInitials}
+                  </span>
+                </AvatarFallback>
+              </Avatar>
+            </button>
 
             {/* Dashboard Button */}
             <Button
@@ -3516,15 +3610,10 @@ export function WorkloadBoard({
         </DndContext>
       </div>
 
-      {/* Main Table View */}
-      {activeTab === "Main Table" && (
-        <div
-          className="flex flex-col flex-1 overflow-hidden"
-          ref={mainFlexContainerRef}
-        >
-          {/* Toolbar - FIXED */}
-          <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
-            {/* New Group Button */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Global Toolbar for all views */}
+        <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
+          {activeTab === "Main Table" && (
             <Button
               variant="default"
               size="sm"
@@ -3533,360 +3622,358 @@ export function WorkloadBoard({
             >
               New Group
             </Button>
-            {/* Search and Filters */}
-            <div className="flex items-center gap-3 flex-1">
-              {/* Search */}
-              <div className="relative max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
-                <Input
-                  placeholder="Search items..."
-                  value={mainTableSearchQuery}
-                  onChange={(e) => setMainTableSearchQuery(e.target.value)}
-                  className="pl-9 h-8 bg-background border-border w-48"
-                />
-              </div>
+          )}
+          {/* Search and Filters */}
+          <div className="flex items-center gap-3 flex-1">
+            {/* Search */}
+            <div className="relative max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+              <Input
+                placeholder="Search items..."
+                value={mainTableSearchQuery}
+                onChange={(e) => setMainTableSearchQuery(e.target.value)}
+                className="pl-9 h-8 bg-background border-border w-48"
+              />
+            </div>
 
-              {/* Done Items Checkbox */}
-              <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
-                <input
-                  type="checkbox"
-                  checked={filterState.showDoneItemsOnly}
-                  onChange={(e) =>
-                    filterState.setShowDoneItemsOnly(e.target.checked)
-                  }
-                  className="cursor-pointer"
-                />
-                <span className="text-sm font-medium">Done Items</span>
-              </label>
+            {/* Done Items Checkbox */}
+            <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
+              <input
+                type="checkbox"
+                checked={filterState.showDoneItemsOnly}
+                onChange={(e) =>
+                  filterState.setShowDoneItemsOnly(e.target.checked)
+                }
+                className="cursor-pointer"
+              />
+              <span className="text-sm font-medium">Done Items</span>
+            </label>
 
-              {/* Show/Hide Filter Popover */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
-                    <Eye className="h-4 w-4" />
-                    Only Show
-                  </button>
-                </PopoverTrigger>
+            {/* Show/Hide Filter Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
+                  <Eye className="h-4 w-4" />
+                  Only Show
+                </button>
+              </PopoverTrigger>
 
-                <PopoverContent
-                  align="start"
-                  className="w-64 max-h-96 p-0 bg-card border-2 border-primary/20 flex flex-col"
-                >
-                  <div className="space-y-1 overflow-y-auto flex-1 p-2 scrollbar-hide">
-                    {/* Person Filter Dropdown */}
-                    <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("persons")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
-                      >
-                        <span className="text-sm font-medium">Person</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.persons
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
-                      {filterState.openFilterDropdowns.persons && (
-                        <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {members.map((member) => (
-                            <label
-                              key={member.user_id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.persons.has(
-                                  String(member.user_id),
-                                )}
-                                onChange={(e) => {
-                                  const newPersons = new Set(
-                                    filterState.taskFilters.persons,
-                                  );
-                                  if (e.target.checked) {
-                                    newPersons.add(String(member.user_id));
-                                  } else {
-                                    newPersons.delete(String(member.user_id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    persons: newPersons,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <span>{member.name}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Status Filter Dropdown */}
-                    <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("statuses")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
-                      >
-                        <span className="text-sm font-medium">Status</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.statuses
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
-                      {filterState.openFilterDropdowns.statuses && (
-                        <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {statuses.map((status) => (
-                            <label
-                              key={status.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.statuses.has(
-                                  String(status.id),
-                                )}
-                                onChange={(e) => {
-                                  const newStatuses = new Set(
-                                    filterState.taskFilters.statuses,
-                                  );
-                                  if (e.target.checked) {
-                                    newStatuses.add(String(status.id));
-                                  } else {
-                                    newStatuses.delete(String(status.id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    statuses: newStatuses,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{
-                                    backgroundColor: status.color_code,
-                                  }}
-                                />
-                                <span>{status.name}</span>
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Priority Filter Dropdown */}
-                    <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("priorities")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
-                      >
-                        <span className="text-sm font-medium">Priority</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.priorities
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
-                      {filterState.openFilterDropdowns.priorities && (
-                        <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {priorities.map((priority) => (
-                            <label
-                              key={priority.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.priorities.has(
-                                  String(priority.id),
-                                )}
-                                onChange={(e) => {
-                                  const newPriorities = new Set(
-                                    filterState.taskFilters.priorities,
-                                  );
-                                  if (e.target.checked) {
-                                    newPriorities.add(String(priority.id));
-                                  } else {
-                                    newPriorities.delete(String(priority.id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    priorities: newPriorities,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{
-                                    backgroundColor: priority.color_code,
-                                  }}
-                                />
-                                <span>{priority.name}</span>
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Label Filter Dropdown */}
-                    <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("labels")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
-                      >
-                        <span className="text-sm font-medium">Label</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.labels
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
-                      {filterState.openFilterDropdowns.labels && (
-                        <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {labels.map((label) => (
-                            <label
-                              key={label.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.labels.has(
-                                  String(label.id),
-                                )}
-                                onChange={(e) => {
-                                  const newLabels = new Set(
-                                    filterState.taskFilters.labels,
-                                  );
-                                  if (e.target.checked) {
-                                    newLabels.add(String(label.id));
-                                  } else {
-                                    newLabels.delete(String(label.id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    labels: newLabels,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{
-                                    backgroundColor: label.label_color,
-                                  }}
-                                />
-                                <span>{label.label_name}</span>
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Group Filter Dropdown */}
-                    <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("groups")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
-                      >
-                        <span className="text-sm font-medium">Group</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.groups
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
-                      {filterState.openFilterDropdowns.groups && (
-                        <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {groups.map((group) => (
-                            <label
-                              key={group.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.groups.has(
-                                  group.id,
-                                )}
-                                onChange={(e) => {
-                                  const newGroups = new Set(
-                                    filterState.taskFilters.groups,
-                                  );
-                                  if (e.target.checked) {
-                                    newGroups.add(group.id);
-                                  } else {
-                                    newGroups.delete(group.id);
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    groups: newGroups,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{ backgroundColor: group.color }}
-                                />
-                                <span>{group.name}</span>
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+              <PopoverContent
+                align="start"
+                className="w-64 max-h-96 p-0 bg-card border-2 border-primary/20 flex flex-col"
+              >
+                <div className="space-y-1 overflow-y-auto flex-1 p-2 scrollbar-hide">
+                  {/* Person Filter Dropdown */}
+                  <div className="border border-primary/30 rounded-md bg-background">
+                    <button
+                      onClick={() =>
+                        filterState.toggleFilterDropdown("persons")
+                      }
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                    >
+                      <span className="text-sm font-medium">Person</span>
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${
+                          filterState.openFilterDropdowns.persons
+                            ? "rotate-180"
+                            : ""
+                        }`}
+                      />
+                    </button>
+                    {filterState.openFilterDropdowns.persons && (
+                      <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                        {members.map((member) => (
+                          <label
+                            key={member.user_id}
+                            className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={filterState.taskFilters.persons.has(
+                                String(member.user_id),
+                              )}
+                              onChange={(e) => {
+                                const newPersons = new Set(
+                                  filterState.taskFilters.persons,
+                                );
+                                if (e.target.checked) {
+                                  newPersons.add(String(member.user_id));
+                                } else {
+                                  newPersons.delete(String(member.user_id));
+                                }
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  persons: newPersons,
+                                });
+                              }}
+                              className="cursor-pointer"
+                            />
+                            <span>{member.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Clear Filters Button - Fixed at bottom */}
-                  {(filterState.taskFilters.persons.size > 0 ||
-                    filterState.taskFilters.statuses.size > 0 ||
-                    filterState.taskFilters.priorities.size > 0 ||
-                    filterState.taskFilters.labels.size > 0 ||
-                    filterState.taskFilters.groups.size > 0) && (
-                    <div className="border-t border-primary/20 bg-primary/5 p-2 shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          filterState.clearFilters();
-                        }}
-                      >
-                        Clear All Filters
-                      </Button>
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
+                  {/* Status Filter Dropdown */}
+                  <div className="border border-primary/30 rounded-md bg-background">
+                    <button
+                      onClick={() =>
+                        filterState.toggleFilterDropdown("statuses")
+                      }
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                    >
+                      <span className="text-sm font-medium">Status</span>
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${
+                          filterState.openFilterDropdowns.statuses
+                            ? "rotate-180"
+                            : ""
+                        }`}
+                      />
+                    </button>
+                    {filterState.openFilterDropdowns.statuses && (
+                      <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                        {statuses.map((status) => (
+                          <label
+                            key={status.id}
+                            className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={filterState.taskFilters.statuses.has(
+                                String(status.id),
+                              )}
+                              onChange={(e) => {
+                                const newStatuses = new Set(
+                                  filterState.taskFilters.statuses,
+                                );
+                                if (e.target.checked) {
+                                  newStatuses.add(String(status.id));
+                                } else {
+                                  newStatuses.delete(String(status.id));
+                                }
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  statuses: newStatuses,
+                                });
+                              }}
+                              className="cursor-pointer"
+                            />
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{
+                                  backgroundColor: status.color_code,
+                                }}
+                              />
+                              <span>{status.name}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-              {/* Save Button */}
+                  {/* Priority Filter Dropdown */}
+                  <div className="border border-primary/30 rounded-md bg-background">
+                    <button
+                      onClick={() =>
+                        filterState.toggleFilterDropdown("priorities")
+                      }
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                    >
+                      <span className="text-sm font-medium">Priority</span>
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${
+                          filterState.openFilterDropdowns.priorities
+                            ? "rotate-180"
+                            : ""
+                        }`}
+                      />
+                    </button>
+                    {filterState.openFilterDropdowns.priorities && (
+                      <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                        {priorities.map((priority) => (
+                          <label
+                            key={priority.id}
+                            className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={filterState.taskFilters.priorities.has(
+                                String(priority.id),
+                              )}
+                              onChange={(e) => {
+                                const newPriorities = new Set(
+                                  filterState.taskFilters.priorities,
+                                );
+                                if (e.target.checked) {
+                                  newPriorities.add(String(priority.id));
+                                } else {
+                                  newPriorities.delete(String(priority.id));
+                                }
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  priorities: newPriorities,
+                                });
+                              }}
+                              className="cursor-pointer"
+                            />
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{
+                                  backgroundColor: priority.color_code,
+                                }}
+                              />
+                              <span>{priority.name}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Label Filter Dropdown */}
+                  <div className="border border-primary/30 rounded-md bg-background">
+                    <button
+                      onClick={() => filterState.toggleFilterDropdown("labels")}
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                    >
+                      <span className="text-sm font-medium">Label</span>
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${
+                          filterState.openFilterDropdowns.labels
+                            ? "rotate-180"
+                            : ""
+                        }`}
+                      />
+                    </button>
+                    {filterState.openFilterDropdowns.labels && (
+                      <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                        {labels.map((label) => (
+                          <label
+                            key={label.id}
+                            className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={filterState.taskFilters.labels.has(
+                                String(label.id),
+                              )}
+                              onChange={(e) => {
+                                const newLabels = new Set(
+                                  filterState.taskFilters.labels,
+                                );
+                                if (e.target.checked) {
+                                  newLabels.add(String(label.id));
+                                } else {
+                                  newLabels.delete(String(label.id));
+                                }
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  labels: newLabels,
+                                });
+                              }}
+                              className="cursor-pointer"
+                            />
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{
+                                  backgroundColor: label.label_color,
+                                }}
+                              />
+                              <span>{label.label_name}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Group Filter Dropdown */}
+                  <div className="border border-primary/30 rounded-md bg-background">
+                    <button
+                      onClick={() => filterState.toggleFilterDropdown("groups")}
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                    >
+                      <span className="text-sm font-medium">Group</span>
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${
+                          filterState.openFilterDropdowns.groups
+                            ? "rotate-180"
+                            : ""
+                        }`}
+                      />
+                    </button>
+                    {filterState.openFilterDropdowns.groups && (
+                      <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
+                        {groups.map((group) => (
+                          <label
+                            key={group.id}
+                            className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={filterState.taskFilters.groups.has(
+                                group.id,
+                              )}
+                              onChange={(e) => {
+                                const newGroups = new Set(
+                                  filterState.taskFilters.groups,
+                                );
+                                if (e.target.checked) {
+                                  newGroups.add(group.id);
+                                } else {
+                                  newGroups.delete(group.id);
+                                }
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  groups: newGroups,
+                                });
+                              }}
+                              className="cursor-pointer"
+                            />
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: group.color }}
+                              />
+                              <span>{group.name}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Clear Filters Button - Fixed at bottom */}
+                {(filterState.taskFilters.persons.size > 0 ||
+                  filterState.taskFilters.statuses.size > 0 ||
+                  filterState.taskFilters.priorities.size > 0 ||
+                  filterState.taskFilters.labels.size > 0 ||
+                  filterState.taskFilters.groups.size > 0) && (
+                  <div className="border-t border-primary/20 bg-primary/5 p-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        filterState.clearFilters();
+                      }}
+                    >
+                      Clear All Filters
+                    </Button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
+
+            {/* Save Button */}
+            {activeTab === "Main Table" && (
               <button
                 disabled={!hasUnsavedChanges}
                 className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -3954,508 +4041,517 @@ export function WorkloadBoard({
                 <Save className="h-4 w-4" />
                 Save View
               </button>
+            )}
 
-              {/* Column Visibility Popover */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Columns
-                  </Button>
-                </PopoverTrigger>
-
-                <PopoverContent align="start" className="w-56">
-                  {/* Header with Select All checkbox */}
-                  <div className="px-2 py-1.5 flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        // Check whether all non-required columns are visible (item is always required)
-                        checked={ALL_AVAILABLE_COLUMNS.filter(
+            {/* Show/Hide Columns Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
+                  <Eye className="h-4 w-4" />
+                  Show/Hide
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3" align="end">
+                {/* Header with Select All checkbox */}
+                <div className="px-2 py-1.5 flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      // Check whether all non-required columns are visible (item is always required)
+                      checked={ALL_AVAILABLE_COLUMNS.filter(
+                        (c) => c !== "item",
+                      ).every((c) => columnState.visibleColumns[c] !== false)}
+                      onChange={() => {
+                        const others = ALL_AVAILABLE_COLUMNS.filter(
                           (c) => c !== "item",
-                        ).every((c) => columnState.visibleColumns[c] !== false)}
-                        onChange={() => {
-                          const others = ALL_AVAILABLE_COLUMNS.filter(
-                            (c) => c !== "item",
-                          );
-                          const allOthersOn = others.every(
-                            (c) => columnState.visibleColumns[c] !== false,
-                          );
-                          // Toggle only the non-required columns; always keep 'item' visible
-                          const next = Object.fromEntries(
-                            others.map((c) => [c, !allOthersOn]),
-                          );
-                          next["item"] = true;
-                          columnState.setVisibleColumns((prev) => ({
-                            ...prev,
-                            ...next,
-                          }));
-                        }}
-                        className="cursor-pointer"
-                      />
-                      <span className="text-sm font-medium">All Columns</span>
-                    </label>
-                    <div className="text-sm text-muted-foreground">
-                      {
-                        ALL_AVAILABLE_COLUMNS.filter(
-                          (c) => columnState.visibleColumns[c] === true,
-                        ).length
-                      }
-                      /{ALL_AVAILABLE_COLUMNS.length}
-                    </div>
+                        );
+                        const allOthersOn = others.every(
+                          (c) => columnState.visibleColumns[c] !== false,
+                        );
+                        // Toggle only the non-required columns; always keep 'item' visible
+                        const next = Object.fromEntries(
+                          others.map((c) => [c, !allOthersOn]),
+                        );
+                        next["item"] = true;
+                        columnState.setVisibleColumns((prev) => ({
+                          ...prev,
+                          ...next,
+                        }));
+                        setHasUnsavedChanges(true);
+                      }}
+                      className="cursor-pointer"
+                    />
+                    <span className="text-sm font-medium">All Columns</span>
+                  </label>
+                  <div className="text-sm text-muted-foreground">
+                    {
+                      ALL_AVAILABLE_COLUMNS.filter(
+                        (c) => columnState.visibleColumns[c] === true,
+                      ).length
+                    }
+                    /{ALL_AVAILABLE_COLUMNS.length}
                   </div>
-                  <div className="border-t border-border my-2" />
+                </div>
+                <div className="border-t border-border my-2" />
 
-                  <div className=" space-y-1">
-                    {ALL_AVAILABLE_COLUMNS.map((columnId) => {
-                      const columnLabel = getColumnLabel(
-                        parseInt(boardId, 10),
-                        columnId,
-                        COLUMN_DEFAULT_LABELS[columnId] || columnId,
-                      );
+                <div className=" space-y-1">
+                  {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                    const columnLabel = getColumnLabel(
+                      parseInt(boardId, 10),
+                      columnId,
+                      COLUMN_DEFAULT_LABELS[columnId] || columnId,
+                    );
 
-                      return columnId === "item" ? (
-                        <label
-                          key={columnId}
-                          className="flex items-center gap-2 cursor-default px-2 py-1 rounded"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={true}
-                            disabled
-                            title="Item column is required"
-                            className="cursor-not-allowed opacity-50"
-                          />
-                          <span className="text-sm font-medium capitalize">
-                            {columnLabel}
-                          </span>
-                        </label>
-                      ) : (
-                        <label
-                          key={columnId}
-                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={
-                              columnState.visibleColumns[columnId] === true
-                            }
-                            onChange={() => toggleColumnVisibility(columnId)}
-                            className="cursor-pointer"
-                          />
-                          <span className="text-sm capitalize">
-                            {columnLabel}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
+                    return columnId === "item" ? (
+                      <label
+                        key={columnId}
+                        className="flex items-center gap-2 cursor-default px-2 py-1 rounded"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={true}
+                          disabled
+                          title="Item column is required"
+                          className="cursor-not-allowed opacity-50"
+                        />
+                        <span className="text-sm font-medium capitalize">
+                          {columnLabel}
+                        </span>
+                      </label>
+                    ) : (
+                      <label
+                        key={columnId}
+                        className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={
+                            columnState.visibleColumns[columnId] === true
+                          }
+                          onChange={() => {
+                            toggleColumnVisibility(columnId);
+                            setHasUnsavedChanges(true);
+                          }}
+                          className="cursor-pointer"
+                        />
+                        <span className="text-sm capitalize">
+                          {columnLabel}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
+        </div>
 
-          {/* Task Groups Container - ONLY scrollable element */}
-          <div
-            className="flex-1 overflow-y-auto overflow-x-hidden px-6"
-            ref={groupsContainerRef}
-          >
-            <DndContext
-              sensors={groupSensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleGroupDragEnd}
+        {/* Main Table View */}
+        {activeTab === "Main Table" && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Task Groups Container - ONLY scrollable element */}
+            <div
+              className="flex-1 overflow-y-auto overflow-x-hidden px-6"
+              ref={groupsContainerRef}
             >
-              <SortableContext
-                items={getFilteredGroups().map((g) => g.id)}
-                strategy={verticalListSortingStrategy}
+              <DndContext
+                sensors={groupSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleGroupDragEnd}
               >
-                <div className="space-y-6 py-4">
-                  {isLoadingGroups ? (
-                    <div className="text-center py-12">
-                      <p className="text-muted-foreground">Loading groups...</p>
-                    </div>
-                  ) : getFilteredGroups().length === 0 ? (
-                    <div className="text-center py-12">
-                      {mainTableSearchQuery.trim() ? (
-                        <>
-                          <p className="text-muted-foreground mb-4">
-                            No items found matching "{mainTableSearchQuery}"
-                          </p>
-                        </>
-                      ) : groups.length === 0 ? (
-                        <>
-                          <p className="text-muted-foreground mb-4">
-                            No groups yet. Create one to get started.
-                          </p>
-                          {/* <Button
+                <SortableContext
+                  items={getFilteredGroups().map((g) => g.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-6 py-4">
+                    {isLoadingGroups ? (
+                      <div className="text-center py-12">
+                        <p className="text-muted-foreground">
+                          Loading groups...
+                        </p>
+                      </div>
+                    ) : getFilteredGroups().length === 0 ? (
+                      <div className="text-center py-12">
+                        {mainTableSearchQuery.trim() ? (
+                          <>
+                            <p className="text-muted-foreground mb-4">
+                              No items found matching "{mainTableSearchQuery}"
+                            </p>
+                          </>
+                        ) : groups.length === 0 ? (
+                          <>
+                            <p className="text-muted-foreground mb-4">
+                              No groups yet. Create one to get started.
+                            </p>
+                            {/* <Button
                             variant="default"
                             size="sm"
                             onClick={addNewGroup}
                           >
                             Create First Group
                           </Button> */}
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-muted-foreground mb-4">
-                            No items match your filters
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    getFilteredGroups().map((group) => (
-                      <SortableGroupCard key={group.id} group={group}>
-                        {(dragListeners, dragAttributes) => (
-                          <div
-                            className="bg-card border border-border flex-1 border-l-4"
-                            style={{
-                              borderLeftColor: group.color || "#3b82f6",
-                            }}
-                            {...dragAttributes}
-                            {...dragListeners}
-                          >
-                            {/* Group Header */}
-
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-muted-foreground mb-4">
+                              No items match your filters
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      getFilteredGroups().map((group) => (
+                        <SortableGroupCard key={group.id} group={group}>
+                          {(dragListeners, dragAttributes) => (
                             <div
-                              className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-30 bg-muted border-b border-border ${stickyGroupId === group.id ? "shadow-md" : ""}`}
-                              data-group-header
-                              data-group-id={group.id}
+                              className="bg-card border border-border flex-1 border-l-4"
+                              style={{
+                                borderLeftColor: group.color || "#3b82f6",
+                              }}
+                              {...dragAttributes}
+                              {...dragListeners}
                             >
-                              {/* Group Actions Dropdown */}
-                              <DropdownMenu
-                                open={groupDropdownOpen === group.id}
-                                onOpenChange={(open) =>
-                                  setGroupDropdownOpen(open ? group.id : null)
-                                }
+                              {/* Group Header */}
+
+                              <div
+                                className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-30 bg-muted border-b border-border ${stickyGroupId === group.id ? "shadow-md" : ""}`}
+                                data-group-header
+                                data-group-id={group.id}
                               >
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="w-56"
-                                >
-                                  <DropdownMenuItem
-                                    onClick={() => toggleGroup(group.id)}
-                                  >
-                                    {expandedGroups[group.id] ? (
-                                      <>
-                                        <Minimize2 className="h-4 w-4 mr-2" />
-                                        Collapse this group
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Maximize2 className="h-4 w-4 mr-2" />
-                                        Expand this group
-                                      </>
-                                    )}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => collapseAllGroups()}
-                                  >
-                                    <Minimize2 className="h-4 w-4 mr-2" />
-                                    Collapse all groups
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => expandAllGroups()}
-                                  >
-                                    <Maximize2 className="h-4 w-4 mr-2" />
-                                    Expand all groups
-                                  </DropdownMenuItem>
-
-                                  <DropdownMenuSeparator />
-
-                                  <DropdownMenuItem
-                                    className="text-red-400 cursor-pointer"
-                                    onClick={() => deleteGroup(group.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete group
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-
-                              <button
-                                onClick={() => toggleGroup(group.id)}
-                                className="flex items-center gap-2"
-                              >
-                                {expandedGroups[group.id] ? (
-                                  <ChevronDown
-                                    className="h-5 w-5 text-primary"
-                                    style={{
-                                      color: group.color || "#3b82f6",
-                                    }}
-                                  />
-                                ) : (
-                                  <ChevronRight
-                                    className="h-5 w-5 text-muted-foreground"
-                                    style={{
-                                      color: group.color || "#3b82f6",
-                                    }}
-                                  />
-                                )}
-                              </button>
-
-                              <span
-                                className="font-semibold text-lg text-primary"
-                                style={{
-                                  color: group.color || "#3b82f6",
-                                }}
-                              >
-                                {groupNames[group.id] || group.name}
-                              </span>
-
-                              {/* Label Chip (optional) */}
-                              {groupLabels[group.id] &&
-                                (() => {
-                                  // Find the label object to get its color
-                                  const labelObj = labels.find(
-                                    (l) =>
-                                      l.label_name === groupLabels[group.id],
-                                  );
-                                  const labelColor =
-                                    labelObj?.label_color ||
-                                    groupLabelColors[group.id] ||
-                                    "#3b82f6";
-                                  return (
-                                    <div
-                                      className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
-                                      style={{
-                                        backgroundColor: labelColor,
-                                      }}
-                                    >
-                                      {groupLabels[group.id]}
-                                    </div>
-                                  );
-                                })()}
-                              {/* edit group button */}
-                              <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
-                                <Popover
-                                  open={
-                                    editGroupDialogOpen &&
-                                    editingGroupId === group.id
+                                {/* Group Actions Dropdown */}
+                                <DropdownMenu
+                                  open={groupDropdownOpen === group.id}
+                                  onOpenChange={(open) =>
+                                    setGroupDropdownOpen(open ? group.id : null)
                                   }
-                                  onOpenChange={(open) => {
-                                    if (open) {
-                                      editGroup(group.id);
-                                    } else {
-                                      setEditGroupDialogOpen(false);
-                                      setEditingGroupId(null);
-                                    }
-                                  }}
                                 >
-                                  <PopoverTrigger asChild>
+                                  <DropdownMenuTrigger asChild>
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => editGroup(group.id)}
                                       className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
                                     >
-                                      <Pencil className="h-4 w-4" />
+                                      <MoreHorizontal className="h-4 w-4" />
                                     </Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent
-                                    className="w-80 p-4"
-                                    align="start"
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    className="w-56"
                                   >
-                                    <div className="space-y-4">
-                                      <div>
-                                        <h3 className="font-semibold text-sm mb-3">
-                                          Edit Group
-                                        </h3>
-                                      </div>
+                                    <DropdownMenuItem
+                                      onClick={() => toggleGroup(group.id)}
+                                    >
+                                      {expandedGroups[group.id] ? (
+                                        <>
+                                          <Minimize2 className="h-4 w-4 mr-2" />
+                                          Collapse this group
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Maximize2 className="h-4 w-4 mr-2" />
+                                          Expand this group
+                                        </>
+                                      )}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => collapseAllGroups()}
+                                    >
+                                      <Minimize2 className="h-4 w-4 mr-2" />
+                                      Collapse all groups
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => expandAllGroups()}
+                                    >
+                                      <Maximize2 className="h-4 w-4 mr-2" />
+                                      Expand all groups
+                                    </DropdownMenuItem>
 
-                                      {/* Group Name Input and Color Picker */}
-                                      <div className="space-y-2">
-                                        <label
-                                          htmlFor="edit-group-name"
-                                          className="text-sm font-medium"
-                                        >
-                                          Group Name
-                                        </label>
-                                        <div className="flex gap-2 items-end">
-                                          <Input
-                                            id="edit-group-name"
-                                            placeholder="Enter group name..."
-                                            value={editGroupNameInput}
-                                            onChange={(e) =>
-                                              setEditGroupNameInput(
-                                                e.target.value,
-                                              )
-                                            }
-                                            onKeyDown={(e) => {
-                                              if (e.key === "Enter") {
-                                                handleUpdateGroup();
-                                              }
-                                            }}
-                                            autoFocus
-                                            className="flex-1"
-                                          />
-                                          <ColorPickerPopover
-                                            color={editGroupColorInput}
-                                            onColorChange={
-                                              setEditGroupColorInput
-                                            }
-                                            isOpen={editGroupColorPickerOpen}
-                                            onOpenChange={
-                                              setEditGroupColorPickerOpen
-                                            }
-                                            size="w-10 h-10"
-                                            disableHexInput={true}
-                                          />
+                                    <DropdownMenuSeparator />
+
+                                    <DropdownMenuItem
+                                      className="text-red-400 cursor-pointer"
+                                      onClick={() => deleteGroup(group.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete group
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                <button
+                                  onClick={() => toggleGroup(group.id)}
+                                  className="flex items-center gap-2"
+                                >
+                                  {expandedGroups[group.id] ? (
+                                    <ChevronDown
+                                      className="h-5 w-5 text-primary"
+                                      style={{
+                                        color: group.color || "#3b82f6",
+                                      }}
+                                    />
+                                  ) : (
+                                    <ChevronRight
+                                      className="h-5 w-5 text-muted-foreground"
+                                      style={{
+                                        color: group.color || "#3b82f6",
+                                      }}
+                                    />
+                                  )}
+                                </button>
+
+                                <span
+                                  className="font-semibold text-lg text-primary"
+                                  style={{
+                                    color: group.color || "#3b82f6",
+                                  }}
+                                >
+                                  {groupNames[group.id] || group.name}
+                                </span>
+
+                                {/* Label Chip (optional) */}
+                                {groupLabels[group.id] &&
+                                  (() => {
+                                    // Find the label object to get its color
+                                    const labelObj = labels.find(
+                                      (l) =>
+                                        l.label_name === groupLabels[group.id],
+                                    );
+                                    const labelColor =
+                                      labelObj?.label_color ||
+                                      groupLabelColors[group.id] ||
+                                      "#3b82f6";
+                                    return (
+                                      <div
+                                        className="px-3 py-1 rounded-full text-xs font-medium text-white ml-2"
+                                        style={{
+                                          backgroundColor: labelColor,
+                                        }}
+                                      >
+                                        {groupLabels[group.id]}
+                                      </div>
+                                    );
+                                  })()}
+                                {/* edit group button */}
+                                <div className="flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
+                                  <Popover
+                                    open={
+                                      editGroupDialogOpen &&
+                                      editingGroupId === group.id
+                                    }
+                                    onOpenChange={(open) => {
+                                      if (open) {
+                                        editGroup(group.id);
+                                      } else {
+                                        setEditGroupDialogOpen(false);
+                                        setEditingGroupId(null);
+                                      }
+                                    }}
+                                  >
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => editGroup(group.id)}
+                                        className="h-8 w-8 p-0 shrink-0 hover:bg-hover"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                      className="w-80 p-4"
+                                      align="start"
+                                    >
+                                      <div className="space-y-4">
+                                        <div>
+                                          <h3 className="font-semibold text-sm mb-3">
+                                            Edit Group
+                                          </h3>
                                         </div>
-                                      </div>
 
-                                      {/* Labels Selector */}
-                                      <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                          <label className="text-sm font-medium">
-                                            Labels
-                                          </label>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 w-6 p-0"
-                                            onClick={() =>
-                                              setEditLabelsDialogOpen(true)
-                                            }
+                                        {/* Group Name Input and Color Picker */}
+                                        <div className="space-y-2">
+                                          <label
+                                            htmlFor="edit-group-name"
+                                            className="text-sm font-medium"
                                           >
-                                            <Pencil className="h-3.5 w-3.5" />
+                                            Group Name
+                                          </label>
+                                          <div className="flex gap-2 items-end">
+                                            <Input
+                                              id="edit-group-name"
+                                              placeholder="Enter group name..."
+                                              value={editGroupNameInput}
+                                              onChange={(e) =>
+                                                setEditGroupNameInput(
+                                                  e.target.value,
+                                                )
+                                              }
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                  handleUpdateGroup();
+                                                }
+                                              }}
+                                              autoFocus
+                                              className="flex-1"
+                                            />
+                                            <ColorPickerPopover
+                                              color={editGroupColorInput}
+                                              onColorChange={
+                                                setEditGroupColorInput
+                                              }
+                                              isOpen={editGroupColorPickerOpen}
+                                              onOpenChange={
+                                                setEditGroupColorPickerOpen
+                                              }
+                                              size="w-10 h-10"
+                                              disableHexInput={true}
+                                            />
+                                          </div>
+                                        </div>
+
+                                        {/* Labels Selector */}
+                                        <div className="space-y-3">
+                                          <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium">
+                                              Labels
+                                            </label>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0"
+                                              onClick={() =>
+                                                setEditLabelsDialogOpen(true)
+                                              }
+                                            >
+                                              <Pencil className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </div>
+
+                                          {/* Display all available labels as clickable chips */}
+                                          {Array.isArray(labels) &&
+                                            labels.length > 0 && (
+                                              <div className="flex flex-wrap gap-2">
+                                                {labels.map((label) => (
+                                                  <button
+                                                    key={`label-${label.id}`}
+                                                    onClick={() => {
+                                                      setEditGroupLabelInput(
+                                                        label.label_name,
+                                                      );
+                                                      setEditGroupLabelColorInput(
+                                                        label.label_color,
+                                                      );
+                                                    }}
+                                                    className={`px-3 py-1 rounded-full text-xs font-medium text-white hover:opacity-80 transition-opacity ${
+                                                      editGroupLabelInput ===
+                                                      label.label_name
+                                                        ? "ring-2 ring-offset-1 ring-foreground"
+                                                        : ""
+                                                    }`}
+                                                    style={{
+                                                      backgroundColor:
+                                                        label.label_color,
+                                                    }}
+                                                  >
+                                                    {label.label_name}
+                                                  </button>
+                                                ))}
+                                              </div>
+                                            )}
+
+                                          {(!Array.isArray(labels) ||
+                                            labels.length === 0) && (
+                                            <p className="text-xs text-muted-foreground">
+                                              No labels available
+                                            </p>
+                                          )}
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-2 justify-end pt-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              setEditGroupDialogOpen(false);
+                                              setEditingGroupId(null);
+                                              setEditGroupNameInput("");
+                                              setEditGroupColorInput("#3b82f6");
+                                              setEditGroupLabelInput("");
+                                              setEditGroupLabelColorInput(
+                                                "#3b82f6",
+                                              );
+                                            }}
+                                          >
+                                            Cancel
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            onClick={() => {
+                                              handleUpdateGroup();
+                                              setEditGroupDialogOpen(false);
+                                            }}
+                                          >
+                                            Update
                                           </Button>
                                         </div>
-
-                                        {/* Display all available labels as clickable chips */}
-                                        {Array.isArray(labels) &&
-                                          labels.length > 0 && (
-                                            <div className="flex flex-wrap gap-2">
-                                              {labels.map((label) => (
-                                                <button
-                                                  key={`label-${label.id}`}
-                                                  onClick={() => {
-                                                    setEditGroupLabelInput(
-                                                      label.label_name,
-                                                    );
-                                                    setEditGroupLabelColorInput(
-                                                      label.label_color,
-                                                    );
-                                                  }}
-                                                  className={`px-3 py-1 rounded-full text-xs font-medium text-white hover:opacity-80 transition-opacity ${
-                                                    editGroupLabelInput ===
-                                                    label.label_name
-                                                      ? "ring-2 ring-offset-1 ring-foreground"
-                                                      : ""
-                                                  }`}
-                                                  style={{
-                                                    backgroundColor:
-                                                      label.label_color,
-                                                  }}
-                                                >
-                                                  {label.label_name}
-                                                </button>
-                                              ))}
-                                            </div>
-                                          )}
-
-                                        {(!Array.isArray(labels) ||
-                                          labels.length === 0) && (
-                                          <p className="text-xs text-muted-foreground">
-                                            No labels available
-                                          </p>
-                                        )}
                                       </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
 
-                                      {/* Action Buttons */}
-                                      <div className="flex gap-2 justify-end pt-2">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => {
-                                            setEditGroupDialogOpen(false);
-                                            setEditingGroupId(null);
-                                            setEditGroupNameInput("");
-                                            setEditGroupColorInput("#3b82f6");
-                                            setEditGroupLabelInput("");
-                                            setEditGroupLabelColorInput(
-                                              "#3b82f6",
-                                            );
-                                          }}
-                                        >
-                                          Cancel
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          onClick={() => {
-                                            handleUpdateGroup();
-                                            setEditGroupDialogOpen(false);
-                                          }}
-                                        >
-                                          Update
-                                        </Button>
+                                {/* Group Progress Bar - Time Spent vs Estimated Time */}
+                                {(() => {
+                                  const progress = calculateGroupProgress(
+                                    group.tasks,
+                                  );
+                                  return (
+                                    <div className="flex items-center gap-3 flex-1 ml-4">
+                                      <div className="flex-1 max-w-[250px]">
+                                        <Progress
+                                          value={progress.percentage}
+                                          className="h-2"
+                                        />
                                       </div>
+                                      <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
+                                        {formatSecondsToTime(
+                                          progress.timeSpentSeconds,
+                                        )}{" "}
+                                        /{" "}
+                                        {progress.estimatedTimeSeconds > 0
+                                          ? formatSecondsToTime(
+                                              progress.estimatedTimeSeconds,
+                                            )
+                                          : "—"}
+                                      </span>
                                     </div>
-                                  </PopoverContent>
-                                </Popover>
+                                  );
+                                })()}
                               </div>
 
-                              {/* Group Progress Bar - Time Spent vs Estimated Time */}
-                              {(() => {
-                                const progress = calculateGroupProgress(
-                                  group.tasks,
-                                );
-                                return (
-                                  <div className="flex items-center gap-3 flex-1 ml-4">
-                                    <div className="flex-1 max-w-[250px]">
-                                      <Progress
-                                        value={progress.percentage}
-                                        className="h-2"
-                                      />
-                                    </div>
-                                    <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
-                                      {formatSecondsToTime(
-                                        progress.timeSpentSeconds,
-                                      )}{" "}
-                                      /{" "}
-                                      {progress.estimatedTimeSeconds > 0
-                                        ? formatSecondsToTime(
-                                            progress.estimatedTimeSeconds,
-                                          )
-                                        : "—"}
-                                    </span>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-
-                            {/* Task Table */}
-                            {expandedGroups[group.id] && (
-                              <div
-                                className="overflow-x-auto w-full scrollbar-hide"
-                                ref={(el) => {
-                                  if (el)
-                                    tableScrollRefs.current[group.id] = el;
-                                }}
-                                onScroll={(e) => {
-                                  const target =
-                                    e.currentTarget as HTMLDivElement;
-                                  handleTableScroll(
-                                    group.id,
-                                    target.scrollLeft,
-                                  );
-                                }}
-                              >
-                                <table
-                                  className="w-full"
-                                  style={{ tableLayout: "fixed" }}
+                              {/* Task Table */}
+                              {expandedGroups[group.id] && (
+                                <div
+                                  className="overflow-x-auto w-full scrollbar-hide"
+                                  ref={(el) => {
+                                    if (el)
+                                      tableScrollRefs.current[group.id] = el;
+                                  }}
+                                  onScroll={(e) => {
+                                    const target =
+                                      e.currentTarget as HTMLDivElement;
+                                    handleTableScroll(
+                                      group.id,
+                                      target.scrollLeft,
+                                    );
+                                  }}
                                 >
-                                  {/* Table head */}
-                                  {/* <thead className="border-b border-border bg-muted/30">
+                                  <table
+                                    className="w-full"
+                                    style={{ tableLayout: "fixed" }}
+                                  >
+                                    {/* Table head */}
+                                    {/* <thead className="border-b border-border bg-muted/30">
                                       <tr className="text-sm text-muted-foreground">
                                         <th className="p-4 w-12 border-r border-border text-center">
                                           <input type="checkbox" />
@@ -4478,866 +4574,1113 @@ export function WorkloadBoard({
                                       </tr>
                                     </thead> */}
 
-                                  <DndContext
-                                    sensors={sensors}
-                                    collisionDetection={closestCenter}
-                                    onDragEnd={handleColumnDragEnd}
-                                  >
-                                    <SortableContext
-                                      items={workloadColumns.map((c) => c.id)}
-                                      strategy={horizontalListSortingStrategy}
+                                    <DndContext
+                                      sensors={sensors}
+                                      collisionDetection={closestCenter}
+                                      onDragEnd={handleColumnDragEnd}
                                     >
-                                      <thead className="border-b border-border bg-muted/30   top-0 z-30">
-                                        <tr className="text-sm text-muted-foreground">
-                                          <th className="p-4 w-12 border-r border-border text-center sticky left-0 z-10 bg-card">
-                                            <input
-                                              type="checkbox"
-                                              checked={
-                                                group.tasks.length > 0 &&
-                                                group.tasks.every(
-                                                  (task) =>
-                                                    taskState.checkedTasks[
-                                                      task.id
-                                                    ] || false,
-                                                )
-                                              }
-                                              onChange={(e) => {
-                                                const updatedChecked: Record<
-                                                  string,
-                                                  boolean
-                                                > = {};
-                                                group.tasks.forEach((task) => {
-                                                  updatedChecked[task.id] =
-                                                    e.target.checked;
-                                                  // Also select/deselect subitems
-                                                  if (task.subitems) {
-                                                    task.subitems.forEach(
-                                                      (subitem) => {
-                                                        updatedChecked[
-                                                          subitem.id
-                                                        ] = e.target.checked;
-                                                      },
-                                                    );
-                                                  }
-                                                });
-                                                taskState.setCheckedTasks(
-                                                  (prev) => ({
-                                                    ...prev,
-                                                    ...updatedChecked,
-                                                  }),
-                                                );
-                                              }}
-                                            />
-                                          </th>
-
-                                          {workloadColumns.map((col) => (
-                                            <SortableColumnHeader
-                                              key={col.id}
-                                              column={col}
-                                              onToggleCollapse={() =>
-                                                toggleCollapseColumn(col.id)
-                                              }
-                                              onStartResize={startColumnResize}
-                                              onColumnLabelChange={
-                                                handleColumnLabelChange
-                                              }
-                                              onSort={(
-                                                columnId: string,
-                                                direction: "asc" | "desc",
-                                              ) =>
-                                                handleSortGroupItems(
-                                                  group.id,
-                                                  columnId,
-                                                  direction,
-                                                )
-                                              }
-                                            />
-                                          ))}
-                                          {/* Filler column to absorb extra space and prevent stretching */}
-                                          <th
-                                            className="p-0 border-none"
-                                            style={{ width: "auto" }}
-                                          />
-                                        </tr>
-                                      </thead>
-                                    </SortableContext>
-                                  </DndContext>
-
-                                  {/* Table Body */}
-                                  <tbody>
-                                    {group.tasks.map((task) => {
-                                      const taskWithProps = {
-                                        ...task,
-                                        boardId: boardId,
-                                        activeTimerId: timerState.activeTimerId,
-                                        onTimerStart: handleTimerStart,
-                                        onTimerConflict: handleTimerConflict,
-                                      };
-                                      return (
-                                        <React.Fragment key={task.id}>
-                                          {/* ================= TASK ROW ================= */}
-                                          <tr
-                                            className="border-t border-b border-border hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
-                                            onClick={() => {
-                                              openTaskCard(task);
-                                            }}
-                                          >
-                                            <td
-                                              className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
-                                              onClick={(e) =>
-                                                e.stopPropagation()
-                                              }
-                                            >
+                                      <SortableContext
+                                        items={workloadColumns.map((c) => c.id)}
+                                        strategy={horizontalListSortingStrategy}
+                                      >
+                                        <thead className="border-b border-border bg-muted/30   top-0 z-30">
+                                          <tr className="text-sm text-muted-foreground">
+                                            <th className="p-4 w-12 border-r border-border text-center sticky left-0 z-10 bg-card">
                                               <input
                                                 type="checkbox"
                                                 checked={
-                                                  taskState.checkedTasks[
-                                                    task.id
-                                                  ] || false
+                                                  group.tasks.length > 0 &&
+                                                  group.tasks.every(
+                                                    (task) =>
+                                                      taskState.checkedTasks[
+                                                        task.id
+                                                      ] || false,
+                                                  )
                                                 }
-                                                onChange={(e) =>
-                                                  handleTaskCheckChange(
-                                                    task.id,
-                                                    e.target.checked,
+                                                onChange={(e) => {
+                                                  const updatedChecked: Record<
+                                                    string,
+                                                    boolean
+                                                  > = {};
+                                                  group.tasks.forEach(
+                                                    (task) => {
+                                                      updatedChecked[task.id] =
+                                                        e.target.checked;
+                                                      // Also select/deselect subitems
+                                                      if (task.subitems) {
+                                                        task.subitems.forEach(
+                                                          (subitem) => {
+                                                            updatedChecked[
+                                                              subitem.id
+                                                            ] =
+                                                              e.target.checked;
+                                                          },
+                                                        );
+                                                      }
+                                                    },
+                                                  );
+                                                  taskState.setCheckedTasks(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      ...updatedChecked,
+                                                    }),
+                                                  );
+                                                }}
+                                              />
+                                            </th>
+
+                                            {workloadColumns.map((col) => (
+                                              <SortableColumnHeader
+                                                key={col.id}
+                                                column={col}
+                                                onToggleCollapse={() =>
+                                                  toggleCollapseColumn(col.id)
+                                                }
+                                                onStartResize={
+                                                  startColumnResize
+                                                }
+                                                onColumnLabelChange={
+                                                  handleColumnLabelChange
+                                                }
+                                                onSort={(
+                                                  columnId: string,
+                                                  direction: "asc" | "desc",
+                                                ) =>
+                                                  handleSortGroupItems(
+                                                    group.id,
+                                                    columnId,
+                                                    direction,
                                                   )
                                                 }
                                               />
-                                            </td>
-
-                                            {workloadColumns.map((col) => (
-                                              <td
-                                                key={col.id}
-                                                className={cn(
-                                                  "p-4 border-r border-border last:border-r-0",
-                                                  col.align === "center" &&
-                                                    "text-center",
-                                                  col.align === "left" &&
-                                                    "text-left",
-                                                  col.id === "item" &&
-                                                    "sticky left-12 z-10 bg-card",
-                                                )}
-                                                style={{
-                                                  width: col.width,
-                                                  minWidth:
-                                                    col.minWidth || col.width,
-                                                  maxWidth:
-                                                    col.maxWidth || col.width,
-                                                }}
-                                                onClick={(e) =>
-                                                  e.stopPropagation()
-                                                }
-                                              >
-                                                {col.collapsed ? (
-                                                  <div className="flex items-center justify-center">
-                                                    <button
-                                                      className="h-6 w-6 rounded-sm   flex items-center justify-center"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        toggleCollapseColumn(
-                                                          col.id,
-                                                        );
-                                                      }}
-                                                      aria-label={`Expand ${col.label}`}
-                                                      title={`Expand ${col.label}`}
-                                                    >
-                                                      <MoreHorizontal className="h-3 w-3" />
-                                                    </button>
-                                                  </div>
-                                                ) : (
-                                                  col.render(taskWithProps)
-                                                )}
-                                              </td>
                                             ))}
                                             {/* Filler column to absorb extra space and prevent stretching */}
-                                            <td
+                                            <th
                                               className="p-0 border-none"
                                               style={{ width: "auto" }}
                                             />
                                           </tr>
+                                        </thead>
+                                      </SortableContext>
+                                    </DndContext>
 
-                                          {/* ================= SUBITEM ROWS ================= */}
-                                          {effectiveExpandedTasks[task.id] &&
-                                            task.subitems?.map((subtask) => {
-                                              const subtaskWithProps = {
-                                                ...subtask,
-                                                boardId: boardId,
-                                                activeTimerId:
-                                                  timerState.activeTimerId,
-                                                onTimerStart: handleTimerStart,
-                                                onTimerConflict:
-                                                  handleTimerConflict,
-                                              };
-                                              return (
-                                                <tr
-                                                  key={subtask.id}
-                                                  className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 border-b border-border transition-colors"
-                                                >
-                                                  <td
-                                                    className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
-                                                    onClick={(e) =>
-                                                      e.stopPropagation()
-                                                    }
-                                                  >
-                                                    <input
-                                                      type="checkbox"
-                                                      checked={
-                                                        taskState.checkedTasks[
-                                                          subtask.id
-                                                        ] || false
-                                                      }
-                                                      onChange={(e) =>
-                                                        handleTaskCheckChange(
-                                                          subtask.id,
-                                                          e.target.checked,
-                                                        )
-                                                      }
-                                                    />
-                                                  </td>
-
-                                                  {workloadColumns.map(
-                                                    (col) => (
-                                                      <td
-                                                        key={col.id}
-                                                        className={cn(
-                                                          "p-4 border-r border-border last:border-r-0",
-                                                          col.align ===
-                                                            "center" &&
-                                                            "text-center",
-                                                          col.align ===
-                                                            "left" &&
-                                                            "text-left",
-                                                          col.id === "item" &&
-                                                            "sticky left-12 z-10 bg-card",
-                                                        )}
-                                                        onClick={(e) =>
-                                                          e.stopPropagation()
-                                                        }
-                                                      >
-                                                        {col.collapsed ? (
-                                                          <div className="flex items-center justify-center">
-                                                            <button
-                                                              className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                toggleCollapseColumn(
-                                                                  col.id,
-                                                                );
-                                                              }}
-                                                              aria-label={`Expand ${col.label}`}
-                                                              title={`Expand ${col.label}`}
-                                                            >
-                                                              <ChevronRight className="h-3 w-3" />
-                                                            </button>
-                                                          </div>
-                                                        ) : (
-                                                          col.render(
-                                                            subtaskWithProps,
-                                                            true,
-                                                          )
-                                                        )}
-                                                      </td>
-                                                    ),
-                                                  )}
-                                                  {/* Filler column to absorb extra space and prevent stretching */}
-                                                  <td
-                                                    className="p-0 border-none"
-                                                    style={{ width: "auto" }}
-                                                  />
-                                                </tr>
-                                              );
-                                            })}
-
-                                          {/* ================= ADD SUBITEM ================= */}
-                                          {effectiveExpandedTasks[task.id] && (
-                                            <tr>
-                                              <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
-                                                {/* Empty Cell */}
-                                              </td>
+                                    {/* Table Body */}
+                                    <tbody>
+                                      {group.tasks.map((task) => {
+                                        const taskWithProps = {
+                                          ...task,
+                                          boardId: boardId,
+                                          activeTimerId:
+                                            timerState.activeTimerId,
+                                          onTimerStart: handleTimerStart,
+                                          onTimerConflict: handleTimerConflict,
+                                        };
+                                        return (
+                                          <React.Fragment key={task.id}>
+                                            {/* ================= TASK ROW ================= */}
+                                            <tr
+                                              className="border-t border-b border-border hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
+                                              onClick={() => {
+                                                openTaskCard(task);
+                                              }}
+                                            >
                                               <td
-                                                colSpan={2}
-                                                className="p-4 border-t border-border sticky left-12 z-10 bg-card"
+                                                className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
+                                                onClick={(e) =>
+                                                  e.stopPropagation()
+                                                }
                                               >
-                                                {addingSubitemToTask ===
-                                                task.id ? (
-                                                  <div className="flex items-center gap-2 pl-8">
-                                                    <span className="text-muted-foreground">
-                                                      └
-                                                    </span>
-                                                    <Input
-                                                      className="h-8 flex-1"
-                                                      autoFocus
-                                                      placeholder="Enter subitem name"
-                                                      value={newSubitemName}
-                                                      onChange={(e) =>
-                                                        setNewSubitemName(
-                                                          e.target.value,
-                                                        )
-                                                      }
-                                                      onKeyDown={(e) => {
-                                                        if (
-                                                          (e.key === "Enter" ||
-                                                            e.key === "Tab") &&
-                                                          newSubitemName.trim()
-                                                        ) {
-                                                          addSubitem(
-                                                            group.id,
-                                                            task.id,
+                                                <input
+                                                  type="checkbox"
+                                                  checked={
+                                                    taskState.checkedTasks[
+                                                      task.id
+                                                    ] || false
+                                                  }
+                                                  onChange={(e) =>
+                                                    handleTaskCheckChange(
+                                                      task.id,
+                                                      e.target.checked,
+                                                    )
+                                                  }
+                                                />
+                                              </td>
+
+                                              {workloadColumns.map((col) => (
+                                                <td
+                                                  key={col.id}
+                                                  className={cn(
+                                                    "p-4 border-r border-border last:border-r-0",
+                                                    col.align === "center" &&
+                                                      "text-center",
+                                                    col.align === "left" &&
+                                                      "text-left",
+                                                    col.id === "item" &&
+                                                      "sticky left-12 z-10 bg-card",
+                                                  )}
+                                                  style={{
+                                                    width: col.width,
+                                                    minWidth:
+                                                      col.minWidth || col.width,
+                                                    maxWidth:
+                                                      col.maxWidth || col.width,
+                                                  }}
+                                                  onClick={(e) =>
+                                                    e.stopPropagation()
+                                                  }
+                                                >
+                                                  {col.collapsed ? (
+                                                    <div className="flex items-center justify-center">
+                                                      <button
+                                                        className="h-6 w-6 rounded-sm   flex items-center justify-center"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          toggleCollapseColumn(
+                                                            col.id,
                                                           );
+                                                        }}
+                                                        aria-label={`Expand ${col.label}`}
+                                                        title={`Expand ${col.label}`}
+                                                      >
+                                                        <MoreHorizontal className="h-3 w-3" />
+                                                      </button>
+                                                    </div>
+                                                  ) : (
+                                                    col.render(taskWithProps)
+                                                  )}
+                                                </td>
+                                              ))}
+                                              {/* Filler column to absorb extra space and prevent stretching */}
+                                              <td
+                                                className="p-0 border-none"
+                                                style={{ width: "auto" }}
+                                              />
+                                            </tr>
+
+                                            {/* ================= SUBITEM ROWS ================= */}
+                                            {effectiveExpandedTasks[task.id] &&
+                                              task.subitems?.map((subtask) => {
+                                                const subtaskWithProps = {
+                                                  ...subtask,
+                                                  boardId: boardId,
+                                                  activeTimerId:
+                                                    timerState.activeTimerId,
+                                                  onTimerStart:
+                                                    handleTimerStart,
+                                                  onTimerConflict:
+                                                    handleTimerConflict,
+                                                };
+                                                return (
+                                                  <tr
+                                                    key={subtask.id}
+                                                    className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 border-b border-border transition-colors"
+                                                  >
+                                                    <td
+                                                      className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
+                                                      onClick={(e) =>
+                                                        e.stopPropagation()
+                                                      }
+                                                    >
+                                                      <input
+                                                        type="checkbox"
+                                                        checked={
+                                                          taskState
+                                                            .checkedTasks[
+                                                            subtask.id
+                                                          ] || false
                                                         }
-                                                        if (
-                                                          e.key === "Escape"
-                                                        ) {
+                                                        onChange={(e) =>
+                                                          handleTaskCheckChange(
+                                                            subtask.id,
+                                                            e.target.checked,
+                                                          )
+                                                        }
+                                                      />
+                                                    </td>
+
+                                                    {workloadColumns.map(
+                                                      (col) => (
+                                                        <td
+                                                          key={col.id}
+                                                          className={cn(
+                                                            "p-4 border-r border-border last:border-r-0",
+                                                            col.align ===
+                                                              "center" &&
+                                                              "text-center",
+                                                            col.align ===
+                                                              "left" &&
+                                                              "text-left",
+                                                            col.id === "item" &&
+                                                              "sticky left-12 z-10 bg-card",
+                                                          )}
+                                                          onClick={(e) =>
+                                                            e.stopPropagation()
+                                                          }
+                                                        >
+                                                          {col.collapsed ? (
+                                                            <div className="flex items-center justify-center">
+                                                              <button
+                                                                className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
+                                                                onClick={(
+                                                                  e,
+                                                                ) => {
+                                                                  e.stopPropagation();
+                                                                  toggleCollapseColumn(
+                                                                    col.id,
+                                                                  );
+                                                                }}
+                                                                aria-label={`Expand ${col.label}`}
+                                                                title={`Expand ${col.label}`}
+                                                              >
+                                                                <ChevronRight className="h-3 w-3" />
+                                                              </button>
+                                                            </div>
+                                                          ) : (
+                                                            col.render(
+                                                              subtaskWithProps,
+                                                              true,
+                                                            )
+                                                          )}
+                                                        </td>
+                                                      ),
+                                                    )}
+                                                    {/* Filler column to absorb extra space and prevent stretching */}
+                                                    <td
+                                                      className="p-0 border-none"
+                                                      style={{ width: "auto" }}
+                                                    />
+                                                  </tr>
+                                                );
+                                              })}
+
+                                            {/* ================= ADD SUBITEM ================= */}
+                                            {effectiveExpandedTasks[
+                                              task.id
+                                            ] && (
+                                              <tr>
+                                                <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
+                                                  {/* Empty Cell */}
+                                                </td>
+                                                <td
+                                                  colSpan={2}
+                                                  className="p-4 border-t border-border sticky left-12 z-10 bg-card"
+                                                >
+                                                  {addingSubitemToTask ===
+                                                  task.id ? (
+                                                    <div className="flex items-center gap-2 pl-8">
+                                                      <span className="text-muted-foreground">
+                                                        └
+                                                      </span>
+                                                      <Input
+                                                        className="h-8 flex-1"
+                                                        autoFocus
+                                                        placeholder="Enter subitem name"
+                                                        value={newSubitemName}
+                                                        onChange={(e) =>
+                                                          setNewSubitemName(
+                                                            e.target.value,
+                                                          )
+                                                        }
+                                                        onKeyDown={(e) => {
+                                                          if (
+                                                            (e.key ===
+                                                              "Enter" ||
+                                                              e.key ===
+                                                                "Tab") &&
+                                                            newSubitemName.trim()
+                                                          ) {
+                                                            addSubitem(
+                                                              group.id,
+                                                              task.id,
+                                                            );
+                                                          }
+                                                          if (
+                                                            e.key === "Escape"
+                                                          ) {
+                                                            setAddingSubitemToTask(
+                                                              null,
+                                                            );
+                                                            setNewSubitemName(
+                                                              "",
+                                                            );
+                                                          }
+                                                        }}
+                                                        onBlur={() => {
                                                           setAddingSubitemToTask(
                                                             null,
                                                           );
                                                           setNewSubitemName("");
-                                                        }
-                                                      }}
-                                                      onBlur={() => {
-                                                        setAddingSubitemToTask(
-                                                          null,
+                                                        }}
+                                                      />
+                                                    </div>
+                                                  ) : (
+                                                    <button
+                                                      onClick={() => {
+                                                        taskState.setExpandedTasks(
+                                                          (prev) => ({
+                                                            ...prev,
+                                                            [task.id]: true,
+                                                          }),
                                                         );
-                                                        setNewSubitemName("");
+                                                        setAddingSubitemToTask(
+                                                          task.id,
+                                                        );
                                                       }}
-                                                    />
-                                                  </div>
-                                                ) : (
-                                                  <button
-                                                    onClick={() => {
-                                                      taskState.setExpandedTasks(
-                                                        (prev) => ({
-                                                          ...prev,
-                                                          [task.id]: true,
-                                                        }),
-                                                      );
-                                                      setAddingSubitemToTask(
-                                                        task.id,
-                                                      );
-                                                    }}
-                                                    className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 pl-8"
-                                                  >
-                                                    <span className="text-muted-foreground">
-                                                      {"└"}
-                                                      {/* ├ */}
-                                                    </span>
-                                                    <span className="text-lg">
-                                                      +
-                                                    </span>{" "}
-                                                    Add subitem
-                                                  </button>
-                                                )}
-                                              </td>
-                                            </tr>
-                                          )}
-                                        </React.Fragment>
-                                      );
-                                    })}
+                                                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 pl-8"
+                                                    >
+                                                      <span className="text-muted-foreground">
+                                                        {"└"}
+                                                        {/* ├ */}
+                                                      </span>
+                                                      <span className="text-lg">
+                                                        +
+                                                      </span>{" "}
+                                                      Add subitem
+                                                    </button>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            )}
+                                          </React.Fragment>
+                                        );
+                                      })}
 
-                                    {/* ================= ADD ITEM ROW ================= */}
-                                    <tr>
-                                      <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
-                                        {/* Empty Cell */}
-                                      </td>
-                                      <td
-                                        colSpan={2}
-                                        className="p-4 border-t border-border sticky left-12 z-10 bg-card"
-                                      >
-                                        {addingItemToGroup === group.id ? (
-                                          <Input
-                                            className="h-8 max-w"
-                                            autoFocus
-                                            placeholder="Enter item name..."
-                                            value={newItemName}
-                                            onChange={(e) =>
-                                              setNewItemName(e.target.value)
-                                            }
-                                            onKeyDown={(e) => {
-                                              if (
-                                                (e.key === "Enter" ||
-                                                  e.key === "Tab") &&
-                                                newItemName.trim()
-                                              ) {
-                                                addNewItem(group.id);
+                                      {/* ================= ADD ITEM ROW ================= */}
+                                      <tr>
+                                        <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
+                                          {/* Empty Cell */}
+                                        </td>
+                                        <td
+                                          colSpan={2}
+                                          className="p-4 border-t border-border sticky left-12 z-10 bg-card"
+                                        >
+                                          {addingItemToGroup === group.id ? (
+                                            <Input
+                                              className="h-8 max-w"
+                                              autoFocus
+                                              placeholder="Enter item name..."
+                                              value={newItemName}
+                                              onChange={(e) =>
+                                                setNewItemName(e.target.value)
                                               }
-                                              if (e.key === "Escape") {
+                                              onKeyDown={(e) => {
+                                                if (
+                                                  (e.key === "Enter" ||
+                                                    e.key === "Tab") &&
+                                                  newItemName.trim()
+                                                ) {
+                                                  addNewItem(group.id);
+                                                }
+                                                if (e.key === "Escape") {
+                                                  setAddingItemToGroup(null);
+                                                  setNewItemName("");
+                                                }
+                                              }}
+                                              onBlur={() => {
                                                 setAddingItemToGroup(null);
                                                 setNewItemName("");
-                                              }
-                                            }}
-                                            onBlur={() => {
-                                              setAddingItemToGroup(null);
-                                              setNewItemName("");
-                                            }}
-                                          />
-                                        ) : (
-                                          <button
-                                            onClick={() => {
-                                              setAddingItemToGroup(group.id);
-                                              // Scroll the main flex container to the right
-                                              if (
-                                                mainFlexContainerRef.current
-                                              ) {
-                                                mainFlexContainerRef.current.scrollLeft =
-                                                  mainFlexContainerRef.current.scrollWidth;
-                                              }
-                                            }}
-                                            className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 "
-                                          >
-                                            <span className="text-md">
-                                              + Add Item
-                                            </span>{" "}
-                                          </button>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </SortableGroupCard>
-                    ))
-                  )}
-                </div>
-              </SortableContext>
-            </DndContext>
-          </div>
+                                              }}
+                                            />
+                                          ) : (
+                                            <button
+                                              onClick={() => {
+                                                setAddingItemToGroup(group.id);
+                                                // Scroll the main flex container to the right
+                                                if (
+                                                  mainFlexContainerRef.current
+                                                ) {
+                                                  mainFlexContainerRef.current.scrollLeft =
+                                                    mainFlexContainerRef.current.scrollWidth;
+                                                }
+                                              }}
+                                              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                                            >
+                                              <span className="text-md">
+                                                + Add Item
+                                              </span>{" "}
+                                            </button>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </SortableGroupCard>
+                      ))
+                    )}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
 
-          {/* Unified Horizontal Scrollbar at Bottom */}
-          <div
-            className="h-5 overflow-x-scroll border-t border-border bg-muted flex-shrink-0"
-            data-unified-scrollbar
-            ref={(el) => {
-              if (el && Object.keys(tableScrollRefs.current).length > 0) {
-                // Sync scrollbar position with first table on mount/update (proportional)
-                const firstTableRef = Object.values(tableScrollRefs.current)[0];
-                if (firstTableRef) {
-                  const srcLeft = firstTableRef.scrollLeft;
-                  const srcMax = Math.max(
-                    0,
-                    firstTableRef.scrollWidth - firstTableRef.clientWidth,
-                  );
-                  const unifiedMax = Math.max(
-                    0,
-                    el.scrollWidth - el.clientWidth,
-                  );
-                  const mapped =
-                    srcMax > 0 && unifiedMax > 0
-                      ? (srcLeft / srcMax) * unifiedMax
-                      : srcLeft;
-                  if (el.scrollLeft !== mapped) el.scrollLeft = mapped;
+            {/* Unified Horizontal Scrollbar at Bottom */}
+            <div
+              className="h-5 overflow-x-scroll border-t border-border bg-muted flex-shrink-0"
+              data-unified-scrollbar
+              ref={(el) => {
+                if (el && Object.keys(tableScrollRefs.current).length > 0) {
+                  // Sync scrollbar position with first table on mount/update (proportional)
+                  const firstTableRef = Object.values(
+                    tableScrollRefs.current,
+                  )[0];
+                  if (firstTableRef) {
+                    const srcLeft = firstTableRef.scrollLeft;
+                    const srcMax = Math.max(
+                      0,
+                      firstTableRef.scrollWidth - firstTableRef.clientWidth,
+                    );
+                    const unifiedMax = Math.max(
+                      0,
+                      el.scrollWidth - el.clientWidth,
+                    );
+                    const mapped =
+                      srcMax > 0 && unifiedMax > 0
+                        ? (srcLeft / srcMax) * unifiedMax
+                        : srcLeft;
+                    if (el.scrollLeft !== mapped) el.scrollLeft = mapped;
+                  }
                 }
-              }
-            }}
-            onScroll={(e) => {
-              if (isSyncingScroll.current) return;
-              const unified = e.currentTarget as HTMLDivElement;
-              const unifiedLeft = unified.scrollLeft;
-              const unifiedMax = Math.max(
-                0,
-                unified.scrollWidth - unified.clientWidth,
-              );
+              }}
+              onScroll={(e) => {
+                if (isSyncingScroll.current) return;
+                const unified = e.currentTarget as HTMLDivElement;
+                const unifiedLeft = unified.scrollLeft;
+                const unifiedMax = Math.max(
+                  0,
+                  unified.scrollWidth - unified.clientWidth,
+                );
 
-              isSyncingScroll.current = true;
-              Object.values(tableScrollRefs.current).forEach((ref) => {
-                if (ref) {
-                  const tableMax = Math.max(
-                    0,
-                    ref.scrollWidth - ref.clientWidth,
-                  );
-                  const mapped =
-                    unifiedMax > 0 && tableMax > 0
-                      ? (unifiedLeft / unifiedMax) * tableMax
-                      : unifiedLeft;
-                  if (ref.scrollLeft !== mapped) ref.scrollLeft = mapped;
-                }
-              });
-              window.requestAnimationFrame(() => {
-                isSyncingScroll.current = false;
-              });
-            }}
-          >
-            <div style={{ width: `${maxScrollWidth}px`, height: "1px" }} />
+                isSyncingScroll.current = true;
+                Object.values(tableScrollRefs.current).forEach((ref) => {
+                  if (ref) {
+                    const tableMax = Math.max(
+                      0,
+                      ref.scrollWidth - ref.clientWidth,
+                    );
+                    const mapped =
+                      unifiedMax > 0 && tableMax > 0
+                        ? (unifiedLeft / unifiedMax) * tableMax
+                        : unifiedLeft;
+                    if (ref.scrollLeft !== mapped) ref.scrollLeft = mapped;
+                  }
+                });
+                window.requestAnimationFrame(() => {
+                  isSyncingScroll.current = false;
+                });
+              }}
+            >
+              <div style={{ width: `${maxScrollWidth}px`, height: "1px" }} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* KANBAN VIEW */}
-      {/* kanban commented intentionally */}
-      {activeTab === "Kanban" && (
-        <KanbanView
-          groups={groups}
-          statuses={statuses}
-          priorities={priorities}
-          labels={labels}
-          boardId={boardId}
-          onTaskMove={handleStatusChange}
-          onTaskClick={openTaskCard}
-          searchQuery={mainTableSearchQuery}
-        />
-      )}
+        {/* KANBAN VIEW */}
+        {/* kanban commented intentionally */}
+        {activeTab === "Kanban" && (
+          <KanbanView
+            groups={memoizedFilteredData.groups}
+            statuses={statuses}
+            priorities={priorities}
+            boardId={boardId}
+            onTaskMove={handleStatusChange}
+            onTaskClick={openTaskCard}
+            onAddTask={handleKanbanAddTask}
+          />
+        )}
 
-      {/* Other Views - Coming Soon */}
-      {activeTab !== "Main Table" && (
-        <div className="flex-1 overflow-auto flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <h2 className="text-2xl font-semibold text-foreground">
-              Coming Soon
-            </h2>
-            <p className="text-muted-foreground">
-              The <span className="font-medium">{activeTab}</span> view is
-              coming soon
-            </p>
-          </div>
-        </div>
-      )}
+        {/* List VIEW */}
+        {activeTab === "List" && (
+          <ListView
+            groups={memoizedFilteredData.groups}
+            statuses={statuses}
+            priorities={priorities}
+            members={members}
+            tags={tags}
+            onTaskClick={openTaskCard}
+            expandedTasks={effectiveExpandedTasks}
+            toggleTask={taskState.toggleTask}
+            onOpenComments={openCommentsPanel}
+            onOpenTaskCard={openTaskCard}
+            onStatusChange={handleStatusChange}
+            onPriorityChange={handlePriorityChange}
+            onPersonChange={handlePersonChange}
+            onRatingChange={handleRatingChange}
+            onEstimatedDateChange={handleEstimatedDateChange}
+            onEstimatedTimeChange={handleEstimatedTimeChange}
+            onTagChange={handleTagChange}
+            openPopoverId={popoverState.openPopoverId}
+            setOpenPopoverId={popoverState.setOpenPopoverId}
+            boardId={parseInt(boardId, 10)}
+            onTagCreated={(newTag) => {
+              setTags((prevTags) => [...prevTags, newTag]);
+            }}
+            onStatusCreated={handleStatusCreated}
+            onStatusesUpdated={handleStatusesUpdated}
+            onPriorityCreated={handlePriorityCreated}
+            onPrioritiesUpdated={handlePrioritiesUpdated}
+            inlineEditingTaskId={taskState.inlineEditingTaskId}
+            setInlineEditingTaskId={taskState.setInlineEditingTaskId}
+            inlineEditingTaskName={taskState.inlineEditingTaskName}
+            setInlineEditingTaskName={taskState.setInlineEditingTaskName}
+            onInlineEditTaskName={handleInlineEditTaskName}
+            activeTimerId={timerState.activeTimerId}
+            onTimerStart={handleTimerStart}
+            onTimerConflict={handleTimerConflict}
+            onTimeUpdate={(taskId: string, seconds: number) => {
+              updateTaskInGroups(taskId, { tracked_time_seconds: seconds });
+            }}
+            workloadColumns={workloadColumns}
+          />
+        )}
 
-      {/* ALL DIALOGS WILL GO HERE */}
-      {/* New Group Dialog */}
-      <Dialog open={newGroupDialogOpen} onOpenChange={setNewGroupDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Create New Group</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-3">
-              <label className="text-sm font-medium">Color</label>
-              <div className="flex gap-2">
-                {PRESET_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    className={`h-10 w-10 rounded-lg transition-all border-2 ${
-                      newGroupColorInput === color
-                        ? "border-foreground scale-110"
-                        : "border-transparent hover:scale-105"
-                    }`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setNewGroupColorInput(color)}
-                  />
-                ))}
+        {/* Other Views - Coming Soon */}
+        {activeTab !== "Main Table" &&
+          activeTab !== "Kanban" &&
+          activeTab !== "List" && (
+            <div className="flex-1 overflow-auto flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <h2 className="text-2xl font-semibold text-foreground">
+                  Coming Soon
+                </h2>
+                <p className="text-muted-foreground">
+                  The <span className="font-medium">{activeTab}</span> view is
+                  coming soon
+                </p>
               </div>
             </div>
-            <div className="grid gap-2">
-              <label htmlFor="group-name" className="text-sm font-medium">
-                Group Name
-              </label>
-              <Input
-                id="group-name"
-                placeholder="Enter group name..."
-                value={newGroupNameInput}
-                onChange={(e) => setNewGroupNameInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleCreateGroup();
-                  }
+          )}
+
+        {/* ALL DIALOGS WILL GO HERE */}
+        {/* New Group Dialog */}
+        <Dialog open={newGroupDialogOpen} onOpenChange={setNewGroupDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Create New Group</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-3">
+                <label className="text-sm font-medium">Color</label>
+                <div className="flex gap-2">
+                  {PRESET_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      className={`h-10 w-10 rounded-lg transition-all border-2 ${
+                        newGroupColorInput === color
+                          ? "border-foreground scale-110"
+                          : "border-transparent hover:scale-105"
+                      }`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setNewGroupColorInput(color)}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <label htmlFor="group-name" className="text-sm font-medium">
+                  Group Name
+                </label>
+                <Input
+                  id="group-name"
+                  placeholder="Enter group name..."
+                  value={newGroupNameInput}
+                  onChange={(e) => setNewGroupNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleCreateGroup();
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setNewGroupDialogOpen(false);
+                  setNewGroupNameInput("");
+                  setNewGroupColorInput("#3b82f6");
                 }}
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setNewGroupDialogOpen(false);
-                setNewGroupNameInput("");
-                setNewGroupColorInput("#3b82f6");
-              }}
-              disabled={isCreatingGroup}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateGroup}
-              disabled={!newGroupNameInput.trim() || isCreatingGroup}
-            >
-              {isCreatingGroup ? "Creating..." : "Create Group"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                disabled={isCreatingGroup}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateGroup}
+                disabled={!newGroupNameInput.trim() || isCreatingGroup}
+              >
+                {isCreatingGroup ? "Creating..." : "Create Group"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/*  Profile Details Dialog */}
-      <ProfileDialog
-        open={profileDialogOpen}
-        onOpenChange={setProfileDialogOpen}
-      />
-
-      {/* Delete Group Confirmation Dialog */}
-      <Dialog
-        open={deleteGroupDialogOpen}
-        onOpenChange={setDeleteGroupDialogOpen}
-      >
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Delete Group</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              Are you sure you want to delete this group? This action cannot be
-              undone.
-            </p>
-            {groupToDelete && (
-              <p className="text-sm font-medium mt-2">
-                Group:{" "}
-                <span className="text-foreground">
-                  {groups.find((g) => g.id === groupToDelete)?.name ||
-                    "Unknown"}
-                </span>
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDeleteGroupDialogOpen(false);
-                setGroupToDelete(null);
-              }}
-              disabled={isDeletingGroup}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmDeleteGroup}
-              disabled={isDeletingGroup}
-            >
-              {isDeletingGroup ? "Deleting..." : "Delete Group"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Task Dialog */}
-
-      {/* Timer Conflict Dialog */}
-      <Dialog
-        open={timerConflictDialogOpen}
-        onOpenChange={setTimerConflictDialogOpen}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Timer Already Running</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-foreground">
-              Another timer is already running on "
-              <strong>{conflictingTaskName}</strong>". Please stop it first
-              before starting a new timer.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setTimerConflictDialogOpen(false)}>
-              OK
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ALL SHEETS WILL GO HERE */}
-      <CommentsPanelSheet
-        open={commentsPanelOpen}
-        onOpenChange={(open) => {
-          if (!open) closeCommentsPanel();
-          else setCommentsPanelOpen(true);
-        }}
-        taskName={getTaskById(selectedCommentsId)?.name || "Task Details"}
-        taskId={selectedCommentsId}
-        comments={comments}
-        isLoadingComments={isLoadingComments}
-        updateText={updateText}
-        onUpdateTextChange={setUpdateText}
-        updateFiles={updateFiles}
-        onUpdateFilesChange={setUpdateFiles}
-        onSaveUpdate={saveUpdate}
-        onDeleteComment={handleDeleteComment}
-        onUpdateComment={updateTaskComment}
-        onSaveInlineReply={saveInlineReply}
-        onTaskButtonClick={() => {
-          closeCommentsPanel();
-          // Use search params to switch to task
-          setSearchParams((prev: URLSearchParams) => {
-            const next = new URLSearchParams(prev);
-            next.delete("comments");
-            if (selectedCommentsId) next.set("task", selectedCommentsId);
-            return next;
-          });
-        }}
-        boardId={boardId}
-      />
-
-      {/* Bulk Actions Toolbar */}
-      {Object.values(taskState.checkedTasks).some((checked) => checked) && (
-        <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50 py-4 px-6">
-          <div className="max-w-[1400px] mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-2">
-                <div className="bg-primary rounded-full w-8 h-8 flex items-center justify-center text-white font-semibold text-sm">
-                  {
-                    Object.values(taskState.checkedTasks).filter(
-                      (checked) => checked,
-                    ).length
-                  }
-                </div>
-                <span className="text-foreground font-medium">
-                  Items selected
-                </span>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <button
-                  className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={deleteCheckedTasks}
-                >
-                  <Trash2 className="h-5 w-5" />
-                  <span className="text-xs">Delete</span>
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={() => taskState.clearCheckedTasks()}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* */}
-      {/* Task Card Dialog */}
-      {selectedTaskCardId && (
-        <TaskCardDialog
-          open={sheetTaskCardOpen}
-          onOpenChange={(open) => {
-            if (!open) closeTaskCard();
-            else setSheetTaskCardOpen(true);
-          }}
-          task={getTaskById(selectedTaskCardId)}
-          boardName={boardName}
-          statuses={statuses}
-          priorities={priorities}
-          members={members}
-          onStatusChange={handleStatusChange}
-          onPriorityChange={handlePriorityChange}
-          onPersonChange={handlePersonChange}
-          onRatingChange={handleRatingChange}
-          onEstimatedDateChange={handleEstimatedDateChange}
-          boardId={Number(boardId)}
-          groupName={
-            groups.find((g) =>
-              g.tasks.some(
-                (t) =>
-                  t.id === selectedTaskCardId ||
-                  t.subitems?.some((s) => s.id === selectedTaskCardId),
-              ),
-            )?.name
-          }
-          groupColor={
-            groups.find((g) =>
-              g.tasks.some(
-                (t) =>
-                  t.id === selectedTaskCardId ||
-                  t.subitems?.some((s) => s.id === selectedTaskCardId),
-              ),
-            )?.color
-          }
-          onInlineEditTaskName={handleInlineEditTaskName}
-          tags={tags}
-          onTagChange={handleTagChange}
-          onTagCreated={(newTag) => {
-            setTags((prevTags) => [...prevTags, newTag]);
-          }}
-          onStatusCreated={handleStatusCreated}
-          onPriorityCreated={handlePriorityCreated}
-          onDescriptionChange={handleUpdateTaskDescription}
-          initialEditDescription={taskCardInitialEditDescription}
-          onEstimatedTimeChange={handleEstimatedTimeChange}
+        {/*  Profile Details Dialog */}
+        <ProfileDialog
+          open={profileDialogOpen}
+          onOpenChange={setProfileDialogOpen}
         />
-      )}
 
-      {/* Edit Labels Dialog */}
-      <Dialog
-        open={editLabelsDialogOpen}
-        onOpenChange={setEditLabelsDialogOpen}
-      >
-        <DialogContent className="max-w-2xl flex flex-col max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Edit Group Labels</DialogTitle>
-          </DialogHeader>
+        {/* Delete Group Confirmation Dialog */}
+        <Dialog
+          open={deleteGroupDialogOpen}
+          onOpenChange={setDeleteGroupDialogOpen}
+        >
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Delete Group</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to delete this group? This action cannot
+                be undone.
+              </p>
+              {groupToDelete && (
+                <p className="text-sm font-medium mt-2">
+                  Group:{" "}
+                  <span className="text-foreground">
+                    {groups.find((g) => g.id === groupToDelete)?.name ||
+                      "Unknown"}
+                  </span>
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteGroupDialogOpen(false);
+                  setGroupToDelete(null);
+                }}
+                disabled={isDeletingGroup}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDeleteGroup}
+                disabled={isDeletingGroup}
+              >
+                {isDeletingGroup ? "Deleting..." : "Delete Group"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-          {/* Scrollable Labels List */}
-          <div className="flex-1 overflow-y-auto space-y-2 pr-4">
-            {/* Existing Labels */}
-            {Array.isArray(labels) && labels.length > 0 && (
-              <div className="space-y-2">
-                {labels.map((label) => (
-                  <div
-                    key={`edit-label-${label.id}`}
-                    className="flex items-center gap-2 p-3 rounded-lg bg-muted"
+        {/* Edit Task Dialog */}
+
+        {/* Timer Conflict Dialog */}
+        <Dialog
+          open={timerConflictDialogOpen}
+          onOpenChange={setTimerConflictDialogOpen}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Timer Already Running</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-foreground">
+                Another timer is already running on "
+                <strong>{conflictingTaskName}</strong>". Please stop it first
+                before starting a new timer.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setTimerConflictDialogOpen(false)}>
+                OK
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ALL SHEETS WILL GO HERE */}
+        <CommentsPanelSheet
+          open={commentsPanelOpen}
+          onOpenChange={(open) => {
+            if (!open) closeCommentsPanel();
+            else setCommentsPanelOpen(true);
+          }}
+          taskName={getTaskById(selectedCommentsId)?.name || "Task Details"}
+          taskId={selectedCommentsId}
+          comments={comments}
+          isLoadingComments={isLoadingComments}
+          updateText={updateText}
+          onUpdateTextChange={setUpdateText}
+          updateFiles={updateFiles}
+          onUpdateFilesChange={setUpdateFiles}
+          onSaveUpdate={saveUpdate}
+          onDeleteComment={handleDeleteComment}
+          onUpdateComment={updateTaskComment}
+          onSaveInlineReply={saveInlineReply}
+          onTaskButtonClick={() => {
+            closeCommentsPanel();
+            // Use search params to switch to task
+            setSearchParams((prev: URLSearchParams) => {
+              const next = new URLSearchParams(prev);
+              next.delete("comments");
+              if (selectedCommentsId) next.set("task", selectedCommentsId);
+              return next;
+            });
+          }}
+          boardId={boardId}
+        />
+
+        {/* Bulk Actions Toolbar */}
+        {Object.values(taskState.checkedTasks).some((checked) => checked) && (
+          <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50 py-4 px-6">
+            <div className="max-w-[1400px] mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-8">
+                <div className="flex items-center gap-2">
+                  <div className="bg-primary rounded-full w-8 h-8 flex items-center justify-center text-white font-semibold text-sm">
+                    {
+                      Object.values(taskState.checkedTasks).filter(
+                        (checked) => checked,
+                      ).length
+                    }
+                  </div>
+                  <span className="text-foreground font-medium">
+                    Items selected
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <button
+                    className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={deleteCheckedTasks}
                   >
-                    {editingLabelId === String(label.id) ? (
-                      <>
-                        <Input
-                          value={editingLabelName}
-                          onChange={(e) => setEditingLabelName(e.target.value)}
-                          className="flex-1"
-                          placeholder="Label name..."
-                        />
-                        <ColorPickerPopover
-                          color={editingLabelColor}
-                          onColorChange={setEditingLabelColor}
-                          isOpen={editingLabelColorPickerOpen}
-                          onOpenChange={setEditingLabelColorPickerOpen}
-                          size="w-10 h-10"
-                        />
-                        <Button
-                          size="sm"
-                          className="h-8 px-2"
-                          onClick={async () => {
-                            try {
-                              const organizationIdNum = getOrganizationId();
-                              const boardIdNum = Number(boardId);
+                    <Trash2 className="h-5 w-5" />
+                    <span className="text-xs">Delete</span>
+                  </button>
+                </div>
+              </div>
 
-                              if (organizationIdNum === null) {
-                                toast.error("Organization not found");
-                                return;
-                              }
+              <button
+                onClick={() => taskState.clearCheckedTasks()}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
 
-                              // Capture the old label data before updating
-                              const oldLabel = labels.find(
-                                (l) => String(l.id) === editingLabelId,
-                              );
-                              const oldLabelName = oldLabel?.label_name;
-                              const oldLabelColor = oldLabel?.label_color;
+        {/* */}
+        {/* Task Card Dialog */}
+        {selectedTaskCardId && (
+          <TaskCardDialog
+            open={sheetTaskCardOpen}
+            onOpenChange={(open) => {
+              if (!open) closeTaskCard();
+              else setSheetTaskCardOpen(true);
+            }}
+            task={getTaskById(selectedTaskCardId)}
+            boardName={boardName}
+            statuses={statuses}
+            priorities={priorities}
+            members={members}
+            onStatusChange={handleStatusChange}
+            onPriorityChange={handlePriorityChange}
+            onPersonChange={handlePersonChange}
+            onRatingChange={handleRatingChange}
+            onEstimatedDateChange={handleEstimatedDateChange}
+            boardId={Number(boardId)}
+            groupName={
+              groups.find((g) =>
+                g.tasks.some(
+                  (t) =>
+                    t.id === selectedTaskCardId ||
+                    t.subitems?.some((s) => s.id === selectedTaskCardId),
+                ),
+              )?.name
+            }
+            groupColor={
+              groups.find((g) =>
+                g.tasks.some(
+                  (t) =>
+                    t.id === selectedTaskCardId ||
+                    t.subitems?.some((s) => s.id === selectedTaskCardId),
+                ),
+              )?.color
+            }
+            onInlineEditTaskName={handleInlineEditTaskName}
+            tags={tags}
+            onTagChange={handleTagChange}
+            onTagCreated={(newTag) => {
+              setTags((prevTags) => [...prevTags, newTag]);
+            }}
+            onStatusCreated={handleStatusCreated}
+            onPriorityCreated={handlePriorityCreated}
+            onDescriptionChange={handleUpdateTaskDescription}
+            initialEditDescription={taskCardInitialEditDescription}
+            onEstimatedTimeChange={handleEstimatedTimeChange}
+          />
+        )}
 
-                              // Call API to update label
-                              await cmsApi.updateLabel({
-                                label_id: editingLabelId!,
-                                label_name: editingLabelName,
-                                label_color: editingLabelColor,
-                                organization_id: organizationIdNum,
-                                board_id: boardIdNum,
-                              });
+        {/* Edit Labels Dialog */}
+        <Dialog
+          open={editLabelsDialogOpen}
+          onOpenChange={setEditLabelsDialogOpen}
+        >
+          <DialogContent className="max-w-2xl flex flex-col max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>Edit Group Labels</DialogTitle>
+            </DialogHeader>
 
-                              // Update local state
-                              setLabels((prev) =>
-                                prev.map((l) =>
-                                  String(l.id) === editingLabelId
-                                    ? {
-                                        ...l,
-                                        label_name: editingLabelName,
-                                        label_color: editingLabelColor,
+            {/* Scrollable Labels List */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-4">
+              {/* Existing Labels */}
+              {Array.isArray(labels) && labels.length > 0 && (
+                <div className="space-y-2">
+                  {labels.map((label) => (
+                    <div
+                      key={`edit-label-${label.id}`}
+                      className="flex items-center gap-2 p-3 rounded-lg bg-muted"
+                    >
+                      {editingLabelId === String(label.id) ? (
+                        <>
+                          <Input
+                            value={editingLabelName}
+                            onChange={(e) =>
+                              setEditingLabelName(e.target.value)
+                            }
+                            className="flex-1"
+                            placeholder="Label name..."
+                          />
+                          <ColorPickerPopover
+                            color={editingLabelColor}
+                            onColorChange={setEditingLabelColor}
+                            isOpen={editingLabelColorPickerOpen}
+                            onOpenChange={setEditingLabelColorPickerOpen}
+                            size="w-10 h-10"
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={async () => {
+                              try {
+                                const organizationIdNum = getOrganizationId();
+                                const boardIdNum = Number(boardId);
+
+                                if (organizationIdNum === null) {
+                                  toast.error("Organization not found");
+                                  return;
+                                }
+
+                                // Capture the old label data before updating
+                                const oldLabel = labels.find(
+                                  (l) => String(l.id) === editingLabelId,
+                                );
+                                const oldLabelName = oldLabel?.label_name;
+                                const oldLabelColor = oldLabel?.label_color;
+
+                                // Call API to update label
+                                await cmsApi.updateLabel({
+                                  label_id: editingLabelId!,
+                                  label_name: editingLabelName,
+                                  label_color: editingLabelColor,
+                                  organization_id: organizationIdNum,
+                                  board_id: boardIdNum,
+                                });
+
+                                // Update local state
+                                setLabels((prev) =>
+                                  prev.map((l) =>
+                                    String(l.id) === editingLabelId
+                                      ? {
+                                          ...l,
+                                          label_name: editingLabelName,
+                                          label_color: editingLabelColor,
+                                        }
+                                      : l,
+                                  ),
+                                );
+
+                                // Update group labels if any group is using this label
+                                if (oldLabelName) {
+                                  // First, identify which groups need to be updated
+                                  const groupsToUpdate: string[] = [];
+
+                                  // Check current group labels to find matches (match by name or id as a fallback)
+                                  Object.entries(groupLabels).forEach(
+                                    ([groupId, gLabel]) => {
+                                      if (
+                                        gLabel === oldLabelName ||
+                                        gLabel === String(editingLabelId)
+                                      ) {
+                                        groupsToUpdate.push(groupId);
                                       }
-                                    : l,
-                                ),
-                              );
+                                    },
+                                  );
 
-                              // Update group labels if any group is using this label
-                              if (oldLabelName) {
+                                  console.log(
+                                    "Groups to update:",
+                                    groupsToUpdate,
+                                  );
+                                  console.log("Old label name:", oldLabelName);
+                                  console.log(
+                                    "New label name:",
+                                    editingLabelName,
+                                  );
+
+                                  // Update local state
+                                  setGroupLabels((prevGroupLabels) => {
+                                    const updatedGroupLabels = {
+                                      ...prevGroupLabels,
+                                    };
+                                    let hasUpdates = false;
+
+                                    // Find groups that are using the old label name
+                                    Object.keys(updatedGroupLabels).forEach(
+                                      (groupId) => {
+                                        if (
+                                          updatedGroupLabels[groupId] ===
+                                          oldLabelName
+                                        ) {
+                                          updatedGroupLabels[groupId] =
+                                            editingLabelName;
+                                          hasUpdates = true;
+                                        }
+                                      },
+                                    );
+
+                                    return hasUpdates
+                                      ? updatedGroupLabels
+                                      : prevGroupLabels;
+                                  });
+
+                                  // Update groups on backend
+                                  if (groupsToUpdate.length > 0) {
+                                    console.log(
+                                      "Calling group update API for groups:",
+                                      groupsToUpdate,
+                                    );
+                                    try {
+                                      await Promise.all(
+                                        groupsToUpdate.map(async (groupId) => {
+                                          console.log(
+                                            `Updating group ${groupId} with label: ${editingLabelName}`,
+                                          );
+                                          await groupsApi.updateGroup(groupId, {
+                                            label: editingLabelName,
+                                            label_color: editingLabelColor,
+                                          });
+                                          console.log(
+                                            `Successfully updated group ${groupId}`,
+                                          );
+                                        }),
+                                      );
+
+                                      setTimeout(() => {
+                                        toast.success(
+                                          `Updated ${groupsToUpdate.length} group${groupsToUpdate.length > 1 ? "s" : ""} using this label`,
+                                        );
+                                      }, 500);
+                                    } catch (error) {
+                                      console.error(
+                                        "Failed to update some groups:",
+                                        error,
+                                      );
+                                      toast.error(
+                                        "Some groups failed to update on the server",
+                                      );
+                                    }
+                                  } else {
+                                    console.log("No groups found to update");
+                                  }
+                                }
+
+                                // Update group label colors if any group is using this label
+                                if (oldLabelColor) {
+                                  setGroupLabelColors(
+                                    (prevGroupLabelColors) => {
+                                      const updatedGroupLabelColors = {
+                                        ...prevGroupLabelColors,
+                                      };
+                                      let hasUpdates = false;
+
+                                      // Find groups that are using the old label color and update them
+                                      Object.keys(
+                                        updatedGroupLabelColors,
+                                      ).forEach((groupId) => {
+                                        if (
+                                          updatedGroupLabelColors[groupId] ===
+                                          oldLabelColor
+                                        ) {
+                                          updatedGroupLabelColors[groupId] =
+                                            editingLabelColor;
+                                          hasUpdates = true;
+                                        }
+                                      });
+
+                                      return hasUpdates
+                                        ? updatedGroupLabelColors
+                                        : prevGroupLabelColors;
+                                    },
+                                  );
+                                }
+
+                                setEditingLabelId(null);
+                                toast.success("Label Updated Successfully");
+                              } catch (error) {
+                                console.error("Failed to update label:", error);
+                                toast.error("Failed to Update Label");
+                              }
+                            }}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2"
+                            onClick={() => setEditingLabelId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <div
+                            className="flex-1 px-3 py-2 rounded text-white font-medium"
+                            style={{ backgroundColor: label.label_color }}
+                          >
+                            {label.label_name}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => {
+                              setEditingLabelId(String(label.id));
+                              setEditingLabelName(label.label_name);
+                              setEditingLabelColor(label.label_color);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            onClick={async () => {
+                              try {
+                                // Capture the label data before deleting
+                                const labelToDelete = label;
+
+                                // Call API to delete label
+                                await cmsApi.deleteLabel(label.id);
+
+                                // Remove from local state
+                                setLabels((prev) =>
+                                  prev.filter(
+                                    (l) => String(l.id) !== String(label.id),
+                                  ),
+                                );
+
+                                // Clear group labels that were using this deleted label
                                 // First, identify which groups need to be updated
                                 const groupsToUpdate: string[] = [];
 
@@ -5345,8 +5688,8 @@ export function WorkloadBoard({
                                 Object.entries(groupLabels).forEach(
                                   ([groupId, gLabel]) => {
                                     if (
-                                      gLabel === oldLabelName ||
-                                      gLabel === String(editingLabelId)
+                                      gLabel === labelToDelete.label_name ||
+                                      gLabel === String(labelToDelete.id)
                                     ) {
                                       groupsToUpdate.push(groupId);
                                     }
@@ -5354,31 +5697,32 @@ export function WorkloadBoard({
                                 );
 
                                 console.log(
-                                  "Groups to update:",
+                                  "Groups to clear labels from:",
                                   groupsToUpdate,
                                 );
-                                console.log("Old label name:", oldLabelName);
                                 console.log(
-                                  "New label name:",
-                                  editingLabelName,
+                                  "Deleted label name:",
+                                  labelToDelete.label_name,
+                                );
+                                console.log(
+                                  "Current group labels:",
+                                  groupLabels,
                                 );
 
-                                // Update local state
                                 setGroupLabels((prevGroupLabels) => {
                                   const updatedGroupLabels = {
                                     ...prevGroupLabels,
                                   };
                                   let hasUpdates = false;
 
-                                  // Find groups that are using the old label name
+                                  // Find groups that are using the deleted label name
                                   Object.keys(updatedGroupLabels).forEach(
                                     (groupId) => {
                                       if (
                                         updatedGroupLabels[groupId] ===
-                                        oldLabelName
+                                        labelToDelete.label_name
                                       ) {
-                                        updatedGroupLabels[groupId] =
-                                          editingLabelName;
+                                        delete updatedGroupLabels[groupId];
                                         hasUpdates = true;
                                       }
                                     },
@@ -5389,64 +5733,63 @@ export function WorkloadBoard({
                                     : prevGroupLabels;
                                 });
 
-                                // Update groups on backend
+                                // Update groups on backend to clear labels
                                 if (groupsToUpdate.length > 0) {
                                   console.log(
-                                    "Calling group update API for groups:",
+                                    "Calling group update API to clear labels for groups:",
                                     groupsToUpdate,
                                   );
                                   try {
                                     await Promise.all(
                                       groupsToUpdate.map(async (groupId) => {
                                         console.log(
-                                          `Updating group ${groupId} with label: ${editingLabelName}`,
+                                          `Clearing labels from group ${groupId}`,
                                         );
                                         await groupsApi.updateGroup(groupId, {
-                                          label: editingLabelName,
-                                          label_color: editingLabelColor,
+                                          label: null,
+                                          label_color: null,
                                         });
                                         console.log(
-                                          `Successfully updated group ${groupId}`,
+                                          `Successfully cleared labels from group ${groupId}`,
                                         );
                                       }),
                                     );
 
                                     setTimeout(() => {
                                       toast.success(
-                                        `Updated ${groupsToUpdate.length} group${groupsToUpdate.length > 1 ? "s" : ""} using this label`,
+                                        `Cleared labels from ${groupsToUpdate.length} group${groupsToUpdate.length > 1 ? "s" : ""}`,
                                       );
                                     }, 500);
                                   } catch (error) {
                                     console.error(
-                                      "Failed to update some groups:",
+                                      "Failed to clear labels from some groups:",
                                       error,
                                     );
                                     toast.error(
-                                      "Some groups failed to update on the server",
+                                      "Some groups failed to clear labels on the server",
                                     );
                                   }
                                 } else {
-                                  console.log("No groups found to update");
+                                  console.log(
+                                    "No groups found to clear labels from",
+                                  );
                                 }
-                              }
 
-                              // Update group label colors if any group is using this label
-                              if (oldLabelColor) {
+                                // Clear group label colors that were using this deleted label
                                 setGroupLabelColors((prevGroupLabelColors) => {
                                   const updatedGroupLabelColors = {
                                     ...prevGroupLabelColors,
                                   };
                                   let hasUpdates = false;
 
-                                  // Find groups that are using the old label color and update them
+                                  // Find groups that are using the deleted label color and clear them
                                   Object.keys(updatedGroupLabelColors).forEach(
                                     (groupId) => {
                                       if (
                                         updatedGroupLabelColors[groupId] ===
-                                        oldLabelColor
+                                        labelToDelete.label_color
                                       ) {
-                                        updatedGroupLabelColors[groupId] =
-                                          editingLabelColor;
+                                        delete updatedGroupLabelColors[groupId];
                                         hasUpdates = true;
                                       }
                                     },
@@ -5456,305 +5799,130 @@ export function WorkloadBoard({
                                     ? updatedGroupLabelColors
                                     : prevGroupLabelColors;
                                 });
+
+                                toast.success("Label Deleted Successfully");
+                              } catch (error) {
+                                console.error("Failed to delete label:", error);
+                                toast.error("Failed to Delete Label");
                               }
-
-                              setEditingLabelId(null);
-                              toast.success("Label Updated Successfully");
-                            } catch (error) {
-                              console.error("Failed to update label:", error);
-                              toast.error("Failed to Update Label");
-                            }
-                          }}
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 px-2"
-                          onClick={() => setEditingLabelId(null)}
-                        >
-                          Cancel
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <div
-                          className="flex-1 px-3 py-2 rounded text-white font-medium"
-                          style={{ backgroundColor: label.label_color }}
-                        >
-                          {label.label_name}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => {
-                            setEditingLabelId(String(label.id));
-                            setEditingLabelName(label.label_name);
-                            setEditingLabelColor(label.label_color);
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          onClick={async () => {
-                            try {
-                              // Capture the label data before deleting
-                              const labelToDelete = label;
-
-                              // Call API to delete label
-                              await cmsApi.deleteLabel(label.id);
-
-                              // Remove from local state
-                              setLabels((prev) =>
-                                prev.filter(
-                                  (l) => String(l.id) !== String(label.id),
-                                ),
-                              );
-
-                              // Clear group labels that were using this deleted label
-                              // First, identify which groups need to be updated
-                              const groupsToUpdate: string[] = [];
-
-                              // Check current group labels to find matches (match by name or id as a fallback)
-                              Object.entries(groupLabels).forEach(
-                                ([groupId, gLabel]) => {
-                                  if (
-                                    gLabel === labelToDelete.label_name ||
-                                    gLabel === String(labelToDelete.id)
-                                  ) {
-                                    groupsToUpdate.push(groupId);
-                                  }
-                                },
-                              );
-
-                              console.log(
-                                "Groups to clear labels from:",
-                                groupsToUpdate,
-                              );
-                              console.log(
-                                "Deleted label name:",
-                                labelToDelete.label_name,
-                              );
-                              console.log("Current group labels:", groupLabels);
-
-                              setGroupLabels((prevGroupLabels) => {
-                                const updatedGroupLabels = {
-                                  ...prevGroupLabels,
-                                };
-                                let hasUpdates = false;
-
-                                // Find groups that are using the deleted label name
-                                Object.keys(updatedGroupLabels).forEach(
-                                  (groupId) => {
-                                    if (
-                                      updatedGroupLabels[groupId] ===
-                                      labelToDelete.label_name
-                                    ) {
-                                      delete updatedGroupLabels[groupId];
-                                      hasUpdates = true;
-                                    }
-                                  },
-                                );
-
-                                return hasUpdates
-                                  ? updatedGroupLabels
-                                  : prevGroupLabels;
-                              });
-
-                              // Update groups on backend to clear labels
-                              if (groupsToUpdate.length > 0) {
-                                console.log(
-                                  "Calling group update API to clear labels for groups:",
-                                  groupsToUpdate,
-                                );
-                                try {
-                                  await Promise.all(
-                                    groupsToUpdate.map(async (groupId) => {
-                                      console.log(
-                                        `Clearing labels from group ${groupId}`,
-                                      );
-                                      await groupsApi.updateGroup(groupId, {
-                                        label: null,
-                                        label_color: null,
-                                      });
-                                      console.log(
-                                        `Successfully cleared labels from group ${groupId}`,
-                                      );
-                                    }),
-                                  );
-
-                                  setTimeout(() => {
-                                    toast.success(
-                                      `Cleared labels from ${groupsToUpdate.length} group${groupsToUpdate.length > 1 ? "s" : ""}`,
-                                    );
-                                  }, 500);
-                                } catch (error) {
-                                  console.error(
-                                    "Failed to clear labels from some groups:",
-                                    error,
-                                  );
-                                  toast.error(
-                                    "Some groups failed to clear labels on the server",
-                                  );
-                                }
-                              } else {
-                                console.log(
-                                  "No groups found to clear labels from",
-                                );
-                              }
-
-                              // Clear group label colors that were using this deleted label
-                              setGroupLabelColors((prevGroupLabelColors) => {
-                                const updatedGroupLabelColors = {
-                                  ...prevGroupLabelColors,
-                                };
-                                let hasUpdates = false;
-
-                                // Find groups that are using the deleted label color and clear them
-                                Object.keys(updatedGroupLabelColors).forEach(
-                                  (groupId) => {
-                                    if (
-                                      updatedGroupLabelColors[groupId] ===
-                                      labelToDelete.label_color
-                                    ) {
-                                      delete updatedGroupLabelColors[groupId];
-                                      hasUpdates = true;
-                                    }
-                                  },
-                                );
-
-                                return hasUpdates
-                                  ? updatedGroupLabelColors
-                                  : prevGroupLabelColors;
-                              });
-
-                              toast.success("Label Deleted Successfully");
-                            } catch (error) {
-                              console.error("Failed to delete label:", error);
-                              toast.error("Failed to Delete Label");
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Fixed Add New Label Section */}
-          <div className="border-t border-border pt-4 space-y-3">
-            <h4 className="font-medium text-sm">Add New Label</h4>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Label name..."
-                value={newLabelName}
-                onChange={(e) => setNewLabelName(e.target.value)}
-                className="flex-1"
-              />
-              <ColorPickerPopover
-                color={newLabelColor}
-                onColorChange={setNewLabelColor}
-                isOpen={newLabelColorPickerOpen}
-                onOpenChange={setNewLabelColorPickerOpen}
-                size="w-10 h-10"
-              />
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEditLabelsDialogOpen(false);
-                setNewLabelName("");
-                setNewLabelColor("#a855f7");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={async () => {
-                try {
-                  const organizationIdNum = getOrganizationId();
-                  const boardIdNum = Number(boardId);
-                  const userId = getCurrentUserId();
+            {/* Fixed Add New Label Section */}
+            <div className="border-t border-border pt-4 space-y-3">
+              <h4 className="font-medium text-sm">Add New Label</h4>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Label name..."
+                  value={newLabelName}
+                  onChange={(e) => setNewLabelName(e.target.value)}
+                  className="flex-1"
+                />
+                <ColorPickerPopover
+                  color={newLabelColor}
+                  onColorChange={setNewLabelColor}
+                  isOpen={newLabelColorPickerOpen}
+                  onOpenChange={setNewLabelColorPickerOpen}
+                  size="w-10 h-10"
+                />
+              </div>
+            </div>
 
-                  if (organizationIdNum === null) {
-                    toast.error("Organization not found");
-                    return;
-                  }
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditLabelsDialogOpen(false);
+                  setNewLabelName("");
+                  setNewLabelColor("#a855f7");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    const organizationIdNum = getOrganizationId();
+                    const boardIdNum = Number(boardId);
+                    const userId = getCurrentUserId();
 
-                  if (userId === null) {
-                    toast.error("User not found");
-                    return;
-                  }
-
-                  // Create label if name is provided
-                  if (newLabelName.trim()) {
-                    try {
-                      await cmsApi.createLabel({
-                        label_name: newLabelName.trim(),
-                        label_color: newLabelColor,
-                        organization_id: organizationIdNum,
-                        board_id: boardIdNum,
-                      });
-                      toast.success("Label Created Successfully");
-                    } catch (createError) {
-                      console.error("Failed to create label:", createError);
-                      toast.error("Failed to Create Label");
+                    if (organizationIdNum === null) {
+                      toast.error("Organization not found");
                       return;
                     }
+
+                    if (userId === null) {
+                      toast.error("User not found");
+                      return;
+                    }
+
+                    // Create label if name is provided
+                    if (newLabelName.trim()) {
+                      try {
+                        await cmsApi.createLabel({
+                          label_name: newLabelName.trim(),
+                          label_color: newLabelColor,
+                          organization_id: organizationIdNum,
+                          board_id: boardIdNum,
+                        });
+                        toast.success("Label Created Successfully");
+                      } catch (createError) {
+                        console.error("Failed to create label:", createError);
+                        toast.error("Failed to Create Label");
+                        return;
+                      }
+                    }
+
+                    // Clear CMS cache to ensure fresh data
+                    clearCMSCache(boardIdNum);
+
+                    // Fetch updated labels from CMS API immediately after creating label
+                    try {
+                      debugLog("Fetching updated CMS data...");
+                      const cmsData = await getCMSData({
+                        organization_id: organizationIdNum,
+                        board_id: boardIdNum,
+                        user_id: userId,
+                      });
+
+                      debugLog("CMS Data received:", cmsData);
+
+                      // Update labels state - this will reflect in all UI places where labels are used
+                      setLabels(cmsData.labels || []);
+                      debugLog("Labels updated:", cmsData.labels);
+
+                      // Close dialog and reset form
+                      setEditLabelsDialogOpen(false);
+                      setNewLabelName("");
+                      setNewLabelColor("#a855f7");
+
+                      // Close the Edit Group popover to force re-render when reopened
+                      setEditGroupDialogOpen(false);
+                    } catch (fetchError) {
+                      console.error("Failed to fetch CMS data:", fetchError);
+                      toast.error("Failed to Fetch Updated Labels");
+                    }
+                  } catch (error) {
+                    console.error("Failed to update labels:", error);
+                    toast.error("Failed to update labels");
                   }
-
-                  // Clear CMS cache to ensure fresh data
-                  clearCMSCache(boardIdNum);
-
-                  // Fetch updated labels from CMS API immediately after creating label
-                  try {
-                    debugLog("Fetching updated CMS data...");
-                    const cmsData = await getCMSData({
-                      organization_id: organizationIdNum,
-                      board_id: boardIdNum,
-                      user_id: userId,
-                    });
-
-                    debugLog("CMS Data received:", cmsData);
-
-                    // Update labels state - this will reflect in all UI places where labels are used
-                    setLabels(cmsData.labels || []);
-                    debugLog("Labels updated:", cmsData.labels);
-
-                    // Close dialog and reset form
-                    setEditLabelsDialogOpen(false);
-                    setNewLabelName("");
-                    setNewLabelColor("#a855f7");
-
-                    // Close the Edit Group popover to force re-render when reopened
-                    setEditGroupDialogOpen(false);
-                  } catch (fetchError) {
-                    console.error("Failed to fetch CMS data:", fetchError);
-                    toast.error("Failed to Fetch Updated Labels");
-                  }
-                } catch (error) {
-                  console.error("Failed to update labels:", error);
-                  toast.error("Failed to update labels");
-                }
-              }}
-            >
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                }}
+              >
+                Done
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }
