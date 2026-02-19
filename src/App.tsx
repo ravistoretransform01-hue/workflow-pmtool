@@ -9,6 +9,7 @@ import { ProtectedRoute,  ProtectedLayout} from "@/shared/components/ProtectedRo
 import LoginPage from "@/features/auth/pages/LoginPage";
 import SignupPage from "@/features/auth/pages/SignupPage";
 import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage";
+import ResetPasswordPage from "./features/auth/pages/ResetPasswordPage";
 import LandingPage from "@/features/landing/pages/LandingPage";
 import HomePage from "@/features/home/pages/HomePage";
 import MyWork from "@/pages/MyWork";
@@ -29,32 +30,42 @@ const App = () => (
     <BrowserRouter>
       <TestUserProvider>
         {/* <WorkspaceProvider> */}
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-            {/* Protected Routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<ProtectedLayout />}>
-                <Route path="home" element={<HomePage />} />
-                <Route path="my-work" element={<MyWork />} />
-                <Route path="my-team" element={<MyTeam />} />
-                <Route path="all-items" element={<AllItems />} />
-                <Route path="my-habits" element={<MyHabits />} />
-                <Route path="members" element={<MembersPage />} />
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<ProtectedLayout />}>
+              <Route path="home" element={<HomePage />} />
+              <Route path="my-work" element={<MyWork />} />
+              <Route path="my-team" element={<MyTeam />} />
+              <Route path="all-items" element={<AllItems />} />
+              <Route path="my-habits" element={<MyHabits />} />
+              <Route path="members" element={<MembersPage />} />
 
-                <Route path="workspace/:workspaceId" element={<DynamicWorkspace />} />
-                <Route path="board/:boardId" element={<DynamicBoard />} />
-                <Route path="board/:boardId/dashboard" element={<BoardDashboardPage />} />
-                <Route path="workspace/:workspaceId/doc/:documentId" element={<DocumentEditor />} />
+              <Route
+                path="workspace/:workspaceId"
+                element={<DynamicWorkspace />}
+              />
+              <Route path="board/:boardId" element={<DynamicBoard />} />
+              <Route
+                path="board/:boardId/dashboard"
+                element={<BoardDashboardPage />}
+              />
+              <Route
+                path="workspace/:workspaceId/doc/:documentId"
+                element={<DocumentEditor />}
+              />
 
-                <Route path="*" element={<NotFound />} />
-              </Route>
+              <Route path="*" element={<NotFound />} />
             </Route>
-          </Routes>
+          </Route>
+        </Routes>
         {/* </WorkspaceProvider> */}
       </TestUserProvider>
     </BrowserRouter>

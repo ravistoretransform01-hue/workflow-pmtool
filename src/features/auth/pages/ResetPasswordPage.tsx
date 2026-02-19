@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/label";
-import { authApi } from "../authApi";
 import {
   Card,
   CardContent,
@@ -13,19 +12,39 @@ import {
 } from "@/shared/components/card";
 import { BarChart3, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
+import { authApi } from "../authApi";
 
-const ForgotPasswordPage = () => {
-  const [email, setEmail] = useState("");
+const ResetPasswordPage = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const key = searchParams.get("key") || "";
+  const login = searchParams.get("login") || "";
+
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Email validation regex
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast.error("Invalid Email", {
-        description: "Please enter a valid email address",
+    if (password.length < 6) {
+      toast.error("Invalid Password", {
+        description: "Password must be at least 6 characters long",
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast.error("Password Mismatch", {
+        description: "Passwords do not match",
+      });
+      return;
+    }
+
+    if (!key || !login) {
+      toast.error("Invalid Reset Link", {
+        description:
+          "The reset link is missing required information. Please request a new one.",
       });
       return;
     }
@@ -33,12 +52,19 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const response = await authApi.forgotPassword(email);
+      const response = await authApi.resetPassword({
+        key,
+        login,
+        new_password: password,
+      });
+
       if (response.success) {
         toast.success("Success", {
-          description: response.message || "Reset link has been sent.",
+          description:
+            response.message ||
+            "Password has been successfully updated. You can now log in.",
         });
-        setEmail(""); // Clear email field on success
+        navigate("/login");
       } else {
         toast.error("Error", {
           description:
@@ -48,7 +74,7 @@ const ForgotPasswordPage = () => {
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.message ||
-        "Failed to send reset link. Please try again.";
+        "Failed to reset password. Please try again.";
       toast.error("Error", {
         description: errorMessage,
       });
@@ -70,7 +96,7 @@ const ForgotPasswordPage = () => {
               Project Manager
             </h1>
             <p className="text-muted-foreground text-lg">
-              Recover your account
+              Set your new password
             </p>
           </div>
         </div>
@@ -79,22 +105,36 @@ const ForgotPasswordPage = () => {
         <Card className="shadow-card border-border bg-card">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-semibold">
-              Forgot Password
+              Reset Password
             </CardTitle>
             <CardDescription>
-              Enter your email address to receive a password reset link
+              Enter your new password below to reset your account access
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="password">New Password</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  className="h-12 bg-background border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   disabled={loading}
                   className="h-12 bg-background border-border"
@@ -109,7 +149,7 @@ const ForgotPasswordPage = () => {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending...
+                    Resetting...
                   </>
                 ) : (
                   "Reset Password"
@@ -133,4 +173,4 @@ const ForgotPasswordPage = () => {
   );
 };
 
-export default ForgotPasswordPage;
+export default ResetPasswordPage;
