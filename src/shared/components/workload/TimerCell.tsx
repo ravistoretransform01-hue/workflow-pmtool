@@ -47,7 +47,7 @@ export function TimerCell({
 
   // Check if current user is assigned to this task
   const isAssignedToCurrentUser = assignedToIds.some(
-    (id) => String(id) === String(currentUserId)
+    (id) => String(id) === String(currentUserId),
   );
 
   // Check if estimated date is overdue (past today)
@@ -58,28 +58,28 @@ export function TimerCell({
       // For single dates like "27 jan, '26", use that date
       // For ranges like "Jan 19 - 30", use the end date (30)
       let dateStr = estimatedDate;
-      
+
       // If it's a range format like "Jan 19 - 30", extract the end date
       if (dateStr.includes(" - ")) {
         const parts = dateStr.split(" - ");
         const endPart = parts[1].trim();
         const monthPart = parts[0].split(" ")[0]; // Get month from first part
-        
+
         // Reconstruct as "Jan 30" format
         dateStr = `${monthPart} ${endPart}`;
       }
-      
+
       // If it's a range format like "Jan 31 – Feb 15", extract the end date
       if (dateStr.includes(" - ")) {
         const parts = dateStr.split(" - ");
         dateStr = parts[1].trim(); // Use the end date part
       }
-      
+
       // Parse the date string
       // Handle formats like "27 jan, '26" or "Jan 30"
       const parsedDate = parseISO(dateStr);
       const todayDate = startOfToday();
-      
+
       // Check if the date is before today (overdue)
       return isAfter(todayDate, endOfDay(parsedDate));
     } catch (error) {
@@ -151,7 +151,8 @@ export function TimerCell({
 
   // Calculate progress percentage
   const estimatedSeconds = parseEstimatedHours(estimatedHours);
-  const progressPercentage = estimatedSeconds > 0 ? (seconds / estimatedSeconds) * 100 : 0;
+  const progressPercentage =
+    estimatedSeconds > 0 ? (seconds / estimatedSeconds) * 100 : 0;
 
   // Determine background color based on overdue status first, then progress
   let bgColor = "bg-blue-600"; // Default: blue (< 75%)
@@ -165,7 +166,15 @@ export function TimerCell({
     bgColor = "bg-red-600"; // Red (> 100%)
   }
 
+  const hasEstimation = estimatedHours && estimatedHours !== "-";
+
   const handlePlayPause = async () => {
+    // Check if estimation exists
+    if (!isRunning && !hasEstimation) {
+      toast.error("Task needs an estimation to track time");
+      return;
+    }
+
     // Check if current user is assigned to this task before starting timer
     if (!isRunning && !isAssignedToCurrentUser) {
       if (hasAssignee) {
@@ -214,7 +223,11 @@ export function TimerCell({
             <TooltipTrigger asChild>
               <button
                 onClick={handlePlayPause}
-                disabled={isLoading || (!isAssignedToCurrentUser && !isRunning)}
+                disabled={
+                  isLoading ||
+                  (!isAssignedToCurrentUser && !isRunning) ||
+                  (!isRunning && !hasEstimation)
+                }
                 className="p-2 hover:bg-muted rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isRunning ? (
@@ -225,13 +238,15 @@ export function TimerCell({
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              {!isAssignedToCurrentUser && !isRunning
-                ? hasAssignee
-                  ? "You can only track time for tasks assigned to you"
-                  : "Task needs an assignee to track time"
-                : isRunning
-                ? "Pause"
-                : "Start"}
+              {!isRunning && !hasEstimation
+                ? "Task needs an estimation to track time"
+                : !isAssignedToCurrentUser && !isRunning
+                  ? hasAssignee
+                    ? "You can only track time for tasks assigned to you"
+                    : "Task needs an assignee to track time"
+                  : isRunning
+                    ? "Pause"
+                    : "Start"}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -240,7 +255,9 @@ export function TimerCell({
           className="rounded px-3 py-1 w-24 text-center hover:opacity-80 transition-opacity cursor-pointer whitespace-nowrap overflow-hidden"
           title="View time tracking log"
         >
-          <span className="text-sm font-medium text-white">{formatTime(seconds)}</span>
+          <span className="text-sm font-medium text-white">
+            {formatTime(seconds)}
+          </span>
         </button>
       </div>
 
