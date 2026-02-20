@@ -113,7 +113,8 @@ export function KanbanCard({
           )}
 
           {showDescription && task.description && (
-            <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+              <span className="font-medium">Description:</span>{" "}
               {task.description}
             </p>
           )}
