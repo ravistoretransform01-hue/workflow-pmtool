@@ -101,6 +101,7 @@ import { ColorPickerPopover } from "./ColorPickerPopover";
 import { debugLog } from "@/lib/debugLog";
 import { KanbanView } from "./KanbanView";
 import { ListView } from "./ListView";
+import { isViewLive } from "@/lib/constants";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -441,6 +442,21 @@ export function WorkloadBoard({
   const timerState = useTaskTimer();
   const columnState = useColumnPersistence(boardId);
   const filterState = useTaskFilters();
+
+  // Mapping Tab Name -> isViewLive key
+  const TAB_TO_VIEW_KEY: Record<string, keyof typeof isViewLive> = {
+    "Main Table": "mainTable",
+    Kanban: "kanban",
+    List: "list",
+    Calendar: "calendar",
+    Workload: "workload",
+    Gantt: "timeline",
+  };
+
+  const isCurrentViewLive = (tab: string) => {
+    const key = TAB_TO_VIEW_KEY[tab];
+    return key ? isViewLive[key] : false;
+  };
 
   // Ensure the primary 'item' column is always visible — protect against any stored setting that hides it.
   useEffect(() => {
@@ -4149,7 +4165,7 @@ export function WorkloadBoard({
         </div>
 
         {/* Main Table View */}
-        {activeTab === "Main Table" && (
+        {activeTab === "Main Table" && isViewLive.mainTable && (
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Task Groups Container - ONLY scrollable element */}
             <div
@@ -5081,7 +5097,7 @@ export function WorkloadBoard({
 
         {/* KANBAN VIEW */}
         {/* kanban commented intentionally */}
-        {activeTab === "Kanban" && (
+        {activeTab === "Kanban" && isViewLive.kanban && (
           <KanbanView
             groups={memoizedFilteredData.groups}
             statuses={statuses}
@@ -5094,7 +5110,7 @@ export function WorkloadBoard({
         )}
 
         {/* List VIEW */}
-        {activeTab === "List" && (
+        {activeTab === "List" && isViewLive.list && (
           <ListView
             groups={memoizedFilteredData.groups}
             statuses={statuses}
@@ -5139,21 +5155,19 @@ export function WorkloadBoard({
         )}
 
         {/* Other Views - Coming Soon */}
-        {activeTab !== "Main Table" &&
-          activeTab !== "Kanban" &&
-          activeTab !== "List" && (
-            <div className="flex-1 overflow-auto flex items-center justify-center">
-              <div className="text-center space-y-4">
-                <h2 className="text-2xl font-semibold text-foreground">
-                  Coming Soon
-                </h2>
-                <p className="text-muted-foreground">
-                  The <span className="font-medium">{activeTab}</span> view is
-                  coming soon
-                </p>
-              </div>
+        {!isCurrentViewLive(activeTab) && (
+          <div className="flex-1 overflow-auto flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <h2 className="text-2xl font-semibold text-foreground">
+                Coming Soon
+              </h2>
+              <p className="text-muted-foreground">
+                The <span className="font-medium">{activeTab}</span> view is
+                coming soon
+              </p>
             </div>
-          )}
+          </div>
+        )}
 
         {/* ALL DIALOGS WILL GO HERE */}
         {/* New Group Dialog */}
