@@ -676,23 +676,23 @@ export function CommentsPanelSheet({
                       onUpdateFilesChange([...updateFiles, fileInfo]);
                     }}
                   />
-                  <GifPicker
+                  {/* <GifPicker
                     onGifSelect={(gifUrl) =>
                       onUpdateTextChange(
                         updateText +
                           `<img src="${gifUrl}" alt="GIF" style="max-width: 200px; border-radius: 8px;" />`,
                       )
                     }
-                  />
+                  /> */}
                   <EmojiPicker
                     onEmojiSelect={(emoji) =>
                       onUpdateTextChange(updateText + emoji)
                     }
                   />
 
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  {/* <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                     <AtSign className="h-4 w-4 text-muted-foreground" />
-                  </Button>
+                  </Button> */}
                 </div>
                 <Button
                   onClick={onSaveUpdate}
