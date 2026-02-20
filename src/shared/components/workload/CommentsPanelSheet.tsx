@@ -21,7 +21,6 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { FileUploadDropdown } from "@/shared/components/FileUploadDropdown";
-import { GifPicker } from "@/shared/components/GifPicker";
 import { EmojiPicker } from "@/shared/components/EmojiPicker";
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
 import {
@@ -32,7 +31,7 @@ import {
   MoreHorizontal,
   MessageCirclePlus,
   Trash2,
-  AtSign,
+  // AtSign,
   X,
   ChevronLeft,
   ChevronRight,
