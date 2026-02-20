@@ -17,6 +17,7 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { ColorPickerPopover } from "@/shared/components/workload/ColorPickerPopover";
+import { debugLog } from "@/lib/debugLog";
 
 const PRESET_COLORS = [
   "#16a249",
@@ -72,9 +73,9 @@ export function PriorityPopoverCell({
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [displayPriorities, setDisplayPriorities] = useState<Priority[]>([]);
-  const [editablePriorities, setEditablePriorities] = useState<EditablePriority[]>(
-    [],
-  );
+  const [editablePriorities, setEditablePriorities] = useState<
+    EditablePriority[]
+  >([]);
 
   const [newPriorityName, setNewPriorityName] = useState("");
   const [newPriorityColor, setNewPriorityColor] = useState(PRESET_COLORS[0]);
@@ -141,8 +142,10 @@ export function PriorityPopoverCell({
       setShowCreateForm(false);
 
       toast.success("Priority created");
-    } catch {
-      toast.error("Failed to create priority");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to create priority",
+      );
     } finally {
       setIsCreating(false);
     }
@@ -218,19 +221,22 @@ export function PriorityPopoverCell({
       deletePriorityFromCache(Number(boardId), priorityId);
 
       const updatedPriorities = editablePriorities.filter(
-        (p) => p.id !== priorityId
+        (p) => p.id !== priorityId,
       );
       setEditablePriorities(updatedPriorities);
 
       const updatedDisplay = displayPriorities.filter(
-        (p) => String(p.id) !== priorityId
+        (p) => String(p.id) !== priorityId,
       );
       setDisplayPriorities(updatedDisplay);
       onPrioritiesUpdated?.(updatedDisplay);
 
       toast.success("Priority deleted");
-    } catch {
-      toast.error("Failed to delete priority");
+    } catch (error: any) {
+      debugLog("Failed to delete priority:", error);
+      toast.error(
+        error?.response?.data?.message || "Failed to delete priority",
+      );
     }
   };
 
@@ -259,7 +265,10 @@ export function PriorityPopoverCell({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[500px] p-3 z-[200]" onWheel={(e) => e.stopPropagation()}>
+      <PopoverContent
+        className="w-[500px] p-3 z-[200]"
+        onWheel={(e) => e.stopPropagation()}
+      >
         {!isEditMode ? (
           <>
             {/* Header */}
@@ -313,7 +322,12 @@ export function PriorityPopoverCell({
               </div>
             </div>
 
-            <Button className="w-full" onClick={() => setIsEditMode(true)} variant="outline" size="sm">
+            <Button
+              className="w-full"
+              onClick={() => setIsEditMode(true)}
+              variant="outline"
+              size="sm"
+            >
               Edit Labels
             </Button>
           </>
@@ -335,7 +349,10 @@ export function PriorityPopoverCell({
             <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-2">
               <div className="grid grid-cols-2 gap-2 p-2">
                 {editablePriorities.map((p, i) => (
-                  <div key={p.id} className="flex gap-2 items-center p-2 border border-border rounded">
+                  <div
+                    key={p.id}
+                    className="flex gap-2 items-center p-2 border border-border rounded"
+                  >
                     <ColorPickerPopover
                       color={p.color_code}
                       onColorChange={(c) => {
@@ -355,8 +372,8 @@ export function PriorityPopoverCell({
                       }}
                       className="h-8 text-sm flex-1"
                     />
-                    <Trash 
-                      className="h-4 w-4 text-destructive cursor-pointer" 
+                    <Trash
+                      className="h-4 w-4 text-destructive cursor-pointer"
                       onClick={() => handleDeletePriority(p.id)}
                     />
                   </div>
@@ -364,8 +381,8 @@ export function PriorityPopoverCell({
               </div>
             </div>
 
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               onClick={(e) => {
                 e.stopPropagation();
                 handleSaveEdits();

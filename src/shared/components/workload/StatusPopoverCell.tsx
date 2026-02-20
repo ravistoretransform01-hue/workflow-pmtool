@@ -144,9 +144,9 @@ export default function StatusPopoverCell({
       setNewStatusColor(PRESET_COLORS[0]);
       setShowCreateForm(false);
 
-      toast.success("Status Created");
-    } catch {
-      toast.error("Failed to Create Status");
+      toast.success(created?.message || "Status Created");
+    } catch (error: any) {
+      toast.error(error?.response.data.message || "Failed to Create Status");
     } finally {
       setIsCreating(false);
     }
@@ -159,7 +159,7 @@ export default function StatusPopoverCell({
     try {
       const orgId = getOrganizationId();
       if (!orgId || !boardId) return;
-
+      let response: any = null;
       for (const status of editableStatuses) {
         const original = displayStatuses.find(
           (s) => String(s.id) === status.id,
@@ -170,7 +170,7 @@ export default function StatusPopoverCell({
           (original.name !== status.name ||
             original.color_code !== status.color_code)
         ) {
-          await cmsApi.updateStatus({
+          response = await cmsApi.updateStatus({
             status_id: status.id,
             name: status.name,
             color_code: status.color_code,
@@ -202,9 +202,12 @@ export default function StatusPopoverCell({
       setIsEditMode(false);
       onStatusesUpdated?.(updated);
 
-      toast.success("Statuses Updated");
-    } catch {
-      toast.error("Failed to Update Statuses");
+      console.log("Updated statuses:", response);
+
+      toast.success(response?.message || "Statuses Updated");
+    } catch (error: any) {
+      console.error("Failed to update statuses:", error);
+      toast.error(error?.response.data.message || "Failed to Update Statuses");
     }
   };
 
@@ -219,7 +222,7 @@ export default function StatusPopoverCell({
         return;
       }
 
-      await cmsApi.deleteStatus(statusId);
+      const response = await cmsApi.deleteStatus(statusId);
 
       deleteStatusFromCache(Number(boardId), statusId);
 
@@ -233,9 +236,9 @@ export default function StatusPopoverCell({
 
       onStatusesUpdated?.(updatedDisplay);
 
-      toast.success("Status Deleted");
-    } catch {
-      toast.error("Failed to Delete Status");
+      toast.success(response?.message || "Status Deleted");
+    } catch (error: any) {
+      toast.error(error?.response.data.message || "Failed to Delete Status");
     }
   };
 
@@ -265,7 +268,7 @@ export default function StatusPopoverCell({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent 
+      <PopoverContent
         className="w-[500px] p-3 z-[200]"
         onWheel={(e) => e.stopPropagation()}
       >
@@ -388,8 +391,8 @@ export default function StatusPopoverCell({
               </div>
             </div>
 
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               onClick={(e) => {
                 e.stopPropagation();
                 handleSaveEdits();

@@ -2371,9 +2371,11 @@ export function WorkloadBoard({
       );
 
       toast.success("Description Updated Successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to Update Description");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(
+        error?.response.data.message || "Failed to Update Description",
+      );
     }
   };
 

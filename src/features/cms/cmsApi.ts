@@ -1,5 +1,6 @@
 import axios from "@/lib/axios";
 import type { CMSRequest, CMSResponse, Label } from "./types";
+import { debugError } from "@/lib/debugLog";
 
 const CMS_ENDPOINTS = {
   GET_CMS_DATA: `/cms`,
@@ -22,7 +23,7 @@ export const cmsApi = {
     try {
       const response = await axios.post<CMSResponse>(
         CMS_ENDPOINTS.GET_CMS_DATA,
-        payload
+        payload,
       );
 
       if (!response.data.status) {
@@ -31,7 +32,7 @@ export const cmsApi = {
 
       return response.data;
     } catch (error) {
-      console.error("Failed to fetch CMS data:", error);
+      debugError("Failed to fetch CMS data:", error);
       throw error;
     }
   },
@@ -48,12 +49,12 @@ export const cmsApi = {
     try {
       const response = await axios.post<Label>(
         CMS_ENDPOINTS.CREATE_LABEL,
-        payload
+        payload,
       );
 
       return response.data;
     } catch (error) {
-      console.error("Failed to create label:", error);
+      debugError("Failed to create label:", error);
       throw error;
     }
   },
@@ -71,12 +72,12 @@ export const cmsApi = {
     try {
       const response = await axios.put<Label>(
         `${CMS_ENDPOINTS.UPDATE_LABEL}/${payload.label_id}`,
-        payload
+        payload,
       );
 
       return response.data;
     } catch (error) {
-      console.error("Failed to update label:", error);
+      debugError("Failed to update label:", error);
       throw error;
     }
   },
@@ -87,12 +88,12 @@ export const cmsApi = {
   deleteLabel: async (labelId: string | number): Promise<any> => {
     try {
       const response = await axios.delete<any>(
-        `${CMS_ENDPOINTS.DELETE_LABEL}/${labelId}`
+        `${CMS_ENDPOINTS.DELETE_LABEL}/${labelId}`,
       );
 
       return response.data;
     } catch (error) {
-      console.error("Failed to delete label:", error);
+      debugError("Failed to delete label:", error);
       throw error;
     }
   },
@@ -107,14 +108,11 @@ export const cmsApi = {
     board_id: number;
   }): Promise<any> => {
     try {
-      const response = await axios.post<any>(
-        CMS_ENDPOINTS.CREATE_TAG,
-        payload
-      );
+      const response = await axios.post<any>(CMS_ENDPOINTS.CREATE_TAG, payload);
 
       return response.data.data || response.data;
     } catch (error) {
-      console.error("Failed to create tag:", error);
+      debugError("Failed to create tag:", error);
       throw error;
     }
   },
@@ -131,12 +129,12 @@ export const cmsApi = {
     try {
       const response = await axios.post<any>(
         CMS_ENDPOINTS.CREATE_STATUS,
-        payload
+        payload,
       );
 
       return response.data.data || response.data;
     } catch (error) {
-      console.error("Failed to create status:", error);
+      debugError("Failed to create status:", error);
       throw error;
     }
   },
@@ -154,12 +152,12 @@ export const cmsApi = {
     try {
       const response = await axios.put<any>(
         CMS_ENDPOINTS.UPDATE_STATUS,
-        payload
+        payload,
       );
 
-      return response.data.data || response.data;
+      return response.data || response.data.data;
     } catch (error) {
-      console.error("Failed to update status:", error);
+      debugError("Failed to update status:", error);
       throw error;
     }
   },
@@ -169,16 +167,13 @@ export const cmsApi = {
    */
   deleteStatus: async (statusId: string | number): Promise<any> => {
     try {
-      const response = await axios.delete<any>(
-        CMS_ENDPOINTS.UPDATE_STATUS,
-        {
-          data: { id: Number(statusId) }
-        }
-      );
+      const response = await axios.delete<any>(CMS_ENDPOINTS.UPDATE_STATUS, {
+        data: { id: Number(statusId) },
+      });
 
       return response.data;
     } catch (error) {
-      console.error("Failed to delete status:", error);
+      debugError("Failed to delete status:", error);
       throw error;
     }
   },
@@ -195,12 +190,12 @@ export const cmsApi = {
     try {
       const response = await axios.post<any>(
         CMS_ENDPOINTS.CREATE_PRIORITY,
-        payload
+        payload,
       );
 
       return response.data.data || response.data;
     } catch (error) {
-      console.error("Failed to create priority:", error);
+      debugError("Failed to create priority:", error);
       throw error;
     }
   },
@@ -218,12 +213,12 @@ export const cmsApi = {
     try {
       const response = await axios.put<any>(
         CMS_ENDPOINTS.UPDATE_PRIORITY,
-        payload
+        payload,
       );
 
       return response.data.data || response.data;
     } catch (error) {
-      console.error("Failed to update priority:", error);
+      debugError("Failed to update priority:", error);
       throw error;
     }
   },
@@ -233,16 +228,13 @@ export const cmsApi = {
    */
   deletePriority: async (priorityId: string | number): Promise<any> => {
     try {
-      const response = await axios.delete<any>(
-        CMS_ENDPOINTS.UPDATE_PRIORITY,
-        {
-          data: { id: Number(priorityId) }
-        }
-      );
+      const response = await axios.delete<any>(CMS_ENDPOINTS.UPDATE_PRIORITY, {
+        data: { id: Number(priorityId) },
+      });
 
       return response.data;
     } catch (error) {
-      console.error("Failed to delete priority:", error);
+      debugError("Failed to delete priority:", error);
       throw error;
     }
   },
@@ -259,12 +251,12 @@ export const cmsApi = {
     try {
       const response = await axios.post<any>(
         CMS_ENDPOINTS.USER_GROUP_COLUMNS,
-        payload
+        payload,
       );
 
       return response.data.data || response.data;
     } catch (error) {
-      console.error("Failed to save user group columns:", error);
+      debugError("Failed to save user group columns:", error);
       throw error;
     }
   },
