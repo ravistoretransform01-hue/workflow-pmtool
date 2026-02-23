@@ -70,6 +70,7 @@ export const AppSidebar = () => {
   const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null);
   const [deletingBoardName, setDeletingBoardName] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   // Fetch boards on component mount
   useEffect(() => {
@@ -145,10 +146,29 @@ export const AppSidebar = () => {
     }
   };
 
-  const handleDuplicateBoard = (_boardId: string, boardName: string) => {
-    // TODO: Call API to duplicate board with _boardId
-    toast.success(`Board "${boardName}" Duplicated`);
-    fetchBoards();
+  const handleDuplicateBoard = async (boardId: string, boardName: string) => {
+    setIsDuplicating(true);
+    const toastId = toast.loading(`Duplicating board "${boardName}"...`);
+    try {
+      const response = await boardsApi.cloneBoard(boardId);
+      if (response.status === "success") {
+        toast.success(`Board "${boardName}" duplicated successfully`, {
+          id: toastId,
+        });
+        fetchBoards();
+      } else {
+        toast.error(response.message || "Failed to duplicate board", {
+          id: toastId,
+        });
+      }
+    } catch (error: any) {
+      console.error("Duplicate board error:", error);
+      toast.error("An error occurred while duplicating the board", {
+        id: toastId,
+      });
+    } finally {
+      setIsDuplicating(false);
+    }
   };
 
   const handleDeleteBoard = (boardId: string, boardName: string) => {
@@ -446,12 +466,16 @@ export const AppSidebar = () => {
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
-                            className="hidden"
                             onClick={() =>
                               handleDuplicateBoard(board.id, board.name)
                             }
+                            disabled={isDuplicating}
                           >
-                            <Copy className="h-4 w-4 mr-2" />
+                            {isDuplicating ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Copy className="h-4 w-4 mr-2" />
+                            )}
                             <span>Duplicate</span>
                           </DropdownMenuItem>
 
