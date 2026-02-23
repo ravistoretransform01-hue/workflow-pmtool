@@ -597,19 +597,15 @@ export const AppSidebar = () => {
                               <span>Rename</span>
                             </DropdownMenuItem>
 
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleDuplicateBoard(board.id, board.name)
-                              }
-                              disabled={isDuplicating}
-                            >
-                              {isDuplicating ? (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              ) : (
-                                <Copy className="h-4 w-4 mr-2" />
-                              )}
-                              <span>Duplicate</span>
-                            </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="hidden"
+                            onClick={() =>
+                              handleDuplicateBoard(board.id, board.name)
+                            }
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            <span>Duplicate</span>
+                          </DropdownMenuItem>
 
                             <DropdownMenuItem
                               onClick={() =>
