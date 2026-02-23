@@ -24,7 +24,13 @@ import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { FilePreviewModal } from "@/shared/components/workload/texteditor/FilePreviewModal";
 // import { TruncatedTaskName } from "./TruncatedTaskName";
 import {
-  Activity,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
+import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
+import {
   Home,
   RefreshCcw,
   Pencil,
@@ -32,6 +38,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Activity,
 } from "lucide-react";
 import type { TaskComment } from "@/features/tasks/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
@@ -116,6 +123,8 @@ export function CommentsPanelSheet({
   isLoadingComments,
   updateText,
   onUpdateTextChange,
+  // updateFiles,
+  // onUpdateFilesChange,
   // updateFiles,
   // onUpdateFilesChange,
   onSaveUpdate,
