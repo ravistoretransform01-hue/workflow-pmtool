@@ -262,7 +262,6 @@ export function KanbanView({
     { id: "assignees", label: "Assignees" },
     { id: "status", label: "Status" },
     { id: "priority", label: "Priority" },
-    { id: "description", label: "Description" },
   ];
 
   // Visible card fields (persisted per board)
