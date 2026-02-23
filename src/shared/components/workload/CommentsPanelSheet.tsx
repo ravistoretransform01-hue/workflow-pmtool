@@ -20,8 +20,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
-import { FileUploadDropdown } from "@/shared/components/FileUploadDropdown";
-import { EmojiPicker } from "@/shared/components/EmojiPicker";
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
 import {
   Home,
@@ -445,8 +443,8 @@ export function CommentsPanelSheet({
   isLoadingComments,
   updateText,
   onUpdateTextChange,
-  updateFiles,
-  onUpdateFilesChange,
+  // updateFiles,
+  // onUpdateFilesChange,
   onSaveUpdate,
   onDeleteComment,
   onUpdateComment,
