@@ -51,9 +51,6 @@ export function KanbanCard({
   const showPriority = visibleCardFields
     ? visibleCardFields.has("priority")
     : true;
-  const showDescription = visibleCardFields
-    ? visibleCardFields.has("description")
-    : true;
   const showAssignees = visibleCardFields
     ? visibleCardFields.has("assignees")
     : true;
@@ -110,13 +107,6 @@ export function KanbanCard({
                 </p>
               )}
             </div>
-          )}
-
-          {showDescription && task.description && (
-            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-              <span className="font-medium">Description:</span>{" "}
-              {task.description}
-            </p>
           )}
 
           {showAssignees &&
