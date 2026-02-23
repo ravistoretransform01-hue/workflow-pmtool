@@ -9,9 +9,12 @@ import TextAlign from "@tiptap/extension-text-align";
 import Mention from "@tiptap/extension-mention";
 import UnderlineExtension from "@tiptap/extension-underline";
 import LinkExtension from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
 import { Extension } from "@tiptap/core";
 import React, { useEffect, useState, useRef } from "react";
+import { GiphySelector } from "./GiphySelector";
 import { Button } from "@/shared/components/ui/button";
+import { toast } from "sonner";
 import {
   Bold,
   Italic,
@@ -27,7 +30,10 @@ import {
   Minus,
   Check,
   AtSign,
+  Image as ImageIcon,
+  Loader2,
 } from "lucide-react";
+import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -44,13 +50,47 @@ interface TiptapEditorProps {
 
 const colors = [
   // Row 1
-  "#000000", "#ffffff", "#66d9a8", "#52c880", "#41b86a", "#2d8d52", "#ff7044", "#ff8a6d", "#ff5c8d", "#ff69b4",
+  "#000000",
+  "#ffffff",
+  "#66d9a8",
+  "#52c880",
+  "#41b86a",
+  "#2d8d52",
+  "#ff7044",
+  "#ff8a6d",
+  "#ff5c8d",
+  "#ff69b4",
   // Row 2
-  "#ff4757", "#ff6b81", "#fc5c9c", "#ff6bcb", "#ffa0d2", "#e64dff", "#b84dff", "#9945ff", "#7d3cff", "#5865f2",
+  "#ff4757",
+  "#ff6b81",
+  "#fc5c9c",
+  "#ff6bcb",
+  "#ffa0d2",
+  "#e64dff",
+  "#b84dff",
+  "#9945ff",
+  "#7d3cff",
+  "#5865f2",
   // Row 3
-  "#4a90e2", "#5da9e9", "#74c0fc", "#3bc9db", "#38bdf8", "#0ea5e9", "#0284c7", "#5c7cfa", "#7c3aed", "#9ca3af",
+  "#4a90e2",
+  "#5da9e9",
+  "#74c0fc",
+  "#3bc9db",
+  "#38bdf8",
+  "#0ea5e9",
+  "#0284c7",
+  "#5c7cfa",
+  "#7c3aed",
+  "#9ca3af",
   // Row 4
-  "#6b7280", "#71717a", "#d4d4d8", "#fbbf24", "#fb923c", "#f59e0b", "#f97316", "#fde047"
+  "#6b7280",
+  "#71717a",
+  "#d4d4d8",
+  "#fbbf24",
+  "#fb923c",
+  "#f59e0b",
+  "#f97316",
+  "#fde047",
 ];
 
 // MentionList Component for Tiptap
@@ -106,7 +146,7 @@ const MentionList = React.forwardRef<
               onClick={() => selectItem(index)}
               className={cn(
                 "flex items-center gap-2 w-full text-left px-3 py-2 transition-colors text-sm text-foreground",
-                index === selectedIndex ? "bg-accent" : "hover:bg-accent"
+                index === selectedIndex ? "bg-accent" : "hover:bg-accent",
               )}
             >
               <span className="w-6 h-6 rounded bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
@@ -135,9 +175,11 @@ function getStorageKey(boardId: number): string {
   return `cms_data_board_${boardId}`;
 }
 
-function getMembersFromLocalStorage(boardId?: number): Array<{ id: string; name: string, email: string }> {
+function getMembersFromLocalStorage(
+  boardId?: number,
+): Array<{ id: string; name: string; email: string }> {
   if (!boardId) return [];
-  
+
   try {
     const storageKey = getStorageKey(boardId);
     const stored = localStorage.getItem(storageKey);
@@ -155,7 +197,7 @@ function getMembersFromLocalStorage(boardId?: number): Array<{ id: string; name:
   } catch (error) {
     console.error("Error reading members from localStorage:", error);
   }
-  
+
   return [];
 }
 
@@ -166,9 +208,14 @@ export function TiptapEditor({
   boardId,
 }: TiptapEditorProps) {
   const [mentionOpen, setMentionOpen] = useState(false);
-  const [mentionItems, setMentionItems] = useState<Array<{ id: string; name: string }>>([]);
+  const [mentionItems, setMentionItems] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
-  const [mentionCommand, setMentionCommand] = useState<((item: any) => void) | null>(null);
+  const [mentionCommand, setMentionCommand] = useState<
+    ((item: any) => void) | null
+  >(null);
+  const [isUploading, setIsUploading] = useState(false);
   const isUpdatingRef = useRef(false);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const mentionRef = useRef<HTMLDivElement | null>(null);
@@ -184,16 +231,16 @@ export function TiptapEditor({
 
   // Custom extension for font size
   const FontSize = Extension.create({
-    name: 'fontSize',
+    name: "fontSize",
     addGlobalAttributes() {
       return [
         {
-          types: ['textStyle'],
+          types: ["textStyle"],
           attributes: {
             fontSize: {
               default: null,
-              parseHTML: element => element.style.fontSize || null,
-              renderHTML: attributes => {
+              parseHTML: (element) => element.style.fontSize || null,
+              renderHTML: (attributes) => {
                 if (!attributes.fontSize) {
                   return {};
                 }
@@ -230,7 +277,7 @@ export function TiptapEditor({
       LinkExtension.configure({
         openOnClick: false,
         HTMLAttributes: {
-          class: 'text-primary hover:underline cursor-pointer',
+          class: "text-primary hover:underline cursor-pointer",
         },
       }),
       Highlight.configure({
@@ -241,17 +288,18 @@ export function TiptapEditor({
         nested: true,
       }),
       TextAlign.configure({
-        types: ["heading", "paragraph"],
+        types: ["heading", "paragraph", "image"],
       }),
       Mention.configure({
         HTMLAttributes: {
-          class: "bg-blue-100 text-blue-600 px-1 rounded hover:bg-blue-200 cursor-pointer",
+          class:
+            "bg-blue-100 text-blue-600 px-1 rounded hover:bg-blue-200 cursor-pointer",
         },
         suggestion: {
           items: ({ query }) => {
             const filtered = membersRef.current
               .filter((user) =>
-                user.name.toLowerCase().startsWith(query.toLowerCase())
+                user.name.toLowerCase().startsWith(query.toLowerCase()),
               )
               .slice(0, 5);
             setMentionItems(filtered);
@@ -263,7 +311,8 @@ export function TiptapEditor({
                 setMentionOpen(true);
                 setMentionCommand(() => props.command);
                 if (editorContainerRef.current) {
-                  const editorRect = editorContainerRef.current.getBoundingClientRect();
+                  const editorRect =
+                    editorContainerRef.current.getBoundingClientRect();
                   const coords = props.clientRect();
                   setMentionPosition({
                     top: coords.bottom - editorRect.top,
@@ -275,14 +324,17 @@ export function TiptapEditor({
               onUpdate: (props: any) => {
                 const filtered = membersRef.current
                   .filter((user) =>
-                    user.name.toLowerCase().startsWith(props.query.toLowerCase())
+                    user.name
+                      .toLowerCase()
+                      .startsWith(props.query.toLowerCase()),
                   )
                   .slice(0, 5);
                 setMentionItems(filtered);
                 setMentionCommand(() => props.command);
-                
+
                 if (editorContainerRef.current) {
-                  const editorRect = editorContainerRef.current.getBoundingClientRect();
+                  const editorRect =
+                    editorContainerRef.current.getBoundingClientRect();
                   const coords = props.clientRect();
                   setMentionPosition({
                     top: coords.bottom - editorRect.top,
@@ -307,11 +359,24 @@ export function TiptapEditor({
           },
         },
       }),
+      Image.configure({
+        allowBase64: true,
+        inline: false,
+        HTMLAttributes: {
+          class:
+            "max-w-full h-auto max-h-[350px] object-contain rounded-lg my-4 cursor-zoom-in",
+        },
+      }),
     ],
     content: value,
     editorProps: {
       handleKeyDown: (_, event) => {
-        if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+        if (
+          event.key === "Enter" &&
+          !event.shiftKey &&
+          !event.ctrlKey &&
+          !event.metaKey
+        ) {
           return false;
         }
         return false;
@@ -350,8 +415,14 @@ export function TiptapEditor({
   // Handle mention dropdown close on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (mentionRef.current && !mentionRef.current.contains(e.target as Node)) {
-        if (editorContainerRef.current && !editorContainerRef.current.contains(e.target as Node)) {
+      if (
+        mentionRef.current &&
+        !mentionRef.current.contains(e.target as Node)
+      ) {
+        if (
+          editorContainerRef.current &&
+          !editorContainerRef.current.contains(e.target as Node)
+        ) {
           setMentionOpen(false);
         }
       }
@@ -368,8 +439,8 @@ export function TiptapEditor({
   }
 
   const handleLink = () => {
-    const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('Enter URL:', previousUrl);
+    const previousUrl = editor.getAttributes("link").href;
+    const url = window.prompt("Enter URL:", previousUrl);
 
     // cancelled
     if (url === null) {
@@ -377,13 +448,13 @@ export function TiptapEditor({
     }
 
     // empty
-    if (url === '') {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
 
     // update link
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   };
 
   const handleMentionSelect = (user: { id: string; name: string }) => {
@@ -395,14 +466,19 @@ export function TiptapEditor({
       editor
         .chain()
         .focus()
-        .insertContent(`<span class="bg-blue-100 text-blue-600 px-1 rounded hover:bg-blue-200 cursor-pointer">@${user.name}</span> `)
+        .insertContent(
+          `<span class="bg-blue-100 text-blue-600 px-1 rounded hover:bg-blue-200 cursor-pointer">@${user.name}</span> `,
+        )
         .run();
     }
     setMentionOpen(false);
   };
 
   return (
-    <div className="relative z-10 h-full flex flex-col" ref={editorContainerRef}>
+    <div
+      className="relative z-10 h-full flex flex-col"
+      ref={editorContainerRef}
+    >
       <div className="border border-input rounded-lg overflow-hidden bg-card flex flex-col flex-1">
         {/* Formatting Toolbar */}
         <div className="flex items-center gap-1 p-2 border-b border-border flex-wrap bg-muted/50">
@@ -413,10 +489,26 @@ export function TiptapEditor({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className={cn("h-8 px-2", (editor.isActive("heading", { level: 1 }) || editor.isActive("blockquote") || editor.isActive("codeBlock")) && "bg-blue-500 text-white hover:bg-blue-600")}
+                className={cn(
+                  "h-8 px-2",
+                  (editor.isActive("heading", { level: 1 }) ||
+                    editor.isActive("blockquote") ||
+                    editor.isActive("codeBlock")) &&
+                    "bg-blue-500 text-white hover:bg-blue-600",
+                )}
               >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h7"
+                  />
                 </svg>
               </Button>
             </PopoverTrigger>
@@ -445,7 +537,9 @@ export function TiptapEditor({
               <button
                 type="button"
                 className="w-full text-left px-3 py-2 hover:bg-muted rounded text-lg font-bold"
-                onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                onClick={() =>
+                  editor.chain().focus().toggleHeading({ level: 1 }).run()
+                }
               >
                 Header
               </button>
@@ -463,8 +557,21 @@ export function TiptapEditor({
                 size="sm"
                 className="h-8 px-2"
               >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <text x="4" y="18" fontSize="16" fontWeight="bold" fill="currentColor">A</text>
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <text
+                    x="4"
+                    y="18"
+                    fontSize="16"
+                    fontWeight="bold"
+                    fill="currentColor"
+                  >
+                    A
+                  </text>
                 </svg>
               </Button>
             </PopoverTrigger>
@@ -475,7 +582,11 @@ export function TiptapEditor({
                   type="button"
                   className="w-full text-left px-3 py-2 hover:bg-muted rounded text-sm"
                   onClick={() => {
-                    editor.chain().focus().setMark('textStyle', { fontSize: size }).run();
+                    editor
+                      .chain()
+                      .focus()
+                      .setMark("textStyle", { fontSize: size })
+                      .run();
                   }}
                 >
                   {size}
@@ -484,7 +595,9 @@ export function TiptapEditor({
               <button
                 type="button"
                 className="w-full text-left px-3 py-2 hover:bg-muted rounded text-sm"
-                onClick={() => editor.chain().focus().unsetMark('textStyle').run()}
+                onClick={() =>
+                  editor.chain().focus().unsetMark("textStyle").run()
+                }
               >
                 Reset font size
               </button>
@@ -497,7 +610,11 @@ export function TiptapEditor({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", editor.isActive("bold") && "bg-blue-500 text-white hover:bg-blue-600")}
+            className={cn(
+              "h-8 w-8 p-0",
+              editor.isActive("bold") &&
+                "bg-blue-500 text-white hover:bg-blue-600",
+            )}
             onClick={() => editor.chain().focus().toggleBold().run()}
           >
             <Bold className="h-4 w-4" />
@@ -506,7 +623,11 @@ export function TiptapEditor({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", editor.isActive("italic") && "bg-blue-500 text-white hover:bg-blue-600")}
+            className={cn(
+              "h-8 w-8 p-0",
+              editor.isActive("italic") &&
+                "bg-blue-500 text-white hover:bg-blue-600",
+            )}
             onClick={() => editor.chain().focus().toggleItalic().run()}
           >
             <Italic className="h-4 w-4" />
@@ -515,7 +636,11 @@ export function TiptapEditor({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", editor.isActive("underline") && "bg-blue-500 text-white hover:bg-blue-600")}
+            className={cn(
+              "h-8 w-8 p-0",
+              editor.isActive("underline") &&
+                "bg-blue-500 text-white hover:bg-blue-600",
+            )}
             onClick={() => editor.chain().focus().toggleUnderline().run()}
           >
             <UnderlineIcon className="h-4 w-4" />
@@ -524,7 +649,11 @@ export function TiptapEditor({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", editor.isActive("strike") && "bg-blue-500 text-white hover:bg-blue-600")}
+            className={cn(
+              "h-8 w-8 p-0",
+              editor.isActive("strike") &&
+                "bg-blue-500 text-white hover:bg-blue-600",
+            )}
             onClick={() => editor.chain().focus().toggleStrike().run()}
           >
             <Strikethrough className="h-4 w-4" />
@@ -568,7 +697,11 @@ export function TiptapEditor({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", editor.isActive("bulletList") && "bg-blue-500 text-white hover:bg-blue-600")}
+            className={cn(
+              "h-8 w-8 p-0",
+              editor.isActive("bulletList") &&
+                "bg-blue-500 text-white hover:bg-blue-600",
+            )}
             onClick={() => editor.chain().focus().toggleBulletList().run()}
           >
             <List className="h-4 w-4" />
@@ -577,7 +710,11 @@ export function TiptapEditor({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", editor.isActive("orderedList") && "bg-blue-500 text-white hover:bg-blue-600")}
+            className={cn(
+              "h-8 w-8 p-0",
+              editor.isActive("orderedList") &&
+                "bg-blue-500 text-white hover:bg-blue-600",
+            )}
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
           >
             <ListOrdered className="h-4 w-4" />
@@ -589,7 +726,11 @@ export function TiptapEditor({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", editor.isActive("textAlign", { align: "left" }) && "bg-blue-500 text-white hover:bg-blue-600")}
+            className={cn(
+              "h-8 w-8 p-0",
+              editor.isActive("textAlign", { align: "left" }) &&
+                "bg-blue-500 text-white hover:bg-blue-600",
+            )}
             onClick={() => editor.chain().focus().setTextAlign("left").run()}
           >
             <AlignLeft className="h-4 w-4" />
@@ -598,7 +739,11 @@ export function TiptapEditor({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", editor.isActive("textAlign", { align: "center" }) && "bg-blue-500 text-white hover:bg-blue-600")}
+            className={cn(
+              "h-8 w-8 p-0",
+              editor.isActive("textAlign", { align: "center" }) &&
+                "bg-blue-500 text-white hover:bg-blue-600",
+            )}
             onClick={() => editor.chain().focus().setTextAlign("center").run()}
           >
             <AlignCenter className="h-4 w-4" />
@@ -607,7 +752,11 @@ export function TiptapEditor({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", editor.isActive("textAlign", { align: "right" }) && "bg-blue-500 text-white hover:bg-blue-600")}
+            className={cn(
+              "h-8 w-8 p-0",
+              editor.isActive("textAlign", { align: "right" }) &&
+                "bg-blue-500 text-white hover:bg-blue-600",
+            )}
             onClick={() => editor.chain().focus().setTextAlign("right").run()}
           >
             <AlignRight className="h-4 w-4" />
@@ -619,7 +768,11 @@ export function TiptapEditor({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("h-8 w-8 p-0", editor.isActive("link") && "bg-blue-500 text-white hover:bg-blue-600")}
+            className={cn(
+              "h-8 w-8 p-0",
+              editor.isActive("link") &&
+                "bg-blue-500 text-white hover:bg-blue-600",
+            )}
             onClick={handleLink}
           >
             <Link2 className="h-4 w-4" />
@@ -644,13 +797,87 @@ export function TiptapEditor({
             <Minus className="h-4 w-4" />
           </Button>
 
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="Insert GIF"
+              >
+                <div className="flex items-center justify-center font-bold text-[10px] border-2 border-current rounded px-0.5 leading-none">
+                  GIF
+                </div>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <GiphySelector
+                apiKey="dEaUzNMl7ndKJ52iKH6iAHXjSJZ4revx"
+                onSelect={(url) => {
+                  editor.chain().focus().setImage({ src: url }).run();
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+
           <div className="hidden w-px h-6 bg-border mx-1" />
 
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className={cn("hidden h-8 w-8 p-0", editor.isActive("taskList") && "bg-blue-500 text-white hover:bg-blue-600")}
+            className="h-8 w-8 p-0"
+            onClick={() =>
+              document.getElementById("tiptap-image-upload")?.click()
+            }
+            title="Upload image"
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ImageIcon className="h-4 w-4" />
+            )}
+          </Button>
+
+          <input
+            type="file"
+            id="tiptap-image-upload"
+            className="hidden"
+            accept="image/*"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+
+              setIsUploading(true);
+              try {
+                const uploadedFiles = await attachmentsApi.uploadFiles([file]);
+                if (uploadedFiles.length > 0) {
+                  const url = uploadedFiles[0].file_url;
+                  editor.chain().focus().setImage({ src: url }).run();
+                  toast.success("Image uploaded and inserted");
+                }
+              } catch (error) {
+                console.error("Failed to upload image:", error);
+                toast.error("Failed to upload image");
+              } finally {
+                setIsUploading(false);
+                // Reset input
+                e.target.value = "";
+              }
+            }}
+          />
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "hidden h-8 w-8 p-0",
+              editor.isActive("taskList") &&
+                "bg-blue-500 text-white hover:bg-blue-600",
+            )}
             onClick={() => editor.chain().focus().toggleTaskList().run()}
             title="Add checklist"
           >
@@ -663,7 +890,10 @@ export function TiptapEditor({
           <div
             ref={mentionRef}
             className="absolute z-[9999] bg-card border border-border rounded-lg shadow-2xl w-56"
-            style={{ top: `${mentionPosition.top}px`, left: `${mentionPosition.left}px` }}
+            style={{
+              top: `${mentionPosition.top}px`,
+              left: `${mentionPosition.left}px`,
+            }}
           >
             <div className="text-[11px] px-3 py-2 text-muted-foreground uppercase tracking-wider border-b border-border bg-card">
               Mention
@@ -690,26 +920,40 @@ export function TiptapEditor({
         )}
 
         {/* Editor Area */}
-        <EditorContent
-          editor={editor}
-          className={cn(
-            "flex-1 min-h-[100px] p-3 focus:outline-none text-sm text-foreground bg-card relative z-20 overflow-auto",
-            "[&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-[100px]",
-            "[&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2",
-            "[&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2",
-            "[&_li]:my-1",
-            "[&_ul_ul]:list-circle [&_ul_ul]:ml-6",
-            "[&_ol_ol]:ml-6",
-            "[&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground",
-            "[&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto",
-            "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2",
-            "[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm",
-            "[&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer",
-            "[&_.ProseMirror.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror.is-editor-empty:first-child::before]:pointer-events-none",
-            "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary"
+        <div className="flex-1 relative overflow-hidden flex flex-col">
+          {isUploading && (
+            <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] z-50 flex items-center justify-center flex-col gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <span className="text-xs font-medium text-muted-foreground">
+                Uploading image...
+              </span>
+            </div>
           )}
-          data-placeholder={placeholder}
-        />
+          <EditorContent
+            editor={editor}
+            className={cn(
+              "flex-1 max-h-[450px] min-h-[100px] p-3 focus:outline-none text-sm text-foreground bg-card relative z-20 overflow-y-auto",
+              "[&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-[100px]",
+              "[&_img]:max-w-full [&_img]:h-auto [&_img]:max-h-[350px] [&_img]:object-contain [&_img]:rounded-lg [&_img]:border [&_img]:border-border",
+              "[&_img[style*='text-align: center']]:mx-auto [&_img[style*='text-align: center']]:block",
+              "[&_img[style*='text-align: right']]:ml-auto [&_img[style*='text-align: right']]:block",
+              "[&_img[style*='text-align: left']]:mr-auto [&_img[style*='text-align: left']]:block",
+              "[&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2",
+              "[&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2",
+              "[&_li]:my-1",
+              "[&_ul_ul]:list-circle [&_ul_ul]:ml-6",
+              "[&_ol_ol]:ml-6",
+              "[&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground",
+              "[&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto",
+              "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2",
+              "[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm",
+              "[&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer",
+              "[&_.ProseMirror.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror.is-editor-empty:first-child::before]:pointer-events-none",
+              "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary",
+            )}
+            data-placeholder={placeholder}
+          />
+        </div>
       </div>
     </div>
   );

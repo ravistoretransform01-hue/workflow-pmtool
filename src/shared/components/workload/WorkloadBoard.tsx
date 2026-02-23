@@ -8,6 +8,7 @@ import { format, parseISO } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import axios from "@/lib/axios";
+import { useAppDispatch } from "@/app/hooks";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { cmsApi } from "@/features/cms/cmsApi";
@@ -96,6 +97,7 @@ import {
   useTaskFilters,
 } from "./hooks";
 import { useBeforeUnload } from "./hooks/useBeforeUnload";
+import { fetchActiveTimer } from "@/features/tasks/tasksSlice";
 import { SortableColumnHeader } from "./components/ColumnHeader";
 import { ColorPickerPopover } from "./ColorPickerPopover";
 import { debugLog } from "@/lib/debugLog";
@@ -435,6 +437,7 @@ export function WorkloadBoard({
 }: WorkloadBoardProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const dispatch = useAppDispatch();
 
   // Initialize hooks for state management
   const taskState = useTaskState();
@@ -994,41 +997,50 @@ export function WorkloadBoard({
     return () => clearInterval(interval);
   }, [timerState.activeTimerId, timerState]);
 
+  // Sync with backend on mount to ensure timer state is accurate across tabs/refreshes
+  useEffect(() => {
+    dispatch(fetchActiveTimer());
+  }, [dispatch]);
+
+  // Keep-alive heartbeat to prevent backend from cleaning up active timer
+  useEffect(() => {
+    if (!timerState.activeTimerId) return;
+
+    // Ping every 30 seconds
+    const pingInterval = setInterval(async () => {
+      try {
+        await tasksApi.pingTimer();
+      } catch (error) {
+        console.error("Heartbeat ping failed:", error);
+      }
+    }, 30000);
+
+    return () => clearInterval(pingInterval);
+  }, [timerState.activeTimerId]);
+
   // Prevent page unload when timer is running
   useBeforeUnload(!!timerState.activeTimerId, {
     message: "A timer is running. Are you sure you want to leave?",
     onUnload: () => {
       if (timerState.activeTimerId) {
         try {
-          // Use fetch with keepalive to stop timer during page unload
-          // pagehide event ensures this runs even if user confirms close/refresh
-          const baseUrl = axios.defaults.baseURL || "";
-          const url = `${baseUrl}/tasks/time/stop`;
-          const payload = JSON.stringify({ task_id: timerState.activeTimerId });
+          // Use axios to stop timer during page unload
+          // axios instance handles auth headers automatically
+          axios
+            .post("/tasks/time/stop", {
+              task_id: timerState.activeTimerId,
+            })
+            .catch((error) => {
+              console.error("Failed to stop timer on page unload:", error);
+            });
 
-          // Get auth token from localStorage
-          const token = localStorage.getItem("access_token");
+          // Clear session storage immediately during unload process
+          sessionStorage.removeItem("activeTimerId");
+          sessionStorage.removeItem("timerStartTime");
 
-          // Create headers object
-          const headers: Record<string, string> = {
-            "Content-Type": "application/json",
-          };
-
-          if (typeof token === "string") {
-            headers["Authorization"] = `Bearer ${token}`;
-          }
-
-          // Use fetch with keepalive to ensure request completes even during unload
-          fetch(url, {
-            method: "POST",
-            body: payload,
-            headers,
-            keepalive: true, // Important: keeps connection alive during unload
-          }).catch((error) => {
-            console.error("Failed to stop timer on page unload:", error);
-          });
-
-          console.log("Timer stop request sent on page hide");
+          console.log(
+            "Timer stop request sent on page hide and storage cleared",
+          );
         } catch (error) {
           console.error("Error stopping timer on unload:", error);
         }
@@ -2489,10 +2501,8 @@ export function WorkloadBoard({
   const handleTimerStart = (taskId: string | null) => {
     if (taskId === null) {
       timerState.stopTimer();
-      sessionStorage.removeItem("activeTimerId");
     } else {
       timerState.startTimer(taskId);
-      sessionStorage.setItem("activeTimerId", taskId);
     }
   };
 
@@ -3043,6 +3053,7 @@ export function WorkloadBoard({
         setInlineEditingTaskName: taskState.setInlineEditingTaskName,
         onInlineEditTaskName: handleInlineEditTaskName,
         activeTimerId: timerState.activeTimerId,
+        timerStartTime: timerState.timerStartTime,
         onTimerStart: handleTimerStart,
         onTimerConflict: handleTimerConflict,
         onTimeUpdate: (taskId: string, seconds: number) => {
@@ -3240,6 +3251,7 @@ export function WorkloadBoard({
       setInlineEditingTaskName: taskState.setInlineEditingTaskName,
       onInlineEditTaskName: handleInlineEditTaskName,
       activeTimerId: timerState.activeTimerId,
+      timerStartTime: timerState.timerStartTime,
       onTimerStart: handleTimerStart,
       onTimerConflict: handleTimerConflict,
       onTimeUpdate: (taskId: string, seconds: number) => {
@@ -3325,6 +3337,7 @@ export function WorkloadBoard({
       setInlineEditingTaskName: taskState.setInlineEditingTaskName,
       onInlineEditTaskName: handleInlineEditTaskName,
       activeTimerId: timerState.activeTimerId,
+      timerStartTime: timerState.timerStartTime,
       onTimerStart: handleTimerStart,
       onTimerConflict: handleTimerConflict,
       onTimeUpdate: (taskId: string, seconds: number) => {

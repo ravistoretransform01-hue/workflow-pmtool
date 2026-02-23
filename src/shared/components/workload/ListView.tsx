@@ -117,14 +117,14 @@ export function ListView(props: ListViewProps) {
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
   >({
-    overdue: true,
-    today: true,
-    tomorrow: true,
-    thisWeek: true,
-    nextWeek: true,
-    later: true,
-    recurring: true,
-    noDate: true,
+    overdue: false,
+    today: false,
+    tomorrow: false,
+    thisWeek: false,
+    nextWeek: false,
+    later: false,
+    recurring: false,
+    noDate: false,
   });
 
   const toggleSection = (key: string) => {
