@@ -14,6 +14,7 @@ import { Extension } from "@tiptap/core";
 import React, { useEffect, useState, useRef } from "react";
 import { GiphySelector } from "./GiphySelector";
 import { Button } from "@/shared/components/ui/button";
+import { toast } from "sonner";
 import {
   Bold,
   Italic,
@@ -29,7 +30,10 @@ import {
   Minus,
   Check,
   AtSign,
+  Image as ImageIcon,
+  Loader2,
 } from "lucide-react";
+import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -211,6 +215,7 @@ export function TiptapEditor({
   const [mentionCommand, setMentionCommand] = useState<
     ((item: any) => void) | null
   >(null);
+  const [isUploading, setIsUploading] = useState(false);
   const isUpdatingRef = useRef(false);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const mentionRef = useRef<HTMLDivElement | null>(null);
@@ -283,7 +288,7 @@ export function TiptapEditor({
         nested: true,
       }),
       TextAlign.configure({
-        types: ["heading", "paragraph"],
+        types: ["heading", "paragraph", "image"],
       }),
       Mention.configure({
         HTMLAttributes: {
@@ -356,8 +361,10 @@ export function TiptapEditor({
       }),
       Image.configure({
         allowBase64: true,
+        inline: false,
         HTMLAttributes: {
-          class: "max-w-full h-auto rounded-lg my-4",
+          class:
+            "max-w-full h-auto max-h-[350px] object-contain rounded-lg my-4 cursor-zoom-in",
         },
       }),
     ],
@@ -820,6 +827,52 @@ export function TiptapEditor({
             type="button"
             variant="ghost"
             size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() =>
+              document.getElementById("tiptap-image-upload")?.click()
+            }
+            title="Upload image"
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ImageIcon className="h-4 w-4" />
+            )}
+          </Button>
+
+          <input
+            type="file"
+            id="tiptap-image-upload"
+            className="hidden"
+            accept="image/*"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+
+              setIsUploading(true);
+              try {
+                const uploadedFiles = await attachmentsApi.uploadFiles([file]);
+                if (uploadedFiles.length > 0) {
+                  const url = uploadedFiles[0].file_url;
+                  editor.chain().focus().setImage({ src: url }).run();
+                  toast.success("Image uploaded and inserted");
+                }
+              } catch (error) {
+                console.error("Failed to upload image:", error);
+                toast.error("Failed to upload image");
+              } finally {
+                setIsUploading(false);
+                // Reset input
+                e.target.value = "";
+              }
+            }}
+          />
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             className={cn(
               "hidden h-8 w-8 p-0",
               editor.isActive("taskList") &&
@@ -867,26 +920,40 @@ export function TiptapEditor({
         )}
 
         {/* Editor Area */}
-        <EditorContent
-          editor={editor}
-          className={cn(
-            "flex-1 min-h-[100px] p-3 focus:outline-none text-sm text-foreground bg-card relative z-20 overflow-auto",
-            "[&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-[100px]",
-            "[&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2",
-            "[&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2",
-            "[&_li]:my-1",
-            "[&_ul_ul]:list-circle [&_ul_ul]:ml-6",
-            "[&_ol_ol]:ml-6",
-            "[&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground",
-            "[&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto",
-            "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2",
-            "[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm",
-            "[&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer",
-            "[&_.ProseMirror.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror.is-editor-empty:first-child::before]:pointer-events-none",
-            "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary",
+        <div className="flex-1 relative overflow-hidden flex flex-col">
+          {isUploading && (
+            <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] z-50 flex items-center justify-center flex-col gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <span className="text-xs font-medium text-muted-foreground">
+                Uploading image...
+              </span>
+            </div>
           )}
-          data-placeholder={placeholder}
-        />
+          <EditorContent
+            editor={editor}
+            className={cn(
+              "flex-1 max-h-[450px] min-h-[100px] p-3 focus:outline-none text-sm text-foreground bg-card relative z-20 overflow-y-auto",
+              "[&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-[100px]",
+              "[&_img]:max-w-full [&_img]:h-auto [&_img]:max-h-[350px] [&_img]:object-contain [&_img]:rounded-lg [&_img]:border [&_img]:border-border",
+              "[&_img[style*='text-align: center']]:mx-auto [&_img[style*='text-align: center']]:block",
+              "[&_img[style*='text-align: right']]:ml-auto [&_img[style*='text-align: right']]:block",
+              "[&_img[style*='text-align: left']]:mr-auto [&_img[style*='text-align: left']]:block",
+              "[&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2",
+              "[&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2",
+              "[&_li]:my-1",
+              "[&_ul_ul]:list-circle [&_ul_ul]:ml-6",
+              "[&_ol_ol]:ml-6",
+              "[&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground",
+              "[&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto",
+              "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2",
+              "[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm",
+              "[&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer",
+              "[&_.ProseMirror.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror.is-editor-empty:first-child::before]:pointer-events-none",
+              "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary",
+            )}
+            data-placeholder={placeholder}
+          />
+        </div>
       </div>
     </div>
   );
