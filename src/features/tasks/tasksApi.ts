@@ -32,6 +32,8 @@ const TASKS_ENDPOINTS = {
     `/tasks/${taskId}/comments/${commentId}`,
   START_TIMER: `/tasks/time/start`,
   STOP_TIMER: `/tasks/time/stop`,
+  GET_ACTIVE_TIMER: `/tasks/time/active`,
+  PING_TIMER: `/tasks/time/ping`,
   GET_TIME_ENTRIES: `/tasks/time/entries`,
   ADD_MANUAL_TIME_ENTRY: `/tasks/time/manual`,
   GET_ACTIVITY: `/activity`,
@@ -382,6 +384,38 @@ export const tasksApi = {
       return response.data.data;
     } catch (error) {
       console.error("Failed to stop timer:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get the current user's active timer
+   */
+  getActiveTimer: async (): Promise<{
+    timer_id: string;
+    task_id: string;
+    start_time: string;
+    elapsed_seconds: number;
+    is_running: boolean;
+  } | null> => {
+    try {
+      const response = await axios.get<any>(TASKS_ENDPOINTS.GET_ACTIVE_TIMER);
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to fetch active timer:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Heartbeat to keep timer alive
+   */
+  pingTimer: async (): Promise<any> => {
+    try {
+      const response = await axios.post<any>(TASKS_ENDPOINTS.PING_TIMER);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to ping timer:", error);
       throw error;
     }
   },

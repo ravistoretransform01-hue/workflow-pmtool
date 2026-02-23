@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Play, Pause } from "lucide-react";
 import { toast } from "sonner";
 import { tasksApi } from "@/features/tasks/tasksApi";
@@ -16,6 +16,7 @@ interface TimerCellProps {
   taskId: string;
   trackedTimeSeconds?: number;
   activeTimerId: string | null;
+  timerStartTime?: number | null;
   onTimerStart: (taskId: string | null) => void;
   onTimerConflict?: (taskId: string) => void;
   onTimeUpdate?: (taskId: string, seconds: number) => void;
@@ -30,6 +31,7 @@ export function TimerCell({
   taskId,
   trackedTimeSeconds = 0,
   activeTimerId,
+  timerStartTime,
   onTimerStart,
   onTimerConflict,
   onTimeUpdate,
@@ -39,7 +41,6 @@ export function TimerCell({
   assignedToIds = [],
   estimatedDate = "-",
 }: TimerCellProps) {
-  const [seconds, setSeconds] = useState(trackedTimeSeconds);
   const [isLoading, setIsLoading] = useState(false);
   const [showTimeLog, setShowTimeLog] = useState(false);
   const isRunning = activeTimerId === taskId;
@@ -87,25 +88,13 @@ export function TimerCell({
     }
   })();
 
-  // Update seconds when trackedTimeSeconds prop changes (e.g., on page refresh)
-  useEffect(() => {
-    setSeconds(trackedTimeSeconds);
-  }, [trackedTimeSeconds]);
+  // Calculate accurate elapsed time based on global start time
+  const elapsedSeconds =
+    isRunning && timerStartTime
+      ? Math.floor((Date.now() - timerStartTime) / 1000)
+      : 0;
 
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (isRunning) {
-      interval = setInterval(() => {
-        setSeconds((prev) => {
-          const newSeconds = prev + 1;
-          // Notify parent component of time update for real-time progress bar updates
-          onTimeUpdate?.(taskId, newSeconds);
-          return newSeconds;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isRunning, taskId, onTimeUpdate]);
+  const currentSeconds = trackedTimeSeconds + elapsedSeconds;
 
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -124,7 +113,7 @@ export function TimerCell({
   // Parse estimated hours to get total seconds
   const parseEstimatedHours = (value: string | number): number => {
     if (!value || value === "-") return 0;
-    
+
     const strValue = String(value);
     // Check if it's in "02h 30m" format
     const match = strValue.match(/(\d+)h\s*(\d+)m/);
@@ -133,30 +122,30 @@ export function TimerCell({
       const minutes = parseInt(match[2]);
       return hours * 3600 + minutes * 60;
     }
-    
+
     // Check if it's in "2h" format
     const hoursMatch = strValue.match(/(\d+)h/);
     if (hoursMatch) {
       return parseInt(hoursMatch[1]) * 3600;
     }
-    
+
     // Otherwise treat as decimal hours
     const numValue = parseFloat(strValue);
     if (!isNaN(numValue)) {
       return numValue * 3600;
     }
-    
+
     return 0;
   };
 
   // Calculate progress percentage
   const estimatedSeconds = parseEstimatedHours(estimatedHours);
   const progressPercentage =
-    estimatedSeconds > 0 ? (seconds / estimatedSeconds) * 100 : 0;
+    estimatedSeconds > 0 ? (currentSeconds / estimatedSeconds) * 100 : 0;
 
   // Determine background color based on overdue status first, then progress
   let bgColor = "bg-blue-600"; // Default: blue (< 75%)
-  
+
   if (isOverdue) {
     // Red if overdue, regardless of progress percentage
     bgColor = "bg-red-600";
@@ -190,6 +179,8 @@ export function TimerCell({
       if (isRunning) {
         // Stop timer
         await tasksApi.stopTimer(taskId);
+        // Sync final time to parent state so it persists in the local groups list
+        onTimeUpdate?.(taskId, currentSeconds);
         onTimerStart(null);
         toast.success("Timer Stopped");
       } else {
@@ -256,7 +247,7 @@ export function TimerCell({
           title="View time tracking log"
         >
           <span className="text-sm font-medium text-white">
-            {formatTime(seconds)}
+            {formatTime(currentSeconds)}
           </span>
         </button>
       </div>

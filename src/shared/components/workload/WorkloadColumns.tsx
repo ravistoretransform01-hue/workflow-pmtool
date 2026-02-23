@@ -56,6 +56,7 @@ interface ColumnDefinitionProps {
   setInlineEditingTaskName?: (name: string) => void;
   onInlineEditTaskName?: (taskId: string, newName: string) => void;
   activeTimerId?: string | null;
+  timerStartTime?: number | null;
   onTimerStart?: (taskId: string | null) => void;
   onTimerConflict?: (taskId: string) => void;
   onTimeUpdate?: (taskId: string, seconds: number) => void;
@@ -91,6 +92,7 @@ export const getWorkloadColumns = ({
   setInlineEditingTaskName,
   onInlineEditTaskName,
   activeTimerId,
+  timerStartTime,
   onTimerStart,
   onTimerConflict,
   onTimeUpdate,
@@ -424,6 +426,7 @@ export const getWorkloadColumns = ({
             taskId={task.id}
             trackedTimeSeconds={task.tracked_time_seconds || 0}
             activeTimerId={activeTimerId || null}
+            timerStartTime={timerStartTime}
             estimatedHours={estimatedHours}
             estimatedDate={estimatedDate}
           />
@@ -486,6 +489,7 @@ export const getWorkloadColumns = ({
             taskId={task.id}
             trackedTimeSeconds={task.tracked_time_seconds || 0}
             activeTimerId={activeTimerId || null}
+            timerStartTime={timerStartTime}
             onTimerStart={onTimerStart || (() => {})}
             onTimerConflict={onTimerConflict || (() => {})}
             onTimeUpdate={onTimeUpdate}
