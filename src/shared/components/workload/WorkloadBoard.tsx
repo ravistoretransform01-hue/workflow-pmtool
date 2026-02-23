@@ -1048,6 +1048,19 @@ export function WorkloadBoard({
     },
   });
 
+  // const handleGetS3Link = async () => {
+  //   try {
+  //     const response = await axios.get(
+  //       "https://5a2g87jm9b.execute-api.ap-south-1.amazonaws.com/default/pm-generate-upload-url?file_name=report.png&file_type=application/png",
+  //     );
+  //     console.log("S3 Signed URL Response:", response.data);
+  //     toast.success("S3 Link fetched. Check console.");
+  //   } catch (error) {
+  //     console.error("Failed to fetch S3 link:", error);
+  //     toast.error("Failed to fetch S3 link");
+  //   }
+  // };
+
   // useEffect(() => {
   //   const loadGroupsAndTasks = async () => {
   //     setIsLoadingGroups(true);
@@ -3654,6 +3667,15 @@ export function WorkloadBoard({
               New Group
             </Button>
           )}
+          {/* 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGetS3Link}
+            className="border-dashed"
+          >
+            Get S3 Link (Temp)
+          </Button> */}
           {/* Search and Filters */}
           <div className="flex items-center gap-3 flex-1">
             {/* Search */}
@@ -5445,6 +5467,13 @@ export function WorkloadBoard({
             onDescriptionChange={handleUpdateTaskDescription}
             initialEditDescription={taskCardInitialEditDescription}
             onEstimatedTimeChange={handleEstimatedTimeChange}
+            activeTimerId={timerState.activeTimerId}
+            timerStartTime={timerState.timerStartTime}
+            onTimerStart={handleTimerStart}
+            onTimerConflict={handleTimerConflict}
+            onTimeUpdate={(taskId: string, seconds: number) => {
+              updateTaskInGroups(taskId, { tracked_time_seconds: seconds });
+            }}
           />
         )}
 

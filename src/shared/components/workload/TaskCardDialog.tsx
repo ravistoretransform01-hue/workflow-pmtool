@@ -83,6 +83,11 @@ interface TaskCardDialogProps {
   onPriorityCreated?: (newPriority: any) => void;
   onDescriptionChange?: (taskId: string, description: string) => Promise<void>;
   initialEditDescription?: boolean;
+  activeTimerId?: string | null;
+  timerStartTime?: number | null;
+  onTimerStart?: (taskId: string | null) => void;
+  onTimerConflict?: (taskId: string) => void;
+  onTimeUpdate?: (taskId: string, seconds: number) => void;
 }
 
 export function TaskCardDialog({
@@ -110,6 +115,11 @@ export function TaskCardDialog({
   onPriorityCreated,
   onDescriptionChange,
   initialEditDescription,
+  activeTimerId,
+  timerStartTime,
+  onTimerStart,
+  onTimerConflict,
+  onTimeUpdate,
 }: TaskCardDialogProps) {
   const [activeTab, setActiveTab] = useState("dev-updates");
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
@@ -421,6 +431,11 @@ export function TaskCardDialog({
     openPopoverId,
     setOpenPopoverId,
     boardId,
+    activeTimerId,
+    timerStartTime,
+    onTimerStart,
+    onTimerConflict,
+    onTimeUpdate,
   });
 
   return (
@@ -591,7 +606,7 @@ export function TaskCardDialog({
             </div>
 
             {/* Timer / Hours */}
-            {/* <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
                 <Clock className="h-4 w-4" />
                 <span>Hours</span>
@@ -599,7 +614,7 @@ export function TaskCardDialog({
               <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
                 {columns.find((c) => c.id === "timer")?.render(displayTask)}
               </div>
-            </div> */}
+            </div>
 
             {/* Description */}
             <div className="pt-2 border-t border-border/50">
