@@ -630,7 +630,7 @@ export function CommentsPanelSheet({
               value="updates"
               className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0 data-[state=inactive]:hidden"
             >
-              <div className="px-6 pt-2 pb-4 border-b border-border relative z-10 flex flex-col gap-2">
+              <div className="px-2 py-2 relative z-10 flex flex-col gap-2">
                 {replyingTo && (
                   <div className="flex items-center justify-between text-xs bg-muted/50 p-2 rounded border border-border">
                     <div className="flex items-center gap-2 text-muted-foreground truncate">
@@ -668,13 +668,13 @@ export function CommentsPanelSheet({
                   boardId={boardId ? parseInt(boardId) : undefined}
                 />
               </div>
-              <div className="flex items-center justify-between px-6 pt-3">
+              <div className="flex items-center justify-between px-2 pb-2 border-b border-border">
                 <div className="flex items-center gap-2">
-                  <FileUploadDropdown
+                  {/* <FileUploadDropdown
                     onFileSelect={(fileInfo) => {
                       onUpdateFilesChange([...updateFiles, fileInfo]);
                     }}
-                  />
+                  /> */}
                   {/* <GifPicker
                     onGifSelect={(gifUrl) =>
                       onUpdateTextChange(
@@ -683,11 +683,11 @@ export function CommentsPanelSheet({
                       )
                     }
                   /> */}
-                  <EmojiPicker
+                  {/* <EmojiPicker
                     onEmojiSelect={(emoji) =>
                       onUpdateTextChange(updateText + emoji)
                     }
-                  />
+                  /> */}
 
                   {/* <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                     <AtSign className="h-4 w-4 text-muted-foreground" />
@@ -702,7 +702,7 @@ export function CommentsPanelSheet({
                 </Button>
               </div>
 
-              <div className="flex-1 overflow-auto px-6 py-4">
+              <div className="flex-1 overflow-auto p-4">
                 {isLoadingComments ? (
                   <div className="flex items-center justify-center py-8">
                     <p className="text-sm text-muted-foreground">
