@@ -185,7 +185,7 @@ export function ListView(props: ListViewProps) {
             <tr>
               <td
                 colSpan={workloadColumns.length + 1}
-                className="py-16 text-center text-muted-foreground text-sm"
+                className="py-1 text-center text-muted-foreground text-sm"
               >
                 No tasks found.
               </td>
