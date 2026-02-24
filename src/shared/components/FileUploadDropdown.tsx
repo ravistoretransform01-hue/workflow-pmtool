@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { Paperclip, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ interface FileUploadDropdownProps {
 
 export function FileUploadDropdown({ onFileSelect }: FileUploadDropdownProps) {
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileInputChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -51,7 +52,7 @@ export function FileUploadDropdown({ onFileSelect }: FileUploadDropdownProps) {
     <>
       <input
         type="file"
-        id="computer-file-upload"
+        ref={fileInputRef}
         className="hidden"
         onChange={handleFileInputChange}
         disabled={uploading}
@@ -61,7 +62,7 @@ export function FileUploadDropdown({ onFileSelect }: FileUploadDropdownProps) {
         variant="ghost"
         size="sm"
         className="h-8 px-2 text-xs gap-1"
-        onClick={() => document.getElementById("computer-file-upload")?.click()}
+        onClick={() => fileInputRef.current?.click()}
         disabled={uploading}
       >
         {uploading ? (

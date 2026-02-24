@@ -230,7 +230,8 @@ const CommentItem = ({
                 value={editCommentText}
                 onChange={setEditCommentText}
                 placeholder="Edit your comment..."
-                boardId={boardId ? parseInt(boardId) : undefined}
+                boardId={boardId ? parseInt(boardId) : undefined}       
+                key={`edit-${comment.id}`}
               />
               <div className="flex gap-2">
                 <Button
@@ -405,6 +406,7 @@ const CommentItem = ({
                     value={inlineReplyText}
                     onChange={setInlineReplyText}
                     boardId={boardId ? parseInt(boardId) : undefined}
+                    key={`reply-${comment.id}`}
                   />
                 </div>
                 <div className="mt-3 flex justify-end gap-2">
@@ -664,6 +666,7 @@ export function CommentsPanelSheet({
                   value={updateText}
                   onChange={onUpdateTextChange}
                   boardId={boardId ? parseInt(boardId) : undefined}
+                  key="main-update-editor"
                 />
               </div>
               <div className="flex items-center justify-between px-2 pb-2 border-b border-border">

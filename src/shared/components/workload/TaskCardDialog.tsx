@@ -567,7 +567,7 @@ export function TaskCardDialog({
               </div>
               <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
                 {columns
-                 .find((c) => c.id === "estimatedTime")
+                  .find((c) => c.id === "estimatedTime")
                   ?.render(displayTask)}
               </div>
             </div>
@@ -646,6 +646,7 @@ export function TaskCardDialog({
                       onChange={setTempDescription}
                       placeholder="Add a detailed description..."
                       boardId={boardId}
+                      key="dialog-description-editor"
                     />
                     <div className="flex items-center justify-end gap-2 p-2 bg-muted/20 border-t border-border/50">
                       <Button
@@ -886,6 +887,7 @@ export function TaskCardDialog({
                                           onChange={setEditCommentText}
                                           placeholder="Edit comment..."
                                           boardId={boardId}
+                                          key={`edit-comment-${comment.id}`}
                                         />
                                       </div>
                                       <div className="flex gap-2">
@@ -1063,6 +1065,7 @@ export function TaskCardDialog({
                                               onChange={setEditCommentText}
                                               placeholder="Edit reply..."
                                               boardId={boardId}
+                                              key={`edit-reply-${reply.id}`}
                                             />
                                           </div>
                                           <div className="flex gap-2">
@@ -1165,6 +1168,7 @@ export function TaskCardDialog({
                                         onChange={setInlineReplyText}
                                         placeholder="Write a reply..."
                                         boardId={boardId}
+                                        key={`inline-reply-${inlineReplyId}`}
                                       />
                                     </div>
                                     <div className="flex justify-end gap-2">
@@ -1226,6 +1230,7 @@ export function TaskCardDialog({
                           onChange={setNewComment}
                           placeholder="Write an update and mention others with @..."
                           boardId={boardId}
+                          key="main-comment-editor"
                         />
                       </div>
                       <div className="flex items-center justify-end mt-2 pt-2 border-t border-border">
@@ -1419,6 +1424,7 @@ export function TaskCardDialog({
                                           onChange={setEditCommentText}
                                           placeholder="Edit comment..."
                                           boardId={boardId}
+                                          key={`client-edit-comment-${comment.id}`}
                                         />
                                       </div>
                                       <div className="flex gap-2">
@@ -1590,6 +1596,7 @@ export function TaskCardDialog({
                                               onChange={setEditCommentText}
                                               placeholder="Edit reply..."
                                               boardId={boardId}
+                                              key={`client-edit-reply-${reply.id}`}
                                             />
                                           </div>
                                           <div className="flex gap-2">
@@ -1684,6 +1691,7 @@ export function TaskCardDialog({
                                         onChange={setInlineReplyText}
                                         placeholder="Write a reply..."
                                         boardId={boardId}
+                                        key={`client-inline-reply-${inlineReplyId}`}
                                       />
                                     </div>
                                     <div className="flex justify-end gap-2">
@@ -1734,6 +1742,7 @@ export function TaskCardDialog({
                           onChange={setNewComment}
                           placeholder="Write a client update and mention others with @..."
                           boardId={boardId}
+                          key="client-main-comment-editor"
                         />
                       </div>
                       <div className=" flex items-center justify-end mt-2 pt-2 border-t border-border">
