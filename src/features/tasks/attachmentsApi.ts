@@ -1,4 +1,4 @@
-import axios from "@/lib/axios";
+import axios from "axios"; // Use fresh axios to avoid interceptors with main API auth
 
 export interface AttachmentResponse {
   file_name: string;
@@ -8,46 +8,52 @@ export interface AttachmentResponse {
   file_size: number;
 }
 
-export interface UploadResponse {
-  code: number;
-  status: string;
-  message: string;
-  data: AttachmentResponse[];
-  errors: any[];
-}
-
-const ATTACHMENTS_ENDPOINTS = {
-  UPLOAD: "/attachments/upload",
+const S3_CONFIG = {
+  PRESIGNED_URL_ENDPOINT: "https://ukapxnx0ni.execute-api.ap-south-1.amazonaws.com/default/pm-upload-api",
 };
 
 export const attachmentsApi = {
   /**
-   * Upload files to the server
+   * Upload files to S3 using presigned URLs
    */
   uploadFiles: async (files: File[]): Promise<AttachmentResponse[]> => {
     try {
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append("files[]", file);
-      });
+      const results: AttachmentResponse[] = [];
 
-      const response = await axios.post<UploadResponse>(
-        ATTACHMENTS_ENDPOINTS.UPLOAD,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
+      for (const file of files) {
+        // 1. Get presigned URL
+        const presignedResponse = await axios.get(S3_CONFIG.PRESIGNED_URL_ENDPOINT, {
+          params: {
+            file_name: file.name,
+            file_type: file.type,
           },
-        }
-      );
+        });
 
-      if (response.data.status === "success" && Array.isArray(response.data.data)) {
-        return response.data.data;
+        if (!presignedResponse.data.success) {
+          throw new Error("Failed to get presigned URL");
+        }
+
+        const { presigned_url, file_url, file_name, file_path, file_type } = presignedResponse.data.data;
+
+        // 2. Upload to S3 using PUT
+        await axios.put(presigned_url, file, {
+          headers: {
+            "Content-Type": file.type,
+          },
+        });
+
+        results.push({
+          file_name,
+          file_url,
+          file_path,
+          file_type,
+          file_size: file.size,
+        });
       }
 
-      throw new Error(response.data.message || "Failed to upload files");
+      return results;
     } catch (error) {
-      console.error("Failed to upload files:", error);
+      console.error("Failed to upload files to S3:", error);
       throw error;
     }
   },
