@@ -307,7 +307,7 @@ export function KanbanView({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="px-6 py-2">
+      <div className="px-6 pt-4">
         <div className="flex items-center gap-3">
           {/* Columns visibility popover */}
           <Popover>
@@ -414,7 +414,7 @@ export function KanbanView({
         </div>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto p-6 h-full">
+      <div className="flex gap-4 overflow-x-auto px-6 py-4 h-full">
         {statuses
           .filter((status) => visibleStatuses.has(String(status.id)))
           .map((status) => (

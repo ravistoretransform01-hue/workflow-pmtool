@@ -3761,7 +3761,7 @@ export function WorkloadBoard({
                               }}
                               className="cursor-pointer"
                             />
-                            <span>{member.name}</span>
+                            <span className="flex-1 min-w-0 truncate">{member.name}</span>
                           </label>
                         ))}
                       </div>
