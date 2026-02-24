@@ -216,6 +216,7 @@ export function TiptapEditor({
     ((item: any) => void) | null
   >(null);
   const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isUpdatingRef = useRef(false);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const mentionRef = useRef<HTMLDivElement | null>(null);
@@ -828,9 +829,7 @@ export function TiptapEditor({
             variant="ghost"
             size="sm"
             className="h-8 w-8 p-0"
-            onClick={() =>
-              document.getElementById("tiptap-image-upload")?.click()
-            }
+            onClick={() => fileInputRef.current?.click()}
             title="Upload image"
             disabled={isUploading}
           >
@@ -843,7 +842,7 @@ export function TiptapEditor({
 
           <input
             type="file"
-            id="tiptap-image-upload"
+            ref={fileInputRef}
             className="hidden"
             accept="image/*"
             onChange={async (e) => {
@@ -855,7 +854,7 @@ export function TiptapEditor({
                 const uploadedFiles = await attachmentsApi.uploadFiles([file]);
                 if (uploadedFiles.length > 0) {
                   const url = uploadedFiles[0].file_url;
-                  editor.chain().focus().setImage({ src: url }).run();
+                  editor.chain().focus("end").setImage({ src: url }).run();
                   toast.success("Image uploaded and inserted");
                 }
               } catch (error) {
