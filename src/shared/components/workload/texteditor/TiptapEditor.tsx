@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { cn } from "@/lib/utils";
+import { ImagePreviewModal } from "./ImagePreviewModal";
 import {
   Popover,
   PopoverContent,
@@ -217,6 +218,8 @@ export function TiptapEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isUpdatingRef = useRef(false);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const mentionRef = useRef<HTMLDivElement | null>(null);
   const membersRef = useRef<Array<{ id: string; name: string }>>([]);
 
@@ -425,6 +428,15 @@ export function TiptapEditor({
             toast.success("Image dropped (preview)");
             return true;
           }
+        }
+        return false;
+      },
+      handleClick: (_, __pos, event) => {
+        const { target } = event;
+        if (target instanceof HTMLImageElement) {
+          setPreviewSrc(target.src);
+          setIsPreviewOpen(true);
+          return true;
         }
         return false;
       },
@@ -968,7 +980,7 @@ export function TiptapEditor({
             className={cn(
               "flex-1 max-h-[450px] min-h-[100px] p-3 focus:outline-none text-sm text-foreground bg-card relative z-20 overflow-y-auto",
               "[&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-[100px]",
-              "[&_img]:max-w-full [&_img]:h-auto [&_img]:max-h-[350px] [&_img]:object-contain [&_img]:rounded-lg [&_img]:border [&_img]:border-border",
+              "[&_img]:max-w-full [&_img]:h-auto [&_img]:max-h-[350px] [&_img]:object-contain [&_img]:rounded-lg [&_img]:border [&_img]:border-border [&_img]:cursor-zoom-in",
               "[&_img[style*='text-align: center']]:mx-auto [&_img[style*='text-align: center']]:block",
               "[&_img[style*='text-align: right']]:ml-auto [&_img[style*='text-align: right']]:block",
               "[&_img[style*='text-align: left']]:mr-auto [&_img[style*='text-align: left']]:block",
@@ -988,6 +1000,11 @@ export function TiptapEditor({
             data-placeholder={placeholder}
           />
         </div>
+        <ImagePreviewModal
+          src={previewSrc}
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+        />
       </div>
     </div>
   );
