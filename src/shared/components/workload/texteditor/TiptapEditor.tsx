@@ -10,7 +10,7 @@ import Mention from "@tiptap/extension-mention";
 import UnderlineExtension from "@tiptap/extension-underline";
 import LinkExtension from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
-import { Extension } from "@tiptap/core";
+import { Extension, Node as TiptapNode, mergeAttributes } from "@tiptap/core";
 import React, { useEffect, useState, useRef } from "react";
 import { GiphySelector } from "./GiphySelector";
 import { Button } from "@/shared/components/ui/button";
@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { cn } from "@/lib/utils";
-import { ImagePreviewModal } from "./ImagePreviewModal";
+import { FilePreviewModal } from "./FilePreviewModal";
 import {
   Popover,
   PopoverContent,
@@ -219,6 +219,9 @@ export function TiptapEditor({
   const isUpdatingRef = useRef(false);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [previewFileName, setPreviewFileName] = useState<string | undefined>(
+    undefined,
+  );
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const mentionRef = useRef<HTMLDivElement | null>(null);
   const membersRef = useRef<Array<{ id: string; name: string }>>([]);
@@ -257,6 +260,80 @@ export function TiptapEditor({
     },
   });
 
+  // Custom extension for PDF Attachment Card
+  const PDFCard = TiptapNode.create({
+    name: "pdfCard",
+    group: "block",
+    atom: true,
+    draggable: true,
+
+    addAttributes() {
+      return {
+        href: { default: null },
+        fileName: { default: "Document.pdf" },
+      };
+    },
+
+    parseHTML() {
+      return [
+        {
+          tag: 'div[data-type="pdf-card"]',
+          getAttrs: (element) => ({
+            href: (element as HTMLElement).getAttribute("data-href"),
+            fileName: (element as HTMLElement).getAttribute("data-filename"),
+          }),
+        },
+      ];
+    },
+
+    renderHTML({ node, HTMLAttributes }) {
+      return [
+        "div",
+        mergeAttributes(HTMLAttributes, {
+          "data-type": "pdf-card",
+          "data-href": node.attrs.href,
+          "data-filename": node.attrs.fileName,
+          class: "pdf-card-wrapper",
+        }),
+        [
+          "div",
+          { class: "pdf-card-content" },
+          ["span", { class: "pdf-card-icon" }, "📄"],
+          [
+            "div",
+            { class: "pdf-card-info" },
+            ["span", { class: "pdf-card-name" }, node.attrs.fileName],
+            ["span", { class: "pdf-card-type" }, "PDF Document"],
+          ],
+          [
+            "div",
+            { class: "pdf-card-actions" },
+            [
+              "button",
+              {
+                type: "button",
+                class:
+                  "pdf-card-preview-btn hover:bg-accent hover:text-accent-foreground",
+              },
+              "Preview",
+            ],
+            [
+              "a",
+              {
+                href: node.attrs.href,
+                target: "_blank",
+                class:
+                  "pdf-card-open-btn hover:bg-accent hover:text-accent-foreground",
+                rel: "noopener noreferrer",
+              },
+              "Open",
+            ],
+          ],
+        ],
+      ];
+    },
+  });
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -278,8 +355,28 @@ export function TiptapEditor({
       UnderlineExtension,
       LinkExtension.configure({
         openOnClick: false,
+        validate: (href) => !!href, // Allow any href including blob:
+        protocols: ["http", "https", "mailto", "tel", "blob"], // Explicitly support blob
         HTMLAttributes: {
           class: "text-primary hover:underline cursor-pointer",
+        },
+      }).extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            class: {
+              default: null,
+              parseHTML: (element) => element.getAttribute("class"),
+              renderHTML: (attributes) => {
+                // Return exactly the class provided, or fallback to default
+                return {
+                  class:
+                    attributes.class ||
+                    "text-primary hover:underline cursor-pointer",
+                };
+              },
+            },
+          };
         },
       }),
       Highlight.configure({
@@ -292,6 +389,7 @@ export function TiptapEditor({
       TextAlign.configure({
         types: ["heading", "paragraph", "image"],
       }),
+      PDFCard,
       Mention.configure({
         HTMLAttributes: {
           class:
@@ -386,9 +484,11 @@ export function TiptapEditor({
       handlePaste: (view, event) => {
         const items = Array.from(event.clipboardData?.items || []);
         const images = items.filter((item) => item.type.startsWith("image/"));
+        const pdfs = items.filter((item) => item.type === "application/pdf");
 
-        if (images.length > 0) {
+        if (images.length > 0 || pdfs.length > 0) {
           event.preventDefault();
+
           images.forEach((item) => {
             const file = item.getAsFile();
             if (file) {
@@ -400,7 +500,27 @@ export function TiptapEditor({
               view.dispatch(transaction);
             }
           });
-          toast.success("Image pasted (preview)");
+
+          pdfs.forEach((item) => {
+            const file = item.getAsFile();
+            if (file) {
+              const blobUrl = URL.createObjectURL(file);
+              attachmentsApi.registerPendingFile(blobUrl, file);
+              editor
+                ?.chain()
+                .insertContent({
+                  type: "pdfCard",
+                  attrs: {
+                    href: blobUrl,
+                    fileName: file.name,
+                  },
+                })
+                .run();
+            }
+          });
+
+          if (images.length > 0) toast.success("Image pasted (preview)");
+          if (pdfs.length > 0) toast.success("PDF pasted (preview)");
           return true;
         }
         return false;
@@ -414,9 +534,11 @@ export function TiptapEditor({
         ) {
           const files = Array.from(event.dataTransfer.files);
           const images = files.filter((file) => file.type.startsWith("image/"));
+          const pdfs = files.filter((file) => file.type === "application/pdf");
 
-          if (images.length > 0) {
+          if (images.length > 0 || pdfs.length > 0) {
             event.preventDefault();
+
             images.forEach((file) => {
               const blobUrl = URL.createObjectURL(file);
               attachmentsApi.registerPendingFile(blobUrl, file);
@@ -425,7 +547,24 @@ export function TiptapEditor({
               const transaction = view.state.tr.replaceSelectionWith(node);
               view.dispatch(transaction);
             });
-            toast.success("Image dropped (preview)");
+
+            pdfs.forEach((file) => {
+              const blobUrl = URL.createObjectURL(file);
+              attachmentsApi.registerPendingFile(blobUrl, file);
+              editor
+                ?.chain()
+                .insertContent({
+                  type: "pdfCard",
+                  attrs: {
+                    href: blobUrl,
+                    fileName: file.name,
+                  },
+                })
+                .run();
+            });
+
+            if (images.length > 0) toast.success("Image dropped (preview)");
+            if (pdfs.length > 0) toast.success("PDF dropped (preview)");
             return true;
           }
         }
@@ -433,8 +572,43 @@ export function TiptapEditor({
       },
       handleClick: (_, __pos, event) => {
         const { target } = event;
-        if (target instanceof HTMLImageElement) {
-          setPreviewSrc(target.src);
+        const targetElement = target as HTMLElement;
+
+        if (targetElement instanceof HTMLImageElement) {
+          setPreviewSrc(targetElement.src);
+          setPreviewFileName(undefined);
+          setIsPreviewOpen(true);
+          return true;
+        }
+
+        // Handle PDF Card Preview button
+        const previewBtn = targetElement.closest(".pdf-card-preview-btn");
+        if (previewBtn) {
+          const wrapper = targetElement.closest("[data-type='pdf-card']");
+          if (wrapper) {
+            const href = wrapper.getAttribute("data-href");
+            const fileName = wrapper.getAttribute("data-filename");
+            if (href) {
+              setPreviewSrc(href);
+              setPreviewFileName(fileName || "Document.pdf");
+              setIsPreviewOpen(true);
+              return true;
+            }
+          }
+        }
+
+        // Check if it's a PDF link (legacy or fallback)
+        const anchor = targetElement.closest("a");
+        if (
+          anchor &&
+          !anchor.classList.contains("pdf-card-open-btn") &&
+          (anchor.href.toLowerCase().endsWith(".pdf") ||
+            anchor.classList.contains("pdf-link") ||
+            (anchor.textContent && anchor.textContent.includes("📄")))
+        ) {
+          event.preventDefault();
+          setPreviewSrc(anchor.href);
+          setPreviewFileName(anchor.textContent || "Document.pdf");
           setIsPreviewOpen(true);
           return true;
         }
@@ -888,7 +1062,7 @@ export function TiptapEditor({
             size="sm"
             className="h-8 w-8 p-0"
             onClick={() => fileInputRef.current?.click()}
-            title="Upload image"
+            title="Upload file (Image or PDF)"
           >
             <ImageIcon className="h-4 w-4" />
           </Button>
@@ -897,7 +1071,7 @@ export function TiptapEditor({
             type="file"
             ref={fileInputRef}
             className="hidden"
-            accept="image/*"
+            accept="image/*,.pdf"
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
@@ -910,12 +1084,26 @@ export function TiptapEditor({
                 attachmentsApi.registerPendingFile(blobUrl, file);
 
                 // 3. Insert into editor immediately
-                editor.chain().focus("end").setImage({ src: blobUrl }).run();
-
-                toast.success("Image added (preview)");
+                if (file.type.startsWith("image/")) {
+                  editor.chain().focus("end").setImage({ src: blobUrl }).run();
+                  toast.success("Image added (preview)");
+                } else if (file.type === "application/pdf") {
+                  editor
+                    .chain()
+                    .focus("end")
+                    .insertContent({
+                      type: "pdfCard",
+                      attrs: {
+                        href: blobUrl,
+                        fileName: file.name,
+                      },
+                    })
+                    .run();
+                  toast.success("PDF added (preview)");
+                }
               } catch (error) {
-                console.error("Failed to process image:", error);
-                toast.error("Failed to process image");
+                console.error("Failed to process file:", error);
+                toast.error("Failed to process file");
               } finally {
                 // Reset input
                 e.target.value = "";
@@ -994,16 +1182,27 @@ export function TiptapEditor({
               "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2",
               "[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm",
               "[&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer",
+              // PDF Card Styles
+              "[&_.pdf-card-wrapper]:my-4 [&_.pdf-card-wrapper]:max-w-[400px]",
+              "[&_.pdf-card-content]:flex [&_.pdf-card-content]:items-center [&_.pdf-card-content]:gap-3 [&_.pdf-card-content]:p-3 [&_.pdf-card-content]:bg-card [&_.pdf-card-content]:border [&_.pdf-card-content]:border-border [&_.pdf-card-content]:rounded-xl [&_.pdf-card-content]:transition-all [&_.pdf-card-content]:hover:border-primary/30 [&_.pdf-card-content]:shadow-md",
+              "[&_.pdf-card-icon]:flex-shrink-0 [&_.pdf-card-icon]:text-xl [&_.pdf-card-icon]:bg-background [&_.pdf-card-icon]:w-10 [&_.pdf-card-icon]:h-10 [&_.pdf-card-icon]:flex [&_.pdf-card-icon]:items-center [&_.pdf-card-icon]:justify-center [&_.pdf-card-icon]:rounded-lg [&_.pdf-card-icon]:border [&_.pdf-card-icon]:border-border",
+              "[&_.pdf-card-info]:flex-1 [&_.pdf-card-info]:min-w-0 [&_.pdf-card-info]:flex [&_.pdf-card-info]:flex-col [&_.pdf-card-info]:gap-0.5",
+              "[&_.pdf-card-name]:block [&_.pdf-card-name]:font-semibold [&_.pdf-card-name]:text-xs [&_.pdf-card-name]:truncate [&_.pdf-card-name]:text-foreground",
+              "[&_.pdf-card-type]:block [&_.pdf-card-type]:text-[10px] [&_.pdf-card-type]:text-muted-foreground [&_.pdf-card-type]:uppercase [&_.pdf-card-type]:tracking-wider",
+              "[&_.pdf-card-actions]:flex [&_.pdf-card-actions]:gap-1.5 [&_.pdf-card-actions]:ml-2",
+              "[&_.pdf-card-preview-btn]:px-2.5 [&_.pdf-card-preview-btn]:py-1 [&_.pdf-card-preview-btn]:text-[10px] [&_.pdf-card-preview-btn]:font-bold [&_.pdf-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:border [&_.pdf-card-preview-btn]:border-border [&_.pdf-card-preview-btn]:rounded-md [&_.pdf-card-preview-btn]:transition-colors [&_.pdf-card-preview-btn]:uppercase [&_.pdf-card-preview-btn]:tracking-tighter",
+              "[&_.pdf-card-open-btn]:px-2.5 [&_.pdf-card-open-btn]:py-1 [&_.pdf-card-open-btn]:text-[10px] [&_.pdf-card-open-btn]:font-bold [&_.pdf-card-open-btn]:bg-background [&_.pdf-card-open-btn]:border [&_.pdf-card-open-btn]:border-border [&_.pdf-card-open-btn]:rounded-md [&_.pdf-card-open-btn]:transition-colors [&_.pdf-card-open-btn]:text-foreground [&_.pdf-card-open-btn]:no-underline [&_.pdf-card-open-btn]:uppercase [&_.pdf-card-open-btn]:tracking-tighter",
               "[&_.ProseMirror.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror.is-editor-empty:first-child::before]:pointer-events-none",
               "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary",
             )}
             data-placeholder={placeholder}
           />
         </div>
-        <ImagePreviewModal
+        <FilePreviewModal
           src={previewSrc}
           isOpen={isPreviewOpen}
           onClose={() => setIsPreviewOpen(false)}
+          fileName={previewFileName}
         />
       </div>
     </div>

@@ -74,8 +74,8 @@ export const attachmentsApi = {
   uploadAndReplace: async (html: string): Promise<string> => {
     if (!html) return html;
 
-    // Regex to find all blob: URLs in src attributes
-    const blobRegex = /src="(blob:.*?)"/g;
+    // Regex to find all blob: URLs in src or href attributes (handles single/double quotes and optional spacing)
+    const blobRegex = /(?:src|href)\s*=\s*["'](blob:.*?)["']/g;
     const matches = Array.from(html.matchAll(blobRegex));
     
     if (matches.length === 0) return html;
