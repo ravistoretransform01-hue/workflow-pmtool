@@ -31,7 +31,6 @@ import {
   Check,
   AtSign,
   Image as ImageIcon,
-  Loader2,
 } from "lucide-react";
 import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { cn } from "@/lib/utils";
@@ -215,7 +214,6 @@ export function TiptapEditor({
   const [mentionCommand, setMentionCommand] = useState<
     ((item: any) => void) | null
   >(null);
-  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isUpdatingRef = useRef(false);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
@@ -831,13 +829,8 @@ export function TiptapEditor({
             className="h-8 w-8 p-0"
             onClick={() => fileInputRef.current?.click()}
             title="Upload image"
-            disabled={isUploading}
           >
-            {isUploading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ImageIcon className="h-4 w-4" />
-            )}
+            <ImageIcon className="h-4 w-4" />
           </Button>
 
           <input
@@ -849,19 +842,21 @@ export function TiptapEditor({
               const file = e.target.files?.[0];
               if (!file) return;
 
-              setIsUploading(true);
               try {
-                const uploadedFiles = await attachmentsApi.uploadFiles([file]);
-                if (uploadedFiles.length > 0) {
-                  const url = uploadedFiles[0].file_url;
-                  editor.chain().focus("end").setImage({ src: url }).run();
-                  toast.success("Image uploaded and inserted");
-                }
+                // 1. Create a local blob URL for instant preview
+                const blobUrl = URL.createObjectURL(file);
+
+                // 2. Register the file for later upload
+                attachmentsApi.registerPendingFile(blobUrl, file);
+
+                // 3. Insert into editor immediately
+                editor.chain().focus("end").setImage({ src: blobUrl }).run();
+
+                toast.success("Image added (preview)");
               } catch (error) {
-                console.error("Failed to upload image:", error);
-                toast.error("Failed to upload image");
+                console.error("Failed to process image:", error);
+                toast.error("Failed to process image");
               } finally {
-                setIsUploading(false);
                 // Reset input
                 e.target.value = "";
               }
@@ -920,14 +915,6 @@ export function TiptapEditor({
 
         {/* Editor Area */}
         <div className="flex-1 relative overflow-hidden flex flex-col">
-          {isUploading && (
-            <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] z-50 flex items-center justify-center flex-col gap-2">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">
-                Uploading image...
-              </span>
-            </div>
-          )}
           <EditorContent
             editor={editor}
             className={cn(

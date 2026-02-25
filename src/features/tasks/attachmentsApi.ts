@@ -12,7 +12,17 @@ const S3_CONFIG = {
   PRESIGNED_URL_ENDPOINT: "https://ukapxnx0ni.execute-api.ap-south-1.amazonaws.com/default/pm-upload-api",
 };
 
+// Internal registry for blob URLs to File objects
+const pendingFiles = new Map<string, File>();
+
 export const attachmentsApi = {
+  /**
+   * Register a local blob URL with its corresponding File object for later upload
+   */
+  registerPendingFile: (url: string, file: File) => {
+    pendingFiles.set(url, file);
+  },
+
   /**
    * Upload files to S3 using presigned URLs
    */
@@ -56,5 +66,46 @@ export const attachmentsApi = {
       console.error("Failed to upload files to S3:", error);
       throw error;
     }
+  },
+
+  /**
+   * Scans HTML for blob: URLs, uploads them, and replaces them with S3 URLs
+   */
+  uploadAndReplace: async (html: string): Promise<string> => {
+    if (!html) return html;
+
+    // Regex to find all blob: URLs in src attributes
+    const blobRegex = /src="(blob:.*?)"/g;
+    const matches = Array.from(html.matchAll(blobRegex));
+    
+    if (matches.length === 0) return html;
+
+    let updatedHtml = html;
+    
+    for (const match of matches) {
+      const blobUrl = match[1];
+      const file = pendingFiles.get(blobUrl);
+      
+      if (file) {
+        try {
+          const uploaded = await attachmentsApi.uploadFiles([file]);
+          if (uploaded.length > 0) {
+            const s3Url = uploaded[0].file_url;
+            // ESCAPE special characters in blobUrl for regex if necessary, 
+            // but for safety we can just use replaceAll with the literal string
+            updatedHtml = updatedHtml.split(blobUrl).join(s3Url);
+            
+            // Cleanup: remove from map and revoke blob URL
+            pendingFiles.delete(blobUrl);
+            URL.revokeObjectURL(blobUrl);
+          }
+        } catch (error) {
+          console.error(`Failed to upload deferred file ${blobUrl}:`, error);
+          // Keep the blob URL if upload fails so the user doesn't lose the image
+        }
+      }
+    }
+
+    return updatedHtml;
   },
 };
