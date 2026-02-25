@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
+import { ImagePreviewModal } from "@/shared/components/workload/texteditor/ImagePreviewModal";
 import {
   Home,
   RefreshCcw,
@@ -116,6 +117,7 @@ const CommentItem = ({
   updateTaskComment,
   saveInlineReply,
   renderFormattedContent,
+  onImageClick,
 }: {
   comment: TaskComment;
   allComments: TaskComment[];
@@ -137,6 +139,7 @@ const CommentItem = ({
   updateTaskComment: (id: string | number, text: string) => void;
   saveInlineReply: (parentId: string | number) => void;
   renderFormattedContent: (content: string) => { __html: string };
+  onImageClick: (src: string) => void;
 }) => {
   // Find immediate children only for this level
   const directReplies = allComments
@@ -278,10 +281,17 @@ const CommentItem = ({
                   "[&_hr]:my-4 [&_hr]:border-border",
                   "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary [&_input[type='checkbox']]:mr-2",
                   "[&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:ml-0",
+                  "[&_img]:cursor-zoom-in",
                 )}
                 dangerouslySetInnerHTML={renderFormattedContent(
                   comment.content,
                 )}
+                onClick={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (target.tagName === "IMG") {
+                    onImageClick((target as HTMLImageElement).src);
+                  }
+                }}
               />
 
               <div className="pt-0.5 flex items-center gap-4">
@@ -345,6 +355,7 @@ const CommentItem = ({
                   updateTaskComment={updateTaskComment}
                   saveInlineReply={saveInlineReply}
                   renderFormattedContent={renderFormattedContent}
+                  onImageClick={onImageClick}
                 />
               </div>
             ))}
@@ -468,6 +479,13 @@ export function CommentsPanelSheet({
   );
   const [inlineReplyText, setInlineReplyText] = useState("");
   const [replyingTo, setReplyingTo] = useState<TaskComment | null>(null);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  const handleImageClick = (src: string) => {
+    setPreviewSrc(src);
+    setIsPreviewOpen(true);
+  };
 
   // Activity state
   const [activityData, setActivityData] = useState<any[]>([]);
@@ -574,6 +592,8 @@ export function CommentsPanelSheet({
         side="right"
         className="w-full sm:max-w-2xl p-0"
         showOverlay={false}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
       >
         <div className="flex flex-col h-full">
           <SheetHeader className="px-6 py-4 border-b border-border">
@@ -748,6 +768,7 @@ export function CommentsPanelSheet({
                           updateTaskComment={updateTaskComment}
                           saveInlineReply={saveInlineReply}
                           renderFormattedContent={renderFormattedContent}
+                          onImageClick={handleImageClick}
                         />
                       ))}
                   </div>
@@ -889,6 +910,11 @@ export function CommentsPanelSheet({
               )}
             </TabsContent>
           </Tabs>
+          <ImagePreviewModal
+            src={previewSrc}
+            isOpen={isPreviewOpen}
+            onClose={() => setIsPreviewOpen(false)}
+          />
         </div>
       </SheetContent>
     </Sheet>
