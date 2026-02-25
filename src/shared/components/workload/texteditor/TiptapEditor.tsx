@@ -380,6 +380,54 @@ export function TiptapEditor({
         }
         return false;
       },
+      handlePaste: (view, event) => {
+        const items = Array.from(event.clipboardData?.items || []);
+        const images = items.filter((item) => item.type.startsWith("image/"));
+
+        if (images.length > 0) {
+          event.preventDefault();
+          images.forEach((item) => {
+            const file = item.getAsFile();
+            if (file) {
+              const blobUrl = URL.createObjectURL(file);
+              attachmentsApi.registerPendingFile(blobUrl, file);
+              const { schema } = view.state;
+              const node = schema.nodes.image.create({ src: blobUrl });
+              const transaction = view.state.tr.replaceSelectionWith(node);
+              view.dispatch(transaction);
+            }
+          });
+          toast.success("Image pasted (preview)");
+          return true;
+        }
+        return false;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (
+          !moved &&
+          event.dataTransfer &&
+          event.dataTransfer.files &&
+          event.dataTransfer.files[0]
+        ) {
+          const files = Array.from(event.dataTransfer.files);
+          const images = files.filter((file) => file.type.startsWith("image/"));
+
+          if (images.length > 0) {
+            event.preventDefault();
+            images.forEach((file) => {
+              const blobUrl = URL.createObjectURL(file);
+              attachmentsApi.registerPendingFile(blobUrl, file);
+              const { schema } = view.state;
+              const node = schema.nodes.image.create({ src: blobUrl });
+              const transaction = view.state.tr.replaceSelectionWith(node);
+              view.dispatch(transaction);
+            });
+            toast.success("Image dropped (preview)");
+            return true;
+          }
+        }
+        return false;
+      },
     },
     onUpdate: ({ editor }) => {
       if (!isUpdatingRef.current) {
