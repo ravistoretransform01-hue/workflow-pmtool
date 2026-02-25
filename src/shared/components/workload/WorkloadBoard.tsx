@@ -11,6 +11,7 @@ import axios from "@/lib/axios";
 import { useAppDispatch } from "@/app/hooks";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
+import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { cmsApi } from "@/features/cms/cmsApi";
 // import { boardsApi } from "@/features/boards/boardsApi";
 import {
@@ -469,6 +470,7 @@ export function WorkloadBoard({
   // Local state for board-specific UI
   // const [editingBoardName, setEditingBoardName] = useState(false);
   const [boardNameValue, setBoardNameValue] = useState(boardName);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Ref for the main flex container (flex-1 flex flex-col)
   const mainFlexContainerRef = useRef<HTMLDivElement>(null);
@@ -2773,52 +2775,18 @@ export function WorkloadBoard({
     return { ...taskState.expandedTasks, ...additions };
   }, [taskState.expandedTasks, memoizedFilteredData.autoExpandedTaskIds]);
 
-  const processHtmlContent = (html: string) => {
-    if (!html) return "";
-
-    let processed = html;
-
-    // Handle bold (including with attributes)
-    processed = processed.replace(/<b\b[^>]*>(.*?)<\/b>/gi, "**$1**");
-    processed = processed.replace(/<strong\b[^>]*>(.*?)<\/strong>/gi, "**$1**");
-
-    // Handle italic
-    processed = processed.replace(/<i\b[^>]*>(.*?)<\/i>/gi, "_$1_");
-    processed = processed.replace(/<em\b[^>]*>(.*?)<\/em>/gi, "_$1_");
-
-    // Handle strike
-    processed = processed.replace(/<s\b[^>]*>(.*?)<\/s>/gi, "~~$1~~");
-    processed = processed.replace(/<strike\b[^>]*>(.*?)<\/strike>/gi, "~~$1~~");
-
-    // Handle Lists
-    processed = processed.replace(/<\/li>/gi, ""); // remove closing li
-    processed = processed.replace(/<li\b[^>]*>/gi, "\n- "); // replace opening li with newline dash
-    processed = processed.replace(/<\/?(ul|ol)\b[^>]*>/gi, "\n"); // remove ul/ol tags but add newline
-
-    // Handle BR
-    processed = processed.replace(/<br\s*\/?>/gi, "\n");
-
-    // Handle Blocks (div, p, etc)
-    // Replace opening block tags with newlines
-    processed = processed.replace(
-      /<(div|p|h[1-6]|blockquote)( [^>]*)?>/gi,
-      "\n",
-    );
-    // Replace closing block tags with newlines
-    processed = processed.replace(/<\/(div|p|h[1-6]|blockquote)>/gi, "\n");
-
-    return processed;
-  };
-
   const saveUpdate = async () => {
-    if (!updateText.trim() || !selectedCommentsId) {
+    if (!updateText.trim() || !selectedCommentsId || isSaving) {
       return;
     }
 
+    setIsSaving(true);
     try {
+      // Process deferred uploads (if any)
+      const finalHtml = await attachmentsApi.uploadAndReplace(updateText);
+
       const payload = {
-        // content: processHtmlContent(updateText),
-        content: updateText,
+        content: finalHtml,
         parent_id: replyingTo ? Number(replyingTo.id) : null,
         is_internal: 0,
       };
@@ -2844,6 +2812,8 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to save update:", error);
       toast.error("Failed to save update");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -2851,13 +2821,17 @@ export function WorkloadBoard({
     parentId: string | number,
     replyText: string,
   ) => {
-    if (!replyText.trim() || !selectedCommentsId) {
+    if (!replyText.trim() || !selectedCommentsId || isSaving) {
       return;
     }
 
+    setIsSaving(true);
     try {
+      // Process deferred uploads (if any)
+      const finalHtml = await attachmentsApi.uploadAndReplace(replyText);
+
       const payload = {
-        content: processHtmlContent(replyText),
+        content: finalHtml,
         parent_id: Number(parentId),
         is_internal: 0,
       };
@@ -2876,6 +2850,8 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to save reply:", error);
       toast.error("Failed to Save Reply");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -2899,12 +2875,16 @@ export function WorkloadBoard({
     commentId: string | number,
     content: string,
   ) => {
-    if (!selectedCommentsId) return;
+    if (!selectedCommentsId || isSaving) return;
+    setIsSaving(true);
     try {
+      // Process deferred uploads (if any)
+      const finalHtml = await attachmentsApi.uploadAndReplace(content);
+
       const updatedComment = await tasksApi.updateComment(
         selectedCommentsId,
         commentId,
-        { content: content }, // Send the HTML content directly without processing
+        { content: finalHtml }, // Send the HTML content after processing deferred uploads
       );
 
       // Update local state with the updated comment
@@ -2918,6 +2898,8 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to update comment:", error);
       toast.error("Failed to Update Comment");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -3761,7 +3743,9 @@ export function WorkloadBoard({
                               }}
                               className="cursor-pointer"
                             />
-                            <span className="flex-1 min-w-0 truncate">{member.name}</span>
+                            <span className="flex-1 min-w-0 truncate">
+                              {member.name}
+                            </span>
                           </label>
                         ))}
                       </div>
@@ -5366,6 +5350,7 @@ export function WorkloadBoard({
           onDeleteComment={handleDeleteComment}
           onUpdateComment={updateTaskComment}
           onSaveInlineReply={saveInlineReply}
+          isSaving={isSaving}
           onTaskButtonClick={() => {
             closeCommentsPanel();
             // Use search params to switch to task

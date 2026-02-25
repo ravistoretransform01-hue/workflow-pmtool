@@ -90,6 +90,7 @@ interface CommentsPanelSheetProps {
   onUpdateComment: (commentId: string | number, content: string) => void;
   onSaveInlineReply: (parentId: string | number, replyText: string) => void;
   onTaskButtonClick?: () => void;
+  isSaving?: boolean;
   boardId?: string;
 }
 
@@ -230,7 +231,7 @@ const CommentItem = ({
                 value={editCommentText}
                 onChange={setEditCommentText}
                 placeholder="Edit your comment..."
-                boardId={boardId ? parseInt(boardId) : undefined}       
+                boardId={boardId ? parseInt(boardId) : undefined}
                 key={`edit-${comment.id}`}
               />
               <div className="flex gap-2">
@@ -452,6 +453,7 @@ export function CommentsPanelSheet({
   onUpdateComment,
   onSaveInlineReply,
   onTaskButtonClick,
+  isSaving,
   boardId,
 }: CommentsPanelSheetProps) {
   const [expandedThreads, setExpandedThreads] = useState<
@@ -696,10 +698,10 @@ export function CommentsPanelSheet({
                 </div>
                 <Button
                   onClick={onSaveUpdate}
-                  disabled={!updateText.trim()}
+                  disabled={!updateText.trim() || isSaving}
                   className="bg-primary hover:bg-primary/90"
                 >
-                  Update
+                  {isSaving ? "Saving..." : "Update"}
                 </Button>
               </div>
 
