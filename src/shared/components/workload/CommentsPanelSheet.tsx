@@ -159,6 +159,12 @@ const CommentItem = ({
   const hiddenCount = directReplies.length - visibleReplies.length;
 
   const isReplyingToThis = String(inlineReplyId) === String(comment.id);
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
+
+  // Heuristic for long content: > 500 chars of HTML or > 4 newlines
+  const isLongContent =
+    comment.content.length > 500 ||
+    (comment.content.match(/<br/g) || []).length > 4;
 
   return (
     <div key={comment.id} className="space-y-4 relative">
@@ -263,36 +269,54 @@ const CommentItem = ({
             <>
               <div
                 className={cn(
-                  "text-foreground/90 leading-relaxed break-words pr-4",
-                  depth === 0 ? "text-sm" : "text-sm text-foreground/80",
-                  "[&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2",
-                  "[&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2",
-                  "[&_li]:my-1",
-                  "[&_ul_ul]:list-circle [&_ul_ul]:ml-6",
-                  "[&_ol_ol]:ml-6",
-                  "[&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground",
-                  "[&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto",
-                  "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2",
-                  "[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm",
-                  "[&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer",
-                  "[&_strong]:font-bold",
-                  "[&_em]:italic",
-                  "[&_s]:line-through",
-                  "[&_hr]:my-4 [&_hr]:border-border",
-                  "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary [&_input[type='checkbox']]:mr-2",
-                  "[&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:ml-0",
-                  "[&_img]:cursor-zoom-in",
+                  "relative overflow-hidden transition-all duration-300",
+                  isLongContent && !isContentExpanded && "max-h-[140px]",
                 )}
-                dangerouslySetInnerHTML={renderFormattedContent(
-                  comment.content,
+              >
+                <div
+                  className={cn(
+                    "text-foreground/90 leading-relaxed break-words pr-4",
+                    depth === 0 ? "text-sm" : "text-sm text-foreground/80",
+                    "[&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2",
+                    "[&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2",
+                    "[&_li]:my-1",
+                    "[&_ul_ul]:list-circle [&_ul_ul]:ml-6",
+                    "[&_ol_ol]:ml-6",
+                    "[&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground",
+                    "[&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto",
+                    "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2",
+                    "[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm",
+                    "[&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer",
+                    "[&_strong]:font-bold",
+                    "[&_em]:italic",
+                    "[&_s]:line-through",
+                    "[&_hr]:my-4 [&_hr]:border-border",
+                    "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary [&_input[type='checkbox']]:mr-2",
+                    "[&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:ml-0",
+                    "[&_img]:cursor-zoom-in",
+                  )}
+                  dangerouslySetInnerHTML={renderFormattedContent(
+                    comment.content,
+                  )}
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.tagName === "IMG") {
+                      onImageClick((target as HTMLImageElement).src);
+                    }
+                  }}
+                />
+                {isLongContent && !isContentExpanded && (
+                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent pointer-events-none" />
                 )}
-                onClick={(e) => {
-                  const target = e.target as HTMLElement;
-                  if (target.tagName === "IMG") {
-                    onImageClick((target as HTMLImageElement).src);
-                  }
-                }}
-              />
+              </div>
+              {isLongContent && (
+                <button
+                  onClick={() => setIsContentExpanded(!isContentExpanded)}
+                  className="mt-1 text-xs font-semibold text-primary hover:underline focus:outline-none flex items-center"
+                >
+                  {isContentExpanded ? "show less" : "...see more"}
+                </button>
+              )}
 
               <div className="pt-0.5 flex items-center gap-4">
                 <Button
