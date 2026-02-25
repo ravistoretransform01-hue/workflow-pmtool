@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
-import { ImagePreviewModal } from "@/shared/components/workload/texteditor/ImagePreviewModal";
+import { FilePreviewModal } from "@/shared/components/workload/texteditor/FilePreviewModal";
 import {
   Home,
   RefreshCcw,
@@ -117,7 +117,7 @@ const CommentItem = ({
   updateTaskComment,
   saveInlineReply,
   renderFormattedContent,
-  onImageClick,
+  onFilePreview,
 }: {
   comment: TaskComment;
   allComments: TaskComment[];
@@ -139,7 +139,7 @@ const CommentItem = ({
   updateTaskComment: (id: string | number, text: string) => void;
   saveInlineReply: (parentId: string | number) => void;
   renderFormattedContent: (content: string) => { __html: string };
-  onImageClick: (src: string) => void;
+  onFilePreview: (src: string, name?: string) => void;
 }) => {
   // Find immediate children only for this level
   const directReplies = allComments
@@ -161,10 +161,10 @@ const CommentItem = ({
   const isReplyingToThis = String(inlineReplyId) === String(comment.id);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
 
-  // Heuristic for long content: > 500 chars of HTML or > 4 newlines
+  // Heuristic for long content: > 800 chars of HTML or > 8 newlines
   const isLongContent =
-    comment.content.length > 500 ||
-    (comment.content.match(/<br/g) || []).length > 4;
+    comment.content.length > 800 ||
+    (comment.content.match(/<br/g) || []).length > 8;
 
   return (
     <div key={comment.id} className="space-y-4 relative">
@@ -270,7 +270,7 @@ const CommentItem = ({
               <div
                 className={cn(
                   "relative overflow-hidden transition-all duration-300",
-                  isLongContent && !isContentExpanded && "max-h-[140px]",
+                  isLongContent && !isContentExpanded && "max-h-[250px]",
                 )}
               >
                 <div
@@ -294,6 +294,16 @@ const CommentItem = ({
                     "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary [&_input[type='checkbox']]:mr-2",
                     "[&_ul[data-type='taskList']]:list-none [&_ul[data-type='taskList']]:ml-0",
                     "[&_img]:cursor-zoom-in",
+                    // PDF Card Styles
+                    "[&_.pdf-card-wrapper]:my-3 [&_.pdf-card-wrapper]:max-w-[350px]",
+                    "[&_.pdf-card-content]:flex [&_.pdf-card-content]:items-center [&_.pdf-card-content]:gap-2.5 [&_.pdf-card-content]:p-2.5 [&_.pdf-card-content]:bg-card [&_.pdf-card-content]:border [&_.pdf-card-content]:border-border [&_.pdf-card-content]:rounded-xl [&_.pdf-card-content]:transition-all [&_.pdf-card-content]:hover:border-primary/30 [&_.pdf-card-content]:shadow-md",
+                    "[&_.pdf-card-icon]:flex-shrink-0 [&_.pdf-card-icon]:text-lg [&_.pdf-card-icon]:bg-background [&_.pdf-card-icon]:w-9 [&_.pdf-card-icon]:h-9 [&_.pdf-card-icon]:flex [&_.pdf-card-icon]:items-center [&_.pdf-card-icon]:justify-center [&_.pdf-card-icon]:rounded-lg [&_.pdf-card-icon]:border [&_.pdf-card-icon]:border-border",
+                    "[&_.pdf-card-info]:flex-1 [&_.pdf-card-info]:min-w-0 [&_.pdf-card-info]:flex [&_.pdf-card-info]:flex-col [&_.pdf-card-info]:gap-0",
+                    "[&_.pdf-card-name]:block [&_.pdf-card-name]:font-semibold [&_.pdf-card-name]:text-[11px] [&_.pdf-card-name]:truncate [&_.pdf-card-name]:text-foreground",
+                    "[&_.pdf-card-type]:block [&_.pdf-card-type]:text-[9px] [&_.pdf-card-type]:text-muted-foreground [&_.pdf-card-type]:uppercase [&_.pdf-card-type]:tracking-tight",
+                    "[&_.pdf-card-actions]:flex [&_.pdf-card-actions]:gap-1 [&_.pdf-card-actions]:ml-2",
+                    "[&_.pdf-card-preview-btn]:px-2 [&_.pdf-card-preview-btn]:py-1 [&_.pdf-card-preview-btn]:text-[9px] [&_.pdf-card-preview-btn]:font-bold [&_.pdf-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:border [&_.pdf-card-preview-btn]:border-border [&_.pdf-card-preview-btn]:rounded-md [&_.pdf-card-preview-btn]:transition-colors [&_.pdf-card-preview-btn]:uppercase",
+                    "[&_.pdf-card-open-btn]:px-2 [&_.pdf-card-open-btn]:py-1 [&_.pdf-card-open-btn]:text-[9px] [&_.pdf-card-open-btn]:font-bold [&_.pdf-card-open-btn]:bg-background [&_.pdf-card-open-btn]:border [&_.pdf-card-open-btn]:border-border [&_.pdf-card-open-btn]:rounded-md [&_.pdf-card-open-btn]:transition-colors [&_.pdf-card-open-btn]:text-foreground [&_.pdf-card-open-btn]:no-underline [&_.pdf-card-open-btn]:uppercase",
                   )}
                   dangerouslySetInnerHTML={renderFormattedContent(
                     comment.content,
@@ -301,7 +311,38 @@ const CommentItem = ({
                   onClick={(e) => {
                     const target = e.target as HTMLElement;
                     if (target.tagName === "IMG") {
-                      onImageClick((target as HTMLImageElement).src);
+                      onFilePreview((target as HTMLImageElement).src);
+                      return;
+                    }
+
+                    // Handle PDF Card Preview button
+                    const previewBtn = target.closest(".pdf-card-preview-btn");
+                    if (previewBtn) {
+                      const wrapper = target.closest("[data-type='pdf-card']");
+                      if (wrapper) {
+                        const href = wrapper.getAttribute("data-href");
+                        const fileName = wrapper.getAttribute("data-filename");
+                        if (href) {
+                          onFilePreview(href, fileName || "Document.pdf");
+                          return;
+                        }
+                      }
+                    }
+
+                    const anchor = target.closest("a");
+                    if (
+                      anchor &&
+                      !anchor.classList.contains("pdf-card-open-btn") &&
+                      (anchor.href.toLowerCase().endsWith(".pdf") ||
+                        anchor.classList.contains("pdf-link") ||
+                        (anchor.textContent &&
+                          anchor.textContent.includes("📄")))
+                    ) {
+                      e.preventDefault();
+                      onFilePreview(
+                        anchor.href,
+                        anchor.textContent || "Document.pdf",
+                      );
                     }
                   }}
                 />
@@ -379,7 +420,7 @@ const CommentItem = ({
                   updateTaskComment={updateTaskComment}
                   saveInlineReply={saveInlineReply}
                   renderFormattedContent={renderFormattedContent}
-                  onImageClick={onImageClick}
+                  onFilePreview={onFilePreview}
                 />
               </div>
             ))}
@@ -504,10 +545,14 @@ export function CommentsPanelSheet({
   const [inlineReplyText, setInlineReplyText] = useState("");
   const [replyingTo, setReplyingTo] = useState<TaskComment | null>(null);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [previewFileName, setPreviewFileName] = useState<string | undefined>(
+    undefined,
+  );
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-  const handleImageClick = (src: string) => {
+  const handleFilePreview = (src: string, name?: string) => {
     setPreviewSrc(src);
+    setPreviewFileName(name);
     setIsPreviewOpen(true);
   };
 
@@ -684,11 +729,12 @@ export function CommentsPanelSheet({
                         Replying to <strong>{replyingTo.user?.name}</strong>
                       </span>
                       <span
-                        className="truncate opacity-70 italic"
+                        className="truncate opacity-70 italic [&_div[data-type='pdf-card']]:inline-flex [&_div[data-type='pdf-card']]:scale-75 [&_div[data-type='pdf-card']]:origin-left"
                         dangerouslySetInnerHTML={{
                           __html:
-                            replyingTo.content.substring(0, 50) +
-                            (replyingTo.content.length > 50 ? "..." : ""),
+                            replyingTo.content.length > 80
+                              ? replyingTo.content.substring(0, 80) + "..."
+                              : replyingTo.content,
                         }}
                       />
                     </div>
@@ -792,7 +838,7 @@ export function CommentsPanelSheet({
                           updateTaskComment={updateTaskComment}
                           saveInlineReply={saveInlineReply}
                           renderFormattedContent={renderFormattedContent}
-                          onImageClick={handleImageClick}
+                          onFilePreview={handleFilePreview}
                         />
                       ))}
                   </div>
@@ -833,7 +879,51 @@ export function CommentsPanelSheet({
                     {activityData.map((activity) => (
                       <div
                         key={activity.id}
-                        className="flex gap-4 group relative"
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.tagName === "IMG") {
+                            handleFilePreview((target as HTMLImageElement).src);
+                            return;
+                          }
+
+                          // Handle PDF Card Preview button
+                          const previewBtn = target.closest(
+                            ".pdf-card-preview-btn",
+                          );
+                          if (previewBtn) {
+                            const wrapper = target.closest(
+                              "[data-type='pdf-card']",
+                            );
+                            if (wrapper) {
+                              const href = wrapper.getAttribute("data-href");
+                              const fileName =
+                                wrapper.getAttribute("data-filename");
+                              if (href) {
+                                handleFilePreview(
+                                  href,
+                                  fileName || "Document.pdf",
+                                );
+                                return;
+                              }
+                            }
+                          }
+
+                          const anchor = target.closest("a");
+                          if (
+                            anchor &&
+                            !anchor.classList.contains("pdf-card-open-btn") &&
+                            (anchor.href.toLowerCase().endsWith(".pdf") ||
+                              anchor.classList.contains("pdf-link") ||
+                              (anchor.textContent &&
+                                anchor.textContent.includes("📄")))
+                          ) {
+                            e.preventDefault();
+                            handleFilePreview(
+                              anchor.href,
+                              anchor.textContent || "Document.pdf",
+                            );
+                          }
+                        }}
                       >
                         <Avatar className="h-8 w-8 shrink-0 border border-border/50 shadow-sm">
                           <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
@@ -863,11 +953,12 @@ export function CommentsPanelSheet({
                           {activity.old_value && activity.old_value.trim() && (
                             <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-destructive/30">
                               <span className="font-medium">Previous:</span>
-                              <div className="mt-1 break-words">
-                                {activity.old_value.length > 200
-                                  ? `${activity.old_value.substring(0, 200)}...`
-                                  : activity.old_value}
-                              </div>
+                              <div
+                                className="mt-1 break-words [&_.pdf-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.pdf-card-content]:bg-card [&_.pdf-card-content]:border-border [&_.pdf-card-content]:shadow-sm [&_.pdf-card-preview-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
+                                dangerouslySetInnerHTML={renderFormattedContent(
+                                  activity.old_value,
+                                )}
+                              />
                             </div>
                           )}
                           {activity.new_value &&
@@ -875,11 +966,12 @@ export function CommentsPanelSheet({
                             activity.new_value.trim() && (
                               <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30">
                                 <span className="font-medium">New:</span>
-                                <div className="mt-1 break-words">
-                                  {activity.new_value.length > 200
-                                    ? `${activity.new_value.substring(0, 200)}...`
-                                    : activity.new_value}
-                                </div>
+                                <div
+                                  className="mt-1 break-words [&_.pdf-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.pdf-card-content]:bg-card [&_.pdf-card-content]:border-border [&_.pdf-card-content]:shadow-sm [&_.pdf-card-preview-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
+                                  dangerouslySetInnerHTML={renderFormattedContent(
+                                    activity.new_value,
+                                  )}
+                                />
                               </div>
                             )}
                         </div>
@@ -934,10 +1026,11 @@ export function CommentsPanelSheet({
               )}
             </TabsContent>
           </Tabs>
-          <ImagePreviewModal
+          <FilePreviewModal
             src={previewSrc}
             isOpen={isPreviewOpen}
             onClose={() => setIsPreviewOpen(false)}
+            fileName={previewFileName}
           />
         </div>
       </SheetContent>
