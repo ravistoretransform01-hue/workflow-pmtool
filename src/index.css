@@ -182,3 +182,94 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 } */
+
+/* PDF Card Styles */
+.pdf-card-wrapper {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  max-width: 400px;
+}
+
+.pdf-card-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.pdf-card-content:hover {
+  border-color: hsla(var(--primary) / 0.3);
+}
+
+.pdf-card-icon {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  background-color: hsl(var(--background));
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+}
+
+.pdf-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.pdf-card-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: hsl(var(--foreground));
+}
+
+.pdf-card-type {
+  display: block;
+  font-size: 0.625rem;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pdf-card-actions {
+  display: flex;
+  gap: 0.375rem;
+  margin-left: 0.5rem;
+}
+
+.pdf-card-preview-btn, .pdf-card-open-btn {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  background-color: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  transition: colors 0.2s;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  cursor: pointer;
+}
+
+.pdf-card-preview-btn:hover, .pdf-card-open-btn:hover {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.pdf-card-open-btn {
+  text-decoration: none;
+  color: hsl(var(--foreground));
+}

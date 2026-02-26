@@ -29,30 +29,8 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
+      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 overflow-visible border-none bg-transparent shadow-none">
         <div className="relative w-full h-[90vh] flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-lg overflow-hidden">
-          {/* Controls Overlay */}
-          <div className="absolute top-4 right-4 z-[60] flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              className="bg-background/20 backdrop-blur-md border-white/20 text-white hover:bg-background/40 h-9 w-9"
-              onClick={handleDownload}
-              title="Open in new tab"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="bg-background/20 backdrop-blur-md border-white/20 text-white hover:bg-background/40 h-9 w-9"
-              onClick={onClose}
-              title="Close"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
           {/* Content Container */}
           <div className="w-full h-full p-4 flex items-center justify-center overflow-auto">
             {isPdf ? (
@@ -80,6 +58,28 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
               </span>
             )}
           </div>
+        </div>
+
+        {/* Controls Overlay - Positioned outside the main container */}
+        <div className="absolute -top-12 right-0 z-[60] flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-black/60 h-9 w-9 rounded-full shadow-lg"
+            onClick={handleDownload}
+            title="Open in new tab"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-black/60 h-9 w-9 rounded-full shadow-lg"
+            onClick={onClose}
+            title="Close"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

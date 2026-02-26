@@ -1182,16 +1182,6 @@ export function TiptapEditor({
               "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2",
               "[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm",
               "[&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer",
-              // PDF Card Styles
-              "[&_.pdf-card-wrapper]:my-4 [&_.pdf-card-wrapper]:max-w-[400px]",
-              "[&_.pdf-card-content]:flex [&_.pdf-card-content]:items-center [&_.pdf-card-content]:gap-3 [&_.pdf-card-content]:p-3 [&_.pdf-card-content]:bg-card [&_.pdf-card-content]:border [&_.pdf-card-content]:border-border [&_.pdf-card-content]:rounded-xl [&_.pdf-card-content]:transition-all [&_.pdf-card-content]:hover:border-primary/30 [&_.pdf-card-content]:shadow-md",
-              "[&_.pdf-card-icon]:flex-shrink-0 [&_.pdf-card-icon]:text-xl [&_.pdf-card-icon]:bg-background [&_.pdf-card-icon]:w-10 [&_.pdf-card-icon]:h-10 [&_.pdf-card-icon]:flex [&_.pdf-card-icon]:items-center [&_.pdf-card-icon]:justify-center [&_.pdf-card-icon]:rounded-lg [&_.pdf-card-icon]:border [&_.pdf-card-icon]:border-border",
-              "[&_.pdf-card-info]:flex-1 [&_.pdf-card-info]:min-w-0 [&_.pdf-card-info]:flex [&_.pdf-card-info]:flex-col [&_.pdf-card-info]:gap-0.5",
-              "[&_.pdf-card-name]:block [&_.pdf-card-name]:font-semibold [&_.pdf-card-name]:text-xs [&_.pdf-card-name]:truncate [&_.pdf-card-name]:text-foreground",
-              "[&_.pdf-card-type]:block [&_.pdf-card-type]:text-[10px] [&_.pdf-card-type]:text-muted-foreground [&_.pdf-card-type]:uppercase [&_.pdf-card-type]:tracking-wider",
-              "[&_.pdf-card-actions]:flex [&_.pdf-card-actions]:gap-1.5 [&_.pdf-card-actions]:ml-2",
-              "[&_.pdf-card-preview-btn]:px-2.5 [&_.pdf-card-preview-btn]:py-1 [&_.pdf-card-preview-btn]:text-[10px] [&_.pdf-card-preview-btn]:font-bold [&_.pdf-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:border [&_.pdf-card-preview-btn]:border-border [&_.pdf-card-preview-btn]:rounded-md [&_.pdf-card-preview-btn]:transition-colors [&_.pdf-card-preview-btn]:uppercase [&_.pdf-card-preview-btn]:tracking-tighter",
-              "[&_.pdf-card-open-btn]:px-2.5 [&_.pdf-card-open-btn]:py-1 [&_.pdf-card-open-btn]:text-[10px] [&_.pdf-card-open-btn]:font-bold [&_.pdf-card-open-btn]:bg-background [&_.pdf-card-open-btn]:border [&_.pdf-card-open-btn]:border-border [&_.pdf-card-open-btn]:rounded-md [&_.pdf-card-open-btn]:transition-colors [&_.pdf-card-open-btn]:text-foreground [&_.pdf-card-open-btn]:no-underline [&_.pdf-card-open-btn]:uppercase [&_.pdf-card-open-btn]:tracking-tighter",
               "[&_.ProseMirror.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror.is-editor-empty:first-child::before]:pointer-events-none",
               "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary",
             )}
