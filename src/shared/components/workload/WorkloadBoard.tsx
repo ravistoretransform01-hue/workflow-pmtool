@@ -2850,6 +2850,7 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to save reply:", error);
       toast.error("Failed to Save Reply");
+      throw error;
     } finally {
       setIsSaving(false);
     }
@@ -2898,6 +2899,7 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to update comment:", error);
       toast.error("Failed to Update Comment");
+      throw error;
     } finally {
       setIsSaving(false);
     }
