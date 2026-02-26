@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { format, intervalToDuration } from "date-fns";
 import {
   Sheet,
   SheetContent,
@@ -71,6 +71,35 @@ const renderFormattedContent = (content: string) => {
   safeContent = safeContent.replace(/\n/g, "<br />");
 
   return { __html: safeContent };
+};
+
+// Helper to format relative time for comments: "7 hour 2min ago", "5 days ago", etc.
+const getRelativeTimeString = (dateStr: string) => {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const now = new Date();
+
+  // Use intervalToDuration for precise parts
+  const duration = intervalToDuration({ start: date, end: now });
+
+  if (duration.years)
+    return `${duration.years} year${duration.years > 1 ? "s" : ""} ago`;
+  if (duration.months)
+    return `${duration.months} month${duration.months > 1 ? "s" : ""} ago`;
+  if (duration.days)
+    return `${duration.days} day${duration.days > 1 ? "s" : ""} ago`;
+
+  const parts = [];
+  if (duration.hours) {
+    parts.push(`${duration.hours} hour${duration.hours > 1 ? "s" : ""}`);
+  }
+  if (duration.minutes) {
+    parts.push(`${duration.minutes} min`);
+  }
+
+  if (parts.length === 0) return "just now";
+
+  return `${parts.join(" ")} ago`;
 };
 
 interface CommentsPanelSheetProps {
@@ -160,6 +189,7 @@ const CommentItem = ({
 
   const isReplyingToThis = String(inlineReplyId) === String(comment.id);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
+  const [showRelativeTime, setShowRelativeTime] = useState(false);
 
   // Heuristic for long content: > 800 chars of HTML or > 8 newlines
   const isLongContent =
@@ -196,9 +226,19 @@ const CommentItem = ({
               >
                 {comment.user?.name || "Unknown User"}
               </span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              <span
+                className="text-[10px] text-muted-foreground tracking-wider cursor-pointer"
+                onClick={() => setShowRelativeTime(!showRelativeTime)}
+                title={
+                  showRelativeTime
+                    ? "Click for exact date"
+                    : "Click for relative time"
+                }
+              >
                 {comment.created_at
-                  ? format(new Date(comment.created_at), "MMM d, h:mm a")
+                  ? showRelativeTime
+                    ? getRelativeTimeString(comment.created_at)
+                    : format(new Date(comment.created_at), "MMM d, h:mm a")
                   : ""}
               </span>
             </div>
