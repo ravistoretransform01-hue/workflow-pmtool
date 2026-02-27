@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import {
   DndContext,
-  pointerWithin,
   closestCorners,
   PointerSensor,
   useSensor,
@@ -147,7 +146,8 @@ export function KanbanView({
 
   // Custom collision detection strategy that prioritizes columns and resolves cards to columns
   const collisionDetectionStrategy: CollisionDetection = (args) => {
-    const { active, droppableContainers, pointerCoordinates } = args;
+    // const { active, droppableContainers, pointerCoordinates } = args;
+    const { droppableContainers, pointerCoordinates } = args;
 
     if (!pointerCoordinates) return [];
 
