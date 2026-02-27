@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import {
   DndContext,
-  closestCenter,
+  pointerWithin,
+  closestCorners,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
   DragOverlay,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import type { DragStartEvent } from "@dnd-kit/core";
 import type { Priority, Status } from "@/features/cms/types";
@@ -143,6 +145,39 @@ export function KanbanView({
     return organized;
   }, [groups, statuses, optimisticStatusChanges]);
 
+  // Custom collision detection strategy that prioritizes columns and resolves cards to columns
+  const collisionDetectionStrategy: CollisionDetection = (args) => {
+    const { active, droppableContainers, pointerCoordinates } = args;
+
+    if (!pointerCoordinates) return [];
+
+    // 1️⃣ First: detect column directly by pointer position
+    const columnContainers = droppableContainers.filter((container) =>
+      String(container.id).startsWith("status-"),
+    );
+
+    for (const container of columnContainers) {
+      const rect = container.rect.current;
+
+      if (!rect) continue;
+
+      if (
+        pointerCoordinates.x >= rect.left &&
+        pointerCoordinates.x <= rect.right &&
+        pointerCoordinates.y >= rect.top &&
+        pointerCoordinates.y <= rect.bottom
+      ) {
+        return [{ id: container.id }];
+      }
+    }
+
+    // 2️⃣ Fallback to closest column (gravity effect)
+    return closestCorners({
+      ...args,
+      droppableContainers: columnContainers,
+    });
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id));
   };
@@ -155,10 +190,23 @@ export function KanbanView({
     if (!over) return;
 
     const taskId = String(active.id);
-    const newStatusId = String(over.id);
+    let overId = String(over.id);
 
-    // Extract status ID from the over ID (format: "status-{statusId}")
-    const statusMatch = newStatusId.match(/^status-(.+)$/);
+    // If dropped over a card, find its column's status ID
+    if (!overId.startsWith("status-")) {
+      // Find the task in groups to get its status
+      let taskFound = false;
+      for (const statusId in tasksByStatus) {
+        if (tasksByStatus[statusId].some((t) => String(t.id) === overId)) {
+          overId = `status-${statusId}`;
+          taskFound = true;
+          break;
+        }
+      }
+      if (!taskFound) return;
+    }
+
+    const statusMatch = overId.match(/^status-(.+)$/);
     if (!statusMatch) return;
 
     const statusId = statusMatch[1];
@@ -303,7 +351,7 @@ export function KanbanView({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionDetectionStrategy}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
