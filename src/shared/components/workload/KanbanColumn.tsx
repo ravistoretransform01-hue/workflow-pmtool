@@ -124,7 +124,7 @@ export function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex-shrink-0 w-80 rounded-lg border flex flex-col transition-colors ${
+      className={`flex-shrink-0 w-80 rounded-lg border flex flex-col transition-colors min-h-full ${
         isOver
           ? "bg-primary/10 border-primary/50 ring-2 ring-primary/20"
           : "bg-muted border-border"
@@ -145,7 +145,7 @@ export function KanbanColumn({
       </div>
 
       {/* Tasks Container */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide min-h-[150px]">
         <SortableContext
           items={tasks.map((t) => t.id)}
           strategy={verticalListSortingStrategy}
@@ -171,6 +171,9 @@ export function KanbanColumn({
             );
           })}
         </SortableContext>
+
+        {/* Extra hit area at the bottom of the column to make dropping easier */}
+        {/* <div className="h-20" /> */}
 
         {/* Quick Add Task */}
         {isAdding ? (
