@@ -174,6 +174,7 @@ export function TagsColumnCell({
 
   return (
     <Popover
+      modal={true}
       open={openPopoverId === popoverId}
       onOpenChange={(open) => {
         if (open) {
@@ -209,12 +210,12 @@ export function TagsColumnCell({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-56 p-3 bg-card border border-primary/20 shadow-lg rounded-sm flex flex-col max-h-96"
+        className="w-56 p-3 bg-card border border-primary/20 shadow-lg rounded-sm flex flex-col max-h-[400px] overflow-hidden"
         align="center"
       >
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
           {/* Create New Tag Input */}
-          <div className="mb-3 pb-3 border-b border-primary/20">
+          <div className="mb-3 pb-3 border-b border-primary/20 flex-shrink-0">
             <div className="flex items-center gap-2">
               <Input
                 placeholder="Add new tag..."
@@ -236,7 +237,7 @@ export function TagsColumnCell({
           </div>
 
           {/* Available Tags with Selectable Tiles */}
-          <div className="flex-1 overflow-y-auto scrollbar-hide space-y-1">
+          <div className="flex-1 overflow-y-auto scrollbar-hide space-y-1 min-h-0">
             {Array.isArray(availableTags) && availableTags.length > 0 ? (
               availableTags.map((cmsTag: any) => {
                 const isSelected = selectedTagIds.has(String(cmsTag.id));
