@@ -12,6 +12,7 @@ import LinkExtension from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import { Extension, Node as TiptapNode, mergeAttributes } from "@tiptap/core";
 import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { GiphySelector } from "./GiphySelector";
 import { Button } from "@/shared/components/ui/button";
 import { toast } from "sonner";
@@ -397,11 +398,9 @@ export function TiptapEditor({
         },
         suggestion: {
           items: ({ query }) => {
-            const filtered = membersRef.current
-              .filter((user) =>
-                user.name.toLowerCase().startsWith(query.toLowerCase()),
-              )
-              .slice(0, 5);
+            const filtered = membersRef.current.filter((user) =>
+              user.name.toLowerCase().startsWith(query.toLowerCase()),
+            );
             setMentionItems(filtered);
             return filtered;
           },
@@ -410,37 +409,53 @@ export function TiptapEditor({
               onStart: (props: any) => {
                 setMentionOpen(true);
                 setMentionCommand(() => props.command);
-                if (editorContainerRef.current) {
-                  const editorRect =
-                    editorContainerRef.current.getBoundingClientRect();
-                  const coords = props.clientRect();
+                const coords = props.clientRect?.();
+                if (coords) {
+                  const dropdownHeight = 300;
+                  const spaceBelow = window.innerHeight - coords.bottom;
+                  const spaceAbove = coords.top;
+
+                  let top = coords.bottom + window.scrollY;
+                  if (
+                    spaceBelow < dropdownHeight &&
+                    spaceAbove > dropdownHeight
+                  ) {
+                    top = coords.top + window.scrollY - dropdownHeight;
+                  }
+
                   setMentionPosition({
-                    top: coords.bottom - editorRect.top,
-                    left: coords.left - editorRect.left,
+                    top,
+                    left: coords.left + window.scrollX,
                   });
                 }
               },
 
               onUpdate: (props: any) => {
-                const filtered = membersRef.current
-                  .filter((user) =>
-                    user.name
-                      .toLowerCase()
-                      .startsWith(props.query.toLowerCase()),
-                  )
-                  .slice(0, 5);
-                setMentionItems(filtered);
                 setMentionCommand(() => props.command);
+                const coords = props.clientRect?.();
+                if (coords) {
+                  const dropdownHeight = 300;
+                  const spaceBelow = window.innerHeight - coords.bottom;
+                  const spaceAbove = coords.top;
 
-                if (editorContainerRef.current) {
-                  const editorRect =
-                    editorContainerRef.current.getBoundingClientRect();
-                  const coords = props.clientRect();
+                  let top = coords.bottom + window.scrollY;
+                  if (
+                    spaceBelow < dropdownHeight &&
+                    spaceAbove > dropdownHeight
+                  ) {
+                    top = coords.top + window.scrollY - dropdownHeight;
+                  }
+
                   setMentionPosition({
-                    top: coords.bottom - editorRect.top,
-                    left: coords.left - editorRect.left,
+                    top,
+                    left: coords.left + window.scrollX,
                   });
                 }
+
+                const filtered = membersRef.current.filter((user) =>
+                  user.name.toLowerCase().startsWith(props.query.toLowerCase()),
+                );
+                setMentionItems(filtered);
               },
 
               onKeyDown: (props: any) => {
@@ -689,6 +704,23 @@ export function TiptapEditor({
     // update link
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   };
+
+  // Close mention dropdown on scroll to prevent "sticky" floating popups
+  useEffect(() => {
+    const handleScroll = () => {
+      if (mentionItems.length > 0) {
+        setMentionOpen(false);
+      }
+    };
+
+    if (mentionOpen) {
+      window.addEventListener("scroll", handleScroll, { capture: true });
+    }
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll, { capture: true });
+    };
+  }, [mentionOpen, mentionItems.length]);
 
   const handleMentionSelect = (user: { id: string; name: string }) => {
     if (mentionCommand) {
@@ -1128,38 +1160,41 @@ export function TiptapEditor({
         </div>
 
         {/* Mention Dropdown */}
-        {mentionOpen && mentionItems.length > 0 && (
-          <div
-            ref={mentionRef}
-            className="absolute z-[9999] bg-card border border-border rounded-lg shadow-2xl w-56"
-            style={{
-              top: `${mentionPosition.top}px`,
-              left: `${mentionPosition.left}px`,
-            }}
-          >
-            <div className="text-[11px] px-3 py-2 text-muted-foreground uppercase tracking-wider border-b border-border bg-card">
-              Mention
-            </div>
-            <div className="flex flex-col max-h-64 overflow-y-auto bg-card">
-              {mentionItems.map((user) => (
-                <button
-                  key={user.id}
-                  onClick={() => handleMentionSelect(user)}
-                  className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-accent transition-colors text-sm text-foreground"
-                >
-                  <span className="w-6 h-6 rounded bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
-                    {user.name
-                      .split(" ")
-                      .map((n) => n.charAt(0).toUpperCase())
-                      .slice(0, 2)
-                      .join("")}
-                  </span>
-                  <span className="truncate">{user.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {mentionOpen &&
+          mentionItems.length > 0 &&
+          createPortal(
+            <div
+              ref={mentionRef}
+              className="absolute z-[9999] bg-card border border-border rounded-lg shadow-2xl w-56 pointer-events-auto"
+              style={{
+                top: `${mentionPosition.top}px`,
+                left: `${mentionPosition.left}px`,
+              }}
+            >
+              <div className="text-[11px] px-3 py-2 text-muted-foreground uppercase tracking-wider border-b border-border bg-card">
+                Mention
+              </div>
+              <div className="flex flex-col max-h-64 overflow-y-auto bg-card">
+                {mentionItems.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => handleMentionSelect(user)}
+                    className="group flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-accent transition-colors text-sm text-foreground shrink-0 overflow-hidden"
+                  >
+                    <span className="w-6 h-6 rounded bg-muted text-muted-foreground text-[10px] font-semibold flex items-center justify-center flex-shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors shrink-0">
+                      {user.name
+                        .split(" ")
+                        .map((n) => n.charAt(0).toUpperCase())
+                        .slice(0, 2)
+                        .join("")}
+                    </span>
+                    <span className="truncate flex-1 min-w-0">{user.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>,
+            document.body,
+          )}
 
         {/* Editor Area */}
         <div className="flex-1 relative overflow-hidden flex flex-col">

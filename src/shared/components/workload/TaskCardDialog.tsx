@@ -25,6 +25,7 @@ import {
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
 
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 
@@ -37,7 +38,7 @@ import { tasksApi } from "@/features/tasks/tasksApi";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TiptapEditor } from "./texteditor/TiptapEditor";
-import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
+import { getCurrentUserId, getOrganizationId, cn } from "@/lib/utils";
 import { TaskUpdates } from "./TaskUpdates/TaskUpdates";
 import { renderFormattedContent } from "./TaskUpdates/utils";
 import { FilePreviewModal } from "./texteditor/FilePreviewModal";
@@ -140,12 +141,17 @@ export function TaskCardDialog({
   const [isLoadingPage, setIsLoadingPage] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [tempDescription, setTempDescription] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState("");
 
   useEffect(() => {
     if (task?.description) {
       setTempDescription(task.description);
     }
-  }, [task?.description]);
+    if (task?.name) {
+      setTempName(task.name);
+    }
+  }, [task?.description, task?.name]);
 
   useEffect(() => {
     if (open && initialEditDescription) {
@@ -157,6 +163,15 @@ export function TaskCardDialog({
       setIsEditingDescription(false);
     }
   }, [open, initialEditDescription, task?.description]);
+
+  const handleSaveName = () => {
+    if (tempName.trim() && displayTask?.id && onInlineEditTaskName) {
+      onInlineEditTaskName(displayTask.id, tempName.trim());
+      setIsEditingName(false);
+    } else {
+      setIsEditingName(false);
+    }
+  };
 
   const handleCopyLink = () => {
     if (!task?.id) return;
@@ -479,15 +494,42 @@ export function TaskCardDialog({
                 <span>Name</span>
               </div>
               <div
-                className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center cursor-pointer hover:bg-black/30 transition-colors"
+                className={cn(
+                  "flex-1 rounded min-h-[36px] flex items-center transition-colors",
+                  isEditingName
+                    ? "bg-background"
+                    : "bg-gray-500/10 cursor-pointer hover:bg-black/30",
+                )}
                 onClick={() => {
-                  onOpenChange(false); // Close dialog to edit on board? No, mockup shows it here.
-                  // For now keep it as display, but stylised.
+                  if (!isEditingName) {
+                    setTempName(displayTask?.name || "");
+                    setIsEditingName(true);
+                  }
                 }}
               >
-                <span className="text-sm text-foreground/90 truncate font-medium">
-                  {displayTask?.name}
-                </span>
+                {isEditingName ? (
+                  <div className="w-full px-1">
+                    <Input
+                      value={tempName}
+                      onChange={(e) => setTempName(e.target.value)}
+                      className="h-8 text-sm focus-visible:ring-1 focus-visible:ring-blue-500 w-full"
+                      autoFocus
+                      onBlur={handleSaveName}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === "Tab") {
+                          handleSaveName();
+                        } else if (e.key === "Escape") {
+                          setTempName(displayTask?.name || "");
+                          setIsEditingName(false);
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-sm text-foreground/90 truncate font-medium px-2.5">
+                    {displayTask?.name}
+                  </span>
+                )}
               </div>
             </div>
 

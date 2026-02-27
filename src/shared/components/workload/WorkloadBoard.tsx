@@ -105,6 +105,7 @@ import { debugLog } from "@/lib/debugLog";
 import { KanbanView } from "./KanbanView";
 import { ListView } from "./ListView";
 import { isViewLive } from "@/lib/constants";
+import { ComingSoonAnimation } from "../ComingSoonAnimation";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -5177,15 +5178,21 @@ export function WorkloadBoard({
 
         {/* Other Views - Coming Soon */}
         {!isCurrentViewLive(activeTab) && (
-          <div className="flex-1 overflow-auto flex items-center justify-center">
-            <div className="text-center space-y-4">
-              <h2 className="text-2xl font-semibold text-foreground">
-                Coming Soon
-              </h2>
-              <p className="text-muted-foreground">
-                The <span className="font-medium">{activeTab}</span> view is
-                coming soon
-              </p>
+          <div className="flex-1 overflow-auto flex items-center justify-center bg-background/50">
+            <div className="text-center flex flex-col items-center">
+              <ComingSoonAnimation width={400} height={400} />
+              <div className="-mt-16 space-y-2">
+                <h2 className="text-3xl font-bold text-foreground tracking-tight">
+                  Coming Soon
+                </h2>
+                <p className="text-muted-foreground text-lg">
+                  The{" "}
+                  <span className="font-semibold text-primary">
+                    {activeTab}
+                  </span>{" "}
+                  view is under development
+                </p>
+              </div>
             </div>
           </div>
         )}
