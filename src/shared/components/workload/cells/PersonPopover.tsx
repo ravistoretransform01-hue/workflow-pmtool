@@ -30,7 +30,7 @@ export function PersonPopover({
 }: PersonPopoverProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [localSelected, setLocalSelected] = useState<string[]>(
-    selectedMemberIds || []
+    selectedMemberIds || [],
   );
   const [isSaving, setIsSaving] = useState(false);
 
@@ -40,15 +40,15 @@ export function PersonPopover({
   }, [selectedMemberIds]);
 
   const filteredMembers = members.filter((member) =>
-    (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+    (member?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleMemberSelect = async (memberId: string) => {
     // Toggle member selection
     const newSelected = localSelected.includes(memberId)
-      ? localSelected.filter(id => id !== memberId)
+      ? localSelected.filter((id) => id !== memberId)
       : [...localSelected, memberId];
-    
+
     setLocalSelected(newSelected);
     setIsSaving(true);
     try {
@@ -84,6 +84,7 @@ export function PersonPopover({
 
   return (
     <Popover
+      modal={true}
       open={openPopoverId === popoverId}
       onOpenChange={(open) => {
         if (open) {
@@ -103,7 +104,7 @@ export function PersonPopover({
             <div className="flex justify-center -space-x-2">
               {localSelected.slice(0, 3).map((memberId) => {
                 const member = members.find(
-                  (m) => String(m.user_id) === String(memberId)
+                  (m) => String(m.user_id) === String(memberId),
                 );
                 if (!member) return null;
                 const name = (member?.name ?? "").trim();
@@ -115,7 +116,7 @@ export function PersonPopover({
                   .join("")
                   .toUpperCase();
                 const bgColor = stringToHslColor(
-                  name || String(member?.user_id || "user")
+                  name || String(member?.user_id || "user"),
                 );
                 return (
                   <Avatar key={memberId} className="h-8 w-8  border-background">
@@ -193,10 +194,12 @@ export function PersonPopover({
                   .toUpperCase();
 
                 const bgColor = stringToHslColor(
-                  name || String(member?.user_id || "user")
+                  name || String(member?.user_id || "user"),
                 );
 
-                const isSelected = localSelected.includes(String(member.user_id));
+                const isSelected = localSelected.includes(
+                  String(member.user_id),
+                );
 
                 return (
                   <button

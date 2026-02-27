@@ -250,7 +250,7 @@ export function PriorityPopoverCell({
         }
         setOpenPopoverId?.(open ? popoverId : null);
       }}
-      modal={false}
+      modal={true}
     >
       <PopoverTrigger asChild>
         <Button

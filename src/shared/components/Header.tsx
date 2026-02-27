@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { SidebarTrigger } from "@/shared/components/ui/sidebar";
-import { Trash2, Settings, User, Users, LogOut, FileText } from "lucide-react";
+import { Settings, User, Users, LogOut, FileText } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { TrashDialog } from "@/shared/components/TrashDialog";
 import { UserManagementDialog } from "@/shared/components/UserManagementDialog";
 import { InviteDialog } from "@/shared/components/InviteDialog";
 import { ProfileDialog } from "@/shared/components/ProfileDialog";
 import { NotificationBell } from "@/shared/components/NotificationBell";
+import { TrashButton } from "@/shared/components/TrashButton";
 import { TemplatePickerDialog } from "@/shared/components/TemplatePickerDialog";
 import {
   DropdownMenu,
@@ -21,7 +21,6 @@ import {
 export function Header() {
   const { logout, loading } = useAuth();
   const navigate = useNavigate();
-  const [trashDialogOpen, setTrashDialogOpen] = useState(false);
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
@@ -42,31 +41,22 @@ export function Header() {
   const handleOpenProfile = () => {
     setProfileDialogOpen(true);
   };
-  
+
   return (
-    <header className="h-16 border-b border-border flex items-center justify-between px-6 sticky top-0 z-10" style={{ backgroundColor: "hsl(222, 47%, 11%)" }}>
+    <header
+      className="h-16 border-b border-border flex items-center justify-between px-6 sticky top-0 z-10"
+      style={{ backgroundColor: "hsl(222, 47%, 11%)" }}
+    >
       <div className="flex items-center gap-4">
-       <SidebarTrigger /> 
+        <SidebarTrigger />
       </div>
       <div className="flex items-center gap-2">
         <NotificationBell />
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="hover:bg-hover"
-          onClick={() => setTrashDialogOpen(true)}
-        >
-          <Trash2 className="h-5 w-5" />
-        </Button>
-        
+        <TrashButton />
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="hover:bg-hover"
-            >
+            <Button variant="ghost" size="icon" className="hover:bg-hover">
               <Settings className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
@@ -79,7 +69,10 @@ export function Header() {
               <Users className="mr-2 h-4 w-4" />
               <span>Members</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="hidden" onClick={() => setTemplateDialogOpen(true)}>
+            <DropdownMenuItem
+              className="hidden"
+              onClick={() => setTemplateDialogOpen(true)}
+            >
               <FileText className="mr-2 h-4 w-4" />
               <span>Edit Templates</span>
             </DropdownMenuItem>
@@ -91,12 +84,20 @@ export function Header() {
         </DropdownMenu>
       </div>
 
-      <TrashDialog open={trashDialogOpen} onOpenChange={setTrashDialogOpen} />
-      <UserManagementDialog open={userManagementOpen} onOpenChange={setUserManagementOpen} />
-      <InviteDialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen} />
-      <ProfileDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
-      <TemplatePickerDialog 
-        open={templateDialogOpen} 
+      <UserManagementDialog
+        open={userManagementOpen}
+        onOpenChange={setUserManagementOpen}
+      />
+      <InviteDialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+      />
+      <ProfileDialog
+        open={profileDialogOpen}
+        onOpenChange={setProfileDialogOpen}
+      />
+      <TemplatePickerDialog
+        open={templateDialogOpen}
         onOpenChange={setTemplateDialogOpen}
         onSelectTemplate={() => setTemplateDialogOpen(false)}
       />

@@ -253,7 +253,7 @@ export default function StatusPopoverCell({
         }
         setOpenPopoverId?.(open ? popoverId : null);
       }}
-      modal={false}
+      modal={true}
     >
       <PopoverTrigger asChild>
         <Button

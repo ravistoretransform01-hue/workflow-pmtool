@@ -1,7 +1,7 @@
 export const isViewLive = {
   mainTable: true,
   kanban: true,
-  list: false,
+  list: true,
   calendar: false,
   timeline: false,
   workload: false,

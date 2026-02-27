@@ -11,7 +11,8 @@ import UnderlineExtension from "@tiptap/extension-underline";
 import LinkExtension from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import { Extension, Node as TiptapNode, mergeAttributes } from "@tiptap/core";
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { GiphySelector } from "./GiphySelector";
 import { Button } from "@/shared/components/ui/button";
 import { toast } from "sonner";
@@ -93,84 +94,6 @@ const colors = [
   "#fde047",
 ];
 
-// MentionList Component for Tiptap
-const MentionList = React.forwardRef<
-  HTMLDivElement,
-  { items: Array<{ id: string; name: string }>; command: (item: any) => void }
->(({ items, command }, ref) => {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-
-  const selectItem = (index: number) => {
-    const item = items[index];
-    if (item) {
-      command({ id: item.id, label: item.name });
-    }
-  };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowUp") {
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : items.length - 1));
-        e.preventDefault();
-        return;
-      }
-      if (e.key === "ArrowDown") {
-        setSelectedIndex((prev) => (prev < items.length - 1 ? prev + 1 : 0));
-        e.preventDefault();
-        return;
-      }
-      if (e.key === "Enter") {
-        selectItem(selectedIndex);
-        e.preventDefault();
-        return;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedIndex, items, command]);
-
-  return (
-    <div
-      ref={ref}
-      className="bg-card border border-border rounded-lg shadow-2xl w-56 overflow-hidden z-[9999]"
-    >
-      <div className="text-[11px] px-3 py-2 text-muted-foreground uppercase tracking-wider border-b border-border bg-card">
-        Mention
-      </div>
-      <div className="flex flex-col max-h-64 overflow-y-auto bg-card">
-        {items.length > 0 ? (
-          items.map((item, index) => (
-            <button
-              key={item.id}
-              onClick={() => selectItem(index)}
-              className={cn(
-                "flex items-center gap-2 w-full text-left px-3 py-2 transition-colors text-sm text-foreground",
-                index === selectedIndex ? "bg-accent" : "hover:bg-accent",
-              )}
-            >
-              <span className="w-6 h-6 rounded bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
-                {item.name
-                  .split(" ")
-                  .map((n) => n.charAt(0).toUpperCase())
-                  .slice(0, 2)
-                  .join("")}
-              </span>
-              <span className="truncate">{item.name}</span>
-            </button>
-          ))
-        ) : (
-          <div className="px-3 py-4 text-center text-sm text-muted-foreground bg-card">
-            No users found
-          </div>
-        )}
-      </div>
-    </div>
-  );
-});
-
-MentionList.displayName = "MentionList";
-
 function getStorageKey(boardId: number): string {
   return `cms_data_board_${boardId}`;
 }
@@ -212,6 +135,11 @@ export function TiptapEditor({
     Array<{ id: string; name: string }>
   >([]);
   const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
+  const [mentionPortalTarget, setMentionPortalTarget] =
+    useState<HTMLElement | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const selectedIndexRef = useRef(0);
+  const mentionItemsRef = useRef<Array<{ id: string; name: string }>>([]);
   const [mentionCommand, setMentionCommand] = useState<
     ((item: any) => void) | null
   >(null);
@@ -224,6 +152,7 @@ export function TiptapEditor({
   );
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const mentionRef = useRef<HTMLDivElement | null>(null);
+  const mentionScrollRef = useRef<HTMLDivElement | null>(null);
   const membersRef = useRef<Array<{ id: string; name: string }>>([]);
 
   // Load members from localStorage
@@ -397,12 +326,11 @@ export function TiptapEditor({
         },
         suggestion: {
           items: ({ query }) => {
-            const filtered = membersRef.current
-              .filter((user) =>
-                user.name.toLowerCase().startsWith(query.toLowerCase()),
-              )
-              .slice(0, 5);
+            const filtered = membersRef.current.filter((user) =>
+              user.name.toLowerCase().startsWith(query.toLowerCase()),
+            );
             setMentionItems(filtered);
+            mentionItemsRef.current = filtered;
             return filtered;
           },
           render: () => {
@@ -410,50 +338,144 @@ export function TiptapEditor({
               onStart: (props: any) => {
                 setMentionOpen(true);
                 setMentionCommand(() => props.command);
-                if (editorContainerRef.current) {
-                  const editorRect =
-                    editorContainerRef.current.getBoundingClientRect();
-                  const coords = props.clientRect();
-                  setMentionPosition({
-                    top: coords.bottom - editorRect.top,
-                    left: coords.left - editorRect.left,
-                  });
+                const coords = props.clientRect?.();
+
+                // Find nearest dialog or fallback to body
+                const dialogParent = editorContainerRef.current?.closest(
+                  '[role="dialog"]',
+                ) as HTMLElement;
+                const portalTarget = dialogParent || document.body;
+                setMentionPortalTarget(portalTarget);
+
+                if (coords) {
+                  const dropdownHeight = 300;
+                  const containerRect = portalTarget.getBoundingClientRect();
+
+                  // Calculate position relative to the portal target
+                  let left = coords.left - containerRect.left;
+                  let top = coords.bottom - containerRect.top;
+
+                  const spaceBelow = window.innerHeight - coords.bottom;
+                  const spaceAbove = coords.top;
+
+                  if (
+                    spaceBelow < dropdownHeight &&
+                    spaceAbove > dropdownHeight
+                  ) {
+                    top = coords.top - containerRect.top - dropdownHeight;
+                  }
+
+                  // If portaled to body, we need to add scroll offset
+                  if (portalTarget === document.body) {
+                    left += window.scrollX;
+                    top += window.scrollY;
+                  }
+
+                  setMentionPosition({ top, left });
                 }
+                setSelectedIndex(0);
+                selectedIndexRef.current = 0;
               },
 
               onUpdate: (props: any) => {
-                const filtered = membersRef.current
-                  .filter((user) =>
-                    user.name
-                      .toLowerCase()
-                      .startsWith(props.query.toLowerCase()),
-                  )
-                  .slice(0, 5);
-                setMentionItems(filtered);
                 setMentionCommand(() => props.command);
+                const coords = props.clientRect?.();
 
-                if (editorContainerRef.current) {
-                  const editorRect =
-                    editorContainerRef.current.getBoundingClientRect();
-                  const coords = props.clientRect();
-                  setMentionPosition({
-                    top: coords.bottom - editorRect.top,
-                    left: coords.left - editorRect.left,
-                  });
+                // Maintain portal target
+                const portalTarget = mentionPortalTarget || document.body;
+
+                if (coords) {
+                  const dropdownHeight = 300;
+                  const containerRect = portalTarget.getBoundingClientRect();
+
+                  let left = coords.left - containerRect.left;
+                  let top = coords.bottom - containerRect.top;
+
+                  const spaceBelow = window.innerHeight - coords.bottom;
+                  const spaceAbove = coords.top;
+
+                  if (
+                    spaceBelow < dropdownHeight &&
+                    spaceAbove > dropdownHeight
+                  ) {
+                    top = coords.top - containerRect.top - dropdownHeight;
+                  }
+
+                  if (portalTarget === document.body) {
+                    left += window.scrollX;
+                    top += window.scrollY;
+                  }
+
+                  setMentionPosition({ top, left });
                 }
+
+                const filtered = membersRef.current.filter((user) =>
+                  user.name.toLowerCase().startsWith(props.query.toLowerCase()),
+                );
+                setMentionItems(filtered);
+                mentionItemsRef.current = filtered;
+                setSelectedIndex(0);
+                selectedIndexRef.current = 0;
               },
 
               onKeyDown: (props: any) => {
+                const items = mentionItemsRef.current;
+
+                if (!items || items.length === 0) return false;
+
+                if (props.event.key === "ArrowUp") {
+                  props.event.preventDefault();
+
+                  const newIndex =
+                    selectedIndexRef.current > 0
+                      ? selectedIndexRef.current - 1
+                      : items.length - 1;
+
+                  selectedIndexRef.current = newIndex;
+                  setSelectedIndex(newIndex);
+                  return true;
+                }
+
+                if (props.event.key === "ArrowDown") {
+                  props.event.preventDefault();
+
+                  const newIndex =
+                    selectedIndexRef.current < items.length - 1
+                      ? selectedIndexRef.current + 1
+                      : 0;
+
+                  selectedIndexRef.current = newIndex;
+                  setSelectedIndex(newIndex);
+                  return true;
+                }
+
+                if (props.event.key === "Enter") {
+                  props.event.preventDefault();
+
+                  const item = items[selectedIndexRef.current];
+                  if (!item) return false;
+
+                  props.command({ id: item.id, label: item.name });
+                  requestAnimationFrame(() => {
+                    editor?.commands.focus();
+                  });
+
+                  setMentionOpen(false);
+                  return true;
+                }
+
                 if (props.event.key === "Escape") {
                   setMentionOpen(false);
                   return true;
                 }
+
                 return false;
               },
 
               onExit: () => {
                 setMentionOpen(false);
                 setMentionCommand(null);
+                setMentionPortalTarget(null);
               },
             };
           },
@@ -470,17 +492,20 @@ export function TiptapEditor({
     ],
     content: value,
     editorProps: {
-      handleKeyDown: (_, event) => {
-        if (
-          event.key === "Enter" &&
-          !event.shiftKey &&
-          !event.ctrlKey &&
-          !event.metaKey
-        ) {
-          return false;
-        }
-        return false;
-      },
+      // handleKeyDown(view, event) {
+      //   return false; // allow other plugins (like mention) to handle it
+      // },
+      // handleKeyDown: (_, event) => {
+      //   if (
+      //     event.key === "Enter" &&
+      //     !event.shiftKey &&
+      //     !event.ctrlKey &&
+      //     !event.metaKey
+      //   ) {
+      //     return false;
+      //   }
+      //   return false;
+      // },
       handlePaste: (view, event) => {
         const items = Array.from(event.clipboardData?.items || []);
         const images = items.filter((item) => item.type.startsWith("image/"));
@@ -690,18 +715,68 @@ export function TiptapEditor({
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   };
 
+  // Close mention dropdown on scroll to prevent "sticky" floating popups,
+  // but avoid closing when scrolling within the dropdown itself.
+  useEffect(() => {
+    const handleScroll = (event: Event) => {
+      if (
+        mentionOpen &&
+        mentionRef.current &&
+        mentionRef.current.contains(event.target as Node)
+      ) {
+        return;
+      }
+      setMentionOpen(false);
+    };
+
+    if (mentionOpen) {
+      window.addEventListener("scroll", handleScroll, { capture: true });
+    }
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll, { capture: true });
+    };
+  }, [mentionOpen]);
+
+  // Sync scroll position with keyboard selection in mention list
+  useEffect(() => {
+    if (mentionOpen && mentionScrollRef.current) {
+      const container = mentionScrollRef.current;
+      const selectedItem = container.children[selectedIndex] as HTMLElement;
+      if (selectedItem) {
+        const containerHeight = container.offsetHeight;
+        const itemTop = selectedItem.offsetTop;
+        const itemHeight = selectedItem.offsetHeight;
+        const scrollTop = container.scrollTop;
+
+        if (itemTop < scrollTop) {
+          container.scrollTop = itemTop;
+        } else if (itemTop + itemHeight > scrollTop + containerHeight) {
+          container.scrollTop = itemTop + itemHeight - containerHeight;
+        }
+      }
+    }
+  }, [selectedIndex, mentionOpen]);
+
   const handleMentionSelect = (user: { id: string; name: string }) => {
     if (mentionCommand) {
-      // Use Tiptap's suggestion command which properly handles text replacement
+      editor?.commands.focus();
       mentionCommand({ id: user.id, label: user.name });
     } else {
-      // Fallback for manual @ button click (when there's no active suggestion)
+      // Correctly insert a mention node instead of raw HTML
       editor
-        .chain()
+        ?.chain()
         .focus()
-        .insertContent(
-          `<span class="bg-blue-100 text-blue-600 px-1 rounded hover:bg-blue-200 cursor-pointer">@${user.name}</span> `,
-        )
+        .insertContent([
+          {
+            type: "mention",
+            attrs: { id: user.id, label: user.name },
+          },
+          {
+            type: "text",
+            text: " ",
+          },
+        ])
         .run();
     }
     setMentionOpen(false);
@@ -1128,38 +1203,52 @@ export function TiptapEditor({
         </div>
 
         {/* Mention Dropdown */}
-        {mentionOpen && mentionItems.length > 0 && (
-          <div
-            ref={mentionRef}
-            className="absolute z-[9999] bg-card border border-border rounded-lg shadow-2xl w-56"
-            style={{
-              top: `${mentionPosition.top}px`,
-              left: `${mentionPosition.left}px`,
-            }}
-          >
-            <div className="text-[11px] px-3 py-2 text-muted-foreground uppercase tracking-wider border-b border-border bg-card">
-              Mention
-            </div>
-            <div className="flex flex-col max-h-64 overflow-y-auto bg-card">
-              {mentionItems.map((user) => (
-                <button
-                  key={user.id}
-                  onClick={() => handleMentionSelect(user)}
-                  className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-accent transition-colors text-sm text-foreground"
-                >
-                  <span className="w-6 h-6 rounded bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
-                    {user.name
-                      .split(" ")
-                      .map((n) => n.charAt(0).toUpperCase())
-                      .slice(0, 2)
-                      .join("")}
-                  </span>
-                  <span className="truncate">{user.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {mentionOpen &&
+          mentionItems.length > 0 &&
+          createPortal(
+            <div
+              ref={mentionRef}
+              className={cn(
+                "z-[9999] bg-card border border-border rounded-lg shadow-2xl w-56 pointer-events-auto",
+                mentionPortalTarget && mentionPortalTarget !== document.body
+                  ? "absolute"
+                  : "fixed",
+              )}
+              style={{
+                top: `${mentionPosition.top}px`,
+                left: `${mentionPosition.left}px`,
+              }}
+            >
+              <div className="text-[11px] px-3 py-2 text-muted-foreground uppercase tracking-wider border-b border-border bg-card">
+                Mention
+              </div>
+              <div
+                ref={mentionScrollRef}
+                className="flex flex-col max-h-64 overflow-y-auto bg-card overscroll-contain"
+              >
+                {mentionItems.map((user, index) => (
+                  <button
+                    key={user.id}
+                    onClick={() => handleMentionSelect(user)}
+                    className={cn(
+                      "group flex items-center gap-2 w-full text-left px-3 py-2 transition-colors text-sm text-foreground shrink-0 overflow-hidden",
+                      index === selectedIndex ? "bg-accent" : "hover:bg-accent",
+                    )}
+                  >
+                    <span className="w-6 h-6 rounded bg-muted text-muted-foreground text-[10px] font-semibold flex items-center justify-center flex-shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors shrink-0">
+                      {user.name
+                        .split(" ")
+                        .map((n) => n.charAt(0).toUpperCase())
+                        .slice(0, 2)
+                        .join("")}
+                    </span>
+                    <span className="truncate flex-1 min-w-0">{user.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>,
+            mentionPortalTarget || document.body,
+          )}
 
         {/* Editor Area */}
         <div className="flex-1 relative overflow-hidden flex flex-col">
