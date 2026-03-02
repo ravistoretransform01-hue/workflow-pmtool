@@ -5128,6 +5128,7 @@ export function WorkloadBoard({
             groups={memoizedFilteredData.groups}
             statuses={statuses}
             priorities={priorities}
+            members={members}
             boardId={boardId}
             onTaskMove={handleStatusChange}
             onTaskClick={openTaskCard}
