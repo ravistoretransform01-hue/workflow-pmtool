@@ -5,7 +5,7 @@ import { format, parseISO } from "date-fns";
 // Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
 // const _loadedGroupsForBoard = new Set<string>();
 // const _loadedCMSForBoard = new Set<string>();
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import axios from "@/lib/axios";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
@@ -439,6 +439,7 @@ export function WorkloadBoard({
   // workspaceName,
 }: WorkloadBoardProps) {
   const navigate = useNavigate();
+  const { viewName } = useParams<{ viewName?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const dispatch = useAppDispatch();
   const refreshCounter = useAppSelector(
@@ -497,6 +498,28 @@ export function WorkloadBoard({
     const taskIdFromUrl = searchParams.get("task");
     const commentsIdFromUrl = searchParams.get("comments");
 
+    // Sync View Tab
+    if (viewName) {
+      // Decode URI component in case of "Main%20Table"
+      const decodedViewName = decodeURIComponent(viewName);
+      if (TAB_TO_VIEW_KEY[decodedViewName]) {
+        setActiveTab((prev) =>
+          decodedViewName !== prev ? decodedViewName : prev,
+        );
+      } else {
+        // Invalid view name, redirect to Main Table
+        navigate(
+          `/board/${boardId}/view/Main%20Table${window.location.search}`,
+          { replace: true },
+        );
+      }
+    } else {
+      // Missing view name, redirect to Main Table
+      navigate(`/board/${boardId}/view/Main%20Table${window.location.search}`, {
+        replace: true,
+      });
+    }
+
     // Sync Task Card State
     if (taskIdFromUrl) {
       if (taskIdFromUrl !== selectedTaskCardId) {
@@ -530,7 +553,7 @@ export function WorkloadBoard({
         setSelectedCommentsId(null);
       }
     }
-  }, [searchParams]);
+  }, [searchParams, viewName]);
 
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
@@ -552,7 +575,17 @@ export function WorkloadBoard({
       return "U";
     }
   }, []);
-  const [activeTab, setActiveTab] = useState("Main Table");
+
+  let initialViewFromUrl = "Main Table";
+  if (viewName) {
+    const decodedViewName = decodeURIComponent(viewName);
+    if (TAB_TO_VIEW_KEY[decodedViewName]) {
+      initialViewFromUrl = decodedViewName;
+    }
+  }
+
+  const [activeTab, setActiveTab] = useState(initialViewFromUrl);
+
   // Main Table FilterRow states
   const [mainTableSearchQuery, setMainTableSearchQuery] = useState("");
   const [groups, setGroups] = useState<TaskGroup[]>([]);
@@ -1198,6 +1231,21 @@ export function WorkloadBoard({
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    // Remove "view" query param if it exists, since we're using path now
+    if (searchParams.has("view")) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("view");
+          return next;
+        },
+        { replace: true },
+      );
+    }
+    // Navigate to the new path
+    navigate(
+      `/board/${boardId}/view/${encodeURIComponent(tab)}${window.location.search}`,
+    );
   };
 
   const sensors = useSensors(

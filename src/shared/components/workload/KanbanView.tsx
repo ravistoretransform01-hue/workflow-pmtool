@@ -140,6 +140,43 @@ export function KanbanView({
     } catch {}
   };
 
+  // Sync visibleStatuses when statuses prop changes
+  useEffect(() => {
+    setVisibleStatuses((prev) => {
+      let needsUpdate = false;
+
+      const next = new Set(prev);
+
+      // Add any missing statuses that are new
+      statuses.forEach((s) => {
+        const idStr = String(s.id);
+        // If it's a completely new status that wasn't in the list before, make it visible by default
+        // (If the user explicitly hid it, it would be in the prev set but currently we just add it if missing from tracking and if it's new)
+        // Wait, if we want to ensure it's visible if newly added:
+        if (!next.has(idStr)) {
+          // To be safe, we only add it if it's completely missing from localStorage.
+          // Since we initialize from localStorage, if it's missing, it's a new status.
+          next.add(idStr);
+          needsUpdate = true;
+        }
+      });
+
+      if (needsUpdate) {
+        // Also persist the new ones
+        try {
+          if (boardId) {
+            localStorage.setItem(
+              `kanban-visible-statuses-${boardId}`,
+              JSON.stringify(Array.from(next)),
+            );
+          }
+        } catch {}
+        return next;
+      }
+      return prev;
+    });
+  }, [statuses, boardId]);
+
   const toggleStatus = (id: string) => {
     setVisibleStatuses((prev) => {
       const next = new Set(prev);

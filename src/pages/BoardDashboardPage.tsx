@@ -46,6 +46,7 @@ import { getMembers, getRoles } from "@/features/cms/cmsStorage";
 import { clearCMSCache } from "@/features/cms/cmsStorage";
 import type { Role } from "@/features/cms/types";
 import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
+import { debugLog } from "@/lib/debugLog";
 
 const colorOptions = [
   { name: "Blue", value: "hsl(221, 83%, 53%)" },
@@ -174,8 +175,10 @@ export default function BoardDashboardPage() {
       }));
 
       // Check if current user is in the list, if not add them
-      const currentUserExists = transformedMembers.some(member => member.id === String(userId));
-      
+      const currentUserExists = transformedMembers.some(
+        (member) => member.id === String(userId),
+      );
+
       if (!currentUserExists) {
         // Get current user data from localStorage
         const userData = localStorage.getItem("user_data");
@@ -183,7 +186,8 @@ export default function BoardDashboardPage() {
           const currentUser = JSON.parse(userData);
           transformedMembers.unshift({
             id: String(userId),
-            name: currentUser.display_name || currentUser.name || "Current User",
+            name:
+              currentUser.display_name || currentUser.name || "Current User",
             email: currentUser.email || "current@user.com",
             role: "Project Owner", // Default role for current user
             role_id: undefined,
@@ -251,8 +255,8 @@ export default function BoardDashboardPage() {
         return;
       }
 
-      console.log("response", response)
-      console.log("response.data.role_label", response.message)
+      debugLog("response", response);
+      debugLog("response.data.role_label", response.message);
 
       // Update local state with new role_label from API response
       setMembers((prevMembers) =>
@@ -452,6 +456,15 @@ export default function BoardDashboardPage() {
                   >
                     {currentName}
                   </h1>
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto h-11 text-sm font-semibold rounded-lg bg-[#ffffff05] border-[#ffffff10] text-[#ffffff80] hover:text-[#fff] hover:bg-[#ffffff10] transition-colors"
+                    onClick={() =>
+                      navigate(`/board/${boardId}/view/Main%20Table`)
+                    }
+                  >
+                    View Items
+                  </Button>
 
                   {/* Small profile icon next to board name for members */}
                   <div className="flex -space-x-2">
@@ -480,7 +493,9 @@ export default function BoardDashboardPage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56">
                   <DropdownMenuItem
-                    onClick={() => navigate(`/board/${boardId}`)}
+                    onClick={() =>
+                      navigate(`/board/${boardId}/view/Main%20Table`)
+                    }
                   >
                     <LayoutDashboard className="h-4 w-4 mr-2" />
                     Go to Board
@@ -738,13 +753,10 @@ export default function BoardDashboardPage() {
 //     <div className="min-h-screen p-8">
 //       <div className="max-w-7xl mx-auto">
 //         <Button
-//           variant="ghost"
-//           size="sm"
-//           onClick={() => navigate(`/board/${boardId}`)}
-//           className="mb-4"
-//         >
-//           <ArrowLeft className="h-4 w-4 mr-2" />
-//           Back
+//           variant="outline"
+//           onClick={() => navigate(`/board/${boardId}/view/Main%20Table`)}
+//           className="bg-transparent border-slate-700/50 hover:bg-slate-800 text-slate-300 hover:text-white"
+//         >     Back
 //         </Button>
 
 //         {loading ? (

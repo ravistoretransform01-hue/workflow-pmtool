@@ -3,7 +3,10 @@ import { TooltipProvider } from "@/shared/components/ui/tooltip";
 import ToasterFromUseToast from "@/shared/components/ToasterFromUseToast";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TestUserProvider } from "@/contexts/TestUserContext";
-import { ProtectedRoute,  ProtectedLayout} from "@/shared/components/ProtectedRoute";
+import {
+  ProtectedRoute,
+  ProtectedLayout,
+} from "@/shared/components/ProtectedRoute";
 
 // Pages
 import LoginPage from "@/features/auth/pages/LoginPage";
@@ -53,6 +56,11 @@ const App = () => (
                 element={<DynamicWorkspace />}
               />
               <Route path="board/:boardId" element={<DynamicBoard />} />
+              <Route
+                path="board/:boardId/view/:viewName"
+                element={<DynamicBoard />}
+              />
+              <Route path="board/:boardId/view" element={<DynamicBoard />} />
               <Route
                 path="board/:boardId/dashboard"
                 element={<BoardDashboardPage />}
