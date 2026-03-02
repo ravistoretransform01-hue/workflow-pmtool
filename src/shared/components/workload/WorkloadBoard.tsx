@@ -8,7 +8,8 @@ import { format, parseISO } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import axios from "@/lib/axios";
-import { useAppDispatch } from "@/app/hooks";
+import { useAppDispatch, useAppSelector } from "@/app/hooks";
+import type { RootState } from "@/app/store";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { attachmentsApi } from "@/features/tasks/attachmentsApi";
@@ -440,6 +441,9 @@ export function WorkloadBoard({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const dispatch = useAppDispatch();
+  const refreshCounter = useAppSelector(
+    (state: RootState) => state.ui.refreshCounter,
+  );
 
   // Initialize hooks for state management
   const taskState = useTaskState();
@@ -868,7 +872,7 @@ export function WorkloadBoard({
     };
 
     loadGroupsAndTasks();
-  }, [boardId]);
+  }, [boardId, refreshCounter]);
 
   // Fetch CMS data (statuses, priorities, and members) on component mount
   useEffect(() => {

@@ -14,6 +14,21 @@ let failedQueue: Array<{
 const retryAttempts = new Map<string, number>();
 const MAX_RETRIES = 3; // Only retry once per request
 
+// Global loading state tracking
+let activeRequests = 0;
+let onLoadingChanged: ((isLoading: boolean) => void) | null = null;
+
+export const setLoadingListener = (callback: (isLoading: boolean) => void) => {
+  onLoadingChanged = callback;
+};
+
+const updateLoadingState = (delta: number) => {
+  activeRequests += delta;
+  if (onLoadingChanged) {
+    onLoadingChanged(activeRequests > 0);
+  }
+};
+
 const processQueue = (error: any, token: string | null = null) => {
   debugLog(`[QUEUE] Processing ${failedQueue.length} queued requests...`);
   failedQueue.forEach((prom, index) => {
@@ -44,6 +59,7 @@ const api = axios.create({
 // Request interceptor - Add auth token
 api.interceptors.request.use(
   (config) => {
+    updateLoadingState(1);
     debugLog(`[REQUEST] Step 1: Preparing request to ${config.url}`);
 
     // skipAuth CHECK
@@ -77,6 +93,7 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    updateLoadingState(-1);
     debugError(`[REQUEST] Error in request interceptor:`, error);
     return Promise.reject(error);
   },
@@ -85,6 +102,7 @@ api.interceptors.request.use(
 // Response interceptor - Handle errors and token refresh
 api.interceptors.response.use(
   (response: AxiosResponse) => {
+    updateLoadingState(-1);
     debugLog(
       `[RESPONSE] ✅ Success: ${response.config.url} - Status: ${response.status}`,
     );
@@ -360,6 +378,7 @@ api.interceptors.response.use(
     }
 
     debugLog(`[ERROR] ========== ERROR HANDLING COMPLETE ==========\n`);
+    updateLoadingState(-1);
     return Promise.reject(error);
   },
 );

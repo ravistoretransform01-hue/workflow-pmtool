@@ -10,6 +10,7 @@ import { InviteDialog } from "@/shared/components/InviteDialog";
 import { ProfileDialog } from "@/shared/components/ProfileDialog";
 import { NotificationBell } from "@/shared/components/NotificationBell";
 import { TrashButton } from "@/shared/components/TrashButton";
+import { SavingSpinner } from "@/shared/components/SavingSpinner";
 import { TemplatePickerDialog } from "@/shared/components/TemplatePickerDialog";
 import {
   DropdownMenu,
@@ -51,6 +52,7 @@ export function Header() {
         <SidebarTrigger />
       </div>
       <div className="flex items-center gap-2">
+        <SavingSpinner />
         <NotificationBell />
         <TrashButton />
 

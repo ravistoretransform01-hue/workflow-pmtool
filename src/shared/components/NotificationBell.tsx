@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/app/store";
 import { Bell, Search, Settings as SettingsIcon, Loader2 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -29,12 +31,15 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const refreshCounter = useSelector(
+    (state: RootState) => state.ui.refreshCounter,
+  );
 
   useEffect(() => {
-    if (open) {
+    if (open || refreshCounter > 0) {
       loadNotifications();
     }
-  }, [open]);
+  }, [open, refreshCounter]);
 
   const loadNotifications = async () => {
     setLoading(true);

@@ -349,155 +349,161 @@ export function KanbanView({
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={collisionDetectionStrategy}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="px-6 pt-4">
-        <div className="flex items-center gap-3">
-          {/* Columns visibility popover */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 px-3 py-2 rounded bg-muted border border-border text-sm">
-                <span className="font-medium">Kanban Cards</span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-74 p-3 bg-popover border-border z-50"
-              align="start"
-            >
-              <div className="space-y-3 max-h-64 overflow-auto pr-2">
-                {statuses.map((s) => {
-                  const id = String(s.id);
-                  const visible = visibleStatuses.has(id);
-                  return (
-                    <label
-                      key={`status-item-${id}`}
-                      className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={visible}
-                        onChange={() => toggleStatus(id)}
-                        className="h-4 w-4"
-                      />
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-6 h-6 rounded-full"
-                          style={{ backgroundColor: s.color_code }}
+    <div className="flex flex-col h-full bg-background overflow-hidden relative">
+      <div className="flex-1 overflow-x-auto scrollbar-hide">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={collisionDetectionStrategy}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="px-6 pt-4">
+            <div className="flex items-center gap-3">
+              {/* Columns visibility popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-2 px-3 py-2 rounded bg-muted border border-border text-sm">
+                    <span className="font-medium">Kanban Cards</span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-74 p-3 bg-popover border-border z-50"
+                  align="start"
+                >
+                  <div className="space-y-3 max-h-64 overflow-auto pr-2">
+                    {statuses.map((s) => {
+                      const id = String(s.id);
+                      const visible = visibleStatuses.has(id);
+                      return (
+                        <label
+                          key={`status-item-${id}`}
+                          className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={visible}
+                            onChange={() => toggleStatus(id)}
+                            className="h-4 w-4"
+                          />
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-6 h-6 rounded-full"
+                              style={{ backgroundColor: s.color_code }}
+                            />
+                            <div className="text-sm max-w-[160px] truncate">
+                              {s.name}
+                            </div>
+                          </div>
+
+                          <div className="ml-auto">
+                            <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
+                              {tasksByStatus[String(s.id)]?.length || 0}
+                            </span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-3 border-t border-border flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Select which statuses will show as Kanban columns
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setAllStatuses(true)}
+                        className="text-sm px-2 py-1 rounded bg-background border border-border"
+                      >
+                        Show all
+                      </button>
+                      <button
+                        onClick={() => setAllStatuses(false)}
+                        className="text-sm px-2 py-1 rounded bg-background border border-border"
+                      >
+                        Hide all
+                      </button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Card Fields Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-2 px-3 py-2 rounded bg-muted border border-border text-sm">
+                    <span className="font-medium">Card Fields</span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-56 p-3 bg-popover border-border z-50"
+                  align="start"
+                >
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold text-muted-foreground mb-2">
+                      Visible Card Fields
+                    </div>
+                    {CARD_FIELDS.map((field) => (
+                      <label
+                        key={field.id}
+                        className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={visibleCardFields.has(field.id)}
+                          onChange={() => toggleCardField(field.id)}
+                          className="h-4 w-4"
                         />
-                        <div className="text-sm max-w-[160px] truncate">
-                          {s.name}
-                        </div>
-                      </div>
+                        <span className="text-sm">{field.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
 
-                      <div className="ml-auto">
-                        <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
-                          {tasksByStatus[String(s.id)]?.length || 0}
-                        </span>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
+          <div className="flex gap-4 overflow-x-auto px-6 py-4 h-full">
+            {statuses
+              .filter((status) => visibleStatuses.has(String(status.id)))
+              .map((status) => (
+                <KanbanColumn
+                  key={status.id}
+                  status={status}
+                  tasks={tasksByStatus[String(status.id)] || []}
+                  onTaskClick={onTaskClick}
+                  onAddTask={(name, groupId, parentId) =>
+                    onAddTask(name, String(status.id), groupId, parentId)
+                  }
+                  groups={groups}
+                  groupMap={groupMap}
+                  visibleCardFields={visibleCardFields}
+                  statusMap={statusMap}
+                  priorityMap={priorityMap}
+                />
+              ))}
+          </div>
 
-              <div className="pt-3 border-t border-border flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Select which statuses will show as Kanban columns
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setAllStatuses(true)}
-                    className="text-sm px-2 py-1 rounded bg-background border border-border"
-                  >
-                    Show all
-                  </button>
-                  <button
-                    onClick={() => setAllStatuses(false)}
-                    className="text-sm px-2 py-1 rounded bg-background border border-border"
-                  >
-                    Hide all
-                  </button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Card Fields Popover */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 px-3 py-2 rounded bg-muted border border-border text-sm">
-                <span className="font-medium">Card Fields</span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-56 p-3 bg-popover border-border z-50"
-              align="start"
-            >
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground mb-2">
-                  Visible Card Fields
-                </div>
-                {CARD_FIELDS.map((field) => (
-                  <label
-                    key={field.id}
-                    className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={visibleCardFields.has(field.id)}
-                      onChange={() => toggleCardField(field.id)}
-                      className="h-4 w-4"
-                    />
-                    <span className="text-sm">{field.label}</span>
-                  </label>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
+          <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
+            {activeTask ? (
+              <KanbanCard
+                task={activeTask}
+                overlay
+                groupName={groupMap[String(activeTask.group_id)]?.name}
+                groupColor={groupMap[String(activeTask.group_id)]?.color}
+                statusName={statusMap[String(activeTask.status_id)]?.name}
+                statusColor={statusMap[String(activeTask.status_id)]?.color}
+                priorityName={priorityMap[String(activeTask.priority_id)]?.name}
+                priorityColor={
+                  priorityMap[String(activeTask.priority_id)]?.color
+                }
+                visibleCardFields={visibleCardFields}
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </div>
-
-      <div className="flex gap-4 overflow-x-auto px-6 py-4 h-full">
-        {statuses
-          .filter((status) => visibleStatuses.has(String(status.id)))
-          .map((status) => (
-            <KanbanColumn
-              key={status.id}
-              status={status}
-              tasks={tasksByStatus[String(status.id)] || []}
-              onTaskClick={onTaskClick}
-              onAddTask={(name, groupId, parentId) =>
-                onAddTask(name, String(status.id), groupId, parentId)
-              }
-              groups={groups}
-              groupMap={groupMap}
-              visibleCardFields={visibleCardFields}
-              statusMap={statusMap}
-              priorityMap={priorityMap}
-            />
-          ))}
-      </div>
-
-      <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
-        {activeTask ? (
-          <KanbanCard
-            task={activeTask}
-            overlay
-            groupName={groupMap[String(activeTask.group_id)]?.name}
-            groupColor={groupMap[String(activeTask.group_id)]?.color}
-            statusName={statusMap[String(activeTask.status_id)]?.name}
-            statusColor={statusMap[String(activeTask.status_id)]?.color}
-            priorityName={priorityMap[String(activeTask.priority_id)]?.name}
-            priorityColor={priorityMap[String(activeTask.priority_id)]?.color}
-            visibleCardFields={visibleCardFields}
-          />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+    </div>
   );
 }
