@@ -18,12 +18,11 @@ import {
 } from "@/shared/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
-import { formatDistanceToNow } from "date-fns";
 import {
   notificationsApi,
   type Notification,
 } from "@/features/notifications/notificationsApi";
-import { cn } from "@/lib/utils";
+import { cn, timeAgoFromApiDate } from "@/lib/utils";
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -166,9 +165,7 @@ export function NotificationBell() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground/70 font-medium">
-                {formatDistanceToNow(new Date(notification.created_at), {
-                  addSuffix: true,
-                })}
+                {timeAgoFromApiDate(notification.created_at)}
               </p>
             </div>
           </div>

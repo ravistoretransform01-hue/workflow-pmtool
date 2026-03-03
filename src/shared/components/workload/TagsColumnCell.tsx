@@ -192,12 +192,14 @@ export function TagsColumnCell({
           onClick={(e) => e.stopPropagation()}
         >
           {taskTags.length === 0 ? (
-            <span className="text-muted-foreground text-xs">+ Add</span>
+            <div className="w-full flex justify-center">
+              <span className="text-muted-foreground text-xs">+ Add</span>
+            </div>
           ) : (
             taskTags.map((tag: any) => (
               <span
                 key={`${task.id}-${tag.tag_id}`}
-                className="px-2 py-1 rounded text-xs font-medium text-white cursor-pointer hover:opacity-90"
+                className="px-2 py-1 rounded text-xs font-medium text-white cursor-pointer hover:opacity-90 whitespace-nowrap shrink-0"
                 style={{
                   backgroundColor: tag.color || "#6b7280",
                 }}

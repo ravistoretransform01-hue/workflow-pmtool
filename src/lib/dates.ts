@@ -4,7 +4,7 @@
  */
 
 export function parseApiDateTime(input: string | null | undefined): Date | null {
-  if (!input || typeof input !== "string") return null;
+  if (!input || typeof input !== "string" || input.startsWith("0000-00-00")) return null;
   const re = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/;
   const m = input.trim().match(re);
   if (!m) return null;
@@ -56,7 +56,7 @@ export function formatApiTime(input: string | Date | null | undefined, locale = 
 
 export function timeAgoFromApiDate(input: string | Date | null | undefined): string {
   const date = typeof input === "string" ? parseApiDateTime(input) : input instanceof Date ? input : null;
-  if (!date) return "";
+  if (!date || isNaN(date.getTime())) return "Recently";
 
   const diffMs = Date.now() - date.getTime();
   if (diffMs < 0) return formatApiDateTimeToLocale(date);

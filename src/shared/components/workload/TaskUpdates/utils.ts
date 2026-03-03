@@ -1,4 +1,5 @@
 import { intervalToDuration } from "date-fns";
+import { parseApiDateTime } from "@/lib/utils";
 
 /**
  * Helper to render HTML content from Tiptap editor with proper styling
@@ -35,8 +36,8 @@ export const renderFormattedContent = (content: string) => {
  * Helper to format relative time for comments: "7 hour 2 min ago", "5 days ago", etc.
  */
 export const getRelativeTimeString = (dateStr: string) => {
-  if (!dateStr) return "";
-  const date = new Date(dateStr);
+  const date = parseApiDateTime(dateStr);
+  if (!date || isNaN(date.getTime())) return "Recently";
   const now = new Date();
 
   // Use intervalToDuration for precise parts
