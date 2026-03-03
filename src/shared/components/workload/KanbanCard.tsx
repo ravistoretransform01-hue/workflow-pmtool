@@ -2,6 +2,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import type { Task } from "./WorkloadBoard";
+import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
+import { stringToHslColor } from "./utils";
 
 interface KanbanCardProps {
   task: Task;
@@ -15,6 +17,7 @@ interface KanbanCardProps {
   statusColor?: string;
   priorityName?: string;
   priorityColor?: string;
+  members: any[];
 }
 
 export function KanbanCard({
@@ -25,9 +28,8 @@ export function KanbanCard({
   groupColor,
   visibleCardFields,
   statusName,
-  // statusColor,
   priorityName,
-  // priorityColor,
+  members,
 }: KanbanCardProps) {
   const {
     attributes,
@@ -110,19 +112,49 @@ export function KanbanCard({
           )}
 
           {showAssignees &&
-            (task.assigned_to_ids && task.assigned_to_ids.length > 0 ? (
-              <div className="mt-2 flex items-center gap-1">
-                <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
-                  {task.assigned_to_ids.length}
-                </div>
+            task.assigned_to_ids &&
+            task.assigned_to_ids.length > 0 && (
+              <div className="mt-3 flex items-center -space-x-2">
+                {task.assigned_to_ids.slice(0, 3).map((memberId) => {
+                  const member = members.find(
+                    (m) => String(m.user_id) === String(memberId),
+                  );
+                  if (!member) return null;
+                  const name = (member?.name || "").trim();
+                  const initials = name
+                    .split(/\s+/)
+                    .map((n: string) => n[0])
+                    .filter(Boolean)
+                    .slice(0, 1)
+                    .join("")
+                    .toUpperCase();
+                  const bgColor = stringToHslColor(
+                    name || String(member?.user_id || "user"),
+                  );
+
+                  return (
+                    <Avatar
+                      key={memberId}
+                      className="h-6 w-6 border-2 border-card ring-0"
+                    >
+                      <AvatarFallback
+                        style={{ background: bgColor, color: "white" }}
+                        className="text-[10px]  "
+                      >
+                        {initials || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  );
+                })}
+                {task.assigned_to_ids.length > 3 && (
+                  <div className="h-6 w-6 rounded-full bg-muted border-2 border-card flex items-center justify-center">
+                    <span className="text-[10px]   text-muted-foreground">
+                      +{task.assigned_to_ids.length - 3}
+                    </span>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="mt-2 flex items-center gap-1">
-                <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
-                  0
-                </div>
-              </div>
-            ))}
+            )}
         </div>
       </div>
     </div>

@@ -114,7 +114,7 @@ export const AppSidebar = () => {
   };
 
   const handleOpenBoardInNewTab = (boardId: string) => {
-    window.open(`/board/${boardId}`, "_blank");
+    window.open(`/board/${boardId}/view/Main%20Table`, "_blank");
   };
 
   const handleRenameBoard = (boardId: string, currentName: string) => {
@@ -431,7 +431,9 @@ export const AppSidebar = () => {
                       className={`flex items-center gap-1 w-full group px-2 py-1.5 rounded-md ${boardId === board.id ? "bg-accent" : "hover:bg-hover"}`}
                     >
                       <button
-                        onClick={() => navigate(`/board/${board.id}`)}
+                        onClick={() =>
+                          navigate(`/board/${board.id}/view/Main%20Table`)
+                        }
                         className="flex items-center gap-2 flex-1 text-left min-w-0"
                         title={board.name}
                       >
@@ -589,7 +591,7 @@ export const AppSidebar = () => {
                   <button
                     key={board.id}
                     onClick={() => {
-                      navigate(`/board/${board.id}`);
+                      navigate(`/board/${board.id}/view/Main%20Table`);
                       setBoardSearchOpen(false);
                       setBoardSearchQuery("");
                     }}

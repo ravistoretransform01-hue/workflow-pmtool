@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
-import { cn } from "@/lib/utils";
+import { cn, parseApiDateTime } from "@/lib/utils";
 import type { TaskComment } from "@/features/tasks/types";
 import { renderFormattedContent, getRelativeTimeString } from "./utils";
 
@@ -133,7 +133,12 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 {comment.created_at
                   ? showRelativeTime
                     ? getRelativeTimeString(comment.created_at)
-                    : format(new Date(comment.created_at), "MMM d, h:mm a")
+                    : (() => {
+                        const date = parseApiDateTime(comment.created_at);
+                        return date && !isNaN(date.getTime())
+                          ? format(date, "MMM d, h:mm a")
+                          : "Recently";
+                      })()
                   : ""}
               </span>
             </div>

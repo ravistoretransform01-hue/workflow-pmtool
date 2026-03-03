@@ -327,7 +327,7 @@ export function TiptapEditor({
         suggestion: {
           items: ({ query }) => {
             const filtered = membersRef.current.filter((user) =>
-              user.name.toLowerCase().startsWith(query.toLowerCase()),
+              user.name.toLowerCase().includes(query.toLowerCase()),
             );
             setMentionItems(filtered);
             mentionItemsRef.current = filtered;
@@ -340,20 +340,15 @@ export function TiptapEditor({
                 setMentionCommand(() => props.command);
                 const coords = props.clientRect?.();
 
-                // Find nearest dialog or fallback to body
-                const dialogParent = editorContainerRef.current?.closest(
-                  '[role="dialog"]',
-                ) as HTMLElement;
-                const portalTarget = dialogParent || document.body;
+                const portalTarget = document.body;
                 setMentionPortalTarget(portalTarget);
 
                 if (coords) {
                   const dropdownHeight = 300;
-                  const containerRect = portalTarget.getBoundingClientRect();
 
-                  // Calculate position relative to the portal target
-                  let left = coords.left - containerRect.left;
-                  let top = coords.bottom - containerRect.top;
+                  // Since it's appended to document.body, coordinates are just clientRect + window scroll
+                  let left = coords.left + window.scrollX;
+                  let top = coords.bottom + window.scrollY;
 
                   const spaceBelow = window.innerHeight - coords.bottom;
                   const spaceAbove = coords.top;
@@ -362,13 +357,7 @@ export function TiptapEditor({
                     spaceBelow < dropdownHeight &&
                     spaceAbove > dropdownHeight
                   ) {
-                    top = coords.top - containerRect.top - dropdownHeight;
-                  }
-
-                  // If portaled to body, we need to add scroll offset
-                  if (portalTarget === document.body) {
-                    left += window.scrollX;
-                    top += window.scrollY;
+                    top = coords.top + window.scrollY - dropdownHeight;
                   }
 
                   setMentionPosition({ top, left });
@@ -381,15 +370,11 @@ export function TiptapEditor({
                 setMentionCommand(() => props.command);
                 const coords = props.clientRect?.();
 
-                // Maintain portal target
-                const portalTarget = mentionPortalTarget || document.body;
-
                 if (coords) {
                   const dropdownHeight = 300;
-                  const containerRect = portalTarget.getBoundingClientRect();
 
-                  let left = coords.left - containerRect.left;
-                  let top = coords.bottom - containerRect.top;
+                  let left = coords.left + window.scrollX;
+                  let top = coords.bottom + window.scrollY;
 
                   const spaceBelow = window.innerHeight - coords.bottom;
                   const spaceAbove = coords.top;
@@ -398,19 +383,14 @@ export function TiptapEditor({
                     spaceBelow < dropdownHeight &&
                     spaceAbove > dropdownHeight
                   ) {
-                    top = coords.top - containerRect.top - dropdownHeight;
-                  }
-
-                  if (portalTarget === document.body) {
-                    left += window.scrollX;
-                    top += window.scrollY;
+                    top = coords.top + window.scrollY - dropdownHeight;
                   }
 
                   setMentionPosition({ top, left });
                 }
 
                 const filtered = membersRef.current.filter((user) =>
-                  user.name.toLowerCase().startsWith(props.query.toLowerCase()),
+                  user.name.toLowerCase().includes(props.query.toLowerCase()),
                 );
                 setMentionItems(filtered);
                 mentionItemsRef.current = filtered;
@@ -456,9 +436,7 @@ export function TiptapEditor({
                   if (!item) return false;
 
                   props.command({ id: item.id, label: item.name });
-                  requestAnimationFrame(() => {
-                    editor?.commands.focus();
-                  });
+                  editor?.commands.focus();
 
                   setMentionOpen(false);
                   return true;
@@ -1105,7 +1083,7 @@ export function TiptapEditor({
             <Minus className="h-4 w-4" />
           </Button>
 
-          <Popover>
+          <Popover modal={true}>
             <PopoverTrigger asChild>
               <Button
                 type="button"

@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/app/store";
 import { Bell, Search, Settings as SettingsIcon, Loader2 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -16,12 +18,11 @@ import {
 } from "@/shared/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
-import { formatDistanceToNow } from "date-fns";
 import {
   notificationsApi,
   type Notification,
 } from "@/features/notifications/notificationsApi";
-import { cn } from "@/lib/utils";
+import { cn, timeAgoFromApiDate } from "@/lib/utils";
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -29,12 +30,15 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const refreshCounter = useSelector(
+    (state: RootState) => state.ui.refreshCounter,
+  );
 
   useEffect(() => {
-    if (open) {
+    if (open || refreshCounter > 0) {
       loadNotifications();
     }
-  }, [open]);
+  }, [open, refreshCounter]);
 
   const loadNotifications = async () => {
     setLoading(true);
@@ -161,9 +165,7 @@ export function NotificationBell() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground/70 font-medium">
-                {formatDistanceToNow(new Date(notification.created_at), {
-                  addSuffix: true,
-                })}
+                {timeAgoFromApiDate(notification.created_at)}
               </p>
             </div>
           </div>

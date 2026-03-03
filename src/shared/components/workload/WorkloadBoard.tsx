@@ -5,10 +5,11 @@ import { format, parseISO } from "date-fns";
 // Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
 // const _loadedGroupsForBoard = new Set<string>();
 // const _loadedCMSForBoard = new Set<string>();
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import axios from "@/lib/axios";
-import { useAppDispatch } from "@/app/hooks";
+import { useAppDispatch, useAppSelector } from "@/app/hooks";
+import type { RootState } from "@/app/store";
 import { groupsApi } from "@/features/groups/groupsApi";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { attachmentsApi } from "@/features/tasks/attachmentsApi";
@@ -438,8 +439,12 @@ export function WorkloadBoard({
   // workspaceName,
 }: WorkloadBoardProps) {
   const navigate = useNavigate();
+  const { viewName } = useParams<{ viewName?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const dispatch = useAppDispatch();
+  const refreshCounter = useAppSelector(
+    (state: RootState) => state.ui.refreshCounter,
+  );
 
   // Initialize hooks for state management
   const taskState = useTaskState();
@@ -493,6 +498,28 @@ export function WorkloadBoard({
     const taskIdFromUrl = searchParams.get("task");
     const commentsIdFromUrl = searchParams.get("comments");
 
+    // Sync View Tab
+    if (viewName) {
+      // Decode URI component in case of "Main%20Table"
+      const decodedViewName = decodeURIComponent(viewName);
+      if (TAB_TO_VIEW_KEY[decodedViewName]) {
+        setActiveTab((prev) =>
+          decodedViewName !== prev ? decodedViewName : prev,
+        );
+      } else {
+        // Invalid view name, redirect to Main Table
+        navigate(
+          `/board/${boardId}/view/Main%20Table${window.location.search}`,
+          { replace: true },
+        );
+      }
+    } else {
+      // Missing view name, redirect to Main Table
+      navigate(`/board/${boardId}/view/Main%20Table${window.location.search}`, {
+        replace: true,
+      });
+    }
+
     // Sync Task Card State
     if (taskIdFromUrl) {
       if (taskIdFromUrl !== selectedTaskCardId) {
@@ -526,7 +553,7 @@ export function WorkloadBoard({
         setSelectedCommentsId(null);
       }
     }
-  }, [searchParams]);
+  }, [searchParams, viewName]);
 
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
@@ -548,7 +575,17 @@ export function WorkloadBoard({
       return "U";
     }
   }, []);
-  const [activeTab, setActiveTab] = useState("Main Table");
+
+  let initialViewFromUrl = "Main Table";
+  if (viewName) {
+    const decodedViewName = decodeURIComponent(viewName);
+    if (TAB_TO_VIEW_KEY[decodedViewName]) {
+      initialViewFromUrl = decodedViewName;
+    }
+  }
+
+  const [activeTab, setActiveTab] = useState(initialViewFromUrl);
+
   // Main Table FilterRow states
   const [mainTableSearchQuery, setMainTableSearchQuery] = useState("");
   const [groups, setGroups] = useState<TaskGroup[]>([]);
@@ -868,7 +905,7 @@ export function WorkloadBoard({
     };
 
     loadGroupsAndTasks();
-  }, [boardId]);
+  }, [boardId, refreshCounter]);
 
   // Fetch CMS data (statuses, priorities, and members) on component mount
   useEffect(() => {
@@ -1194,6 +1231,21 @@ export function WorkloadBoard({
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    // Remove "view" query param if it exists, since we're using path now
+    if (searchParams.has("view")) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("view");
+          return next;
+        },
+        { replace: true },
+      );
+    }
+    // Navigate to the new path
+    navigate(
+      `/board/${boardId}/view/${encodeURIComponent(tab)}${window.location.search}`,
+    );
   };
 
   const sensors = useSensors(
@@ -2675,8 +2727,10 @@ export function WorkloadBoard({
               const statusName = statusNameMap.get(item.status_id || "") || "";
               const priorityName =
                 priorityNameMap.get(item.priority_id || "") || "";
+              const dynamicGroupLabel =
+                groupLabels[item.group_id || ""] || item.label_id || "";
               const groupLabelName =
-                labelNameMap.get(item.label_id || "") || "";
+                labelNameMap.get(dynamicGroupLabel) || dynamicGroupLabel || "";
 
               const content = [
                 item.name,
@@ -4084,105 +4138,107 @@ export function WorkloadBoard({
             )}
 
             {/* Show/Hide Columns Popover */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
-                  <Eye className="h-4 w-4" />
-                  Show/Hide
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64 p-3" align="end">
-                {/* Header with Select All checkbox */}
-                <div className="px-2 py-1.5 flex items-center justify-between">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      // Check whether all non-required columns are visible (item is always required)
-                      checked={ALL_AVAILABLE_COLUMNS.filter(
-                        (c) => c !== "item",
-                      ).every((c) => columnState.visibleColumns[c] !== false)}
-                      onChange={() => {
-                        const others = ALL_AVAILABLE_COLUMNS.filter(
+            {(activeTab === "Main Table" || activeTab === "List") && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
+                    <Eye className="h-4 w-4" />
+                    Show/Hide
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-3" align="end">
+                  {/* Header with Select All checkbox */}
+                  <div className="px-2 py-1.5 flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        // Check whether all non-required columns are visible (item is always required)
+                        checked={ALL_AVAILABLE_COLUMNS.filter(
                           (c) => c !== "item",
-                        );
-                        const allOthersOn = others.every(
-                          (c) => columnState.visibleColumns[c] !== false,
-                        );
-                        // Toggle only the non-required columns; always keep 'item' visible
-                        const next = Object.fromEntries(
-                          others.map((c) => [c, !allOthersOn]),
-                        );
-                        next["item"] = true;
-                        columnState.setVisibleColumns((prev) => ({
-                          ...prev,
-                          ...next,
-                        }));
-                        setHasUnsavedChanges(true);
-                      }}
-                      className="cursor-pointer"
-                    />
-                    <span className="text-sm font-medium">All Columns</span>
-                  </label>
-                  <div className="text-sm text-muted-foreground">
-                    {
-                      ALL_AVAILABLE_COLUMNS.filter(
-                        (c) => columnState.visibleColumns[c] === true,
-                      ).length
-                    }
-                    /{ALL_AVAILABLE_COLUMNS.length}
+                        ).every((c) => columnState.visibleColumns[c] !== false)}
+                        onChange={() => {
+                          const others = ALL_AVAILABLE_COLUMNS.filter(
+                            (c) => c !== "item",
+                          );
+                          const allOthersOn = others.every(
+                            (c) => columnState.visibleColumns[c] !== false,
+                          );
+                          // Toggle only the non-required columns; always keep 'item' visible
+                          const next = Object.fromEntries(
+                            others.map((c) => [c, !allOthersOn]),
+                          );
+                          next["item"] = true;
+                          columnState.setVisibleColumns((prev) => ({
+                            ...prev,
+                            ...next,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        className="cursor-pointer"
+                      />
+                      <span className="text-sm font-medium">All Columns</span>
+                    </label>
+                    <div className="text-sm text-muted-foreground">
+                      {
+                        ALL_AVAILABLE_COLUMNS.filter(
+                          (c) => columnState.visibleColumns[c] === true,
+                        ).length
+                      }
+                      /{ALL_AVAILABLE_COLUMNS.length}
+                    </div>
                   </div>
-                </div>
-                <div className="border-t border-border my-2" />
+                  <div className="border-t border-border my-2" />
 
-                <div className=" space-y-1">
-                  {ALL_AVAILABLE_COLUMNS.map((columnId) => {
-                    const columnLabel = getColumnLabel(
-                      parseInt(boardId, 10),
-                      columnId,
-                      COLUMN_DEFAULT_LABELS[columnId] || columnId,
-                    );
+                  <div className=" space-y-1">
+                    {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                      const columnLabel = getColumnLabel(
+                        parseInt(boardId, 10),
+                        columnId,
+                        COLUMN_DEFAULT_LABELS[columnId] || columnId,
+                      );
 
-                    return columnId === "item" ? (
-                      <label
-                        key={columnId}
-                        className="flex items-center gap-2 cursor-default px-2 py-1 rounded"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={true}
-                          disabled
-                          title="Item column is required"
-                          className="cursor-not-allowed opacity-50"
-                        />
-                        <span className="text-sm font-medium capitalize">
-                          {columnLabel}
-                        </span>
-                      </label>
-                    ) : (
-                      <label
-                        key={columnId}
-                        className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={
-                            columnState.visibleColumns[columnId] === true
-                          }
-                          onChange={() => {
-                            toggleColumnVisibility(columnId);
-                            setHasUnsavedChanges(true);
-                          }}
-                          className="cursor-pointer"
-                        />
-                        <span className="text-sm capitalize">
-                          {columnLabel}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
+                      return columnId === "item" ? (
+                        <label
+                          key={columnId}
+                          className="flex items-center gap-2 cursor-default px-2 py-1 rounded"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={true}
+                            disabled
+                            title="Item column is required"
+                            className="cursor-not-allowed opacity-50"
+                          />
+                          <span className="text-sm font-medium capitalize">
+                            {columnLabel}
+                          </span>
+                        </label>
+                      ) : (
+                        <label
+                          key={columnId}
+                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              columnState.visibleColumns[columnId] === true
+                            }
+                            onChange={() => {
+                              toggleColumnVisibility(columnId);
+                              setHasUnsavedChanges(true);
+                            }}
+                            className="cursor-pointer"
+                          />
+                          <span className="text-sm capitalize">
+                            {columnLabel}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
         </div>
 
@@ -4587,7 +4643,7 @@ export function WorkloadBoard({
                                   }}
                                 >
                                   <table
-                                    className="w-full"
+                                    className="w-full border-separate border-spacing-0"
                                     style={{ tableLayout: "fixed" }}
                                   >
                                     {/* Table head */}
@@ -4623,9 +4679,9 @@ export function WorkloadBoard({
                                         items={workloadColumns.map((c) => c.id)}
                                         strategy={horizontalListSortingStrategy}
                                       >
-                                        <thead className="border-b border-border bg-muted/30   top-0 z-30">
-                                          <tr className="text-sm text-muted-foreground">
-                                            <th className="p-4 w-12 border-r border-border text-center sticky left-0 z-10 bg-card">
+                                        <thead className="bg-muted/30 top-0 z-30">
+                                          <tr className="text-sm text-muted-foreground group">
+                                            <th className="p-4 w-12 border-b border-r border-border text-center sticky left-0 z-10 bg-card">
                                               <input
                                                 type="checkbox"
                                                 checked={
@@ -4696,7 +4752,7 @@ export function WorkloadBoard({
                                             ))}
                                             {/* Filler column to absorb extra space and prevent stretching */}
                                             <th
-                                              className="p-0 border-none"
+                                              className="p-0 border-b border-border"
                                               style={{ width: "auto" }}
                                             />
                                           </tr>
@@ -4719,13 +4775,13 @@ export function WorkloadBoard({
                                           <React.Fragment key={task.id}>
                                             {/* ================= TASK ROW ================= */}
                                             <tr
-                                              className="border-t border-b border-border hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
+                                              className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
                                               onClick={() => {
                                                 openTaskCard(task);
                                               }}
                                             >
                                               <td
-                                                className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
+                                                className="p-4 text-center border-b border-border border-r sticky left-0 z-10 bg-card"
                                                 onClick={(e) =>
                                                   e.stopPropagation()
                                                 }
@@ -4750,7 +4806,7 @@ export function WorkloadBoard({
                                                 <td
                                                   key={col.id}
                                                   className={cn(
-                                                    "p-4 border-r border-border last:border-r-0",
+                                                    "p-4 border-r border-b border-border last:border-r-0",
                                                     col.align === "center" &&
                                                       "text-center",
                                                     col.align === "left" &&
@@ -4792,7 +4848,7 @@ export function WorkloadBoard({
                                               ))}
                                               {/* Filler column to absorb extra space and prevent stretching */}
                                               <td
-                                                className="p-0 border-none"
+                                                className="p-0 border-b border-border"
                                                 style={{ width: "auto" }}
                                               />
                                             </tr>
@@ -4813,10 +4869,10 @@ export function WorkloadBoard({
                                                 return (
                                                   <tr
                                                     key={subtask.id}
-                                                    className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 border-b border-border transition-colors"
+                                                    className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors"
                                                   >
                                                     <td
-                                                      className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
+                                                      className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card"
                                                       onClick={(e) =>
                                                         e.stopPropagation()
                                                       }
@@ -4843,7 +4899,7 @@ export function WorkloadBoard({
                                                         <td
                                                           key={col.id}
                                                           className={cn(
-                                                            "p-4 border-r border-border last:border-r-0",
+                                                            "p-4 border-r border-b border-border last:border-r-0",
                                                             col.align ===
                                                               "center" &&
                                                               "text-center",
@@ -4886,7 +4942,7 @@ export function WorkloadBoard({
                                                     )}
                                                     {/* Filler column to absorb extra space and prevent stretching */}
                                                     <td
-                                                      className="p-0 border-none"
+                                                      className="p-0 border-b border-border"
                                                       style={{ width: "auto" }}
                                                     />
                                                   </tr>
@@ -4898,7 +4954,7 @@ export function WorkloadBoard({
                                               task.id
                                             ] && (
                                               <tr>
-                                                <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
+                                                <td className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card">
                                                   {/* Empty Cell */}
                                                 </td>
                                                 <td
@@ -5124,6 +5180,7 @@ export function WorkloadBoard({
             groups={memoizedFilteredData.groups}
             statuses={statuses}
             priorities={priorities}
+            members={members}
             boardId={boardId}
             onTaskMove={handleStatusChange}
             onTaskClick={openTaskCard}

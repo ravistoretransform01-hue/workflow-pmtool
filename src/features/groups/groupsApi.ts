@@ -7,6 +7,7 @@ import type {
 } from "./types";
 
 const GROUP_ENDPOINTS = {
+  GET_ALL: "/groups",
   GET_BY_BOARD: (boardId: number) => `/groups?board_id=${boardId}`,
   CREATE: "/groups",
   GET_BY_ID: (id: string | number) => `/groups/${id}`,
@@ -142,6 +143,32 @@ export const groupsApi = {
       });
     } catch (error) {
       console.error("Delete group API error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Fetch all groups
+   */
+  getAllGroups: async (): Promise<Group[]> => {
+    try {
+      const response = await api.get<GetGroupsResponse>(GROUP_ENDPOINTS.GET_ALL);
+
+      if (
+        response.data &&
+        response.data.data &&
+        Array.isArray(response.data.data)
+      ) {
+        return response.data.data;
+      }
+
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      return [];
+    } catch (error) {
+      console.error("Get all groups API error:", error);
       throw error;
     }
   },
