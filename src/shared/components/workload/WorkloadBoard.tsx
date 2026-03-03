@@ -4136,105 +4136,107 @@ export function WorkloadBoard({
             )}
 
             {/* Show/Hide Columns Popover */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
-                  <Eye className="h-4 w-4" />
-                  Show/Hide
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64 p-3" align="end">
-                {/* Header with Select All checkbox */}
-                <div className="px-2 py-1.5 flex items-center justify-between">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      // Check whether all non-required columns are visible (item is always required)
-                      checked={ALL_AVAILABLE_COLUMNS.filter(
-                        (c) => c !== "item",
-                      ).every((c) => columnState.visibleColumns[c] !== false)}
-                      onChange={() => {
-                        const others = ALL_AVAILABLE_COLUMNS.filter(
+            {(activeTab === "Main Table" || activeTab === "List") && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
+                    <Eye className="h-4 w-4" />
+                    Show/Hide
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-3" align="end">
+                  {/* Header with Select All checkbox */}
+                  <div className="px-2 py-1.5 flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        // Check whether all non-required columns are visible (item is always required)
+                        checked={ALL_AVAILABLE_COLUMNS.filter(
                           (c) => c !== "item",
-                        );
-                        const allOthersOn = others.every(
-                          (c) => columnState.visibleColumns[c] !== false,
-                        );
-                        // Toggle only the non-required columns; always keep 'item' visible
-                        const next = Object.fromEntries(
-                          others.map((c) => [c, !allOthersOn]),
-                        );
-                        next["item"] = true;
-                        columnState.setVisibleColumns((prev) => ({
-                          ...prev,
-                          ...next,
-                        }));
-                        setHasUnsavedChanges(true);
-                      }}
-                      className="cursor-pointer"
-                    />
-                    <span className="text-sm font-medium">All Columns</span>
-                  </label>
-                  <div className="text-sm text-muted-foreground">
-                    {
-                      ALL_AVAILABLE_COLUMNS.filter(
-                        (c) => columnState.visibleColumns[c] === true,
-                      ).length
-                    }
-                    /{ALL_AVAILABLE_COLUMNS.length}
+                        ).every((c) => columnState.visibleColumns[c] !== false)}
+                        onChange={() => {
+                          const others = ALL_AVAILABLE_COLUMNS.filter(
+                            (c) => c !== "item",
+                          );
+                          const allOthersOn = others.every(
+                            (c) => columnState.visibleColumns[c] !== false,
+                          );
+                          // Toggle only the non-required columns; always keep 'item' visible
+                          const next = Object.fromEntries(
+                            others.map((c) => [c, !allOthersOn]),
+                          );
+                          next["item"] = true;
+                          columnState.setVisibleColumns((prev) => ({
+                            ...prev,
+                            ...next,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        className="cursor-pointer"
+                      />
+                      <span className="text-sm font-medium">All Columns</span>
+                    </label>
+                    <div className="text-sm text-muted-foreground">
+                      {
+                        ALL_AVAILABLE_COLUMNS.filter(
+                          (c) => columnState.visibleColumns[c] === true,
+                        ).length
+                      }
+                      /{ALL_AVAILABLE_COLUMNS.length}
+                    </div>
                   </div>
-                </div>
-                <div className="border-t border-border my-2" />
+                  <div className="border-t border-border my-2" />
 
-                <div className=" space-y-1">
-                  {ALL_AVAILABLE_COLUMNS.map((columnId) => {
-                    const columnLabel = getColumnLabel(
-                      parseInt(boardId, 10),
-                      columnId,
-                      COLUMN_DEFAULT_LABELS[columnId] || columnId,
-                    );
+                  <div className=" space-y-1">
+                    {ALL_AVAILABLE_COLUMNS.map((columnId) => {
+                      const columnLabel = getColumnLabel(
+                        parseInt(boardId, 10),
+                        columnId,
+                        COLUMN_DEFAULT_LABELS[columnId] || columnId,
+                      );
 
-                    return columnId === "item" ? (
-                      <label
-                        key={columnId}
-                        className="flex items-center gap-2 cursor-default px-2 py-1 rounded"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={true}
-                          disabled
-                          title="Item column is required"
-                          className="cursor-not-allowed opacity-50"
-                        />
-                        <span className="text-sm font-medium capitalize">
-                          {columnLabel}
-                        </span>
-                      </label>
-                    ) : (
-                      <label
-                        key={columnId}
-                        className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={
-                            columnState.visibleColumns[columnId] === true
-                          }
-                          onChange={() => {
-                            toggleColumnVisibility(columnId);
-                            setHasUnsavedChanges(true);
-                          }}
-                          className="cursor-pointer"
-                        />
-                        <span className="text-sm capitalize">
-                          {columnLabel}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
+                      return columnId === "item" ? (
+                        <label
+                          key={columnId}
+                          className="flex items-center gap-2 cursor-default px-2 py-1 rounded"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={true}
+                            disabled
+                            title="Item column is required"
+                            className="cursor-not-allowed opacity-50"
+                          />
+                          <span className="text-sm font-medium capitalize">
+                            {columnLabel}
+                          </span>
+                        </label>
+                      ) : (
+                        <label
+                          key={columnId}
+                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-hover"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              columnState.visibleColumns[columnId] === true
+                            }
+                            onChange={() => {
+                              toggleColumnVisibility(columnId);
+                              setHasUnsavedChanges(true);
+                            }}
+                            className="cursor-pointer"
+                          />
+                          <span className="text-sm capitalize">
+                            {columnLabel}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
         </div>
 
