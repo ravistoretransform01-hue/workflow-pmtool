@@ -5,4 +5,11 @@ export const isViewLive = {
   calendar: false,
   timeline: false,
   workload: false,
+  time: false,
+  recurring: false,
+  completed: false,
+  sop: false,
+  doc: false,
+  updates: false,
+  dashboard: false,
 };
