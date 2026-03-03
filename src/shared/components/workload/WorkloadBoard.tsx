@@ -4643,7 +4643,7 @@ export function WorkloadBoard({
                                   }}
                                 >
                                   <table
-                                    className="w-full"
+                                    className="w-full border-separate border-spacing-0"
                                     style={{ tableLayout: "fixed" }}
                                   >
                                     {/* Table head */}
@@ -4679,9 +4679,9 @@ export function WorkloadBoard({
                                         items={workloadColumns.map((c) => c.id)}
                                         strategy={horizontalListSortingStrategy}
                                       >
-                                        <thead className="border-b border-border bg-muted/30   top-0 z-30">
-                                          <tr className="text-sm text-muted-foreground">
-                                            <th className="p-4 w-12 border-r border-border text-center sticky left-0 z-10 bg-card">
+                                        <thead className="bg-muted/30 top-0 z-30">
+                                          <tr className="text-sm text-muted-foreground group">
+                                            <th className="p-4 w-12 border-b border-r border-border text-center sticky left-0 z-10 bg-card">
                                               <input
                                                 type="checkbox"
                                                 checked={
@@ -4752,7 +4752,7 @@ export function WorkloadBoard({
                                             ))}
                                             {/* Filler column to absorb extra space and prevent stretching */}
                                             <th
-                                              className="p-0 border-none"
+                                              className="p-0 border-b border-border"
                                               style={{ width: "auto" }}
                                             />
                                           </tr>
@@ -4775,13 +4775,13 @@ export function WorkloadBoard({
                                           <React.Fragment key={task.id}>
                                             {/* ================= TASK ROW ================= */}
                                             <tr
-                                              className="border-t border-b border-border hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
+                                              className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
                                               onClick={() => {
                                                 openTaskCard(task);
                                               }}
                                             >
                                               <td
-                                                className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
+                                                className="p-4 text-center border-b border-border border-r sticky left-0 z-10 bg-card"
                                                 onClick={(e) =>
                                                   e.stopPropagation()
                                                 }
@@ -4806,7 +4806,7 @@ export function WorkloadBoard({
                                                 <td
                                                   key={col.id}
                                                   className={cn(
-                                                    "p-4 border-r border-border last:border-r-0",
+                                                    "p-4 border-r border-b border-border last:border-r-0",
                                                     col.align === "center" &&
                                                       "text-center",
                                                     col.align === "left" &&
@@ -4848,7 +4848,7 @@ export function WorkloadBoard({
                                               ))}
                                               {/* Filler column to absorb extra space and prevent stretching */}
                                               <td
-                                                className="p-0 border-none"
+                                                className="p-0 border-b border-border"
                                                 style={{ width: "auto" }}
                                               />
                                             </tr>
@@ -4869,10 +4869,10 @@ export function WorkloadBoard({
                                                 return (
                                                   <tr
                                                     key={subtask.id}
-                                                    className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 border-b border-border transition-colors"
+                                                    className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors"
                                                   >
                                                     <td
-                                                      className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card"
+                                                      className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card"
                                                       onClick={(e) =>
                                                         e.stopPropagation()
                                                       }
@@ -4899,7 +4899,7 @@ export function WorkloadBoard({
                                                         <td
                                                           key={col.id}
                                                           className={cn(
-                                                            "p-4 border-r border-border last:border-r-0",
+                                                            "p-4 border-r border-b border-border last:border-r-0",
                                                             col.align ===
                                                               "center" &&
                                                               "text-center",
@@ -4942,7 +4942,7 @@ export function WorkloadBoard({
                                                     )}
                                                     {/* Filler column to absorb extra space and prevent stretching */}
                                                     <td
-                                                      className="p-0 border-none"
+                                                      className="p-0 border-b border-border"
                                                       style={{ width: "auto" }}
                                                     />
                                                   </tr>
@@ -4954,7 +4954,7 @@ export function WorkloadBoard({
                                               task.id
                                             ] && (
                                               <tr>
-                                                <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
+                                                <td className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card">
                                                   {/* Empty Cell */}
                                                 </td>
                                                 <td
