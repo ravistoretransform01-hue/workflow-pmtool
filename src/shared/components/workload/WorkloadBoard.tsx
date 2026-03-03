@@ -2727,8 +2727,10 @@ export function WorkloadBoard({
               const statusName = statusNameMap.get(item.status_id || "") || "";
               const priorityName =
                 priorityNameMap.get(item.priority_id || "") || "";
+              const dynamicGroupLabel =
+                groupLabels[item.group_id || ""] || item.label_id || "";
               const groupLabelName =
-                labelNameMap.get(item.label_id || "") || "";
+                labelNameMap.get(dynamicGroupLabel) || dynamicGroupLabel || "";
 
               const content = [
                 item.name,
