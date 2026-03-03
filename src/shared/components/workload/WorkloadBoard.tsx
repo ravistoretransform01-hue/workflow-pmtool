@@ -461,6 +461,13 @@ export function WorkloadBoard({
     Calendar: "calendar",
     Workload: "workload",
     Gantt: "timeline",
+    Time: "time",
+    Recurring: "recurring",
+    Completed: "completed",
+    SOP: "sop",
+    Doc: "doc",
+    Updates: "updates",
+    Dashboard: "dashboard",
   };
 
   const isCurrentViewLive = (tab: string) => {
