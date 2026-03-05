@@ -38,14 +38,19 @@ export function KanbanCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id });
+  } = useSortable({
+    id: task.id,
+    data: {
+      type: "card",
+      task,
+    },
+  });
 
   const style = overlay
     ? { opacity: 0.95 }
     : {
-        transform: CSS.Transform.toString(transform),
+        transform: CSS.Translate.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
       };
 
   const showGroup = visibleCardFields ? visibleCardFields.has("group") : true;
@@ -57,13 +62,23 @@ export function KanbanCard({
     ? visibleCardFields.has("assignees")
     : true;
 
+  if (isDragging && !overlay) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="bg-muted/30 border-2 border-dashed border-primary/20 rounded-lg h-[100px] w-full mb-3"
+      />
+    );
+  }
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={
         "bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group relative" +
-        (overlay ? " shadow-2xl" : "")
+        (overlay ? " shadow-2xl ring-2 ring-primary/20" : "")
       }
       onClick={onClick}
       {...(!overlay ? { ...attributes, ...listeners } : {})}

@@ -14,7 +14,7 @@ import {
   X,
   ListTree,
   Layers,
-  MoreHorizontal,
+  // MoreHorizontal,
   GripVertical,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
@@ -47,6 +47,7 @@ interface KanbanColumnProps {
   statusMap: Record<string, { name: string; color: string }>;
   priorityMap: Record<string, { name: string; color: string }>;
   isOverlay?: boolean;
+  isDraggingOver?: boolean;
 }
 
 export function KanbanColumn({
@@ -61,6 +62,7 @@ export function KanbanColumn({
   statusMap,
   priorityMap,
   isOverlay = false,
+  isDraggingOver = false,
 }: KanbanColumnProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
@@ -164,7 +166,9 @@ export function KanbanColumn({
         "flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 min-h-full",
         isOver && !isDragging
           ? "bg-primary/5 border-primary/30 ring-2 ring-primary/10 shadow-lg"
-          : "bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800",
+          : isDraggingOver
+            ? "bg-primary/5 border-primary/40 ring-2 ring-primary/10"
+            : "bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800",
         isOverlay &&
           "shadow-2xl border-primary/50 ring-2 ring-primary/20 rotate-[2deg]",
         isDragging && !isOverlay && "opacity-40",
@@ -189,13 +193,13 @@ export function KanbanColumn({
             </span>
           </div>
           <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center gap-1">
-            <Button
+            {/* <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-slate-400 hover:text-slate-600"
             >
               <MoreHorizontal className="h-4 w-4" />
-            </Button>
+            </Button> */}
             <GripVertical className="h-4 w-4 text-slate-300" />
           </div>
         </div>

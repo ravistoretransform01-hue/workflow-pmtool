@@ -1,5 +1,5 @@
 import React from "react";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { format, parseISO } from "date-fns";
 
 // Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
@@ -500,31 +500,27 @@ export function WorkloadBoard({
   const [taskCardInitialEditDescription, setTaskCardInitialEditDescription] =
     useState(false);
 
-  // Sync URL <-> State
+  // Derived activeTab from viewName to ensure URL is single source of truth
+  const decodedViewName = useMemo(() => {
+    if (!viewName) return "Main Table";
+    return decodeURIComponent(viewName);
+  }, [viewName]);
+
+  const activeTab = useMemo(() => {
+    return TAB_TO_VIEW_KEY[decodedViewName] ? decodedViewName : "Main Table";
+  }, [decodedViewName]);
+
+  // Sync URL <-> State (Redirects and Task/Comment panel state)
   useEffect(() => {
     const taskIdFromUrl = searchParams.get("task");
     const commentsIdFromUrl = searchParams.get("comments");
 
-    // Sync View Tab
-    if (viewName) {
-      // Decode URI component in case of "Main%20Table"
-      const decodedViewName = decodeURIComponent(viewName);
-      if (TAB_TO_VIEW_KEY[decodedViewName]) {
-        setActiveTab((prev) =>
-          decodedViewName !== prev ? decodedViewName : prev,
-        );
-      } else {
-        // Invalid view name, redirect to Main Table
-        navigate(
-          `/board/${boardId}/view/Main%20Table${window.location.search}`,
-          { replace: true },
-        );
-      }
-    } else {
-      // Missing view name, redirect to Main Table
+    // Handle view redirection if necessary
+    if (!viewName || !TAB_TO_VIEW_KEY[decodedViewName]) {
       navigate(`/board/${boardId}/view/Main%20Table${window.location.search}`, {
         replace: true,
       });
+      return;
     }
 
     // Sync Task Card State
@@ -546,6 +542,21 @@ export function WorkloadBoard({
 
     // Sync Comments Panel State
     if (commentsIdFromUrl) {
+      // Restriction: Don't open comments panel in Kanban view
+      if (activeTab === "Kanban") {
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete("comments");
+            // Optionally redirect to task card instead?
+            // next.set("task", commentsIdFromUrl);
+            return next;
+          },
+          { replace: true },
+        );
+        return;
+      }
+
       if (commentsIdFromUrl !== selectedCommentsId) {
         setSelectedCommentsId(commentsIdFromUrl);
       }
@@ -560,7 +571,7 @@ export function WorkloadBoard({
         setSelectedCommentsId(null);
       }
     }
-  }, [searchParams, viewName]);
+  }, [searchParams, viewName, decodedViewName, boardId, activeTab]);
 
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
@@ -582,16 +593,6 @@ export function WorkloadBoard({
       return "U";
     }
   }, []);
-
-  let initialViewFromUrl = "Main Table";
-  if (viewName) {
-    const decodedViewName = decodeURIComponent(viewName);
-    if (TAB_TO_VIEW_KEY[decodedViewName]) {
-      initialViewFromUrl = decodedViewName;
-    }
-  }
-
-  const [activeTab, setActiveTab] = useState(initialViewFromUrl);
 
   // Main Table FilterRow states
   const [mainTableSearchQuery, setMainTableSearchQuery] = useState("");
@@ -1237,7 +1238,6 @@ export function WorkloadBoard({
   // };
 
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
     // Remove "view" query param if it exists, since we're using path now
     if (searchParams.has("view")) {
       setSearchParams(
@@ -1249,9 +1249,10 @@ export function WorkloadBoard({
         { replace: true },
       );
     }
-    // Navigate to the new path
+    // Navigate to the new path, preserving current search params from state
+    const currentSearch = searchParams.toString();
     navigate(
-      `/board/${boardId}/view/${encodeURIComponent(tab)}${window.location.search}`,
+      `/board/${boardId}/view/${encodeURIComponent(tab)}${currentSearch ? "?" + currentSearch : ""}`,
     );
   };
 
@@ -1322,44 +1323,55 @@ export function WorkloadBoard({
     return null;
   };
 
-  const openCommentsPanel = (task: Task) => {
-    setSearchParams((prev: URLSearchParams) => {
-      const next = new URLSearchParams(prev);
+  const openCommentsPanel = useCallback(
+    (task: Task) => {
+      // Restriction: In Kanban, we open the full task card instead of the panel sheet
+      if (activeTab === "Kanban") {
+        openTaskCard(task);
+        return;
+      }
+
+      const next = new URLSearchParams(searchParams);
       next.delete("task");
       next.set("comments", task.id);
-      return next;
-    });
-  };
+      navigate({
+        pathname: `/board/${boardId}/view/${encodeURIComponent(activeTab)}`,
+        search: `?${next.toString()}`,
+      });
+    },
+    [searchParams, boardId, activeTab, navigate],
+  ); // Removed dependencies to avoid stale closures, using searchParams directly
 
-  const closeCommentsPanel = () => {
-    setSearchParams((prev: URLSearchParams) => {
-      const next = new URLSearchParams(prev);
-      next.delete("comments");
-      return next;
+  const closeCommentsPanel = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("comments");
+    navigate({
+      pathname: `/board/${boardId}/view/${encodeURIComponent(activeTab)}`,
+      search: next.toString() ? `?${next.toString()}` : "",
     });
-  };
+  }, [searchParams, boardId, activeTab, navigate]);
 
-  const openTaskCard = (
-    task: Task,
-    initialEditDescription: boolean = false,
-  ) => {
-    setTaskCardInitialEditDescription(initialEditDescription);
-    setSearchParams((prev: URLSearchParams) => {
-      const next = new URLSearchParams(prev);
-      next.delete("comments");
-      next.set("task", task.id);
-      return next;
-    });
-  };
+  const openTaskCard = useCallback(
+    (task: Task, initialEditDescription: boolean = false) => {
+      setTaskCardInitialEditDescription(initialEditDescription);
+      setSearchParams((prev: URLSearchParams) => {
+        const next = new URLSearchParams(prev);
+        next.delete("comments");
+        next.set("task", task.id);
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
 
-  const closeTaskCard = () => {
+  const closeTaskCard = useCallback(() => {
     setTaskCardInitialEditDescription(false);
     setSearchParams((prev: URLSearchParams) => {
       const next = new URLSearchParams(prev);
       next.delete("task");
       return next;
     });
-  };
+  }, [setSearchParams]);
 
   const handleInlineEditTaskName = async (taskId: string, newName: string) => {
     if (!newName.trim()) {
@@ -3461,6 +3473,8 @@ export function WorkloadBoard({
     taskState.inlineEditingTaskId,
     taskState.inlineEditingTaskName,
     timerState.activeTimerId,
+    openCommentsPanel,
+    openTaskCard,
   ]);
 
   // Track unsaved changes for layout
@@ -5404,7 +5418,6 @@ export function WorkloadBoard({
           </DialogContent>
         </Dialog>
 
-        {/* ALL SHEETS WILL GO HERE */}
         <CommentsPanelSheet
           open={commentsPanelOpen}
           onOpenChange={(open) => {
