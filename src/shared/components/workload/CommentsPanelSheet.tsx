@@ -244,7 +244,7 @@ export function CommentsPanelSheet({
             {/* comments content */}
             <TabsContent
               value="updates"
-              className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0 data-[state=inactive]:hidden"
+              className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
             >
               <TaskUpdates
                 boardId={boardId}
@@ -265,7 +265,7 @@ export function CommentsPanelSheet({
             {/* activity log content */}
             <TabsContent
               value="activity"
-              className="flex-1 flex flex-col mt-0 overflow-hidden min-h-0 data-[state=inactive]:hidden"
+              className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
             >
               <div className="flex-1 overflow-auto px-6 py-4 relative">
                 {/* Loading overlay for pagination */}
@@ -295,7 +295,8 @@ export function CommentsPanelSheet({
                     {activityData.map((activity) => (
                       <div
                         key={activity.id}
-                        onClick={(e) => {
+                        className="flex gap-4 pb-4 border-b border-border/30 last:border-0 last:pb-0 group cursor-default"
+                        onClick={(e: React.MouseEvent) => {
                           const target = e.target as HTMLElement;
                           if (target.tagName === "IMG") {
                             handleFilePreview((target as HTMLImageElement).src);
