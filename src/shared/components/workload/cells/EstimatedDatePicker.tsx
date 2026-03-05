@@ -233,7 +233,7 @@ export function EstimatedDatePicker({
 
       // If dates are the same, show single formatted date
       if (fromTime === toTime) {
-        return format(range.from, "d MMM, yy").toLowerCase();
+        return format(range.from, "d MMM, ''yy").toLowerCase();
       }
     }
 
