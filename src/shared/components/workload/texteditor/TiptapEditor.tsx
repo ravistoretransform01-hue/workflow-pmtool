@@ -154,6 +154,7 @@ export function TiptapEditor({
   const mentionRef = useRef<HTMLDivElement | null>(null);
   const mentionScrollRef = useRef<HTMLDivElement | null>(null);
   const membersRef = useRef<Array<{ id: string; name: string }>>([]);
+  const mentionCommandRef = useRef<((item: any) => void) | null>(null);
 
   // Load members from localStorage
   useEffect(() => {
@@ -338,6 +339,7 @@ export function TiptapEditor({
               onStart: (props: any) => {
                 setMentionOpen(true);
                 setMentionCommand(() => props.command);
+                mentionCommandRef.current = props.command;
                 const coords = props.clientRect?.();
 
                 const portalTarget = document.body;
@@ -368,6 +370,7 @@ export function TiptapEditor({
 
               onUpdate: (props: any) => {
                 setMentionCommand(() => props.command);
+                mentionCommandRef.current = props.command;
                 const coords = props.clientRect?.();
 
                 if (coords) {
@@ -432,14 +435,22 @@ export function TiptapEditor({
                 if (props.event.key === "Enter") {
                   props.event.preventDefault();
 
+                  const items = mentionItemsRef.current;
                   const item = items[selectedIndexRef.current];
-                  if (!item) return false;
 
-                  props.command({ id: item.id, label: item.name });
-                  editor?.commands.focus();
+                  // Use the REF here instead of props.command or the state
+                  if (item && mentionCommandRef.current) {
+                    mentionCommandRef.current({
+                      id: item.id,
+                      label: item.name,
+                    });
 
-                  setMentionOpen(false);
-                  return true;
+                    setMentionOpen(false);
+                    setSelectedIndex(0);
+                    selectedIndexRef.current = 0;
+                    return true;
+                  }
+                  return false;
                 }
 
                 if (props.event.key === "Escape") {

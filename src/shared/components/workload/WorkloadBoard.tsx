@@ -5194,8 +5194,6 @@ export function WorkloadBoard({
           </div>
         )}
 
-        {/* KANBAN VIEW */}
-        {/* kanban commented intentionally */}
         {activeTab === "Kanban" && isViewLive.kanban && (
           <KanbanView
             groups={memoizedFilteredData.groups}
@@ -5206,6 +5204,7 @@ export function WorkloadBoard({
             onTaskMove={handleStatusChange}
             onTaskClick={openTaskCard}
             onAddTask={handleKanbanAddTask}
+            onStatusesUpdated={handleStatusesUpdated}
           />
         )}
 

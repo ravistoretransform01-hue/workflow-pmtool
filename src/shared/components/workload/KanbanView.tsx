@@ -41,6 +41,7 @@ interface KanbanViewProps {
     groupId: string,
     parentId?: string,
   ) => Promise<void>;
+  onStatusesUpdated?: (statuses: Status[]) => void;
 }
 
 export function KanbanView({
@@ -52,6 +53,7 @@ export function KanbanView({
   onTaskMove,
   onTaskClick,
   onAddTask,
+  onStatusesUpdated,
 }: KanbanViewProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -843,6 +845,9 @@ export function KanbanView({
                       statusMap={statusMap}
                       priorityMap={priorityMap}
                       isDraggingOver={isDraggingOver}
+                      onStatusesUpdated={onStatusesUpdated}
+                      boardId={boardId}
+                      statuses={statuses}
                     />
                   );
                 })}
@@ -877,6 +882,9 @@ export function KanbanView({
                 visibleCardFields={visibleCardFields}
                 statusMap={statusMap}
                 priorityMap={priorityMap}
+                onStatusesUpdated={onStatusesUpdated}
+                boardId={boardId}
+                statuses={statuses}
                 isOverlay
               />
             ) : null}
