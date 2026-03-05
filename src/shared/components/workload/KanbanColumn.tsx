@@ -29,7 +29,10 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { cn, getOrganizationId } from "@/lib/utils";
+import { cmsApi } from "@/features/cms/cmsApi";
+import { updateStatusInCache } from "@/features/cms/cmsStorage";
+import { toast } from "sonner";
 
 interface KanbanColumnProps {
   status: Status;
@@ -48,6 +51,9 @@ interface KanbanColumnProps {
   priorityMap: Record<string, { name: string; color: string }>;
   isOverlay?: boolean;
   isDraggingOver?: boolean;
+  onStatusesUpdated?: (statuses: Status[]) => void;
+  boardId?: string | number;
+  statuses?: Status[];
 }
 
 export function KanbanColumn({
@@ -63,8 +69,14 @@ export function KanbanColumn({
   priorityMap,
   isOverlay = false,
   isDraggingOver = false,
+  onStatusesUpdated,
+  boardId,
+  statuses,
 }: KanbanColumnProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editingName, setEditingName] = useState(status.name);
+  const [isSavingName, setIsSavingName] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubtask, setIsSubtask] = useState(false);
@@ -156,6 +168,56 @@ export function KanbanColumn({
     }
   };
 
+  const handleSaveName = async () => {
+    const trimmedName = editingName.trim();
+    if (!trimmedName || trimmedName === status.name) {
+      setIsEditingName(false);
+      setEditingName(status.name);
+      return;
+    }
+
+    const orgId = getOrganizationId();
+    if (!orgId || !boardId) {
+      toast.error("Missing organization or board info");
+      setIsEditingName(false);
+      setEditingName(status.name);
+      return;
+    }
+
+    setIsSavingName(true);
+    try {
+      const response = await cmsApi.updateStatus({
+        status_id: String(status.id),
+        name: trimmedName,
+        color_code: status.color_code,
+        organization_id: orgId,
+        board_id: Number(boardId),
+      });
+
+      const updatedStatus = { ...status, name: trimmedName };
+      updateStatusInCache(Number(boardId), updatedStatus);
+
+      // Trigger global update if handler is provided
+      if (onStatusesUpdated && statuses) {
+        const fullUpdatedStatuses = statuses.map((s) =>
+          String(s.id) === String(status.id) ? updatedStatus : s,
+        );
+        onStatusesUpdated(fullUpdatedStatuses);
+      }
+
+      console.log("Updated status response:", response);
+      toast.success(response?.message || "Status updated");
+      setIsEditingName(false);
+    } catch (error) {
+      console.error("Failed to update status name:", error);
+      toast.error("Failed to update status name");
+      setEditingName(status.name);
+      setIsEditingName(false);
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
   const groupTasks = groups.find((g) => g.id === selectedGroupId)?.tasks || [];
 
   return (
@@ -185,9 +247,33 @@ export function KanbanColumn({
               className="w-3.5 h-3.5 rounded-full shadow-sm"
               style={{ backgroundColor: status.color_code }}
             />
-            <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 uppercase">
-              {status.name}
-            </h3>
+            {isEditingName ? (
+              <Input
+                className="h-7 text-xs font-bold py-0 px-2 focus-visible:ring-1 border-slate-200 dark:border-slate-800 w-48"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onBlur={handleSaveName}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveName();
+                  if (e.key === "Escape") {
+                    setIsEditingName(false);
+                    setEditingName(status.name);
+                  }
+                }}
+                autoFocus
+                disabled={isSavingName}
+              />
+            ) : (
+              <h3
+                className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 cursor-text hover:text-primary transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingName(true);
+                }}
+              >
+                {status.name}
+              </h3>
+            )}
             <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center">
               {tasks.length}
             </span>
