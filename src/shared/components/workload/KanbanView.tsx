@@ -69,6 +69,34 @@ export function KanbanView({
     Record<string, string>
   >({});
 
+  // Local reordering: statusId -> taskId[]
+  const [taskOrders, setTaskOrders] = useState<Record<string, string[]>>({});
+
+  // Initialize taskOrders from localStorage
+  useEffect(() => {
+    if (!boardId) return;
+    try {
+      const raw = localStorage.getItem(`kanban-task-order-${boardId}`);
+      if (raw) {
+        setTaskOrders(JSON.parse(raw));
+      }
+    } catch (e) {
+      console.error("Failed to load task orders", e);
+    }
+  }, [boardId]);
+
+  const persistTaskOrders = (orders: Record<string, string[]>) => {
+    if (!boardId) return;
+    try {
+      localStorage.setItem(
+        `kanban-task-order-${boardId}`,
+        JSON.stringify(orders),
+      );
+    } catch (e) {
+      console.error("Failed to persist task orders", e);
+    }
+  };
+
   // Visible statuses (persisted per board when boardId is provided)
   const [visibleStatuses, setVisibleStatuses] = useState<Set<string>>(() => {
     try {
@@ -232,12 +260,27 @@ export function KanbanView({
       });
     });
 
+    // Sort each list based on taskOrders
+    Object.keys(organized).forEach((statusId) => {
+      const order = taskOrders[statusId] ?? [];
+
+      if (order.length > 0) {
+        const orderMap = new Map(order.map((id, i) => [id, i]));
+
+        organized[statusId].sort((a, b) => {
+          const indexA = orderMap.get(String(a.id)) ?? Number.MAX_SAFE_INTEGER;
+          const indexB = orderMap.get(String(b.id)) ?? Number.MAX_SAFE_INTEGER;
+          return indexA - indexB;
+        });
+      }
+    });
+
     return organized;
-  }, [groups, statuses, optimisticStatusChanges]);
+  }, [groups, statuses, optimisticStatusChanges, taskOrders]);
 
   // Mixed collision detection that distinguishes between columns and cards
   const collisionDetectionStrategy: CollisionDetection = (args) => {
-    const { pointerCoordinates, active } = args;
+    const { pointerCoordinates, active, droppableContainers } = args;
     if (!pointerCoordinates) return [];
 
     const activeType = active.data.current?.type;
@@ -245,15 +288,34 @@ export function KanbanView({
     if (activeType === "column") {
       return closestCorners({
         ...args,
-        droppableContainers: args.droppableContainers.filter(
+        droppableContainers: droppableContainers.filter(
           (c) => c.data.current?.type === "column",
         ),
       });
     }
 
-    // 1️⃣ First: detect column directly by pointer position
-    const columnContainers = args.droppableContainers.filter((container) =>
-      String(container.id).startsWith("status-"),
+    // 1️⃣ First: detect card directly by pointer position
+    const cardContainers = droppableContainers.filter(
+      (c) => c.data.current?.type === "card" && c.id !== active.id,
+    );
+
+    for (const container of cardContainers) {
+      const rect = container.rect.current;
+      if (!rect) continue;
+
+      if (
+        pointerCoordinates.x >= rect.left &&
+        pointerCoordinates.x <= rect.right &&
+        pointerCoordinates.y >= rect.top &&
+        pointerCoordinates.y <= rect.bottom
+      ) {
+        return [{ id: container.id }];
+      }
+    }
+
+    // 2️⃣ Second: detect column directly by pointer position
+    const columnContainers = droppableContainers.filter(
+      (container) => container.data.current?.type === "column",
     );
 
     for (const container of columnContainers) {
@@ -270,16 +332,141 @@ export function KanbanView({
       }
     }
 
-    return closestCorners({
-      ...args,
-      droppableContainers: columnContainers,
-    });
+    return closestCorners(args);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    setActiveId(String(active.id));
+    const id = String(active.id);
+    setActiveId(id);
     setActiveType(active.data.current?.type || "card");
+
+    // Seed task order for the active column if not already present
+    if (active.data.current?.type === "card") {
+      const statusId = String(active.data.current.task?.status_id || "");
+      if (statusId && !taskOrders[statusId]) {
+        setTaskOrders((prev) => ({
+          ...prev,
+          [statusId]: tasksByStatus[statusId]?.map((t) => String(t.id)) || [],
+        }));
+      }
+    }
+  };
+
+  const handleDragOver = (event: any) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    if (active.data.current?.type === "column") return;
+
+    // Find active task's current status
+    let activeStatusId: string | null = null;
+    outerLoop: for (const statusId in tasksByStatus) {
+      if (tasksByStatus[statusId].some((t) => String(t.id) === activeId)) {
+        activeStatusId = statusId;
+        break outerLoop;
+      }
+    }
+    if (!activeStatusId) return;
+
+    // Find over status ID
+    let overStatusId: string | null = null;
+    const isOverColumn =
+      overId.startsWith("status-") || overId.startsWith("column-");
+
+    if (isOverColumn) {
+      overStatusId = String(over.data.current?.status?.id || "");
+    } else {
+      outerLoop2: for (const statusId in tasksByStatus) {
+        if (tasksByStatus[statusId].some((t) => String(t.id) === overId)) {
+          overStatusId = statusId;
+          break outerLoop2;
+        }
+      }
+    }
+
+    if (!overStatusId) return;
+
+    // Handle same-column reordering
+    if (activeStatusId === overStatusId) {
+      if (isOverColumn && activeId === overId) {
+        // If we hit the column itself (gap) and it's our own column, ignore to prevent jumping
+        return;
+      }
+
+      setTaskOrders((prev) => {
+        const currentOrder =
+          prev[activeStatusId!] ||
+          tasksByStatus[activeStatusId!].map((t) => String(t.id));
+
+        const oldIndex = currentOrder.indexOf(activeId);
+        const newIndex = currentOrder.indexOf(overId);
+
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          return {
+            ...prev,
+            [activeStatusId!]: arrayMove(currentOrder, oldIndex, newIndex),
+          };
+        }
+
+        return prev;
+      });
+      return;
+    }
+
+    // Move to different column optimistically for the ghost effect
+    setOptimisticStatusChanges((prev) => ({
+      ...prev,
+      [activeId]: overStatusId!,
+    }));
+
+    setTaskOrders((prev) => {
+      const next = { ...prev };
+      const sourceList =
+        prev[activeStatusId!] ||
+        tasksByStatus[activeStatusId!]?.map((t) => String(t.id)) ||
+        [];
+      const destList =
+        prev[overStatusId!] ||
+        tasksByStatus[overStatusId!]?.map((t) => String(t.id)) ||
+        [];
+
+      const isAlreadyInDest = destList.includes(activeId);
+
+      // If we are already in this column and hit a "gap" (column hit),
+      // don't move it to the end. Just keep current order to avoid flickering/jumping.
+      if (isAlreadyInDest && isOverColumn) {
+        return prev;
+      }
+
+      next[activeStatusId!] = sourceList.filter((id) => id !== activeId);
+
+      const newDestList = [...destList.filter((id) => id !== activeId)];
+      if (isOverColumn) {
+        newDestList.push(activeId);
+      } else {
+        const overIndex = newDestList.indexOf(overId);
+        if (overIndex !== -1) {
+          newDestList.splice(overIndex, 0, activeId);
+        } else {
+          newDestList.push(activeId);
+        }
+      }
+
+      // Only update if the order actually changed
+      if (
+        JSON.stringify(newDestList) === JSON.stringify(destList) &&
+        JSON.stringify(next[activeStatusId!]) === JSON.stringify(sourceList)
+      ) {
+        return prev;
+      }
+
+      next[overStatusId!] = newDestList;
+      return next;
+    });
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -287,7 +474,11 @@ export function KanbanView({
     setActiveId(null);
     setActiveType(null);
 
-    if (!over) return;
+    if (!over) {
+      // Clear optimistic changes on cancel
+      setOptimisticStatusChanges({});
+      return;
+    }
 
     // Handle column reordering
     if (active.data.current?.type === "column") {
@@ -299,76 +490,104 @@ export function KanbanView({
           const newIndex = items.indexOf(
             String(over.id).replace("column-", ""),
           );
-          const newOrder = arrayMove(items, oldIndex, newIndex);
-          persistColumnOrder(newOrder);
-          return newOrder;
+          if (oldIndex !== -1 && newIndex !== -1) {
+            const newOrder = arrayMove(items, oldIndex, newIndex);
+            persistColumnOrder(newOrder);
+            return newOrder;
+          }
+          return items;
         });
       }
       return;
     }
 
     // Handle card movement
-    const taskId = String(active.id);
-    let overId = String(over.id);
+    const activeId = String(active.id);
+    const overId = String(over.id);
 
-    // If dropped over a card, find its column's status ID
-    if (!overId.startsWith("status-")) {
-      let taskFound = false;
-      for (const statusId in tasksByStatus) {
+    // Find final status ID
+    let finalStatusId: string | null = null;
+    if (overId.startsWith("status-") || overId.startsWith("column-")) {
+      finalStatusId = overId.replace("status-", "").replace("column-", "");
+    } else {
+      outerLoop: for (const statusId in tasksByStatus) {
         if (tasksByStatus[statusId].some((t) => String(t.id) === overId)) {
-          overId = `status-${statusId}`;
-          taskFound = true;
-          break;
+          finalStatusId = statusId;
+          break outerLoop;
         }
       }
-      if (!taskFound) return;
     }
 
-    const statusMatch = overId.match(/^status-(.+)$/);
-    if (!statusMatch) return;
+    if (!finalStatusId) {
+      setOptimisticStatusChanges({});
+      return;
+    }
 
-    const statusId = statusMatch[1];
-
-    // Find the task to get its original status
-    let originalStatusId: string | null = null;
-    for (const group of groups) {
-      const task = group.tasks.find((t) => t.id === taskId);
-      if (task) {
-        originalStatusId = String(task.status_id);
-        break;
-      }
-      for (const t of group.tasks) {
-        const subtask = t.subitems?.find((st) => st.id === taskId);
-        if (subtask) {
-          originalStatusId = String(subtask.status_id);
-          break;
+    // Handle intra-column drop (reordering)
+    let finalTaskOrders = { ...taskOrders };
+    if (activeId !== overId) {
+      // Find source status
+      let activeStatusId: string | null = null;
+      outerLoop3: for (const statusId in tasksByStatus) {
+        if (tasksByStatus[statusId].some((t) => String(t.id) === activeId)) {
+          activeStatusId = statusId;
+          break outerLoop3;
         }
       }
-      if (originalStatusId) break;
+
+      const isOverColumn = over.data.current?.type === "column";
+
+      if (activeStatusId === finalStatusId) {
+        const currentOrder =
+          finalTaskOrders[activeStatusId!] ||
+          tasksByStatus[activeStatusId!]?.map((t) => String(t.id)) ||
+          [];
+
+        const oldIndex = currentOrder.indexOf(activeId);
+
+        if (oldIndex !== -1) {
+          const newIndex = isOverColumn
+            ? oldIndex
+            : currentOrder.indexOf(overId);
+
+          if (newIndex !== -1 && oldIndex !== newIndex) {
+            const newOrder = arrayMove(currentOrder, oldIndex, newIndex);
+            finalTaskOrders[activeStatusId!] = newOrder;
+            setTaskOrders(finalTaskOrders);
+          }
+        }
+      }
     }
 
-    if (originalStatusId === statusId) return;
+    // Persist final task orders
+    persistTaskOrders(finalTaskOrders);
 
-    setOptimisticStatusChanges((prev) => ({
-      ...prev,
-      [taskId]: statusId,
-    }));
+    // If it moved to a different column, trigger API call
+    const originalStatusId = String(active.data.current?.task?.status_id || "");
+    const statusChanged =
+      finalStatusId !== originalStatusId &&
+      optimisticStatusChanges[activeId] === finalStatusId;
 
-    try {
-      await onTaskMove(taskId, statusId);
-      setOptimisticStatusChanges((prev) => {
-        const next = { ...prev };
-        delete next[taskId];
-        return next;
-      });
-    } catch (error) {
-      console.error("Failed to move task:", error);
-      setOptimisticStatusChanges((prev) => {
-        const next = { ...prev };
-        delete next[taskId];
-        return next;
-      });
-      toast.error("Failed to move task. Please try again.");
+    if (statusChanged) {
+      try {
+        await onTaskMove(activeId, finalStatusId);
+        setOptimisticStatusChanges((prev) => {
+          const next = { ...prev };
+          delete next[activeId];
+          return next;
+        });
+      } catch (error) {
+        console.error("Failed to move task:", error);
+        setOptimisticStatusChanges((prev) => {
+          const next = { ...prev };
+          delete next[activeId];
+          return next;
+        });
+        toast.error("Failed to move task. Please try again.");
+      }
+    } else {
+      // If no status change, just clear optimistic state
+      setOptimisticStatusChanges({});
     }
   };
 
@@ -464,6 +683,7 @@ export function KanbanView({
           sensors={sensors}
           collisionDetection={collisionDetectionStrategy}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           <div className="px-6 pt-4">
@@ -583,6 +803,30 @@ export function KanbanView({
                     (s) => String(s.id) === statusId,
                   );
                   if (!status) return null;
+
+                  // Determine if this column is being dragged over
+                  let isDraggingOver = false;
+                  if (activeId && activeType === "card") {
+                    // Check if optimistic status change points here
+                    if (optimisticStatusChanges[activeId] === statusId) {
+                      isDraggingOver = true;
+                    } else {
+                      // Fallback: check if active task's original status matches (for same-column moves)
+                      const activeTaskOriginalStatusId = String(
+                        groups
+                          .flatMap((g) => g.tasks)
+                          .find((t) => String(t.id) === activeId)?.status_id ||
+                          "",
+                      );
+                      if (
+                        !optimisticStatusChanges[activeId] &&
+                        activeTaskOriginalStatusId === statusId
+                      ) {
+                        isDraggingOver = true;
+                      }
+                    }
+                  }
+
                   return (
                     <KanbanColumn
                       key={status.id}
@@ -598,6 +842,7 @@ export function KanbanView({
                       visibleCardFields={visibleCardFields}
                       statusMap={statusMap}
                       priorityMap={priorityMap}
+                      isDraggingOver={isDraggingOver}
                     />
                   );
                 })}
