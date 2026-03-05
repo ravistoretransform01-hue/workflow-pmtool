@@ -271,7 +271,7 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                         Date
                       </span>
                     </div>
-                    <div className="w-20 flex-shrink-0 px-3">
+                    <div className="hidden w-20 flex-shrink-0 px-3">
                       <span className="text-xs font-medium text-muted-foreground uppercase">
                         Action
                       </span>
@@ -327,7 +327,7 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                             {format(new Date(task.deleted_at), "MMM d, yyyy")}
                           </span>
                         </div>
-                        <div className="w-20 flex-shrink-0 px-3">
+                        <div className="hidden w-20 flex-shrink-0 px-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
