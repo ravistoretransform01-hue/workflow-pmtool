@@ -134,7 +134,11 @@ export function TiptapEditor({
   const [mentionItems, setMentionItems] = useState<
     Array<{ id: string; name: string }>
   >([]);
-  const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
+  const [mentionPosition, setMentionPosition] = useState<{
+    top: number;
+    left: number;
+    isAbove: boolean;
+  }>({ top: 0, left: 0, isAbove: false });
   const [mentionPortalTarget, setMentionPortalTarget] =
     useState<HTMLElement | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -354,15 +358,14 @@ export function TiptapEditor({
 
                   const spaceBelow = window.innerHeight - coords.bottom;
                   const spaceAbove = coords.top;
+                  const isAbove =
+                    spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
 
-                  if (
-                    spaceBelow < dropdownHeight &&
-                    spaceAbove > dropdownHeight
-                  ) {
-                    top = coords.top + window.scrollY - dropdownHeight;
+                  if (isAbove) {
+                    top = coords.top + window.scrollY;
                   }
 
-                  setMentionPosition({ top, left });
+                  setMentionPosition({ top, left, isAbove });
                 }
                 setSelectedIndex(0);
                 selectedIndexRef.current = 0;
@@ -381,15 +384,14 @@ export function TiptapEditor({
 
                   const spaceBelow = window.innerHeight - coords.bottom;
                   const spaceAbove = coords.top;
+                  const isAbove =
+                    spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
 
-                  if (
-                    spaceBelow < dropdownHeight &&
-                    spaceAbove > dropdownHeight
-                  ) {
-                    top = coords.top + window.scrollY - dropdownHeight;
+                  if (isAbove) {
+                    top = coords.top + window.scrollY;
                   }
 
-                  setMentionPosition({ top, left });
+                  setMentionPosition({ top, left, isAbove });
                 }
 
                 const filtered = membersRef.current.filter((user) =>
@@ -404,7 +406,13 @@ export function TiptapEditor({
               onKeyDown: (props: any) => {
                 const items = mentionItemsRef.current;
 
-                if (!items || items.length === 0) return false;
+                if (!items || items.length === 0) {
+                  if (props.event.key === "Escape") {
+                    setMentionOpen(false);
+                    return true;
+                  }
+                  return false;
+                }
 
                 if (props.event.key === "ArrowUp") {
                   props.event.preventDefault();
@@ -1193,7 +1201,6 @@ export function TiptapEditor({
 
         {/* Mention Dropdown */}
         {mentionOpen &&
-          mentionItems.length > 0 &&
           createPortal(
             <div
               ref={mentionRef}
@@ -1206,6 +1213,9 @@ export function TiptapEditor({
               style={{
                 top: `${mentionPosition.top}px`,
                 left: `${mentionPosition.left}px`,
+                transform: mentionPosition.isAbove
+                  ? "translateY(-100%) translateY(-8px)"
+                  : "translateY(4px)",
               }}
             >
               <div className="text-[11px] px-3 py-2 text-muted-foreground uppercase tracking-wider border-b border-border bg-card">
@@ -1215,25 +1225,37 @@ export function TiptapEditor({
                 ref={mentionScrollRef}
                 className="flex flex-col max-h-64 overflow-y-auto bg-card overscroll-contain"
               >
-                {mentionItems.map((user, index) => (
-                  <button
-                    key={user.id}
-                    onClick={() => handleMentionSelect(user)}
-                    className={cn(
-                      "group flex items-center gap-2 w-full text-left px-3 py-2 transition-colors text-sm text-foreground shrink-0 overflow-hidden",
-                      index === selectedIndex ? "bg-accent" : "hover:bg-accent",
-                    )}
-                  >
-                    <span className="w-6 h-6 rounded bg-muted text-muted-foreground text-[10px] font-semibold flex items-center justify-center flex-shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors shrink-0">
-                      {user.name
-                        .split(" ")
-                        .map((n) => n.charAt(0).toUpperCase())
-                        .slice(0, 2)
-                        .join("")}
-                    </span>
-                    <span className="truncate flex-1 min-w-0">{user.name}</span>
-                  </button>
-                ))}
+                {mentionItems.length > 0 ? (
+                  mentionItems.map((user, index) => (
+                    <button
+                      key={user.id}
+                      onClick={() => handleMentionSelect(user)}
+                      className={cn(
+                        "group flex items-center gap-2 w-full text-left px-3 py-2 transition-colors text-sm text-foreground shrink-0 overflow-hidden",
+                        index === selectedIndex
+                          ? "bg-accent"
+                          : "hover:bg-accent",
+                      )}
+                    >
+                      <span className="w-6 h-6 rounded bg-muted text-muted-foreground text-[10px] font-semibold flex items-center justify-center flex-shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors shrink-0">
+                        {user.name
+                          .split(" ")
+                          .map((n) => n.charAt(0).toUpperCase())
+                          .slice(0, 2)
+                          .join("")}
+                      </span>
+                      <span className="truncate flex-1 min-w-0">
+                        {user.name}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-6 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      No Member Found
+                    </p>
+                  </div>
+                )}
               </div>
             </div>,
             mentionPortalTarget || document.body,
