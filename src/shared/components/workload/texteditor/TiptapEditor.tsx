@@ -15,6 +15,7 @@ import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { GiphySelector } from "./GiphySelector";
 import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
 import { toast } from "sonner";
 import {
   Bold,
@@ -159,6 +160,10 @@ export function TiptapEditor({
   const mentionScrollRef = useRef<HTMLDivElement | null>(null);
   const membersRef = useRef<Array<{ id: string; name: string }>>([]);
   const mentionCommandRef = useRef<((item: any) => void) | null>(null);
+
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
+  const [, setUpdateCount] = useState(0);
 
   // Load members from localStorage
   useEffect(() => {
@@ -642,6 +647,12 @@ export function TiptapEditor({
         onChange(editor.getHTML());
       }
     },
+    onTransaction: () => {
+      setUpdateCount((prev) => prev + 1);
+    },
+    onSelectionUpdate: () => {
+      setUpdateCount((prev) => prev + 1);
+    },
   });
 
   // Update editor content when value prop changes (external updates)
@@ -693,23 +704,44 @@ export function TiptapEditor({
     return null;
   }
 
-  const handleLink = () => {
-    const previousUrl = editor.getAttributes("link").href;
-    const url = window.prompt("Enter URL:", previousUrl);
+  const handleLinkClick = () => {
+    const previousUrl = editor.getAttributes("link").href || "";
+    setLinkUrl(previousUrl);
+    setLinkPopoverOpen(true);
+  };
 
-    // cancelled
-    if (url === null) {
-      return;
-    }
-
-    // empty
-    if (url === "") {
+  const applyLink = () => {
+    if (linkUrl === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      setLinkPopoverOpen(false);
       return;
     }
 
-    // update link
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    let formattedUrl = linkUrl;
+    // Add protocol if missing and it's not a mailto/tel/blob
+    if (
+      !/^https?:\/\//i.test(formattedUrl) &&
+      !/^mailto:/i.test(formattedUrl) &&
+      !/^tel:/i.test(formattedUrl) &&
+      !/^blob:/i.test(formattedUrl) &&
+      !/^#/i.test(formattedUrl)
+    ) {
+      formattedUrl = `https://${formattedUrl}`;
+    }
+
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .setLink({ href: formattedUrl })
+      .run();
+    setLinkPopoverOpen(false);
+  };
+
+  const removeLink = () => {
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    setLinkUrl("");
+    setLinkPopoverOpen(false);
   };
 
   // Close mention dropdown on scroll to prevent "sticky" floating popups,
@@ -796,10 +828,11 @@ export function TiptapEditor({
                 size="sm"
                 className={cn(
                   "h-8 px-2",
-                  (editor.isActive("heading", { level: 1 }) ||
+                  editor.isActive("heading", { level: 1 }) ||
                     editor.isActive("blockquote") ||
-                    editor.isActive("codeBlock")) &&
-                    "bg-blue-500 text-white hover:bg-blue-600",
+                    editor.isActive("codeBlock")
+                    ? "bg-blue-500 text-white hover:bg-blue-600"
+                    : "text-foreground hover:bg-muted",
                 )}
               >
                 <svg
@@ -917,8 +950,9 @@ export function TiptapEditor({
             size="sm"
             className={cn(
               "h-8 w-8 p-0",
-              editor.isActive("bold") &&
-                "bg-blue-500 text-white hover:bg-blue-600",
+              editor.isActive("bold")
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : "text-foreground hover:bg-muted",
             )}
             onClick={() => editor.chain().focus().toggleBold().run()}
           >
@@ -930,8 +964,9 @@ export function TiptapEditor({
             size="sm"
             className={cn(
               "h-8 w-8 p-0",
-              editor.isActive("italic") &&
-                "bg-blue-500 text-white hover:bg-blue-600",
+              editor.isActive("italic")
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : "text-foreground hover:bg-muted",
             )}
             onClick={() => editor.chain().focus().toggleItalic().run()}
           >
@@ -943,8 +978,9 @@ export function TiptapEditor({
             size="sm"
             className={cn(
               "h-8 w-8 p-0",
-              editor.isActive("underline") &&
-                "bg-blue-500 text-white hover:bg-blue-600",
+              editor.isActive("underline")
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : "text-foreground hover:bg-muted",
             )}
             onClick={() => editor.chain().focus().toggleUnderline().run()}
           >
@@ -956,8 +992,9 @@ export function TiptapEditor({
             size="sm"
             className={cn(
               "h-8 w-8 p-0",
-              editor.isActive("strike") &&
-                "bg-blue-500 text-white hover:bg-blue-600",
+              editor.isActive("strike")
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : "text-foreground hover:bg-muted",
             )}
             onClick={() => editor.chain().focus().toggleStrike().run()}
           >
@@ -1004,8 +1041,9 @@ export function TiptapEditor({
             size="sm"
             className={cn(
               "h-8 w-8 p-0",
-              editor.isActive("bulletList") &&
-                "bg-blue-500 text-white hover:bg-blue-600",
+              editor.isActive("bulletList")
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : "text-foreground hover:bg-muted",
             )}
             onClick={() => editor.chain().focus().toggleBulletList().run()}
           >
@@ -1017,8 +1055,9 @@ export function TiptapEditor({
             size="sm"
             className={cn(
               "h-8 w-8 p-0",
-              editor.isActive("orderedList") &&
-                "bg-blue-500 text-white hover:bg-blue-600",
+              editor.isActive("orderedList")
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : "text-foreground hover:bg-muted",
             )}
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
           >
@@ -1033,8 +1072,9 @@ export function TiptapEditor({
             size="sm"
             className={cn(
               "h-8 w-8 p-0",
-              editor.isActive("textAlign", { align: "left" }) &&
-                "bg-blue-500 text-white hover:bg-blue-600",
+              editor.isActive("textAlign", { align: "left" })
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : "text-foreground hover:bg-muted",
             )}
             onClick={() => editor.chain().focus().setTextAlign("left").run()}
           >
@@ -1046,8 +1086,9 @@ export function TiptapEditor({
             size="sm"
             className={cn(
               "h-8 w-8 p-0",
-              editor.isActive("textAlign", { align: "center" }) &&
-                "bg-blue-500 text-white hover:bg-blue-600",
+              editor.isActive("textAlign", { align: "center" })
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : "text-foreground hover:bg-muted",
             )}
             onClick={() => editor.chain().focus().setTextAlign("center").run()}
           >
@@ -1059,8 +1100,9 @@ export function TiptapEditor({
             size="sm"
             className={cn(
               "h-8 w-8 p-0",
-              editor.isActive("textAlign", { align: "right" }) &&
-                "bg-blue-500 text-white hover:bg-blue-600",
+              editor.isActive("textAlign", { align: "right" })
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : "text-foreground hover:bg-muted",
             )}
             onClick={() => editor.chain().focus().setTextAlign("right").run()}
           >
@@ -1069,19 +1111,70 @@ export function TiptapEditor({
 
           <div className="w-px h-6 bg-border mx-1" />
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "h-8 w-8 p-0",
-              editor.isActive("link") &&
-                "bg-blue-500 text-white hover:bg-blue-600",
-            )}
-            onClick={handleLink}
-          >
-            <Link2 className="h-4 w-4" />
-          </Button>
+          <Popover open={linkPopoverOpen} onOpenChange={setLinkPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-8 w-8 p-0",
+                  editor.isActive("link") &&
+                    "bg-blue-500 text-white hover:bg-blue-600",
+                )}
+                onClick={handleLinkClick}
+              >
+                <Link2 className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-3" align="start">
+              <div className="flex flex-col gap-3">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Insert Link
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground">
+                    Enter the URL you want to link to.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://example.com"
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    className="h-8 text-xs focus-visible:ring-1 focus-visible:ring-blue-500"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        applyLink();
+                      }
+                      if (e.key === "Escape") {
+                        setLinkPopoverOpen(false);
+                      }
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700"
+                    onClick={applyLink}
+                  >
+                    Apply
+                  </Button>
+                </div>
+                {editor.isActive("link") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-[11px] text-red-500 hover:text-red-600 hover:bg-red-500/10 w-fit p-0"
+                    onClick={removeLink}
+                  >
+                    Remove Link
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             type="button"
             variant="ghost"

@@ -993,7 +993,7 @@ export function WorkloadBoard({
     };
 
     loadCMSData();
-  }, [boardId]);
+  }, [boardId, refreshCounter]);
 
   // Fetch comments when task is selected or comments panel is opened
   // Auto-refresh comments every 5-7 seconds while the panel is open
@@ -1847,7 +1847,19 @@ export function WorkloadBoard({
         priority: newTaskResponse.priority_label,
         priority_id: String(newTaskResponse.task_priority_id),
         estimatedDate: newTaskResponse.due_date || "-",
-        person: newTaskResponse.assignee?.name,
+        person:
+          newTaskResponse.assignee?.name ||
+          (newTaskResponse.assignees && newTaskResponse.assignees.length > 0
+            ? newTaskResponse.assignees[0].name
+            : undefined),
+        assigned_to_id:
+          newTaskResponse.assignee?.id ||
+          (newTaskResponse.assignees && newTaskResponse.assignees.length > 0
+            ? String(newTaskResponse.assignees[0].user_id)
+            : undefined),
+        assigned_to_ids: newTaskResponse.assignees?.map((a) =>
+          String(a.user_id),
+        ),
         timeSpent: `${newTaskResponse.time_spent_hours}h`,
         group_id: String(newTaskResponse.group_id),
         subitems: [],
@@ -1918,7 +1930,19 @@ export function WorkloadBoard({
         priority: newTaskResponse.priority_label,
         priority_id: String(newTaskResponse.task_priority_id),
         estimatedDate: newTaskResponse.due_date || "-",
-        person: newTaskResponse.assignee?.name,
+        person:
+          newTaskResponse.assignee?.name ||
+          (newTaskResponse.assignees && newTaskResponse.assignees.length > 0
+            ? newTaskResponse.assignees[0].name
+            : undefined),
+        assigned_to_id:
+          newTaskResponse.assignee?.id ||
+          (newTaskResponse.assignees && newTaskResponse.assignees.length > 0
+            ? String(newTaskResponse.assignees[0].user_id)
+            : undefined),
+        assigned_to_ids: newTaskResponse.assignees?.map((a) =>
+          String(a.user_id),
+        ),
         timeSpent: `${newTaskResponse.time_spent_hours}h`,
         group_id: String(newTaskResponse.group_id),
         subitems: [],
@@ -2018,7 +2042,21 @@ export function WorkloadBoard({
         priority: newSubitemResponse.priority_label,
         priority_id: String(newSubitemResponse.task_priority_id),
         estimatedDate: newSubitemResponse.due_date || "-",
-        person: newSubitemResponse.assignee?.name,
+        person:
+          newSubitemResponse.assignee?.name ||
+          (newSubitemResponse.assignees &&
+          newSubitemResponse.assignees.length > 0
+            ? newSubitemResponse.assignees[0].name
+            : undefined),
+        assigned_to_id:
+          newSubitemResponse.assignee?.id ||
+          (newSubitemResponse.assignees &&
+          newSubitemResponse.assignees.length > 0
+            ? String(newSubitemResponse.assignees[0].user_id)
+            : undefined),
+        assigned_to_ids: newSubitemResponse.assignees?.map((a) =>
+          String(a.user_id),
+        ),
         timeSpent: `${newSubitemResponse.time_spent_hours}h`,
         group_id: String(newSubitemResponse.group_id),
         subitems: [],
