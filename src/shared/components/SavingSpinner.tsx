@@ -34,10 +34,7 @@ export const SavingSpinner = ({ className, size = 16 }: SavingSpinnerProps) => {
       variant="ghost"
       size="icon"
       onClick={handleRefresh}
-      className={cn(
-        "h-8 w-8 rounded-full hover:bg-white/10 text-white transition-all duration-300",
-        className,
-      )}
+      className={cn("hover:bg-hover transition-all duration-300", className)}
       title={isSaving ? "Saving..." : "Refresh data"}
       disabled={isSaving}
     >

@@ -47,7 +47,11 @@ interface ListViewProps {
   setInlineEditingTaskName: (name: string) => void;
   onInlineEditTaskName: (taskId: string, newName: string) => void;
   activeTimerId: string | null;
-  onTimerStart: (taskId: string | null) => void;
+  onTimerStart: (
+    taskId: string | null,
+    taskName?: string,
+    trackedTimeSeconds?: number,
+  ) => void;
   onTimerConflict: (taskId: string) => void;
   onTimeUpdate: (taskId: string, seconds: number) => void;
   workloadColumns?: any[]; // Allow passing pre-filtered columns from parent

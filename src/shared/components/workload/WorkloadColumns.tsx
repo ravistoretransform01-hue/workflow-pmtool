@@ -57,7 +57,11 @@ interface ColumnDefinitionProps {
   onInlineEditTaskName?: (taskId: string, newName: string) => void;
   activeTimerId?: string | null;
   timerStartTime?: number | null;
-  onTimerStart?: (taskId: string | null) => void;
+  onTimerStart?: (
+    taskId: string | null,
+    taskName?: string,
+    trackedTimeSeconds?: number,
+  ) => void;
   onTimerConflict?: (taskId: string) => void;
   onTimeUpdate?: (taskId: string, seconds: number) => void;
 }

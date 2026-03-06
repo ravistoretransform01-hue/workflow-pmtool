@@ -7,7 +7,6 @@ import { format, parseISO } from "date-fns";
 // const _loadedCMSForBoard = new Set<string>();
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import axios from "@/lib/axios";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import type { RootState } from "@/app/store";
 import { groupsApi } from "@/features/groups/groupsApi";
@@ -445,6 +444,7 @@ export function WorkloadBoard({
   const refreshCounter = useAppSelector(
     (state: RootState) => state.ui.refreshCounter,
   );
+  const { activeTaskInfo } = useAppSelector((state: RootState) => state.tasks);
 
   // Initialize hooks for state management
   const taskState = useTaskState();
@@ -1072,15 +1072,21 @@ export function WorkloadBoard({
     onUnload: () => {
       if (timerState.activeTimerId) {
         try {
-          // Use axios to stop timer during page unload
-          // axios instance handles auth headers automatically
-          axios
-            .post("/tasks/time/stop", {
+          // Use fetch with keepalive: true to ensure the request completes even if the page is unloaded
+          const token = localStorage.getItem("access_token");
+          fetch(`${import.meta.env.VITE_API_URL}/tasks/time/stop`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: token ? `Bearer ${token}` : "",
+            },
+            body: JSON.stringify({
               task_id: timerState.activeTimerId,
-            })
-            .catch((error) => {
-              console.error("Failed to stop timer on page unload:", error);
-            });
+            }),
+            keepalive: true,
+          }).catch((error) => {
+            console.error("Failed to stop timer on page unload:", error);
+          });
 
           // Clear session storage immediately during unload process
           sessionStorage.removeItem("activeTimerId");
@@ -2585,29 +2591,42 @@ export function WorkloadBoard({
     }));
   };
 
-  const handleTimerStart = (taskId: string | null) => {
+  const handleTimerStart = (
+    taskId: string | null,
+    taskName?: string,
+    trackedTimeSeconds?: number,
+  ) => {
     if (taskId === null) {
       timerState.stopTimer();
+    } else if (taskName !== undefined && trackedTimeSeconds !== undefined) {
+      timerState.startTimer(taskId, taskName, trackedTimeSeconds);
     } else {
-      timerState.startTimer(taskId);
+      // Fallback if metadata is missing (should not happen with new TimerCell logic)
+      timerState.setActiveTimerId(taskId);
     }
   };
 
   const handleTimerConflict = (conflictingTaskId: string) => {
     // Find the conflicting task name
-    let taskName = "Another task";
-    getFilteredGroups().forEach((group) => {
-      group.tasks.forEach((task) => {
-        if (task.id === conflictingTaskId) {
-          taskName = task.name;
-        }
-        task.subitems?.forEach((subitem) => {
-          if (subitem.id === conflictingTaskId) {
-            taskName = subitem.name;
+    let taskName = activeTaskInfo?.name || "Another task";
+
+    // If activeTaskInfo doesn't match the conflictingTaskId or is missing name,
+    // we can still fallback to searching local board, though activeTaskInfo should be the source of truth for conflicts.
+    if (taskName === "Another task") {
+      getFilteredGroups().forEach((group) => {
+        group.tasks.forEach((task) => {
+          if (task.id === conflictingTaskId) {
+            taskName = task.name;
           }
+          task.subitems?.forEach((subitem) => {
+            if (subitem.id === conflictingTaskId) {
+              taskName = subitem.name;
+            }
+          });
         });
       });
-    });
+    }
+
     setConflictingTaskName(taskName);
     setTimerConflictDialogOpen(true);
   };
@@ -5212,6 +5231,7 @@ export function WorkloadBoard({
         {activeTab === "List" && isViewLive.list && (
           <ListView
             groups={memoizedFilteredData.groups}
+            workloadColumns={workloadColumns}
             statuses={statuses}
             priorities={priorities}
             members={members}
@@ -5249,7 +5269,6 @@ export function WorkloadBoard({
             onTimeUpdate={(taskId: string, seconds: number) => {
               updateTaskInGroups(taskId, { tracked_time_seconds: seconds });
             }}
-            workloadColumns={workloadColumns}
           />
         )}
 
@@ -5404,8 +5423,8 @@ export function WorkloadBoard({
             </DialogHeader>
             <div className="py-4">
               <p className="text-sm text-foreground">
-                Another timer is already running on "
-                <strong>{conflictingTaskName}</strong>". Please stop it first
+                Another timer is already running on{" "}
+                <strong>{conflictingTaskName}</strong>. Please stop it first
                 before starting a new timer.
               </p>
             </div>
