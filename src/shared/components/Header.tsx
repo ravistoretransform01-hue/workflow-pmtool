@@ -12,6 +12,7 @@ import { NotificationBell } from "@/shared/components/NotificationBell";
 import { TrashButton } from "@/shared/components/TrashButton";
 import { SavingSpinner } from "@/shared/components/SavingSpinner";
 import { TemplatePickerDialog } from "@/shared/components/TemplatePickerDialog";
+import { GlobalTimer } from "@/shared/components/GlobalTimer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +53,7 @@ export function Header() {
         <SidebarTrigger />
       </div>
       <div className="flex items-center gap-2">
+        <GlobalTimer />
         <SavingSpinner />
         <NotificationBell />
         <TrashButton />

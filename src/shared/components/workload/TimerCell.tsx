@@ -17,7 +17,11 @@ interface TimerCellProps {
   trackedTimeSeconds?: number;
   activeTimerId: string | null;
   timerStartTime?: number | null;
-  onTimerStart: (taskId: string | null) => void;
+  onTimerStart: (
+    taskId: string | null,
+    taskName?: string,
+    trackedTimeSeconds?: number,
+  ) => void;
   onTimerConflict?: (taskId: string) => void;
   onTimeUpdate?: (taskId: string, seconds: number) => void;
   hasAssignee?: boolean;
@@ -193,7 +197,7 @@ export function TimerCell({
 
         // Start timer
         await tasksApi.startTimer(taskId);
-        onTimerStart(taskId);
+        onTimerStart(taskId, taskName, currentSeconds);
         toast.success("Timer Started");
       }
     } catch (error) {

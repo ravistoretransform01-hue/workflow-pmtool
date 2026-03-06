@@ -18,8 +18,8 @@ export function useTaskTimer() {
   const [timerUpdateTrigger, setTimerUpdateTrigger] = useState(0);
 
   const startTimer = useCallback(
-    (taskId: string) => {
-      dispatch(startTimerAction(taskId));
+    (taskId: string, taskName: string, trackedTimeSeconds: number) => {
+      dispatch(startTimerAction({ taskId, taskName, trackedTimeSeconds }));
     },
     [dispatch],
   );
@@ -29,8 +29,8 @@ export function useTaskTimer() {
   }, [dispatch]);
 
   const switchTimer = useCallback(
-    (taskId: string) => {
-      dispatch(startTimerAction(taskId));
+    (taskId: string, taskName: string, trackedTimeSeconds: number) => {
+      dispatch(startTimerAction({ taskId, taskName, trackedTimeSeconds }));
     },
     [dispatch],
   );

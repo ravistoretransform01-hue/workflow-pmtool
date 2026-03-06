@@ -10,6 +10,7 @@ const CMS_ENDPOINTS = {
   CREATE_TAG: `/tags`,
   CREATE_STATUS: `/task-status`,
   UPDATE_STATUS: `/task-status`,
+  REORDER_STATUS: `/task-status/reorder`,
   CREATE_PRIORITY: `/task-priority`,
   UPDATE_PRIORITY: `/task-priority`,
   USER_GROUP_COLUMNS: `/user-group-columns`,
@@ -257,6 +258,26 @@ export const cmsApi = {
       return response.data.data || response.data;
     } catch (error) {
       debugError("Failed to save user group columns:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Reorder task statuses
+   */
+  reorderStatuses: async (payload: {
+    organization_id: number;
+    board_id: number;
+    statuses: Array<{ id: number | string; status_order: number }>;
+  }): Promise<any> => {
+    try {
+      const response = await axios.put<any>(
+        CMS_ENDPOINTS.REORDER_STATUS,
+        payload,
+      );
+      return response.data;
+    } catch (error) {
+      debugError("Failed to reorder statuses:", error);
       throw error;
     }
   },

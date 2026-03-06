@@ -26,6 +26,8 @@ import {
 } from "@/shared/components/ui/popover";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { getOrganizationId } from "@/lib/utils";
+import { cmsApi } from "@/features/cms/cmsApi";
 
 interface KanbanViewProps {
   groups: Array<{ id: string; name: string; color: string; tasks: Task[] }>;
@@ -133,22 +135,27 @@ export function KanbanView({
 
   // Sync orderedStatusIds when statuses prop changes
   useEffect(() => {
+    const newOrder = statuses.map((s) => String(s.id));
+
+    // Only update if fundamentally different to avoid unnecessary re-renders
     setOrderedStatusIds((prev) => {
-      const currentIds = new Set(statuses.map((s) => String(s.id)));
-      const filtered = prev.filter((id) => currentIds.has(id));
-      const missing = statuses
-        .map((s) => String(s.id))
-        .filter((id) => !new Set(filtered).has(id));
-
-      const newOrder = [...filtered, ...missing];
-
-      // Only update if fundamentally different
       if (JSON.stringify(newOrder) !== JSON.stringify(prev)) {
+        // Also update localStorage to stay in sync
+        if (boardId) {
+          try {
+            localStorage.setItem(
+              `kanban-column-order-${boardId}`,
+              JSON.stringify(newOrder),
+            );
+          } catch (e) {
+            console.error("Failed to sync column order to localStorage", e);
+          }
+        }
         return newOrder;
       }
       return prev;
     });
-  }, [statuses]);
+  }, [statuses, boardId]);
 
   const persistVisibleStatuses = (set: Set<string>) => {
     try {
@@ -485,20 +492,44 @@ export function KanbanView({
     // Handle column reordering
     if (active.data.current?.type === "column") {
       if (active.id !== over.id) {
-        setOrderedStatusIds((items) => {
-          const oldIndex = items.indexOf(
-            String(active.id).replace("column-", ""),
-          );
-          const newIndex = items.indexOf(
-            String(over.id).replace("column-", ""),
-          );
-          if (oldIndex !== -1 && newIndex !== -1) {
-            const newOrder = arrayMove(items, oldIndex, newIndex);
-            persistColumnOrder(newOrder);
-            return newOrder;
+        const oldIndex = orderedStatusIds.indexOf(
+          String(active.id).replace("column-", ""),
+        );
+        const newIndex = orderedStatusIds.indexOf(
+          String(over.id).replace("column-", ""),
+        );
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const newOrder = arrayMove(orderedStatusIds, oldIndex, newIndex);
+          setOrderedStatusIds(newOrder);
+          persistColumnOrder(newOrder);
+
+          // Trigger API call for reordering
+          const orgId = getOrganizationId();
+          if (orgId && boardId) {
+            const statusOrderPayload = newOrder.map((id, index) => ({
+              id: Number(id),
+              status_order: index + 1,
+            }));
+
+            cmsApi
+              .reorderStatuses({
+                organization_id: Number(orgId),
+                board_id: Number(boardId),
+                statuses: statusOrderPayload,
+              })
+              .then((response: any) => {
+                console.log("Status reorder successful:", response);
+                if (response && (response.status || response.success)) {
+                  toast.success(response.message || "Column order saved");
+                }
+              })
+              .catch((error: Error) => {
+                console.error("Failed to persist status order:", error);
+                toast.error("Failed to save column order");
+              });
           }
-          return items;
-        });
+        }
       }
       return;
     }
