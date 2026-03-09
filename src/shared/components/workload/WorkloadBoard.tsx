@@ -3583,6 +3583,7 @@ export function WorkloadBoard({
     timerState.activeTimerId,
     openCommentsPanel,
     openTaskCard,
+    effectiveExpandedTasks,
   ]);
 
   // Track unsaved changes for layout
@@ -3747,6 +3748,22 @@ export function WorkloadBoard({
         }
         .scrollbar-hide::-webkit-scrollbar {
           display: none; /* Chrome, Safari and Opera */
+        }
+
+        /* Show scrollbar and style it for better visibility */
+        .scrollbar-visible::-webkit-scrollbar {
+          height: 8px;
+          display: block;
+        }
+        .scrollbar-visible::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .scrollbar-visible::-webkit-scrollbar-thumb {
+          background: rgba(155, 155, 155, 0.4);
+          border-radius: 20px;
+        }
+        .scrollbar-visible::-webkit-scrollbar-thumb:hover {
+          background: rgba(155, 155, 155, 0.6);
         }
       `}</style>
 
