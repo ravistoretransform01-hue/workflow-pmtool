@@ -492,19 +492,28 @@ export function KanbanView({
     // Handle column reordering
     if (active.data.current?.type === "column") {
       if (active.id !== over.id) {
-        const oldIndex = orderedStatusIds.indexOf(
-          String(active.id).replace("column-", ""),
-        );
-        const newIndex = orderedStatusIds.indexOf(
-          String(over.id).replace("column-", ""),
-        );
+        const oldId = String(active.id).replace("column-", "");
+        const newId = String(over.id).replace("column-", "");
+        const oldIndex = orderedStatusIds.indexOf(oldId);
+        const newIndex = orderedStatusIds.indexOf(newId);
 
         if (oldIndex !== -1 && newIndex !== -1) {
           const newOrder = arrayMove(orderedStatusIds, oldIndex, newIndex);
+
+          // 1. Update local state synchronously
           setOrderedStatusIds(newOrder);
           persistColumnOrder(newOrder);
 
-          // Trigger API call for reordering
+          // 2. Notify parent to sync across views
+          if (onStatusesUpdated) {
+            const statusMap = new Map(statuses.map((s) => [String(s.id), s]));
+            const updatedStatuses = newOrder
+              .map((id) => statusMap.get(id))
+              .filter((s): s is Status => !!s);
+            onStatusesUpdated(updatedStatuses);
+          }
+
+          // 3. Trigger API call for reordering
           const orgId = getOrganizationId();
           if (orgId && boardId) {
             const statusOrderPayload = newOrder.map((id, index) => ({

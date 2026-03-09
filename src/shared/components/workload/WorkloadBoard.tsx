@@ -943,17 +943,44 @@ export function WorkloadBoard({
 
         debugLog("Fetched CMS Data:", cmsData);
 
-        // Sort statuses by status_order
-        const sortedStatuses = [...cmsData.statuses].sort(
+        // Sort statuses by status_order initially
+        let sortedStatuses = [...cmsData.statuses].sort(
           sortBy((s) => s.status_order, "number"),
         );
 
+        // Apply saved Kanban column order if it exists in localStorage
+        try {
+          const rawOrder = localStorage.getItem(
+            `kanban-column-order-${boardIdNum}`,
+          );
+          if (rawOrder) {
+            const savedOrder = JSON.parse(rawOrder) as string[];
+            const statusMap = new Map(
+              sortedStatuses.map((s) => [String(s.id), s]),
+            );
+
+            const ordered = savedOrder
+              .map((id) => statusMap.get(id))
+              .filter((s): s is Status => !!s);
+
+            // Add any statuses that aren't in the saved order
+            const savedOrderSet = new Set(savedOrder);
+            const remaining = sortedStatuses.filter(
+              (s) => !savedOrderSet.has(String(s.id)),
+            );
+
+            sortedStatuses = [...ordered, ...remaining];
+          }
+        } catch (e) {
+          console.error("Failed to apply saved status order", e);
+        }
+
+        setStatuses(sortedStatuses);
         // Sort priorities by priority_order
         const sortedPriorities = [...cmsData.priorities].sort(
           sortBy((p) => p.priority_order, "number"),
         );
 
-        setStatuses(sortedStatuses);
         setPriorities(sortedPriorities);
         setMembers(cmsData.members || []);
         setLabels(cmsData.labels || []);
