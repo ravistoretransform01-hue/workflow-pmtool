@@ -3583,6 +3583,7 @@ export function WorkloadBoard({
     timerState.activeTimerId,
     openCommentsPanel,
     openTaskCard,
+    effectiveExpandedTasks,
   ]);
 
   // Track unsaved changes for layout

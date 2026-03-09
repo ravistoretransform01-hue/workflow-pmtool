@@ -284,7 +284,7 @@ export function TiptapEditor({
           keepMarks: true,
           keepAttributes: false,
         },
-        hardBreak: {
+        hardBreak: {  
           keepMarks: true,
         },
       }),
