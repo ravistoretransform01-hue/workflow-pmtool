@@ -183,26 +183,63 @@ export function PriorityPopoverCell({
     }),
   );
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      setEditablePriorities((items: EditablePriority[]) => {
-        const oldIndex = items.findIndex((i) => i.id === active.id);
-        const newIndex = items.findIndex((i) => i.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
-      });
+      const oldIndex = editablePriorities.findIndex((i) => i.id === active.id);
+      const newIndex = editablePriorities.findIndex((i) => i.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const next = arrayMove(editablePriorities, oldIndex, newIndex);
+        setEditablePriorities(next);
+
+        // Immediate sync logic (similar to StatusPopoverCell)
+        const orgId = getOrganizationId();
+        if (orgId && boardId) {
+          try {
+            const order = next.map((p) => String(p.id));
+
+            // Persist to localStorage
+            localStorage.setItem(
+              `priority-order-${boardId}`,
+              JSON.stringify(order),
+            );
+
+            // Notify parent to sync across views immediately
+            if (onPrioritiesUpdated) {
+              const priorityMap = new Map(
+                priorities.map((p) => [String(p.id), p]),
+              );
+              const nextFullPriorities = next
+                .map((p) => priorityMap.get(p.id))
+                .filter((p): p is Priority => !!p);
+              onPrioritiesUpdated(nextFullPriorities);
+            }
+
+            // Sync new order to backend
+            await cmsApi.reorderPriorities({
+              organization_id: orgId,
+              board_id: Number(boardId),
+              priorities: order.map((id, index) => ({
+                id: Number(id),
+                priority_order: index + 1,
+              })),
+            });
+          } catch (e) {
+            console.error("Failed to sync priority reorder immediately:", e);
+          }
+        }
+      }
     }
   };
 
   /* ---------------------------------------------
-   * Initialize displayPriorities ONCE per open
+   * Sync displayPriorities whenever priorities prop changes
    * ------------------------------------------- */
   useEffect(() => {
-    if (openPopoverId === popoverId && displayPriorities.length === 0) {
-      setDisplayPriorities([...priorities]);
-    }
-  }, [openPopoverId, popoverId, priorities, displayPriorities.length]);
+    setDisplayPriorities([...priorities]);
+  }, [priorities]);
 
   /* ---------------------------------------------
    * Entering edit mode → derive editable state
