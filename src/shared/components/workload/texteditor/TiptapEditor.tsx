@@ -293,6 +293,8 @@ export function TiptapEditor({
       Color,
       UnderlineExtension,
       LinkExtension.configure({
+        autolink: true,
+        linkOnPaste: true,
         openOnClick: false,
         validate: (href) => !!href, // Allow any href including blob:
         protocols: ["http", "https", "mailto", "tel", "blob"], // Explicitly support blob
@@ -300,6 +302,7 @@ export function TiptapEditor({
           class: "text-primary hover:underline cursor-pointer",
         },
       }).extend({
+        inclusive: false,
         addAttributes() {
           return {
             ...this.parent?.(),
@@ -729,12 +732,27 @@ export function TiptapEditor({
       formattedUrl = `https://${formattedUrl}`;
     }
 
-    editor
-      .chain()
-      .focus()
-      .extendMarkRange("link")
-      .setLink({ href: formattedUrl })
-      .run();
+    const { from, to } = editor.state.selection;
+    const hasSelection = from !== to;
+
+    if (hasSelection) {
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href: formattedUrl })
+        .run();
+    } else {
+      // If no selection, insert the URL as a link and immediately "break out"
+      editor
+        .chain()
+        .focus()
+        .insertContent(
+          `<a href="${formattedUrl}" class="text-primary hover:underline cursor-pointer">${formattedUrl}</a> `,
+        )
+        .unsetLink()
+        .run();
+    }
     setLinkPopoverOpen(false);
   };
 
