@@ -1,6 +1,23 @@
 import { useEffect, useState } from "react";
-import { X, Trash } from "lucide-react";
+import { X, Trash, GripVertical } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import {
   Popover,
@@ -59,6 +76,88 @@ interface StatusPopoverCellProps {
   boardId?: string | number;
 }
 
+interface SortableStatusItemProps {
+  status: EditableStatus;
+  index: number;
+  editableStatuses: EditableStatus[];
+  setEditableStatuses: (statuses: EditableStatus[]) => void;
+  colorPickerOpen: string | null;
+  setColorPickerOpen: (id: string | null) => void;
+  handleDeleteStatus: (id: string) => void;
+}
+
+function SortableStatusItem({
+  status,
+  index,
+  editableStatuses,
+  setEditableStatuses,
+  colorPickerOpen,
+  setColorPickerOpen,
+  handleDeleteStatus,
+}: SortableStatusItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: status.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex gap-2 items-center p-2 border border-border rounded bg-card group"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 -ml-1 transition-colors"
+      >
+        <GripVertical className="h-4 w-4" />
+      </div>
+      <ColorPickerPopover
+        color={status.color_code}
+        onColorChange={(c) => {
+          const copy = [...editableStatuses];
+          copy[index].color_code = c;
+          setEditableStatuses(copy);
+        }}
+        isOpen={colorPickerOpen === status.id}
+        onOpenChange={(o) => setColorPickerOpen(o ? status.id : null)}
+      />
+      <Input
+        value={status.name}
+        onChange={(e) => {
+          const copy = [...editableStatuses];
+          copy[index].name = e.target.value;
+          setEditableStatuses(copy);
+        }}
+        className="h-8 text-sm flex-1"
+      />
+      <Trash
+        className={`h-4 w-4 cursor-pointer hover:text-destructive transition-colors ${
+          status.required_rating === 1
+            ? "text-muted-foreground cursor-not-allowed opacity-50"
+            : "text-destructive/70"
+        }`}
+        onClick={() => {
+          if (status.required_rating === 1) return;
+          handleDeleteStatus(status.id);
+        }}
+      />
+    </div>
+  );
+}
+
 export default function StatusPopoverCell({
   task,
   statuses,
@@ -86,14 +185,70 @@ export default function StatusPopoverCell({
   const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
   const [createColorPickerOpen, setCreateColorPickerOpen] = useState(false);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = editableStatuses.findIndex((i) => i.id === active.id);
+      const newIndex = editableStatuses.findIndex((i) => i.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const next = arrayMove(editableStatuses, oldIndex, newIndex);
+        setEditableStatuses(next);
+
+        // Immediate sync logic (similar to KanbanView)
+        const orgId = getOrganizationId();
+        if (orgId && boardId) {
+          try {
+            const order = next.map((s) => String(s.id));
+
+            // Persist to localStorage for Kanban consistency
+            localStorage.setItem(
+              `kanban-column-order-${boardId}`,
+              JSON.stringify(order),
+            );
+
+            // Notify parent to sync across views immediately
+            if (onStatusesUpdated) {
+              const statusMap = new Map(statuses.map((s) => [String(s.id), s]));
+              const nextFullStatuses = next
+                .map((s) => statusMap.get(s.id))
+                .filter((s): s is Status => !!s);
+              onStatusesUpdated(nextFullStatuses);
+            }
+
+            // Sync new order to backend
+            await cmsApi.reorderStatuses({
+              organization_id: orgId,
+              board_id: Number(boardId),
+              statuses: order.map((id, index) => ({
+                id: Number(id),
+                status_order: index + 1,
+              })),
+            });
+          } catch (e) {
+            console.error("Failed to sync reorder immediately:", e);
+          }
+        }
+      }
+    }
+  };
+
   /* ---------------------------------------------
    * Initialize displayStatuses ONCE per open
    * ------------------------------------------- */
   useEffect(() => {
-    if (openPopoverId === popoverId && displayStatuses.length === 0) {
+    if (openPopoverId === popoverId) {
       setDisplayStatuses([...statuses]);
     }
-  }, [openPopoverId, popoverId, statuses, displayStatuses.length]);
+  }, [openPopoverId, popoverId, statuses]);
 
   /* ---------------------------------------------
    * Entering edit mode → derive editable state
@@ -137,7 +292,7 @@ export default function StatusPopoverCell({
 
       addStatusToCache(Number(boardId), created);
 
-      setDisplayStatuses((prev) => [...prev, created]);
+      setDisplayStatuses((prev: Status[]) => [...prev, created]);
       onStatusCreated?.(created);
 
       setNewStatusName("");
@@ -159,7 +314,6 @@ export default function StatusPopoverCell({
     try {
       const orgId = getOrganizationId();
       if (!orgId || !boardId) return;
-      let response: any = null;
       for (const status of editableStatuses) {
         const original = displayStatuses.find(
           (s) => String(s.id) === status.id,
@@ -170,7 +324,7 @@ export default function StatusPopoverCell({
           (original.name !== status.name ||
             original.color_code !== status.color_code)
         ) {
-          response = await cmsApi.updateStatus({
+          await cmsApi.updateStatus({
             status_id: status.id,
             name: status.name,
             color_code: status.color_code,
@@ -182,29 +336,30 @@ export default function StatusPopoverCell({
         }
       }
 
-      const updated: Status[] = editableStatuses.map((edited) => {
-        const original = displayStatuses.find(
-          (s) => String(s.id) === edited.id,
-        );
+      const updated: Status[] = editableStatuses.map(
+        (edited: EditableStatus) => {
+          const original = displayStatuses.find(
+            (s: Status) => String(s.id) === edited.id,
+          );
 
-        if (!original) {
-          throw new Error(`Status not found: ${edited.id}`);
-        }
+          if (!original) {
+            throw new Error(`Status not found: ${edited.id}`);
+          }
 
-        return {
-          ...original, // keeps status_order and any future fields
-          name: edited.name,
-          color_code: edited.color_code,
-        };
-      });
+          return {
+            ...original, // keeps status_order and any future fields
+            name: edited.name,
+            color_code: edited.color_code,
+          };
+        },
+      );
 
       setDisplayStatuses(updated);
       setIsEditMode(false);
       onStatusesUpdated?.(updated);
 
-      console.log("Updated statuses:", response);
-
-      toast.success(response?.message || "Statuses Updated");
+      console.log("Updated statuses:", updated);
+      toast.success("Statuses Updated");
     } catch (error: any) {
       console.error("Failed to update statuses:", error);
       toast.error(error?.response.data.message || "Failed to Update Statuses");
@@ -278,23 +433,28 @@ export default function StatusPopoverCell({
             <div className="flex justify-between mb-2">
               <span className="text-sm font-medium">Select Status</span>
               <Button
+                className={showCreateForm ? `bg-primary text-white` : ""}
                 size="sm"
                 variant="ghost"
-                onClick={() => setShowCreateForm((v) => !v)}
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  setShowCreateForm((v: boolean) => !v);
+                }}
               >
-                +
+                {showCreateForm ? "x" : "+"}
               </Button>
             </div>
 
             {/* Create */}
             {showCreateForm && (
-              <div className="flex gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2">
                 <Input
                   value={newStatusName}
                   onChange={(e) => setNewStatusName(e.target.value)}
                   placeholder="Status name"
                 />
                 <ColorPickerPopover
+                  size="w-10 h-10"
                   color={newStatusColor}
                   onColorChange={setNewStatusColor}
                   isOpen={createColorPickerOpen}
@@ -349,46 +509,32 @@ export default function StatusPopoverCell({
             </div>
 
             {/* Edit List */}
-            <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-2">
-              <div className="grid grid-cols-2 gap-2 p-2">
-                {editableStatuses.map((s, i) => (
-                  <div
-                    key={s.id}
-                    className="flex gap-2 items-center p-2 border border-border rounded"
-                  >
-                    <ColorPickerPopover
-                      color={s.color_code}
-                      onColorChange={(c) => {
-                        const copy = [...editableStatuses];
-                        copy[i].color_code = c;
-                        setEditableStatuses(copy);
-                      }}
-                      isOpen={colorPickerOpen === s.id}
-                      onOpenChange={(o) => setColorPickerOpen(o ? s.id : null)}
-                    />
-                    <Input
-                      value={s.name}
-                      onChange={(e) => {
-                        const copy = [...editableStatuses];
-                        copy[i].name = e.target.value;
-                        setEditableStatuses(copy);
-                      }}
-                      className="h-8 text-sm flex-1"
-                    />
-                    <Trash
-                      className={`h-4 w-4 cursor-pointer ${
-                        s.required_rating === 1
-                          ? "text-muted-foreground cursor-not-allowed opacity-50"
-                          : "text-destructive"
-                      }`}
-                      onClick={() => {
-                        if (s.required_rating === 1) return;
-                        handleDeleteStatus(s.id);
-                      }}
-                    />
+            <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-3">
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={editableStatuses.map((s) => s.id)}
+                  strategy={rectSortingStrategy}
+                >
+                  <div className="grid grid-cols-2 gap-2 p-2">
+                    {editableStatuses.map((s, i) => (
+                      <SortableStatusItem
+                        key={s.id}
+                        status={s}
+                        index={i}
+                        editableStatuses={editableStatuses}
+                        setEditableStatuses={setEditableStatuses}
+                        colorPickerOpen={colorPickerOpen}
+                        setColorPickerOpen={setColorPickerOpen}
+                        handleDeleteStatus={handleDeleteStatus}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
             </div>
 
             <Button
@@ -407,446 +553,3 @@ export default function StatusPopoverCell({
     </Popover>
   );
 }
-
-// -------------------------------------------------------------
-
-// import { useEffect, useState } from "react";
-// import { X, Trash } from "lucide-react";
-
-// import { Button } from "@/shared/components/ui/button";
-// import { Input } from "@/shared/components/ui/input";
-// import {
-//   Popover,
-//   PopoverContent,
-//   PopoverTrigger,
-// } from "@/shared/components/ui/popover";
-// import { ColorPickerPopover } from "@/shared/components/workload/ColorPickerPopover";
-// import type { Status } from "@/features/cms/types";
-// import { cmsApi } from "@/features/cms/cmsApi";
-// import {
-//   addStatusToCache,
-//   updateStatusInCache,
-// } from "@/features/cms/cmsStorage";
-// import { getOrganizationId } from "@/lib/utils";
-// import { toast } from "sonner";
-
-// const PRESET_COLORS = [
-//   "#16a249", // green
-//   "#3c83f6", // blue
-//   "#a855f7", // purple
-//   "#dc2828", // red
-//   "#facc14", // yellow
-//   "#ff8400", // orange
-//   "#ec4899", // pink
-//   "#10b981", // emerald
-//   "#06b6d4", // cyan
-//   "#8b5cf6", // violet
-//   "#f59e0b", // amber
-//   "#ef4444", // rose
-//   "#14b8a6", // teal
-//   "#6366f1", // indigo
-//   "#f97316", // orange-600
-//   "#84cc16", // lime
-// ];
-
-// interface StatusPopoverCellProps {
-//   task: any;
-//   statuses: Status[];
-//   statusObj: Status | undefined;
-//   popoverId: string;
-//   openPopoverId?: string | null;
-//   setOpenPopoverId?: (id: string | null) => void;
-//   onStatusChange?: (taskId: string, statusId: string) => void;
-//   onStatusCreated?: (newStatus: Status) => void;
-//   onStatusesUpdated?: (updatedStatuses: Status[]) => void;
-//   boardId?: string | number;
-// }
-
-// export default function StatusPopoverCell({
-//   task,
-//   statuses,
-//   statusObj,
-//   popoverId,
-//   openPopoverId,
-//   setOpenPopoverId,
-//   onStatusChange,
-//   onStatusCreated,
-//   onStatusesUpdated,
-//   boardId,
-// }: StatusPopoverCellProps) {
-//   const [isEditMode, setIsEditMode] = useState(false);
-//   const [showCreateForm, setShowCreateForm] = useState(false);
-
-//   const [displayStatuses, setDisplayStatuses] = useState<Status[]>([]);
-//   const [editableStatuses, setEditableStatuses] = useState<
-//     Array<{ id: string; name: string; color_code: string }>
-//   >([]);
-
-//   const [newStatusName, setNewStatusName] = useState("");
-//   const [newStatusColor, setNewStatusColor] = useState(PRESET_COLORS[0]);
-//   const [isCreating, setIsCreating] = useState(false);
-
-//   const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
-//   const [createFormColorPickerOpen, setCreateFormColorPickerOpen] =
-//     useState(false);
-
-//   // Initialize displayStatuses only when popover first opens (not on every statuses change)
-//   useEffect(() => {
-//     if (openPopoverId === popoverId && displayStatuses.length === 0) {
-//       setDisplayStatuses([...statuses]);
-//     }
-//   }, [openPopoverId, popoverId]);
-
-//   // Sync editableStatuses with displayStatuses when edit mode is opened (use displayStatuses as source of truth)
-//   useEffect(() => {
-//     if (isEditMode) {
-//       // debugLog("[useEffect] Syncing editableStatuses with displayStatuses:", displayStatuses);
-//       setEditableStatuses(displayStatuses.map((s) => ({ id: String(s.id), name: s.name, color_code: s.color_code })));
-//     }
-//   }, [isEditMode, displayStatuses]);
-
-//   // Sync displayStatuses with editableStatuses when in edit mode for real-time updates
-//   useEffect(() => {
-//     if (isEditMode && editableStatuses.length > 0) {
-//       // debugLog("[useEffect] Syncing displayStatuses with editableStatuses:", editableStatuses);
-//       setDisplayStatuses([...editableStatuses] as any);
-//     }
-//   }, [editableStatuses, isEditMode]);
-
-//   const handleCreateStatus = async () => {
-//     if (!newStatusName.trim()) {
-//       toast.error("Status name is required");
-//       return;
-//     }
-
-//     setIsCreating(true);
-//     try {
-//       const orgId = getOrganizationId();
-//       const bId = boardId;
-
-//       if (!orgId || !bId) {
-//         toast.error("Organization or board information not found");
-//         return;
-//       }
-
-//       const newStatus = await cmsApi.createStatus({
-//         name: newStatusName.trim(),
-//         color_code: newStatusColor,
-//         organization_id: orgId,
-//         board_id: Number(bId),
-//       });
-
-//       // Ensure status has required fields
-//       const statusWithDefaults: any = {
-//         id: newStatus.id || String(Date.now()),
-//         name: newStatus.name,
-//         color_code: newStatus.color_code,
-//         status_order: String(newStatus.status_order) || "999",
-//       };
-
-//       // Update localStorage cache
-//       addStatusToCache(Number(bId), statusWithDefaults);
-
-//       // Add to display statuses immediately for real-time update
-//       setDisplayStatuses((prev) => [...prev, statusWithDefaults]);
-
-//       setNewStatusName("");
-//       setNewStatusColor(PRESET_COLORS[0]);
-//       setShowCreateForm(false);
-//       onStatusCreated?.(statusWithDefaults);
-//       toast.success("Status created successfully");
-//     } catch (error) {
-//       console.error("Failed to create status:", error);
-//       toast.error("Failed to create status");
-//     } finally {
-//       setIsCreating(false);
-//     }
-//   };
-
-//   return (
-//     <Popover
-//       open={openPopoverId === popoverId}
-//       onOpenChange={(open) => {
-//         if (open) {
-//           setShowCreateForm(false);
-//         }
-//         setOpenPopoverId?.(open ? popoverId : null);
-//       }}
-//     >
-//       <PopoverTrigger asChild>
-//         <Button
-//           variant="outline"
-//           size="sm"
-//           className="h-8 px-3 text-xs font-medium whitespace-nowrap"
-//           style={{
-//             backgroundColor: statusObj?.color_code || "#e5e7eb",
-//             color: "white",
-//             border: "none",
-//           }}
-//           onClick={(e) => e.stopPropagation()}
-//         >
-//           {statusObj?.name || "No Status"}
-//         </Button>
-//       </PopoverTrigger>
-//       <PopoverContent
-//         className="w-max p-3 bg-card border border-border shadow-lg rounded-lg"
-//         align="center"
-//       >
-//         <div
-//           className="flex flex-col"
-//           style={{
-//             width: "500px",
-//           }}
-//         >
-//           {!isEditMode ? (
-//             <>
-//               {/* Header with + button */}
-//               <div className="flex items-center justify-between mb-2">
-//                 <h3 className="font-medium text-sm">Select Status</h3>
-//                 <Button
-//                   variant="ghost"
-//                   size="sm"
-//                   className="h-6 w-6 p-0 hover:bg-primary"
-//                   onClick={() => setShowCreateForm(!showCreateForm)}
-//                   title="Create New Status"
-//                 >
-//                   <span className="text-lg font-semibold">+</span>
-//                 </Button>
-//               </div>
-
-//               {/* Create Form */}
-//               {showCreateForm && (
-//                 <div className="space-y-2 mb-2 pb-2 border-b border-border">
-//                   <div className="flex gap-2 items-center">
-//                     <Input
-//                       placeholder="Status name"
-//                       value={newStatusName}
-//                       onChange={(e) => setNewStatusName(e.target.value)}
-//                       className="h-8 text-sm flex-1"
-//                       onKeyDown={(e) => {
-//                         if (e.key === "Enter") {
-//                           handleCreateStatus();
-//                         } else if (e.key === "Escape") {
-//                           setShowCreateForm(false);
-//                           setNewStatusName("");
-//                         }
-//                       }}
-//                       autoFocus
-//                     />
-//                     <ColorPickerPopover
-//                       color={newStatusColor}
-//                       onColorChange={setNewStatusColor}
-//                       isOpen={createFormColorPickerOpen}
-//                       onOpenChange={setCreateFormColorPickerOpen}
-//                       size="w-8 h-8"
-//                     />
-//                   </div>
-//                   <div className="flex gap-2">
-//                     <Button
-//                       variant="outline"
-//                       size="sm"
-//                       className="flex-1 h-8 text-xs"
-//                       onClick={() => {
-//                         setShowCreateForm(false);
-//                         setNewStatusName("");
-//                       }}
-//                     >
-//                       Cancel
-//                     </Button>
-//                     <Button
-//                       size="sm"
-//                       className="flex-1 h-8 text-xs"
-//                       onClick={handleCreateStatus}
-//                       disabled={isCreating || !newStatusName.trim()}
-//                     >
-//                       {isCreating ? "Creating..." : "Create"}
-//                     </Button>
-//                   </div>
-//                 </div>
-//               )}
-
-//               {/* Status Grid */}
-//               <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto scrollbar-hide mb-2">
-//                 {displayStatuses.map((status) => (
-//                   <button
-//                     key={status.id}
-//                     onClick={() => {
-//                       onStatusChange?.(task.id, String(status.id));
-//                       setOpenPopoverId?.(null);
-//                     }}
-//                     title={status.name}
-//                     className="flex flex-col items-center gap-2 px-3 py-3 rounded-sm hover:opacity-80 transition-opacity text-sm font-medium overflow-hidden"
-//                     style={{
-//                       backgroundColor: status.color_code,
-//                       color: "white",
-//                     }}
-//                   >
-//                     <span className="text-center truncate w-full">
-//                       {status.name}
-//                     </span>
-//                   </button>
-//                 ))}
-//               </div>
-
-//               {/* Edit Labels Button */}
-//               <Button
-//                 variant="outline"
-//                 size="sm"
-//                 className="w-full h-8 text-xs"
-//                 onClick={() => {
-//                   setIsEditMode(true);
-//                   setEditableStatuses(statuses.map((s) => ({ id: String(s.id), name: s.name, color_code: s.color_code })));
-//                 }}
-//               >
-//                 Edit Labels
-//               </Button>
-//             </>
-//           ) : (
-//             <>
-//               {/* Edit Mode Header */}
-//               <div className="flex items-center justify-between mb-3">
-//                 <h3 className="font-medium text-sm">Edit Status Labels</h3>
-//                 <Button
-//                   variant="ghost"
-//                   size="sm"
-//                   className="h-6 w-6 p-0"
-//                   onClick={() => setIsEditMode(false)}
-//                 >
-//                   <X className="h-4 w-4" />
-//                 </Button>
-//               </div>
-
-//               {/* Editable Status List - Grid Structure */}
-//               <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto scrollbar-hide mb-3">
-//                 {editableStatuses.map((status, index) => (
-//                   <div
-//                     key={`${status.id}-${index}`}
-//                     className="flex flex-row gap-2 items-center p-1 rounded border border-border"
-//                   >
-//                     {/* Color div with popover */}
-//                     <ColorPickerPopover
-//                       color={status.color_code}
-//                       onColorChange={(newColor: string) => {
-//                         const updated = [...editableStatuses];
-//                         updated[index].color_code = newColor;
-//                         setEditableStatuses(updated);
-//                       }}
-//                       isOpen={colorPickerOpen === status.id}
-//                       onOpenChange={(open: boolean) => {
-//                         setColorPickerOpen(open ? status.id : null);
-//                       }}
-//                     />
-
-//                     <Input
-//                       value={status.name}
-//                       onChange={(e) => {
-//                         const updated = [...editableStatuses];
-//                         updated[index].name = e.target.value;
-//                         setEditableStatuses(updated);
-//                       }}
-//                       className="h-8 text-sm flex-1"
-//                       placeholder="Status name"
-//                     />
-
-//                     <button
-//                       onClick={() => {
-//                         const updated = editableStatuses.filter(
-//                           (_, i) => i !== index,
-//                         );
-//                         setEditableStatuses(updated);
-//                       }}
-//                       className="p-1 hover:bg-destructive/20 rounded flex items-center justify-center gap-1 text-xs"
-//                       title="Delete status"
-//                     >
-//                       <Trash className="h-3 w-3 text-destructive" />
-//                     </button>
-//                   </div>
-//                 ))}
-//               </div>
-
-//               {/* Done Button */}
-//               <Button
-//                 size="sm"
-//                 className="w-full h-8 text-xs"
-//                 onClick={async () => {
-//                   try {
-//                     // Track original statuses for comparison
-//                     const originalStatusMap = new Map(
-//                       statuses.map((s) => [s.id, s]),
-//                     );
-
-//                     // Save all statuses (new and updated)
-//                     for (const status of editableStatuses) {
-//                       if (status.id.startsWith("new-")) {
-//                         // Create new status
-//                         const orgId = getOrganizationId();
-//                         const bId = boardId;
-//                         if (orgId && bId) {
-//                           const newStatus = await cmsApi.createStatus({
-//                             name: status.name,
-//                             color_code: status.color_code,
-//                             organization_id: orgId,
-//                             board_id: Number(bId),
-//                           });
-//                           addStatusToCache(Number(bId), newStatus);
-//                           onStatusCreated?.(newStatus);
-//                         }
-//                       } else {
-//                         // Check if existing status was modified
-//                         const originalStatus = originalStatusMap.get(status.id);
-//                         if (
-//                           originalStatus &&
-//                           (originalStatus.name !== status.name ||
-//                             originalStatus.color_code !== status.color_code)
-//                         ) {
-//                           // Update existing status
-//                           const orgId = getOrganizationId();
-//                           const bId = boardId;
-//                           if (orgId && bId) {
-//                             await cmsApi.updateStatus({
-//                               status_id: status.id,
-//                               name: status.name,
-//                               color_code: status.color_code,
-//                               organization_id: orgId,
-//                               board_id: Number(bId),
-//                             });
-//                             // Update cache with the updated status
-//                             updateStatusInCache(Number(bId), status as any);
-//                             // Trigger UI update
-//                             onStatusCreated?.(status as any);
-//                           }
-//                         }
-//                       }
-//                     }
-//                     toast.success("Status labels updated successfully");
-
-//                     debugLog("[Done Button] Before state update:");
-//                     debugLog("editableStatuses:", editableStatuses);
-//                     debugLog("displayStatuses:", displayStatuses);
-
-//                     // Update displayStatuses with the successfully saved editable statuses
-//                     setDisplayStatuses([...editableStatuses] as any);
-//                     debugLog("[Done Button] After setDisplayStatuses called with:", editableStatuses);
-
-//                     // Reset edit mode
-//                     setIsEditMode(false);
-//                     debugLog("[Done Button] isEditMode set to false");
-
-//                     // Notify parent to refresh the statuses list
-//                     onStatusesUpdated?.(editableStatuses as any);
-//                     debugLog("[Done Button] onStatusesUpdated called with:", editableStatuses);
-//                   } catch (error) {
-//                     console.error("Failed to update status labels:", error);
-//                     toast.error("Failed to update status labels");
-//                   }
-//                 }}
-//               >
-//                 Done
-//               </Button>
-//             </>
-//           )}
-//         </div>
-//       </PopoverContent>
-//     </Popover>
-//   );
-// }

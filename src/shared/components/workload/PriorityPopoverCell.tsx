@@ -1,5 +1,22 @@
 import { useState, useEffect } from "react";
-import { X, Trash } from "lucide-react";
+import { X, Trash, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { Priority } from "@/features/cms/types";
 import { cmsApi } from "@/features/cms/cmsApi";
 import {
@@ -57,6 +74,81 @@ interface PriorityPopoverCellProps {
   boardId?: string | number;
 }
 
+interface SortablePriorityItemProps {
+  priority: EditablePriority;
+  index: number;
+  editablePriorities: EditablePriority[];
+  setEditablePriorities: (priorities: EditablePriority[]) => void;
+  colorPickerOpen: string | null;
+  setColorPickerOpen: (id: string | null) => void;
+  handleDeletePriority: (id: string) => void;
+}
+
+function SortablePriorityItem({
+  priority,
+  index,
+  editablePriorities,
+  setEditablePriorities,
+  colorPickerOpen,
+  setColorPickerOpen,
+  handleDeletePriority,
+}: SortablePriorityItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: priority.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex gap-2 items-center p-2 border border-border rounded bg-card group"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 -ml-1 transition-colors"
+      >
+        <GripVertical className="h-4 w-4" />
+      </div>
+      <ColorPickerPopover
+        color={priority.color_code}
+        onColorChange={(c) => {
+          const copy = [...editablePriorities];
+          copy[index].color_code = c;
+          setEditablePriorities(copy);
+        }}
+        isOpen={colorPickerOpen === priority.id}
+        onOpenChange={(o) => setColorPickerOpen(o ? priority.id : null)}
+      />
+      <Input
+        value={priority.name}
+        onChange={(e) => {
+          const copy = [...editablePriorities];
+          copy[index].name = e.target.value;
+          setEditablePriorities(copy);
+        }}
+        className="h-8 text-sm flex-1"
+      />
+      <Trash
+        className="h-4 w-4 text-destructive/70 cursor-pointer hover:text-destructive transition-colors"
+        onClick={() => handleDeletePriority(priority.id)}
+      />
+    </div>
+  );
+}
+
 export function PriorityPopoverCell({
   task,
   priorities,
@@ -83,6 +175,25 @@ export function PriorityPopoverCell({
 
   const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
   const [createColorPickerOpen, setCreateColorPickerOpen] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setEditablePriorities((items: EditablePriority[]) => {
+        const oldIndex = items.findIndex((i) => i.id === active.id);
+        const newIndex = items.findIndex((i) => i.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
 
   /* ---------------------------------------------
    * Initialize displayPriorities ONCE per open
@@ -134,7 +245,7 @@ export function PriorityPopoverCell({
 
       addPriorityToCache(Number(boardId), created);
 
-      setDisplayPriorities((prev) => [...prev, created]);
+      setDisplayPriorities((prev: Priority[]) => [...prev, created]);
       onPriorityCreated?.(created);
 
       setNewPriorityName("");
@@ -181,21 +292,23 @@ export function PriorityPopoverCell({
         }
       }
 
-      const updated: Priority[] = editablePriorities.map((edited) => {
-        const original = displayPriorities.find(
-          (p) => String(p.id) === edited.id,
-        );
+      const updated: Priority[] = editablePriorities.map(
+        (edited: EditablePriority) => {
+          const original = displayPriorities.find(
+            (p: Priority) => String(p.id) === edited.id,
+          );
 
-        if (!original) {
-          throw new Error(`Priority not found: ${edited.id}`);
-        }
+          if (!original) {
+            throw new Error(`Priority not found: ${edited.id}`);
+          }
 
-        return {
-          ...original,
-          name: edited.name,
-          color_code: edited.color_code,
-        };
-      });
+          return {
+            ...original,
+            name: edited.name,
+            color_code: edited.color_code,
+          };
+        },
+      );
 
       setDisplayPriorities(updated);
       setIsEditMode(false);
@@ -275,23 +388,28 @@ export function PriorityPopoverCell({
             <div className="flex justify-between mb-2">
               <span className="text-sm font-medium">Select Priority</span>
               <Button
+                className={showCreateForm ? `bg-primary text-white` : ""}
                 size="sm"
                 variant="ghost"
-                onClick={() => setShowCreateForm((v) => !v)}
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  setShowCreateForm((v: boolean) => !v);
+                }}
               >
-                +
+                {showCreateForm ? "x" : "+"}
               </Button>
             </div>
 
             {/* Create */}
             {showCreateForm && (
-              <div className="flex gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2">
                 <Input
                   value={newPriorityName}
                   onChange={(e) => setNewPriorityName(e.target.value)}
                   placeholder="Priority name"
                 />
                 <ColorPickerPopover
+                  size="w-10 h-10"
                   color={newPriorityColor}
                   onColorChange={setNewPriorityColor}
                   isOpen={createColorPickerOpen}
@@ -346,39 +464,32 @@ export function PriorityPopoverCell({
             </div>
 
             {/* Edit List */}
-            <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-2">
-              <div className="grid grid-cols-2 gap-2 p-2">
-                {editablePriorities.map((p, i) => (
-                  <div
-                    key={p.id}
-                    className="flex gap-2 items-center p-2 border border-border rounded"
-                  >
-                    <ColorPickerPopover
-                      color={p.color_code}
-                      onColorChange={(c) => {
-                        const copy = [...editablePriorities];
-                        copy[i].color_code = c;
-                        setEditablePriorities(copy);
-                      }}
-                      isOpen={colorPickerOpen === p.id}
-                      onOpenChange={(o) => setColorPickerOpen(o ? p.id : null)}
-                    />
-                    <Input
-                      value={p.name}
-                      onChange={(e) => {
-                        const copy = [...editablePriorities];
-                        copy[i].name = e.target.value;
-                        setEditablePriorities(copy);
-                      }}
-                      className="h-8 text-sm flex-1"
-                    />
-                    <Trash
-                      className="h-4 w-4 text-destructive cursor-pointer"
-                      onClick={() => handleDeletePriority(p.id)}
-                    />
+            <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-3">
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={editablePriorities.map((p) => p.id)}
+                  strategy={rectSortingStrategy}
+                >
+                  <div className="grid grid-cols-2 gap-2 p-2">
+                    {editablePriorities.map((p, i) => (
+                      <SortablePriorityItem
+                        key={p.id}
+                        priority={p}
+                        index={i}
+                        editablePriorities={editablePriorities}
+                        setEditablePriorities={setEditablePriorities}
+                        colorPickerOpen={colorPickerOpen}
+                        setColorPickerOpen={setColorPickerOpen}
+                        handleDeletePriority={handleDeletePriority}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
             </div>
 
             <Button
