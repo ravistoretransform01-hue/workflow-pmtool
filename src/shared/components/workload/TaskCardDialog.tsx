@@ -72,7 +72,9 @@ interface TaskCardDialogProps {
   onTagChange?: (taskId: string, tags: any[]) => void;
   onTagCreated?: (newTag: any) => void;
   onStatusCreated?: (newStatus: any) => void;
+  onStatusesUpdated?: (statuses: Status[]) => void;
   onPriorityCreated?: (newPriority: any) => void;
+  onPrioritiesUpdated?: (priorities: Priority[]) => void;
   onDescriptionChange?: (taskId: string, description: string) => Promise<void>;
   initialEditDescription?: boolean;
   activeTimerId?: string | null;
@@ -108,7 +110,9 @@ export function TaskCardDialog({
   onTagChange,
   onTagCreated,
   onStatusCreated,
+  onStatusesUpdated,
   onPriorityCreated,
+  onPrioritiesUpdated,
   onDescriptionChange,
   initialEditDescription,
   activeTimerId,
@@ -411,7 +415,9 @@ export function TaskCardDialog({
     tags,
     onTagCreated,
     onStatusCreated,
+    onStatusesUpdated,
     onPriorityCreated,
+    onPrioritiesUpdated,
     onInlineEditTaskName,
     openPopoverId,
     setOpenPopoverId,

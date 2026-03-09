@@ -13,6 +13,7 @@ const CMS_ENDPOINTS = {
   REORDER_STATUS: `/task-status/reorder`,
   CREATE_PRIORITY: `/task-priority`,
   UPDATE_PRIORITY: `/task-priority`,
+  REORDER_PRIORITY: `/task-priority/reorder`,
   USER_GROUP_COLUMNS: `/user-group-columns`,
 };
 
@@ -278,6 +279,26 @@ export const cmsApi = {
       return response.data;
     } catch (error) {
       debugError("Failed to reorder statuses:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Reorder task priorities
+   */
+  reorderPriorities: async (payload: {
+    organization_id: number;
+    board_id: number;
+    priorities: Array<{ id: number | string; priority_order: number }>;
+  }): Promise<any> => {
+    try {
+      const response = await axios.put<any>(
+        CMS_ENDPOINTS.REORDER_PRIORITY,
+        payload,
+      );
+      return response.data;
+    } catch (error) {
+      debugError("Failed to reorder priorities:", error);
       throw error;
     }
   },
