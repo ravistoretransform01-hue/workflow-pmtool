@@ -67,6 +67,7 @@ export interface CMSRequest {
   organization_id: number;
   board_id: number;
   user_id: number | null;
+  forceRefresh?: boolean;
 }
 
 export interface CMSData {

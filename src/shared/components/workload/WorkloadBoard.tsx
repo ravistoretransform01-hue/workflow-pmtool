@@ -932,13 +932,11 @@ export function WorkloadBoard({
           return;
         }
 
-        // Clear the cache for this board to ensure fresh data on mount
-        clearCMSCache(boardIdNum);
-
         const cmsData = await getCMSData({
           organization_id: organizationIdNum,
           board_id: boardIdNum,
           user_id: userId,
+          forceRefresh: true,
         });
 
         debugLog("Fetched CMS Data:", cmsData);
@@ -948,62 +946,11 @@ export function WorkloadBoard({
           sortBy((s) => s.status_order, "number"),
         );
 
-        // Apply saved Kanban column order if it exists in localStorage
-        try {
-          const rawOrder = localStorage.getItem(
-            `kanban-column-order-${boardIdNum}`,
-          );
-          if (rawOrder) {
-            const savedOrder = JSON.parse(rawOrder) as string[];
-            const statusMap = new Map(
-              sortedStatuses.map((s) => [String(s.id), s]),
-            );
-
-            const ordered = savedOrder
-              .map((id) => statusMap.get(id))
-              .filter((s): s is Status => !!s);
-
-            // Add any statuses that aren't in the saved order
-            const savedOrderSet = new Set(savedOrder);
-            const remaining = sortedStatuses.filter(
-              (s) => !savedOrderSet.has(String(s.id)),
-            );
-
-            sortedStatuses = [...ordered, ...remaining];
-          }
-        } catch (e) {
-          console.error("Failed to apply saved status order", e);
-        }
-
         setStatuses(sortedStatuses);
         // Sort priorities by priority_order
         let sortedPriorities = [...cmsData.priorities].sort(
           sortBy((p) => p.priority_order, "number"),
         );
-
-        // Apply saved priority order if it exists in localStorage
-        try {
-          const rawOrder = localStorage.getItem(`priority-order-${boardIdNum}`);
-          if (rawOrder) {
-            const savedOrder = JSON.parse(rawOrder) as string[];
-            const priorityMap = new Map(
-              sortedPriorities.map((p) => [String(p.id), p]),
-            );
-
-            const ordered = savedOrder
-              .map((id) => priorityMap.get(id))
-              .filter((p): p is Priority => !!p);
-
-            const savedOrderSet = new Set(savedOrder);
-            const remaining = sortedPriorities.filter(
-              (p) => !savedOrderSet.has(String(p.id)),
-            );
-
-            sortedPriorities = [...ordered, ...remaining];
-          }
-        } catch (e) {
-          console.error("Failed to apply saved priority order", e);
-        }
 
         setPriorities(sortedPriorities);
         setMembers(cmsData.members || []);
