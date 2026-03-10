@@ -227,18 +227,24 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                       return;
                     }
 
-                    // Handle PDF Card Preview button
-                    const previewBtn = target.closest(".pdf-card-preview-btn");
-                    const openBtn = target.closest(".pdf-card-open-btn");
+                    // Handle File/PDF Card Preview button
+                    const previewBtn =
+                      target.closest(".file-card-preview-btn") ||
+                      target.closest(".pdf-card-preview-btn");
+                    const openBtn =
+                      target.closest(".file-card-open-btn") ||
+                      target.closest(".pdf-card-open-btn");
 
                     if (previewBtn || openBtn) {
-                      const wrapper = target.closest("[data-type='pdf-card']");
+                      const wrapper =
+                        target.closest("[data-type='file-card']") ||
+                        target.closest("[data-type='pdf-card']");
                       if (wrapper) {
                         const href = wrapper.getAttribute("data-href");
                         const fileName = wrapper.getAttribute("data-filename");
                         if (href) {
                           if (previewBtn) {
-                            onFilePreview(href, fileName || "Document.pdf");
+                            onFilePreview(href, fileName || "Document");
                             return;
                           }
                           // if openBtn, allow default (opens in new tab)
@@ -250,15 +256,20 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                     const anchor = target.closest("a");
                     if (
                       anchor &&
+                      !anchor.classList.contains("file-card-open-btn") &&
+                      !anchor.classList.contains("pdf-card-open-btn") &&
                       (anchor.href.toLowerCase().endsWith(".pdf") ||
+                        anchor.href.toLowerCase().endsWith(".docx") ||
+                        anchor.href.toLowerCase().endsWith(".doc") ||
                         anchor.classList.contains("pdf-link") ||
                         (anchor.textContent &&
-                          anchor.textContent.includes("\uD83D\uDCC4")))
+                          (anchor.textContent.includes("📄") ||
+                            anchor.textContent.includes("📝"))))
                     ) {
                       e.preventDefault();
                       onFilePreview(
                         anchor.href,
-                        anchor.textContent || "Document.pdf",
+                        anchor.textContent || "Document",
                       );
                     }
                   }}

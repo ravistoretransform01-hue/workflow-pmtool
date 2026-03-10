@@ -2932,8 +2932,6 @@ export function WorkloadBoard({
         replyingTo ? "Reply saved successfully" : "Update saved successfully",
       );
 
-      console.log("Saving update:", payload);
-
       // Reset the form - clear the editor
       setUpdateText("");
       setUpdateFiles([]);

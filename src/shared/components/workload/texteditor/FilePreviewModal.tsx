@@ -23,6 +23,14 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
     (src.startsWith("blob:") &&
       (fileName?.toLowerCase().endsWith(".pdf") || fileName?.includes("📄")));
 
+  const isDocx =
+    src.toLowerCase().endsWith(".docx") ||
+    src.toLowerCase().endsWith(".doc") ||
+    (src.startsWith("blob:") &&
+      (fileName?.toLowerCase().endsWith(".docx") ||
+        fileName?.toLowerCase().endsWith(".doc") ||
+        fileName?.includes("📝")));
+
   const handleDownload = () => {
     window.open(src, "_blank", "noopener,noreferrer");
   };
@@ -39,6 +47,30 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
                 className="w-full h-full rounded-sm shadow-2xl bg-white"
                 title="PDF Preview"
               />
+            ) : isDocx ? (
+              <div className="flex flex-col items-center justify-center gap-6 p-12 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-2xl max-w-md w-full text-center">
+                <div className="w-20 h-20 bg-blue-500/20 rounded-2xl flex items-center justify-center ring-1 ring-blue-500/50">
+                  <FileText className="h-10 w-10 text-blue-400" />
+                </div>
+                <div className="space-y-2">
+                  {/* <h3 className="text-xl font-semibold text-white">
+                    Word Document
+                  </h3> */}
+                  <p className="text-sm text-white/60">
+                    {fileName || "Document.docx"}
+                  </p>
+                  <p className="text-xs text-white/40 mt-4 leading-relaxed">
+                    Previews for Word documents are not supported directly in
+                    the browser. Please download the file to view its contents.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleDownload}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 h-11 rounded-lg transition-all shadow-lg hover:shadow-blue-500/20"
+                >
+                  Download Document
+                </Button>
+              </div>
             ) : (
               <img
                 src={src}
@@ -51,7 +83,8 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
           {/* Bottom Info */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 backdrop-blur-md rounded-full text-white text-xs font-medium flex items-center gap-2">
             {isPdf ? <FileText className="h-3 w-3" /> : null}
-            {isPdf ? "PDF Preview" : "Image Preview"}
+            {isDocx ? <FileText className="h-3 w-3 text-blue-400" /> : null}
+            {isPdf ? "PDF Preview" : isDocx ? "Word Document" : "Image Preview"}
             {fileName && (
               <span className="opacity-70 ml-1 border-l border-white/20 pl-2">
                 {fileName}
