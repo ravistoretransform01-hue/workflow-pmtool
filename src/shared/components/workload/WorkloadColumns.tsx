@@ -1,9 +1,11 @@
+import { useState, useRef, useEffect } from "react";
 import {
   ChevronDown,
   ChevronRight,
   MessageCirclePlus,
   Pencil,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Status, Priority } from "@/features/cms/types";
 import { Input } from "@/shared/components/ui/input";
 import { TagsColumnCell } from "./TagsColumnCell";
@@ -17,6 +19,13 @@ import {
   EstimatedDatePicker,
   EstimatedTimePicker,
 } from "./cells";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipPortal,
+} from "@/shared/components/ui/tooltip";
 import type { Column, Task } from "./utils";
 
 interface ColumnDefinitionProps {
@@ -65,6 +74,86 @@ interface ColumnDefinitionProps {
   onTimerConflict?: (taskId: string) => void;
   onTimeUpdate?: (taskId: string, seconds: number) => void;
 }
+
+const TruncatedTaskName = ({
+  task,
+  isSubitem,
+}: {
+  task: Task;
+  isSubitem?: boolean;
+}) => {
+  const [isTruncated, setIsTruncated] = useState(false);
+  const textRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const checkTruncation = () => {
+      if (textRef.current) {
+        setIsTruncated(
+          textRef.current.scrollWidth > textRef.current.clientWidth,
+        );
+      }
+    };
+
+    // Need a small timeout to ensure layout is settled
+    const timeoutId = setTimeout(checkTruncation, 50);
+    window.addEventListener("resize", checkTruncation);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("resize", checkTruncation);
+    };
+  }, [task.name]);
+
+  const nameContent = (
+    <span
+      ref={textRef}
+      className={cn(
+        "truncate flex-1 text-left",
+        isSubitem
+          ? "group-hover/subtask:underline"
+          : "group-hover/taskname:underline",
+      )}
+    >
+      {task.name}
+    </span>
+  );
+
+  const counterContent =
+    !isSubitem && task.subitems && task.subitems.length > 0 ? (
+      <span className="shrink-0 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 transition-colors group-hover/taskname:no-underline dark:group-hover/taskname:bg-blue-800/50 text-center">
+        {task.subitems.length}
+      </span>
+    ) : null;
+
+  if (!isTruncated) {
+    return (
+      <>
+        {nameContent}
+        {counterContent}
+      </>
+    );
+  }
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden flex-1">
+            {nameContent}
+            {counterContent}
+          </div>
+        </TooltipTrigger>
+        <TooltipPortal>
+          <TooltipContent
+            side="top"
+            className="max-w-[400px] break-words bg-slate-900 text-slate-50 border-slate-800 shadow-xl dark:bg-slate-50 dark:text-slate-900 dark:border-slate-200"
+          >
+            {task.name}
+          </TooltipContent>
+        </TooltipPortal>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 export const getWorkloadColumns = ({
   expandedTasks,
@@ -119,8 +208,8 @@ export const getWorkloadColumns = ({
         if (isSubitem) {
           return (
             <div className="flex items-center gap-2 pl-8 justify-between group">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground"> {"├"}</span>
+              <div className="flex-1 flex items-center gap-2 min-w-0">
+                <span className="text-muted-foreground shrink-0"> {"├"}</span>
                 {inlineEditingTaskId === task.id ? (
                   <Input
                     className="h-6 text-sm border-0 focus:ring-0 focus:border-0"
@@ -153,13 +242,13 @@ export const getWorkloadColumns = ({
                       setInlineEditingTaskId?.(task.id);
                       setInlineEditingTaskName?.(task.name);
                     }}
-                    className="font-medium text-foreground hover:underline cursor-pointer"
+                    className="font-medium text-foreground cursor-pointer truncate flex-1 text-left min-w-0 group/subtask"
                   >
-                    {task.name}
+                    <TruncatedTaskName task={task} isSubitem={true} />
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -184,13 +273,13 @@ export const getWorkloadColumns = ({
         }
         return (
           <div className="flex items-center gap-2 justify-between group">
-            <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center gap-2 min-w-0">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleTask(task.id);
                 }}
-                className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
               >
                 {expandedTasks[task.id] ? (
                   <ChevronDown className="h-4 w-4" />
@@ -230,13 +319,13 @@ export const getWorkloadColumns = ({
                     setInlineEditingTaskId?.(task.id);
                     setInlineEditingTaskName?.(task.name);
                   }}
-                  className="font-medium text-foreground hover:underline cursor-pointer"
+                  className="font-medium text-foreground cursor-pointer flex items-center gap-1.5 group/taskname min-w-0 overflow-hidden"
                 >
-                  {task.name}
+                  <TruncatedTaskName task={task} />
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
               <button
                 onClick={(e) => {
                   e.stopPropagation();

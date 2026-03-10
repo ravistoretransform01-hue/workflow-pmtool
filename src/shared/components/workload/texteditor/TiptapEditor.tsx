@@ -199,9 +199,9 @@ export function TiptapEditor({
     },
   });
 
-  // Custom extension for PDF Attachment Card
-  const PDFCard = TiptapNode.create({
-    name: "pdfCard",
+  // Custom extension for File Attachment Card (PDF, Docx, etc.)
+  const FileCard = TiptapNode.create({
+    name: "fileCard",
     group: "block",
     atom: true,
     draggable: true,
@@ -209,50 +209,70 @@ export function TiptapEditor({
     addAttributes() {
       return {
         href: { default: null },
-        fileName: { default: "Document.pdf" },
+        fileName: { default: "Document" },
+        fileType: { default: "pdf" }, // 'pdf' or 'docx'
       };
     },
 
     parseHTML() {
       return [
         {
+          tag: 'div[data-type="file-card"]',
+          getAttrs: (element) => ({
+            href: (element as HTMLElement).getAttribute("data-href"),
+            fileName: (element as HTMLElement).getAttribute("data-filename"),
+            fileType: (element as HTMLElement).getAttribute("data-filetype") || "pdf",
+          }),
+        },
+        // Backward compatibility for old pdf-card tags
+        {
           tag: 'div[data-type="pdf-card"]',
           getAttrs: (element) => ({
             href: (element as HTMLElement).getAttribute("data-href"),
             fileName: (element as HTMLElement).getAttribute("data-filename"),
+            fileType: "pdf",
           }),
         },
       ];
     },
 
     renderHTML({ node, HTMLAttributes }) {
+      const isDocx = node.attrs.fileType === "docx" || 
+                    node.attrs.fileName.toLowerCase().endsWith(".docx") || 
+                    node.attrs.fileName.toLowerCase().endsWith(".doc");
+      
+      const icon = isDocx ? "📝" : "📄";
+      const typeLabel = isDocx ? "Word Document" : "PDF Document";
+      const themeClass = isDocx ? "docx-card" : "pdf-card";
+
       return [
         "div",
         mergeAttributes(HTMLAttributes, {
-          "data-type": "pdf-card",
+          "data-type": "file-card",
           "data-href": node.attrs.href,
           "data-filename": node.attrs.fileName,
-          class: "pdf-card-wrapper",
+          "data-filetype": isDocx ? "docx" : "pdf",
+          class: `file-card-wrapper ${themeClass}`,
         }),
         [
           "div",
-          { class: "pdf-card-content" },
-          ["span", { class: "pdf-card-icon" }, "📄"],
+          { class: "file-card-content" },
+          ["span", { class: "file-card-icon" }, icon],
           [
             "div",
-            { class: "pdf-card-info" },
-            ["span", { class: "pdf-card-name" }, node.attrs.fileName],
-            ["span", { class: "pdf-card-type" }, "PDF Document"],
+            { class: "file-card-info" },
+            ["span", { class: "file-card-name" }, node.attrs.fileName],
+            ["span", { class: "file-card-type" }, typeLabel],
           ],
           [
             "div",
-            { class: "pdf-card-actions" },
+            { class: "file-card-actions" },
             [
               "button",
               {
                 type: "button",
                 class:
-                  "pdf-card-preview-btn hover:bg-accent hover:text-accent-foreground",
+                  "file-card-preview-btn hover:bg-accent hover:text-accent-foreground",
               },
               "Preview",
             ],
@@ -262,7 +282,7 @@ export function TiptapEditor({
                 href: node.attrs.href,
                 target: "_blank",
                 class:
-                  "pdf-card-open-btn hover:bg-accent hover:text-accent-foreground",
+                  "file-card-open-btn hover:bg-accent hover:text-accent-foreground",
                 rel: "noopener noreferrer",
               },
               "Open",
@@ -331,7 +351,7 @@ export function TiptapEditor({
       TextAlign.configure({
         types: ["heading", "paragraph", "image"],
       }),
-      PDFCard,
+      FileCard,
       Mention.configure({
         HTMLAttributes: {
           class:
@@ -515,8 +535,14 @@ export function TiptapEditor({
         const items = Array.from(event.clipboardData?.items || []);
         const images = items.filter((item) => item.type.startsWith("image/"));
         const pdfs = items.filter((item) => item.type === "application/pdf");
+        const docxFiles = items.filter(
+          (item) =>
+            item.type ===
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+            item.type === "application/msword",
+        );
 
-        if (images.length > 0 || pdfs.length > 0) {
+        if (images.length > 0 || pdfs.length > 0 || docxFiles.length > 0) {
           event.preventDefault();
 
           images.forEach((item) => {
@@ -539,10 +565,30 @@ export function TiptapEditor({
               editor
                 ?.chain()
                 .insertContent({
-                  type: "pdfCard",
+                  type: "fileCard",
                   attrs: {
                     href: blobUrl,
                     fileName: file.name,
+                    fileType: "pdf",
+                  },
+                })
+                .run();
+            }
+          });
+
+          docxFiles.forEach((item) => {
+            const file = item.getAsFile();
+            if (file) {
+              const blobUrl = URL.createObjectURL(file);
+              attachmentsApi.registerPendingFile(blobUrl, file);
+              editor
+                ?.chain()
+                .insertContent({
+                  type: "fileCard",
+                  attrs: {
+                    href: blobUrl,
+                    fileName: file.name,
+                    fileType: "docx",
                   },
                 })
                 .run();
@@ -551,6 +597,7 @@ export function TiptapEditor({
 
           if (images.length > 0) toast.success("Image pasted (preview)");
           if (pdfs.length > 0) toast.success("PDF pasted (preview)");
+          if (docxFiles.length > 0) toast.success("Word doc pasted (preview)");
           return true;
         }
         return false;
@@ -565,8 +612,16 @@ export function TiptapEditor({
           const files = Array.from(event.dataTransfer.files);
           const images = files.filter((file) => file.type.startsWith("image/"));
           const pdfs = files.filter((file) => file.type === "application/pdf");
+          const docxFiles = files.filter(
+            (file) =>
+              file.type ===
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+              file.type === "application/msword" ||
+              file.name.toLowerCase().endsWith(".docx") ||
+              file.name.toLowerCase().endsWith(".doc"),
+          );
 
-          if (images.length > 0 || pdfs.length > 0) {
+          if (images.length > 0 || pdfs.length > 0 || docxFiles.length > 0) {
             event.preventDefault();
 
             images.forEach((file) => {
@@ -584,10 +639,27 @@ export function TiptapEditor({
               editor
                 ?.chain()
                 .insertContent({
-                  type: "pdfCard",
+                  type: "fileCard",
                   attrs: {
                     href: blobUrl,
                     fileName: file.name,
+                    fileType: "pdf",
+                  },
+                })
+                .run();
+            });
+
+            docxFiles.forEach((file) => {
+              const blobUrl = URL.createObjectURL(file);
+              attachmentsApi.registerPendingFile(blobUrl, file);
+              editor
+                ?.chain()
+                .insertContent({
+                  type: "fileCard",
+                  attrs: {
+                    href: blobUrl,
+                    fileName: file.name,
+                    fileType: "docx",
                   },
                 })
                 .run();
@@ -595,6 +667,7 @@ export function TiptapEditor({
 
             if (images.length > 0) toast.success("Image dropped (preview)");
             if (pdfs.length > 0) toast.success("PDF dropped (preview)");
+            if (docxFiles.length > 0) toast.success("Word doc dropped (preview)");
             return true;
           }
         }
@@ -611,34 +684,38 @@ export function TiptapEditor({
           return true;
         }
 
-        // Handle PDF Card Preview button
-        const previewBtn = targetElement.closest(".pdf-card-preview-btn");
+        // Handle File Card Preview button
+        const previewBtn = targetElement.closest(".file-card-preview-btn");
         if (previewBtn) {
-          const wrapper = targetElement.closest("[data-type='pdf-card']");
+          const wrapper = targetElement.closest("[data-type='file-card']") || 
+                         targetElement.closest("[data-type='pdf-card']");
           if (wrapper) {
             const href = wrapper.getAttribute("data-href");
             const fileName = wrapper.getAttribute("data-filename");
             if (href) {
               setPreviewSrc(href);
-              setPreviewFileName(fileName || "Document.pdf");
+              setPreviewFileName(fileName || "Document");
               setIsPreviewOpen(true);
               return true;
             }
           }
         }
 
-        // Check if it's a PDF link (legacy or fallback)
+        // Check if it's a PDF/Word link (legacy or fallback)
         const anchor = targetElement.closest("a");
         if (
           anchor &&
+          !anchor.classList.contains("file-card-open-btn") &&
           !anchor.classList.contains("pdf-card-open-btn") &&
           (anchor.href.toLowerCase().endsWith(".pdf") ||
+            anchor.href.toLowerCase().endsWith(".docx") ||
+            anchor.href.toLowerCase().endsWith(".doc") ||
             anchor.classList.contains("pdf-link") ||
-            (anchor.textContent && anchor.textContent.includes("📄")))
+            (anchor.textContent && (anchor.textContent.includes("📄") || anchor.textContent.includes("📝"))))
         ) {
           event.preventDefault();
           setPreviewSrc(anchor.href);
-          setPreviewFileName(anchor.textContent || "Document.pdf");
+          setPreviewFileName(anchor.textContent || "Document");
           setIsPreviewOpen(true);
           return true;
         }
@@ -1245,7 +1322,7 @@ export function TiptapEditor({
             size="sm"
             className="h-8 w-8 p-0"
             onClick={() => fileInputRef.current?.click()}
-            title="Upload file (Image or PDF)"
+            title="Upload file (Image, PDF, or Word)"
           >
             <ImageIcon className="h-4 w-4" />
           </Button>
@@ -1254,7 +1331,7 @@ export function TiptapEditor({
             type="file"
             ref={fileInputRef}
             className="hidden"
-            accept="image/*,.pdf"
+            accept="image/*,.pdf,.docx,.doc"
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
@@ -1275,14 +1352,35 @@ export function TiptapEditor({
                     .chain()
                     .focus("end")
                     .insertContent({
-                      type: "pdfCard",
+                      type: "fileCard",
                       attrs: {
                         href: blobUrl,
                         fileName: file.name,
+                        fileType: "pdf",
                       },
                     })
                     .run();
                   toast.success("PDF added (preview)");
+                } else if (
+                  file.type ===
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+                  file.type === "application/msword" ||
+                  file.name.toLowerCase().endsWith(".docx") ||
+                  file.name.toLowerCase().endsWith(".doc")
+                ) {
+                  editor
+                    .chain()
+                    .focus("end")
+                    .insertContent({
+                      type: "fileCard",
+                      attrs: {
+                        href: blobUrl,
+                        fileName: file.name,
+                        fileType: "docx",
+                      },
+                    })
+                    .run();
+                  toast.success("Word doc added (preview)");
                 }
               } catch (error) {
                 console.error("Failed to process file:", error);

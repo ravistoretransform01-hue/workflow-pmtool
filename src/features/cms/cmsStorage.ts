@@ -1,6 +1,15 @@
 import { debugLog } from "@/lib/debugLog";
 import { cmsApi } from "./cmsApi";
-import type { CMSRequest, CMSData, Status, Priority, Member, Label, Tag, Role } from "./types";
+import type {
+  CMSRequest,
+  CMSData,
+  Status,
+  Priority,
+  Member,
+  Label,
+  Tag,
+  Role,
+} from "./types";
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
@@ -18,15 +27,17 @@ function getStorageKey(boardId: number): string {
  */
 export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
   try {
-    // Try to get from localStorage first
+    // Try to get from localStorage first (unless forced refresh)
     const cachedData = getFromLocalStorage(payload.board_id);
 
-    if (cachedData) {
-      debugLog(`Using cached CMS data from localStorage for board ${payload.board_id}`);
+    if (cachedData && !payload.forceRefresh) {
+      debugLog(
+        `Using cached CMS data from localStorage for board ${payload.board_id}`,
+      );
       return cachedData;
     }
 
-    // If not in cache, fetch from API
+    // If not in cache or forced refresh, fetch from API
     debugLog(`Fetching CMS data from API for board ${payload.board_id}`);
     const apiResponse = await cmsApi.getCMSData(payload);
 
@@ -42,15 +53,18 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
     };
 
     saveToLocalStorage(payload.board_id, cmsData);
-    
+
     // Also store user_columns and default_columns separately
     if (apiResponse.user_columns) {
       saveUserColumnsToLocalStorage(payload.board_id, apiResponse.user_columns);
     }
     if (apiResponse.default_columns) {
-      saveDefaultColumnsToLocalStorage(payload.board_id, apiResponse.default_columns);
+      saveDefaultColumnsToLocalStorage(
+        payload.board_id,
+        apiResponse.default_columns,
+      );
     }
-    
+
     return cmsData;
   } catch (error) {
     console.error("Error fetching CMS data:", error);
@@ -58,7 +72,9 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
     // Fallback to cached data even if expired
     const cachedData = getFromLocalStorage(payload.board_id, true);
     if (cachedData) {
-      debugLog(`Using expired cached CMS data as fallback for board ${payload.board_id}`);
+      debugLog(
+        `Using expired cached CMS data as fallback for board ${payload.board_id}`,
+      );
       return cachedData;
     }
 
@@ -135,7 +151,7 @@ export async function getTags(payload: CMSRequest): Promise<Tag[]> {
  */
 export async function getRoleById(
   payload: CMSRequest,
-  roleId: string
+  roleId: string,
 ): Promise<Role | undefined> {
   const roles = await getRoles(payload);
   return roles.find((r) => r.id === roleId);
@@ -149,7 +165,7 @@ export async function getRoleById(
  */
 export async function getStatusById(
   payload: CMSRequest,
-  statusId: string
+  statusId: string,
 ): Promise<Status | undefined> {
   const statuses = await getStatuses(payload);
   return statuses.find((s) => s.id === statusId);
@@ -163,7 +179,7 @@ export async function getStatusById(
  */
 export async function getPriorityById(
   payload: CMSRequest,
-  priorityId: string
+  priorityId: string,
 ): Promise<Priority | undefined> {
   const priorities = await getPriorities(payload);
   return priorities.find((p) => p.id === priorityId);
@@ -177,7 +193,7 @@ export async function getPriorityById(
  */
 export async function getMemberById(
   payload: CMSRequest,
-  memberId: string
+  memberId: string,
 ): Promise<Member | undefined> {
   const members = await getMembers(payload);
   return members.find((m) => m.user_id === memberId);
@@ -191,7 +207,7 @@ export async function getMemberById(
  */
 export async function getLabelById(
   payload: CMSRequest,
-  labelId: string
+  labelId: string,
 ): Promise<Label | undefined> {
   const labels = await getLabels(payload);
   return labels.find((l) => l.id === labelId);
@@ -205,7 +221,7 @@ export async function getLabelById(
  */
 export async function getTagById(
   payload: CMSRequest,
-  tagId: string
+  tagId: string,
 ): Promise<Tag | undefined> {
   const tags = await getTags(payload);
   return tags.find((t) => t.id === tagId);
@@ -241,7 +257,10 @@ export function clearCMSCache(boardId?: number): void {
  * @param ignoreExpiry - If true, return data even if expired
  * @returns CMSData or null if not found or expired
  */
-function getFromLocalStorage(boardId: number, ignoreExpiry = false): CMSData | null {
+function getFromLocalStorage(
+  boardId: number,
+  ignoreExpiry = false,
+): CMSData | null {
   try {
     const storageKey = getStorageKey(boardId);
     const stored = localStorage.getItem(storageKey);
@@ -256,7 +275,9 @@ function getFromLocalStorage(boardId: number, ignoreExpiry = false): CMSData | n
     if (!ignoreExpiry) {
       const isExpired = Date.now() - cmsData.timestamp > CACHE_DURATION;
       if (isExpired) {
-        debugLog(`CMS cache expired for board ${boardId}, will fetch fresh data`);
+        debugLog(
+          `CMS cache expired for board ${boardId}, will fetch fresh data`,
+        );
         return null;
       }
     }
@@ -291,7 +312,7 @@ function saveToLocalStorage(boardId: number, cmsData: CMSData): void {
 export function addStatusToCache(boardId: number, newStatus: Status): void {
   try {
     let cachedData = getFromLocalStorage(boardId, true);
-    
+
     if (cachedData) {
       // Cache exists, add to it
       cachedData.statuses.push(newStatus);
@@ -322,7 +343,10 @@ export function addStatusToCache(boardId: number, newStatus: Status): void {
  * @param boardId - Board ID to update cache for
  * @param newPriority - New priority to add
  */
-export function addPriorityToCache(boardId: number, newPriority: Priority): void {
+export function addPriorityToCache(
+  boardId: number,
+  newPriority: Priority,
+): void {
   try {
     let cachedData = getFromLocalStorage(boardId, true);
     if (cachedData) {
@@ -388,12 +412,17 @@ export function addTagToCache(boardId: number, newTag: Tag): void {
  * @param boardId - Board ID to update cache for
  * @param updatedStatus - Updated status object
  */
-export function updateStatusInCache(boardId: number, updatedStatus: Status): void {
+export function updateStatusInCache(
+  boardId: number,
+  updatedStatus: Status,
+): void {
   try {
     let cachedData = getFromLocalStorage(boardId, true);
     if (cachedData) {
       // Find and update the status
-      const statusIndex = cachedData.statuses.findIndex((s) => s.id === updatedStatus.id);
+      const statusIndex = cachedData.statuses.findIndex(
+        (s) => s.id === updatedStatus.id,
+      );
       if (statusIndex !== -1) {
         cachedData.statuses[statusIndex] = updatedStatus;
         cachedData.timestamp = Date.now(); // Update timestamp
@@ -416,7 +445,9 @@ export function deleteStatusFromCache(boardId: number, statusId: string): void {
     let cachedData = getFromLocalStorage(boardId, true);
     if (cachedData) {
       // Filter out the deleted status
-      cachedData.statuses = cachedData.statuses.filter((s) => String(s.id) !== statusId);
+      cachedData.statuses = cachedData.statuses.filter(
+        (s) => String(s.id) !== statusId,
+      );
       cachedData.timestamp = Date.now(); // Update timestamp
       saveToLocalStorage(boardId, cachedData);
       debugLog(`Deleted status ${statusId} from cache for board ${boardId}`);
@@ -431,12 +462,17 @@ export function deleteStatusFromCache(boardId: number, statusId: string): void {
  * @param boardId - Board ID to update cache for
  * @param updatedPriority - Updated priority object
  */
-export function updatePriorityInCache(boardId: number, updatedPriority: Priority): void {
+export function updatePriorityInCache(
+  boardId: number,
+  updatedPriority: Priority,
+): void {
   try {
     let cachedData = getFromLocalStorage(boardId, true);
     if (cachedData) {
       // Find and update the priority
-      const priorityIndex = cachedData.priorities.findIndex((p) => p.id === updatedPriority.id);
+      const priorityIndex = cachedData.priorities.findIndex(
+        (p) => p.id === updatedPriority.id,
+      );
       if (priorityIndex !== -1) {
         cachedData.priorities[priorityIndex] = updatedPriority;
         cachedData.timestamp = Date.now(); // Update timestamp
@@ -454,21 +490,27 @@ export function updatePriorityInCache(boardId: number, updatedPriority: Priority
  * @param boardId - Board ID to update cache for
  * @param priorityId - ID of the priority to delete
  */
-export function deletePriorityFromCache(boardId: number, priorityId: string): void {
+export function deletePriorityFromCache(
+  boardId: number,
+  priorityId: string,
+): void {
   try {
     let cachedData = getFromLocalStorage(boardId, true);
     if (cachedData) {
       // Filter out the deleted priority
-      cachedData.priorities = cachedData.priorities.filter((p) => String(p.id) !== priorityId);
+      cachedData.priorities = cachedData.priorities.filter(
+        (p) => String(p.id) !== priorityId,
+      );
       cachedData.timestamp = Date.now(); // Update timestamp
       saveToLocalStorage(boardId, cachedData);
-      debugLog(`Deleted priority ${priorityId} from cache for board ${boardId}`);
+      debugLog(
+        `Deleted priority ${priorityId} from cache for board ${boardId}`,
+      );
     }
   } catch (error) {
     console.error("Error deleting priority from cache:", error);
   }
 }
-
 
 /**
  * Get user columns configuration from localStorage
@@ -513,7 +555,10 @@ export function getDefaultColumnsFromCache(boardId: number): any {
  * @param boardId - Board ID to save columns for
  * @param userColumns - User columns configuration
  */
-function saveUserColumnsToLocalStorage(boardId: number, userColumns: any): void {
+function saveUserColumnsToLocalStorage(
+  boardId: number,
+  userColumns: any,
+): void {
   try {
     const storageKey = `user_columns_board_${boardId}`;
     localStorage.setItem(storageKey, JSON.stringify(userColumns));
@@ -528,7 +573,10 @@ function saveUserColumnsToLocalStorage(boardId: number, userColumns: any): void 
  * @param boardId - Board ID to save columns for
  * @param defaultColumns - Default columns configuration
  */
-function saveDefaultColumnsToLocalStorage(boardId: number, defaultColumns: any): void {
+function saveDefaultColumnsToLocalStorage(
+  boardId: number,
+  defaultColumns: any,
+): void {
   try {
     const storageKey = `default_columns_board_${boardId}`;
     localStorage.setItem(storageKey, JSON.stringify(defaultColumns));

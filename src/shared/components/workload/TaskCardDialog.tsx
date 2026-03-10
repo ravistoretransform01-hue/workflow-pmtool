@@ -834,7 +834,60 @@ export function TaskCardDialog({
                       {activityData.map((activity) => (
                         <div
                           key={activity.id}
-                          className="flex gap-4 group relative"
+                          className="flex gap-4 group relative cursor-default"
+                          onClick={(e: React.MouseEvent) => {
+                            const target = e.target as HTMLElement;
+                            if (target.tagName === "IMG") {
+                              handleFilePreview(
+                                (target as HTMLImageElement).src,
+                              );
+                              return;
+                            }
+
+                            // Handle File/PDF Card Preview button
+                            const previewBtn =
+                              target.closest(".file-card-preview-btn") ||
+                              target.closest(".pdf-card-preview-btn");
+                            if (previewBtn) {
+                              const wrapper =
+                                target.closest("[data-type='file-card']") ||
+                                target.closest("[data-type='pdf-card']");
+                              if (wrapper) {
+                                const href = wrapper.getAttribute("data-href");
+                                const fileName =
+                                  wrapper.getAttribute("data-filename");
+                                if (href) {
+                                  handleFilePreview(
+                                    href,
+                                    fileName || "Document",
+                                  );
+                                  return;
+                                }
+                              }
+                            }
+
+                            const anchor = target.closest("a");
+                            if (
+                              anchor &&
+                              !anchor.classList.contains(
+                                "file-card-open-btn",
+                              ) &&
+                              !anchor.classList.contains("pdf-card-open-btn") &&
+                              (anchor.href.toLowerCase().endsWith(".pdf") ||
+                                anchor.href.toLowerCase().endsWith(".docx") ||
+                                anchor.href.toLowerCase().endsWith(".doc") ||
+                                anchor.classList.contains("pdf-link") ||
+                                (anchor.textContent &&
+                                  (anchor.textContent.includes("📄") ||
+                                    anchor.textContent.includes("📝"))))
+                            ) {
+                              e.preventDefault();
+                              handleFilePreview(
+                                anchor.href,
+                                anchor.textContent || "Document",
+                              );
+                            }
+                          }}
                         >
                           <Avatar className="h-8 w-8 shrink-0 border border-border/50 shadow-sm">
                             <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
@@ -866,7 +919,7 @@ export function TaskCardDialog({
                                 <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-destructive/30">
                                   <span className="font-medium">Previous:</span>
                                   <div
-                                    className="mt-1 break-words [&_.pdf-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.pdf-card-content]:bg-card [&_.pdf-card-content]:border-border [&_.pdf-card-content]:shadow-sm [&_.pdf-card-preview-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
+                                    className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                     dangerouslySetInnerHTML={renderFormattedContent(
                                       activity.old_value,
                                     )}
@@ -879,7 +932,7 @@ export function TaskCardDialog({
                                 <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30">
                                   <span className="font-medium">New:</span>
                                   <div
-                                    className="mt-1 break-words [&_.pdf-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.pdf-card-content]:bg-card [&_.pdf-card-content]:border-border [&_.pdf-card-content]:shadow-sm [&_.pdf-card-preview-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
+                                    className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                     dangerouslySetInnerHTML={renderFormattedContent(
                                       activity.new_value,
                                     )}
