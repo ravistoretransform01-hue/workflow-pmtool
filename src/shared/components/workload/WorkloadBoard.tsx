@@ -4342,6 +4342,24 @@ export function WorkloadBoard({
             <div
               className="flex-1 overflow-y-auto overflow-x-hidden px-6"
               ref={groupsContainerRef}
+              onWheel={(e) => {
+                // If Shift + mouse wheel is used in the empty space of the board,
+                // proxy the scroll to the tables so they all scroll horizontally together.
+                if (e.shiftKey) {
+                  // Find the first available table ref to use as the master for this scroll
+                  const firstRef = Object.values(tableScrollRefs.current).find(
+                    (ref) => ref !== null,
+                  );
+                  if (firstRef) {
+                    // Prevent vertical scrolling of the board itself
+                    // Use a small multiplier for deltaY (standard shift-scroll behavior)
+                    firstRef.scrollLeft += e.deltaY || e.deltaX;
+                    // We don't e.preventDefault() here because we still want vertical
+                    // scrolling to work if the deltaY is 0 (though shift-scroll usually maps to deltaY)
+                    // Actually, standard browsers prevent vertical scroll on shift+wheel.
+                  }
+                }
+              }}
             >
               <DndContext
                 sensors={groupSensors}
