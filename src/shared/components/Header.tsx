@@ -1,9 +1,16 @@
 import { useState } from "react";
 import { SidebarTrigger } from "@/shared/components/ui/sidebar";
-import { Settings, User, Users, LogOut, FileText } from "lucide-react";
+import {
+  Settings,
+  User,
+  Users,
+  LogOut,
+  FileText,
+  UserPlus,
+} from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { UserManagementDialog } from "@/shared/components/UserManagementDialog";
 import { InviteDialog } from "@/shared/components/InviteDialog";
@@ -13,6 +20,7 @@ import { TrashButton } from "@/shared/components/TrashButton";
 import { SavingSpinner } from "@/shared/components/SavingSpinner";
 import { TemplatePickerDialog } from "@/shared/components/TemplatePickerDialog";
 import { GlobalTimer } from "@/shared/components/GlobalTimer";
+import { BoardInviteDialog } from "@/shared/components/BoardInviteDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,10 +31,12 @@ import {
 export function Header() {
   const { logout, loading } = useAuth();
   const navigate = useNavigate();
+  const { boardId } = useParams<{ boardId: string }>();
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [boardInviteOpen, setBoardInviteOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -73,6 +83,12 @@ export function Header() {
               <Users className="mr-2 h-4 w-4" />
               <span>Members</span>
             </DropdownMenuItem>
+            {boardId && (
+              <DropdownMenuItem onClick={() => setBoardInviteOpen(true)}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                <span>Invite</span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               className="hidden"
               onClick={() => setTemplateDialogOpen(true)}
@@ -105,6 +121,13 @@ export function Header() {
         onOpenChange={setTemplateDialogOpen}
         onSelectTemplate={() => setTemplateDialogOpen(false)}
       />
+      {boardId && (
+        <BoardInviteDialog
+          open={boardInviteOpen}
+          onOpenChange={setBoardInviteOpen}
+          boardId={boardId}
+        />
+      )}
     </header>
   );
 }

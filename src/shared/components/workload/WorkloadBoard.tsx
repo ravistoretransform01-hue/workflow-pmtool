@@ -4352,11 +4352,11 @@ export function WorkloadBoard({
                   );
                   if (firstRef) {
                     // Prevent vertical scrolling of the board itself
-                    // Use a small multiplier for deltaY (standard shift-scroll behavior)
-                    firstRef.scrollLeft += e.deltaY || e.deltaX;
-                    // We don't e.preventDefault() here because we still want vertical
-                    // scrolling to work if the deltaY is 0 (though shift-scroll usually maps to deltaY)
-                    // Actually, standard browsers prevent vertical scroll on shift+wheel.
+                    e.preventDefault();
+
+                    // Use standard shift-scroll behavior
+                    const delta = e.deltaY || e.deltaX;
+                    firstRef.scrollLeft += delta;
                   }
                 }
               }}
