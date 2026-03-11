@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { parseApiDateTime } from "@/lib/utils";
 import { TaskUpdates } from "./TaskUpdates/TaskUpdates";
 
 import { renderFormattedContent } from "./TaskUpdates/utils";
@@ -362,7 +363,8 @@ export function CommentsPanelSheet({
                             <span className="text-xs text-muted-foreground">
                               {activity.created_at
                                 ? format(
-                                    new Date(activity.created_at),
+                                    parseApiDateTime(activity.created_at) ||
+                                      new Date(activity.created_at),
                                     "MMM d, h:mm a",
                                   )
                                 : ""}

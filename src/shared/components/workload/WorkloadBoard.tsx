@@ -2431,9 +2431,6 @@ export function WorkloadBoard({
         }),
       })),
     );
-
-    // Close popover after update
-    popoverState.closePopover();
   };
 
   const handleStatusChange = async (taskId: string, statusId: string) => {

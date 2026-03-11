@@ -158,9 +158,7 @@ export const getWorkloadColumns = ({
                     }}
                     className="font-medium text-foreground cursor-pointer truncate flex-1 text-left min-w-0 group/subtask"
                   >
-                    <TruncatedTaskName
-                      name={task.name}
-                    />
+                    <TruncatedTaskName name={task.name} />
                   </button>
                 )}
               </div>
@@ -322,28 +320,28 @@ export const getWorkloadColumns = ({
       width: "250px",
       align: "left",
       render: (task: Task) => {
+        const hasDescription =
+          task.description &&
+          task.description.replace(/<[^>]*>/g, "").trim().length > 0;
+
         return (
           <div
             onClick={(e) => {
               e.stopPropagation();
               onOpenTaskCard?.(task, true);
             }}
-            className="cursor-pointer min-h-[40px] w-full hover:bg-muted/30 rounded p-1 transition-colors group relative"
+            className="cursor-pointer min-h-[40px] flex items-center w-full hover:bg-muted/30 rounded px-2 transition-colors group relative"
             title="Click to view/edit description"
           >
-            {task.description ? (
-              <div
-                className="text-sm text-foreground/80 line-clamp-2 prose prose-sm prose-invert max-w-none [&_p]:m-0"
-                dangerouslySetInnerHTML={{ __html: task.description }}
-              />
+            {hasDescription ? (
+              <span className="text-sm text-primary font-medium hover:underline">
+                Show description
+              </span>
             ) : (
               <span className="text-sm text-muted-foreground italic">
                 No description
               </span>
             )}
-            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Pencil className="h-3 w-3 text-muted-foreground" />
-            </div>
           </div>
         );
       },

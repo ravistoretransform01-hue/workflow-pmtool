@@ -439,12 +439,12 @@ export function TaskCardDialog({
         {/* Header */}
         <DialogTitle className="flex items-center justify-between px-6 py-3 border-b border-border">
           <div className="flex-1 min-w-0 mr-4">
-            <div className="flex items-center gap-2 group/title">
+            <div className="flex items-center gap-2 group/title min-w-0">
               <TruncatedTaskName
                 name={displayTask?.name || ""}
                 className="text-lg font-semibold text-foreground"
               />
-              <Button
+              {/* <Button
                 variant="secondary"
                 size="icon"
                 className="h-7 w-7"
@@ -452,7 +452,7 @@ export function TaskCardDialog({
                 title="Copy task link"
               >
                 <Link2 className="h-4 w-4 text-muted-foreground" />
-              </Button>
+              </Button> */}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
               in <ChevronRight className="h-3 w-3" />{" "}
@@ -500,14 +500,14 @@ export function TaskCardDialog({
             </div>
 
             {/* Name */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
                 <LayoutGrid className="h-4 w-4" />
                 <span>Name</span>
               </div>
               <div
                 className={cn(
-                  "flex-1 rounded min-h-[36px] flex items-center transition-colors",
+                  "flex-1 rounded min-h-[36px] flex items-center transition-colors min-w-0 overflow-hidden",
                   isEditingName
                     ? "bg-background"
                     : "bg-gray-500/10 cursor-pointer hover:bg-black/30",
@@ -538,9 +538,12 @@ export function TaskCardDialog({
                     />
                   </div>
                 ) : (
-                  <span className="text-sm text-foreground/90 truncate font-medium px-2.5">
-                    {displayTask?.name}
-                  </span>
+                  <div className="flex-1 min-w-0 px-2.5">
+                    <TruncatedTaskName
+                      name={displayTask?.name || ""}
+                      className="text-sm text-foreground/90 font-medium"
+                    />
+                  </div>
                 )}
               </div>
             </div>

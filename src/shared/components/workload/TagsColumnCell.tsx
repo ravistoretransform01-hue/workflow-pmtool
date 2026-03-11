@@ -119,43 +119,53 @@ export function TagsColumnCell({
         if (tagToRemove?.task_tag_id) {
           await tasksApi.removeTaskTag(tagToRemove.task_tag_id);
         } else {
-          // Fallback if task_tag_id is missing for some reason
-          await tasksApi.updateTaskTags({
-            id: task.id,
-            tag_id: Number(cmsTag.id),
-          });
+          // If we don't have task_tag_id (e.g. just added), we can't remove yet
+          // unless we want to find it from the task object again
+          toast.error("Please wait a moment before removing this tag");
+          // Revert local state
+          const reverted = new Set(selectedTagIds);
+          setSelectedTagIds(reverted);
+          return;
         }
       } else {
         // Handle Addition
-        await tasksApi.updateTaskTags({
+        const response = await tasksApi.updateTaskTags({
           id: task.id,
           tag_id: Number(cmsTag.id),
         });
+
+        // Find the newly added tag in the response to get its real task_tag_id
+        const addedTag = response.tags?.find(
+          (t: any) => String(t.tag_id) === tagIdStr,
+        );
+
+        if (addedTag) {
+          // Construct the actual tag object for the onTagChange callback
+          const newTags = [
+            ...(task.tags || []),
+            {
+              task_tag_id: addedTag.task_tag_id,
+              tag_id: addedTag.tag_id,
+              tag_name: addedTag.tag_name,
+              tag_slug: addedTag.tag_slug,
+              tag_is_active: addedTag.tag_is_active,
+              tagged_by: addedTag.tagged_by,
+              tagged_by_name: addedTag.tagged_by_name,
+              tagged_at: addedTag.tagged_at,
+            },
+          ];
+          onTagChange?.(task.id, newTags);
+          toast.success("Tag Added");
+          return; // Exit early as we've handled the state update
+        }
       }
 
-      // Update local state with new tags (this logic remains same as it reconstructs the tags array)
+      // Reconstruct the tags array for removal (logic remains similar)
       const updatedTags = Array.from(newSelected)
         .map((tagId) => {
-          const existingTag = task.tags?.find(
+          return task.tags?.find(
             (t: any) => String(t.tag_id) === String(tagId),
           );
-          if (existingTag) return existingTag;
-
-          const cmsTagData = availableTags.find(
-            (t: any) => String(t.id) === String(tagId),
-          );
-          if (!cmsTagData) return null;
-
-          return {
-            task_tag_id: Date.now() + Math.random(),
-            tag_id: cmsTagData.id,
-            tag_name: cmsTagData.name,
-            tag_slug: cmsTagData.slug,
-            tag_is_active: cmsTagData.is_active,
-            tagged_by: 2,
-            tagged_by_name: "Current User",
-            tagged_at: new Date().toISOString(),
-          };
         })
         .filter(Boolean);
 
@@ -246,9 +256,12 @@ export function TagsColumnCell({
                 return (
                   <button
                     key={cmsTag.id}
-                    onClick={() => handleTagToggle(cmsTag)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTagToggle(cmsTag);
+                    }}
                     disabled={isSaving}
-                    className={`w-full px-3 py-2 rounded-none text-sm font-medium transition-all cursor-pointer text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`w-full px-3 py-2 rounded-none text-sm font-medium transition-all cursor-pointer text-left disabled:opacity-50 ${
                       isSelected
                         ? "bg-primary text-primary-foreground shadow-md"
                         : "bg-secondary/50 text-foreground hover:bg-secondary"

@@ -48,7 +48,7 @@ export const TruncatedTaskName = ({
   const nameContent = (
     <span
       ref={textRef}
-      className={cn("truncate flex-1 text-left")}
+      className={cn("truncate flex-1 text-left min-w-0")}
     >
       {name}
     </span>
