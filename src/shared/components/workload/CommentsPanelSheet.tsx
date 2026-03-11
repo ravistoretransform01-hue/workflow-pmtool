@@ -211,7 +211,7 @@ export function CommentsPanelSheet({
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
                 >
                   <Home className="h-4 w-4 mr-2" />
-                  Dev Updates
+                  Update
                 </TabsTrigger>
 
                 <TabsTrigger

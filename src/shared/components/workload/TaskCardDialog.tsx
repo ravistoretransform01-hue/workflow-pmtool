@@ -733,7 +733,7 @@ export function TaskCardDialog({
                   className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
                 >
                   <Mail className="h-4 w-4" />
-                  Dev Updates
+                  Update
                 </TabsTrigger>
                 {/* <TabsTrigger
                   value="client-updates"
