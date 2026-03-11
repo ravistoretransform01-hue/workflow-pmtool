@@ -42,6 +42,7 @@ import { getCurrentUserId, getOrganizationId, cn } from "@/lib/utils";
 import { TaskUpdates } from "./TaskUpdates/TaskUpdates";
 import { renderFormattedContent } from "./TaskUpdates/utils";
 import { FilePreviewModal } from "./texteditor/FilePreviewModal";
+import { TruncatedTaskName } from "./TruncatedTaskName";
 
 interface TaskCardDialogProps {
   open: boolean;
@@ -439,9 +440,10 @@ export function TaskCardDialog({
         <DialogTitle className="flex items-center justify-between px-6 py-3 border-b border-border">
           <div className="flex-1 min-w-0 mr-4">
             <div className="flex items-center gap-2 group/title">
-              <h2 className="text-lg font-semibold text-foreground truncate">
-                {displayTask?.name}
-              </h2>
+              <TruncatedTaskName
+                name={displayTask?.name || ""}
+                className="text-lg font-semibold text-foreground"
+              />
               <Button
                 variant="secondary"
                 size="icon"
