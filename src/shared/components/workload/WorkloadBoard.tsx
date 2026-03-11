@@ -215,10 +215,18 @@ const PRESET_COLORS = [
 ];
 
 // Helper function to format seconds to time string (e.g., "2h 30m")
-const formatSecondsToTime = (seconds: number): string => {
-  if (seconds <= 0) return "0m";
+const formatSecondsToTime = (
+  seconds: number,
+  includeSeconds: boolean = false,
+): string => {
+  if (seconds <= 0) return includeSeconds ? "0h 0m 0s" : "0m";
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+
+  if (includeSeconds) {
+    return `${hours}h ${minutes}m ${remainingSeconds}s`;
+  }
 
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
@@ -4721,11 +4729,13 @@ export function WorkloadBoard({
                                       <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
                                         {formatSecondsToTime(
                                           progress.timeSpentSeconds,
+                                          true,
                                         )}{" "}
                                         /{" "}
                                         {progress.estimatedTimeSeconds > 0
                                           ? formatSecondsToTime(
                                               progress.estimatedTimeSeconds,
+                                              true,
                                             )
                                           : "—"}
                                       </span>
