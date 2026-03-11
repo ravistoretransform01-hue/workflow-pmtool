@@ -1902,6 +1902,7 @@ export function WorkloadBoard({
     statusId: string,
     groupId: string,
     parentId?: string,
+    priorityId?: string,
   ) => {
     try {
       const boardIdNum = parseInt(boardId, 10);
@@ -1920,8 +1921,9 @@ export function WorkloadBoard({
         board_id: boardIdNum,
         parent_id: parentId ? parseInt(parentId, 10) : null,
         status_id: parseInt(statusId, 10),
-        task_priority_id:
-          priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
+        task_priority_id: priorityId 
+          ? parseInt(priorityId, 10) 
+          : (priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined),
       };
 
       const newTaskResponse = await tasksApi.createTask(payload);
@@ -2538,6 +2540,18 @@ export function WorkloadBoard({
       toast.error(
         error?.response.data.message || "Failed to Update Description",
       );
+    }
+  };
+
+  const handleKanbanTaskMove = async (
+    taskId: string,
+    newId: string,
+    type: "status" | "priority",
+  ) => {
+    if (type === "status") {
+      await handleStatusChange(taskId, newId);
+    } else {
+      await handlePriorityChange(taskId, newId);
     }
   };
 
@@ -5296,10 +5310,11 @@ export function WorkloadBoard({
             priorities={priorities}
             members={members}
             boardId={boardId}
-            onTaskMove={handleStatusChange}
+            onTaskMove={handleKanbanTaskMove}
             onTaskClick={openTaskCard}
             onAddTask={handleKanbanAddTask}
             onStatusesUpdated={handleStatusesUpdated}
+            onPrioritiesUpdated={handlePrioritiesUpdated}
           />
         )}
 

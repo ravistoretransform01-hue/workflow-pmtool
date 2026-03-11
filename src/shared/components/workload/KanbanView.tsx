@@ -24,10 +24,15 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/shared/components/ui/popover";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Settings } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/shared/components/ui/button";
 import { getOrganizationId } from "@/lib/utils";
 import { cmsApi } from "@/features/cms/cmsApi";
+import {
+  updateStatusesOrderInCache,
+  updatePrioritiesOrderInCache,
+} from "@/features/cms/cmsStorage";
 
 interface KanbanViewProps {
   groups: Array<{ id: string; name: string; color: string; tasks: Task[] }>;
@@ -35,15 +40,21 @@ interface KanbanViewProps {
   priorities: Priority[];
   members: any[];
   boardId?: string; // used for persisting visible statuses
-  onTaskMove: (taskId: string, newStatusId: string) => Promise<void>;
+  onTaskMove: (
+    taskId: string,
+    newId: string,
+    type: "status" | "priority",
+  ) => Promise<void>;
   onTaskClick: (task: Task) => void;
   onAddTask: (
     name: string,
     statusId: string,
     groupId: string,
     parentId?: string,
+    priorityId?: string,
   ) => Promise<void>;
   onStatusesUpdated?: (statuses: Status[]) => void;
+  onPrioritiesUpdated?: (priorities: Priority[]) => void;
 }
 
 export function KanbanView({
@@ -56,7 +67,17 @@ export function KanbanView({
   onTaskClick,
   onAddTask,
   onStatusesUpdated,
+  onPrioritiesUpdated,
 }: KanbanViewProps) {
+  const [groupBy, setGroupBy] = useState<"status" | "priority">(() => {
+    try {
+      const saved = localStorage.getItem(`kanban-group-by-${boardId}`);
+      return (saved as "status" | "priority") || "status";
+    } catch {
+      return "status";
+    }
+  });
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -76,18 +97,86 @@ export function KanbanView({
   // Local reordering: statusId -> taskId[]
   const [taskOrders, setTaskOrders] = useState<Record<string, string[]>>({});
 
-  // Initialize taskOrders from localStorage
-  useEffect(() => {
-    if (!boardId) return;
+  // Column ordering for both modes
+  const [orderedStatusIds, setOrderedStatusIds] = useState<string[]>(() => {
     try {
-      const raw = localStorage.getItem(`kanban-task-order-${boardId}`);
+      if (!boardId) return statuses.map((s) => String(s.id));
+      const raw = localStorage.getItem(`kanban-column-order-${boardId}`);
       if (raw) {
-        setTaskOrders(JSON.parse(raw));
+        const savedOrder = JSON.parse(raw) as string[];
+        const currentIds = new Set(statuses.map((s) => String(s.id)));
+        const filtered = savedOrder.filter((id) => currentIds.has(id));
+        const missing = statuses
+          .map((s) => String(s.id))
+          .filter((id) => !new Set(filtered).has(id));
+        return [...filtered, ...missing];
       }
-    } catch (e) {
-      console.error("Failed to load task orders", e);
-    }
-  }, [boardId]);
+    } catch {}
+    return statuses.map((s) => String(s.id));
+  });
+
+  const [orderedPriorityIds, setOrderedPriorityIds] = useState<string[]>(() => {
+    try {
+      if (!boardId) return priorities.map((p) => String(p.id));
+      const raw = localStorage.getItem(`kanban-priority-order-${boardId}`);
+      if (raw) {
+        const savedOrder = JSON.parse(raw) as string[];
+        const currentIds = new Set(priorities.map((p) => String(p.id)));
+        const filtered = savedOrder.filter((id) => currentIds.has(id));
+        const missing = priorities
+          .map((p) => String(p.id))
+          .filter((id) => !new Set(filtered).has(id));
+        return [...filtered, ...missing];
+      }
+    } catch {}
+    return priorities.map((p) => String(p.id));
+  });
+
+  // Visible items for both modes
+  const [visibleStatuses, setVisibleStatuses] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(`kanban-visible-statuses-${boardId}`);
+      if (raw && boardId) {
+        return new Set(JSON.parse(raw));
+      }
+    } catch {}
+    return new Set(statuses.map((s) => String(s.id)));
+  });
+
+  const [visiblePriorities, setVisiblePriorities] = useState<Set<string>>(
+    () => {
+      try {
+        const raw = localStorage.getItem(
+          `kanban-visible-priorities-${boardId}`,
+        );
+        if (raw && boardId) {
+          return new Set(JSON.parse(raw));
+        }
+      } catch {}
+      return new Set(priorities.map((p) => String(p.id)));
+    },
+  );
+
+  // Sync logic for prop changes
+  useEffect(() => {
+    const newOrder = statuses.map((s) => String(s.id));
+    setOrderedStatusIds((prev) =>
+      JSON.stringify(newOrder) !== JSON.stringify(prev) ? newOrder : prev,
+    );
+  }, [statuses]);
+
+  useEffect(() => {
+    const newOrder = priorities.map((p) => String(p.id));
+    setOrderedPriorityIds((prev) =>
+      JSON.stringify(newOrder) !== JSON.stringify(prev) ? newOrder : prev,
+    );
+  }, [priorities]);
+
+  // Combined Active State
+  const activeOrderedIds =
+    groupBy === "status" ? orderedStatusIds : orderedPriorityIds;
+  const activeVisibleIds =
+    groupBy === "status" ? visibleStatuses : visiblePriorities;
 
   const persistTaskOrders = (orders: Record<string, string[]>) => {
     if (!boardId) return;
@@ -101,168 +190,103 @@ export function KanbanView({
     }
   };
 
-  // Visible statuses (persisted per board when boardId is provided)
-  const [visibleStatuses, setVisibleStatuses] = useState<Set<string>>(() => {
-    try {
-      if (!boardId) return new Set(statuses.map((s) => String(s.id)));
-      const raw = localStorage.getItem(`kanban-visible-statuses-${boardId}`);
-      return raw
-        ? new Set(JSON.parse(raw))
-        : new Set(statuses.map((s) => String(s.id)));
-    } catch {
-      return new Set(statuses.map((s) => String(s.id)));
-    }
-  });
-
-  // Column ordering
-  const [orderedStatusIds, setOrderedStatusIds] = useState<string[]>(() => {
-    try {
-      if (!boardId) return statuses.map((s) => String(s.id));
-      const raw = localStorage.getItem(`kanban-column-order-${boardId}`);
-      if (raw) {
-        const savedOrder = JSON.parse(raw) as string[];
-        // Ensure all current statuses are in the order, and remove deleted ones
-        const currentIds = new Set(statuses.map((s) => String(s.id)));
-        const filtered = savedOrder.filter((id) => currentIds.has(id));
-        const missing = statuses
-          .map((s) => String(s.id))
-          .filter((id) => !new Set(filtered).has(id));
-        return [...filtered, ...missing];
-      }
-    } catch {}
-    return statuses.map((s) => String(s.id));
-  });
-
-  // Sync orderedStatusIds when statuses prop changes
-  useEffect(() => {
-    const newOrder = statuses.map((s) => String(s.id));
-
-    // Only update if fundamentally different to avoid unnecessary re-renders
-    setOrderedStatusIds((prev) => {
-      if (JSON.stringify(newOrder) !== JSON.stringify(prev)) {
-        // Also update localStorage to stay in sync
-        if (boardId) {
-          try {
-            localStorage.setItem(
-              `kanban-column-order-${boardId}`,
-              JSON.stringify(newOrder),
-            );
-          } catch (e) {
-            console.error("Failed to sync column order to localStorage", e);
-          }
-        }
-        return newOrder;
-      }
-      return prev;
-    });
-  }, [statuses, boardId]);
-
-  const persistVisibleStatuses = (set: Set<string>) => {
+  const persistVisibleIds = (set: Set<string>) => {
     try {
       if (!boardId) return;
-      localStorage.setItem(
-        `kanban-visible-statuses-${boardId}`,
-        JSON.stringify(Array.from(set)),
-      );
+      const key =
+        groupBy === "status"
+          ? `kanban-visible-statuses-${boardId}`
+          : `kanban-visible-priorities-${boardId}`;
+      localStorage.setItem(key, JSON.stringify(Array.from(set)));
     } catch {}
   };
 
   const persistColumnOrder = (order: string[]) => {
     try {
       if (!boardId) return;
-      localStorage.setItem(
-        `kanban-column-order-${boardId}`,
-        JSON.stringify(order),
-      );
+      const key =
+        groupBy === "status"
+          ? `kanban-column-order-${boardId}`
+          : `kanban-priority-order-${boardId}`;
+      localStorage.setItem(key, JSON.stringify(order));
     } catch {}
   };
 
-  // Sync visibleStatuses when statuses prop changes
-  useEffect(() => {
-    setVisibleStatuses((prev) => {
-      let needsUpdate = false;
-
-      const next = new Set(prev);
-
-      // Add any missing statuses that are new
-      statuses.forEach((s) => {
-        const idStr = String(s.id);
-        // If it's a completely new status that wasn't in the list before, make it visible by default
-        // (If the user explicitly hid it, it would be in the prev set but currently we just add it if missing from tracking and if it's new)
-        // Wait, if we want to ensure it's visible if newly added:
-        if (!next.has(idStr)) {
-          // To be safe, we only add it if it's completely missing from localStorage.
-          // Since we initialize from localStorage, if it's missing, it's a new status.
-          next.add(idStr);
-          needsUpdate = true;
-        }
-      });
-
-      if (needsUpdate) {
-        // Also persist the new ones
-        try {
-          if (boardId) {
-            localStorage.setItem(
-              `kanban-visible-statuses-${boardId}`,
-              JSON.stringify(Array.from(next)),
-            );
-          }
-        } catch {}
-        return next;
-      }
-      return prev;
-    });
-  }, [statuses, boardId]);
-
-  const toggleStatus = (id: string) => {
-    setVisibleStatuses((prev) => {
+  const toggleVisibility = (id: string) => {
+    const setter =
+      groupBy === "status" ? setVisibleStatuses : setVisiblePriorities;
+    setter((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      persistVisibleStatuses(next);
+      persistVisibleIds(next);
       return next;
     });
   };
 
-  const setAllStatuses = (visible: boolean) => {
+  const setAllVisibility = (visible: boolean) => {
     const next = new Set<string>();
     if (visible) {
-      statuses.forEach((s) => next.add(String(s.id)));
+      const items = groupBy === "status" ? statuses : priorities;
+      items.forEach((item) => next.add(String(item.id)));
     }
-    setVisibleStatuses(next);
-    persistVisibleStatuses(next);
+    const setter =
+      groupBy === "status" ? setVisibleStatuses : setVisiblePriorities;
+    setter(next);
+    persistVisibleIds(next);
   };
 
-  // Organize tasks by status (with optimistic updates applied)
-  const tasksByStatus = useMemo(() => {
+  // Optimize data structure for categories
+  const categoriesTable = useMemo(() => {
+    const items = groupBy === "status" ? statuses : priorities;
+    return items.map((item) => ({
+      ...item,
+      id: String(item.id),
+      name: item.name,
+      color: item.color_code,
+    }));
+  }, [groupBy, statuses, priorities]);
+
+  // Organize tasks by the active category (with optimistic updates applied)
+  const tasksByCategory = useMemo(() => {
     const organized: Record<string, Task[]> = {};
 
-    // Initialize all statuses
-    statuses.forEach((status) => {
-      organized[String(status.id)] = [];
+    // Initialize all categories
+    categoriesTable.forEach((cat) => {
+      organized[cat.id] = [];
     });
 
     // Distribute tasks from all groups
     groups.forEach((group) => {
       group.tasks.forEach((task) => {
         // Process main task
-        const effectiveStatusId = optimisticStatusChanges[task.id]
-          ? optimisticStatusChanges[task.id]
-          : String(task.status_id || "");
+        const rawValue =
+          groupBy === "status"
+            ? String(task.status_id || "")
+            : String(task.priority_id || "");
 
-        if (organized[effectiveStatusId]) {
-          organized[effectiveStatusId].push(task);
+        const effectiveId = optimisticStatusChanges[task.id]
+          ? optimisticStatusChanges[task.id]
+          : rawValue;
+
+        if (organized[effectiveId]) {
+          organized[effectiveId].push(task);
         }
 
         // Process subtasks
         if (task.subitems && task.subitems.length > 0) {
           task.subitems.forEach((subtask) => {
-            const subtaskEffectiveStatusId = optimisticStatusChanges[subtask.id]
-              ? optimisticStatusChanges[subtask.id]
-              : String(subtask.status_id || "");
+            const rawSubValue =
+              groupBy === "status"
+                ? String(subtask.status_id || "")
+                : String(subtask.priority_id || "");
 
-            if (organized[subtaskEffectiveStatusId]) {
-              organized[subtaskEffectiveStatusId].push(subtask);
+            const subtaskEffectiveId = optimisticStatusChanges[subtask.id]
+              ? optimisticStatusChanges[subtask.id]
+              : rawSubValue;
+
+            if (organized[subtaskEffectiveId]) {
+              organized[subtaskEffectiveId].push(subtask);
             }
           });
         }
@@ -270,13 +294,11 @@ export function KanbanView({
     });
 
     // Sort each list based on taskOrders
-    Object.keys(organized).forEach((statusId) => {
-      const order = taskOrders[statusId] ?? [];
-
+    Object.keys(organized).forEach((catId) => {
+      const order = taskOrders[catId] ?? [];
       if (order.length > 0) {
         const orderMap = new Map(order.map((id, i) => [id, i]));
-
-        organized[statusId].sort((a, b) => {
+        organized[catId].sort((a, b) => {
           const indexA = orderMap.get(String(a.id)) ?? Number.MAX_SAFE_INTEGER;
           const indexB = orderMap.get(String(b.id)) ?? Number.MAX_SAFE_INTEGER;
           return indexA - indexB;
@@ -285,7 +307,7 @@ export function KanbanView({
     });
 
     return organized;
-  }, [groups, statuses, optimisticStatusChanges, taskOrders]);
+  }, [groups, categoriesTable, groupBy, optimisticStatusChanges, taskOrders]);
 
   // Mixed collision detection that distinguishes between columns and cards
   const collisionDetectionStrategy: CollisionDetection = (args) => {
@@ -350,13 +372,17 @@ export function KanbanView({
     setActiveId(id);
     setActiveType(active.data.current?.type || "card");
 
-    // Seed task order for the active column if not already present
+    // Seed task order for the active category if not already present
     if (active.data.current?.type === "card") {
-      const statusId = String(active.data.current.task?.status_id || "");
-      if (statusId && !taskOrders[statusId]) {
+      const catId =
+        groupBy === "status"
+          ? String(active.data.current.task?.status_id || "")
+          : String(active.data.current.task?.priority_id || "");
+
+      if (catId && !taskOrders[catId]) {
         setTaskOrders((prev) => ({
           ...prev,
-          [statusId]: tasksByStatus[statusId]?.map((t) => String(t.id)) || [],
+          [catId]: tasksByCategory[catId]?.map((t) => String(t.id)) || [],
         }));
       }
     }
@@ -371,45 +397,44 @@ export function KanbanView({
 
     if (active.data.current?.type === "column") return;
 
-    // Find active task's current status
-    let activeStatusId: string | null = null;
-    outerLoop: for (const statusId in tasksByStatus) {
-      if (tasksByStatus[statusId].some((t) => String(t.id) === activeId)) {
-        activeStatusId = statusId;
+    // Find active task's current category
+    let activeCatId: string | null = null;
+    outerLoop: for (const catId in tasksByCategory) {
+      if (tasksByCategory[catId].some((t: Task) => String(t.id) === activeId)) {
+        activeCatId = catId;
         break outerLoop;
       }
     }
-    if (!activeStatusId) return;
+    if (!activeCatId) return;
 
-    // Find over status ID
-    let overStatusId: string | null = null;
+    // Find over category ID
+    let overCatId: string | null = null;
     const isOverColumn =
       overId.startsWith("status-") || overId.startsWith("column-");
 
     if (isOverColumn) {
-      overStatusId = String(over.data.current?.status?.id || "");
+      overCatId = overId.replace("status-", "").replace("column-", "");
     } else {
-      outerLoop2: for (const statusId in tasksByStatus) {
-        if (tasksByStatus[statusId].some((t) => String(t.id) === overId)) {
-          overStatusId = statusId;
+      outerLoop2: for (const catId in tasksByCategory) {
+        if (tasksByCategory[catId].some((t: Task) => String(t.id) === overId)) {
+          overCatId = catId;
           break outerLoop2;
         }
       }
     }
 
-    if (!overStatusId) return;
+    if (!overCatId) return;
 
-    // Handle same-column reordering
-    if (activeStatusId === overStatusId) {
+    // Handle same-category reordering
+    if (activeCatId === overCatId) {
       if (isOverColumn && activeId === overId) {
-        // If we hit the column itself (gap) and it's our own column, ignore to prevent jumping
         return;
       }
 
       setTaskOrders((prev) => {
         const currentOrder =
-          prev[activeStatusId!] ||
-          tasksByStatus[activeStatusId!].map((t) => String(t.id));
+          prev[activeCatId!] ||
+          tasksByCategory[activeCatId!].map((t: Task) => String(t.id));
 
         const oldIndex = currentOrder.indexOf(activeId);
         const newIndex = currentOrder.indexOf(overId);
@@ -417,7 +442,7 @@ export function KanbanView({
         if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
           return {
             ...prev,
-            [activeStatusId!]: arrayMove(currentOrder, oldIndex, newIndex),
+            [activeCatId!]: arrayMove(currentOrder, oldIndex, newIndex),
           };
         }
 
@@ -426,32 +451,30 @@ export function KanbanView({
       return;
     }
 
-    // Move to different column optimistically for the ghost effect
+    // Move to different category optimistically
     setOptimisticStatusChanges((prev) => ({
       ...prev,
-      [activeId]: overStatusId!,
+      [activeId]: overCatId!,
     }));
 
     setTaskOrders((prev) => {
       const next = { ...prev };
       const sourceList =
-        prev[activeStatusId!] ||
-        tasksByStatus[activeStatusId!]?.map((t) => String(t.id)) ||
+        prev[activeCatId!] ||
+        tasksByCategory[activeCatId!]?.map((t: Task) => String(t.id)) ||
         [];
       const destList =
-        prev[overStatusId!] ||
-        tasksByStatus[overStatusId!]?.map((t) => String(t.id)) ||
+        prev[overCatId!] ||
+        tasksByCategory[overCatId!]?.map((t: Task) => String(t.id)) ||
         [];
 
       const isAlreadyInDest = destList.includes(activeId);
 
-      // If we are already in this column and hit a "gap" (column hit),
-      // don't move it to the end. Just keep current order to avoid flickering/jumping.
       if (isAlreadyInDest && isOverColumn) {
         return prev;
       }
 
-      next[activeStatusId!] = sourceList.filter((id) => id !== activeId);
+      next[activeCatId!] = sourceList.filter((id) => id !== activeId);
 
       const newDestList = [...destList.filter((id) => id !== activeId)];
       if (isOverColumn) {
@@ -465,15 +488,14 @@ export function KanbanView({
         }
       }
 
-      // Only update if the order actually changed
       if (
         JSON.stringify(newDestList) === JSON.stringify(destList) &&
-        JSON.stringify(next[activeStatusId!]) === JSON.stringify(sourceList)
+        JSON.stringify(next[activeCatId!]) === JSON.stringify(sourceList)
       ) {
         return prev;
       }
 
-      next[overStatusId!] = newDestList;
+      next[overCatId!] = newDestList;
       return next;
     });
   };
@@ -484,7 +506,6 @@ export function KanbanView({
     setActiveType(null);
 
     if (!over) {
-      // Clear optimistic changes on cancel
       setOptimisticStatusChanges({});
       return;
     }
@@ -494,49 +515,72 @@ export function KanbanView({
       if (active.id !== over.id) {
         const oldId = String(active.id).replace("column-", "");
         const newId = String(over.id).replace("column-", "");
-        const oldIndex = orderedStatusIds.indexOf(oldId);
-        const newIndex = orderedStatusIds.indexOf(newId);
+        const oldIndex = activeOrderedIds.indexOf(oldId);
+        const newIndex = activeOrderedIds.indexOf(newId);
 
         if (oldIndex !== -1 && newIndex !== -1) {
-          const newOrder = arrayMove(orderedStatusIds, oldIndex, newIndex);
+          const newOrder = arrayMove(activeOrderedIds, oldIndex, newIndex);
 
-          // 1. Update local state synchronously
-          setOrderedStatusIds(newOrder);
+          // 1. Update local state
+          if (groupBy === "status") {
+            setOrderedStatusIds(newOrder);
+          } else {
+            setOrderedPriorityIds(newOrder);
+          }
           persistColumnOrder(newOrder);
 
-          // 2. Notify parent to sync across views
-          if (onStatusesUpdated) {
+          // 2. Notify parent if necessary
+          if (groupBy === "status" && onStatusesUpdated) {
             const statusMap = new Map(statuses.map((s) => [String(s.id), s]));
-            const updatedStatuses = newOrder
+            const updated = newOrder
               .map((id) => statusMap.get(id))
               .filter((s): s is Status => !!s);
-            onStatusesUpdated(updatedStatuses);
+            onStatusesUpdated(updated);
+          } else if (groupBy === "priority" && onPrioritiesUpdated) {
+            const priorityMap = new Map(
+              priorities.map((p) => [String(p.id), p]),
+            );
+            const updated = newOrder
+              .map((id) => priorityMap.get(id))
+              .filter((p): p is Priority => !!p);
+            onPrioritiesUpdated(updated);
           }
 
-          // 3. Trigger API call for reordering
+          // 3. Trigger API and sync cache
           const orgId = getOrganizationId();
           if (orgId && boardId) {
-            const statusOrderPayload = newOrder.map((id, index) => ({
-              id: Number(id),
-              status_order: index + 1,
-            }));
+            const boardIdNum = Number(boardId);
+            if (groupBy === "status") {
+              const payload = newOrder.map((id, index) => ({
+                id: Number(id),
+                status_order: index + 1,
+              }));
 
-            cmsApi
-              .reorderStatuses({
-                organization_id: Number(orgId),
-                board_id: Number(boardId),
-                statuses: statusOrderPayload,
-              })
-              .then((response: any) => {
-                console.log("Status reorder successful:", response);
-                if (response && (response.status || response.success)) {
-                  toast.success(response.message || "Column order saved");
-                }
-              })
-              .catch((error: Error) => {
-                console.error("Failed to persist status order:", error);
-                toast.error("Failed to save column order");
-              });
+              updateStatusesOrderInCache(boardIdNum, newOrder);
+
+              cmsApi
+                .reorderStatuses({
+                  organization_id: Number(orgId),
+                  board_id: boardIdNum,
+                  statuses: payload,
+                })
+                .catch((e) => console.error("Status reorder fail", e));
+            } else {
+              const payload = newOrder.map((id, index) => ({
+                id: Number(id),
+                priority_order: index + 1,
+              }));
+
+              updatePrioritiesOrderInCache(boardIdNum, newOrder);
+
+              cmsApi
+                .reorderPriorities({
+                  organization_id: Number(orgId),
+                  board_id: boardIdNum,
+                  priorities: payload,
+                })
+                .catch((e) => console.error("Priority reorder fail", e));
+            }
           }
         }
       }
@@ -547,72 +591,71 @@ export function KanbanView({
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    // Find final status ID
-    let finalStatusId: string | null = null;
+    let finalCatId: string | null = null;
     if (overId.startsWith("status-") || overId.startsWith("column-")) {
-      finalStatusId = overId.replace("status-", "").replace("column-", "");
+      finalCatId = overId.replace("status-", "").replace("column-", "");
     } else {
-      outerLoop: for (const statusId in tasksByStatus) {
-        if (tasksByStatus[statusId].some((t) => String(t.id) === overId)) {
-          finalStatusId = statusId;
+      outerLoop: for (const catId in tasksByCategory) {
+        if (tasksByCategory[catId].some((t) => String(t.id) === overId)) {
+          finalCatId = catId;
           break outerLoop;
         }
       }
     }
 
-    if (!finalStatusId) {
+    if (!finalCatId) {
       setOptimisticStatusChanges({});
       return;
     }
 
-    // Handle intra-column drop (reordering)
+    // Intra-column drop
     let finalTaskOrders = { ...taskOrders };
     if (activeId !== overId) {
-      // Find source status
-      let activeStatusId: string | null = null;
-      outerLoop3: for (const statusId in tasksByStatus) {
-        if (tasksByStatus[statusId].some((t) => String(t.id) === activeId)) {
-          activeStatusId = statusId;
+      let activeCatId: string | null = null;
+      outerLoop3: for (const catId in tasksByCategory) {
+        if (tasksByCategory[catId].some((t) => String(t.id) === activeId)) {
+          activeCatId = catId;
           break outerLoop3;
         }
       }
 
       const isOverColumn = over.data.current?.type === "column";
 
-      if (activeStatusId === finalStatusId) {
+      if (activeCatId === finalCatId) {
         const currentOrder =
-          finalTaskOrders[activeStatusId!] ||
-          tasksByStatus[activeStatusId!]?.map((t) => String(t.id)) ||
+          finalTaskOrders[activeCatId!] ||
+          tasksByCategory[activeCatId!]?.map((t) => String(t.id)) ||
           [];
 
         const oldIndex = currentOrder.indexOf(activeId);
-
         if (oldIndex !== -1) {
           const newIndex = isOverColumn
             ? oldIndex
             : currentOrder.indexOf(overId);
-
           if (newIndex !== -1 && oldIndex !== newIndex) {
             const newOrder = arrayMove(currentOrder, oldIndex, newIndex);
-            finalTaskOrders[activeStatusId!] = newOrder;
+            finalTaskOrders[activeCatId!] = newOrder;
             setTaskOrders(finalTaskOrders);
           }
         }
       }
     }
 
-    // Persist final task orders
     persistTaskOrders(finalTaskOrders);
 
-    // If it moved to a different column, trigger API call
-    const originalStatusId = String(active.data.current?.task?.status_id || "");
-    const statusChanged =
-      finalStatusId !== originalStatusId &&
-      optimisticStatusChanges[activeId] === finalStatusId;
+    // API Move
+    const originalValue =
+      groupBy === "status"
+        ? String(active.data.current?.task?.status_id || "")
+        : String(active.data.current?.task?.priority_id || "");
 
-    if (statusChanged) {
+    const changed =
+      finalCatId !== originalValue &&
+      optimisticStatusChanges[activeId] === finalCatId;
+
+    if (changed) {
       try {
-        await onTaskMove(activeId, finalStatusId);
+        await onTaskMove(activeId, finalCatId, groupBy);
         setOptimisticStatusChanges((prev) => {
           const next = { ...prev };
           delete next[activeId];
@@ -628,7 +671,6 @@ export function KanbanView({
         toast.error("Failed to move task. Please try again.");
       }
     } else {
-      // If no status change, just clear optimistic state
       setOptimisticStatusChanges({});
     }
   };
@@ -646,10 +688,10 @@ export function KanbanView({
     return null;
   })();
 
-  const activeStatus = (() => {
+  const activeCategory = (() => {
     if (!activeId || activeType !== "column") return null;
-    const sId = String(activeId).replace("column-", "");
-    return statuses.find((s) => String(s.id) === sId);
+    const catId = String(activeId).replace("column-", "");
+    return categoriesTable.find((c) => c.id === catId);
   })();
 
   const groupMap = useMemo(() => {
@@ -729,104 +771,172 @@ export function KanbanView({
           onDragEnd={handleDragEnd}
         >
           <div className="px-6 pt-4 flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 px-3 py-2 rounded bg-muted border border-border text-sm">
-                    <span className="font-medium">Kanban Cards</span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="w-74 p-3 bg-popover border-border z-50"
-                  align="start"
-                >
-                  <div className="space-y-3 max-h-64 overflow-auto pr-2">
-                    {statuses.map((s) => {
-                      const id = String(s.id);
-                      const visible = visibleStatuses.has(id);
-                      return (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center gap-2 px-3 py-2 rounded bg-muted border border-border text-sm">
+                      <span className="font-medium">Columns</span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-74 p-3 bg-popover border-border z-50"
+                    align="start"
+                  >
+                    <div className="space-y-3 max-h-64 overflow-auto pr-2">
+                      {categoriesTable.map((cat) => {
+                        const id = cat.id;
+                        const visible = activeVisibleIds.has(id);
+                        return (
+                          <label
+                            key={`cat-item-${id}`}
+                            className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={visible}
+                              onChange={() => toggleVisibility(id)}
+                              className="h-4 w-4"
+                            />
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-6 h-6 rounded-full"
+                                style={{ backgroundColor: cat.color }}
+                              />
+                              <div className="text-sm max-w-[160px] truncate">
+                                {cat.name}
+                              </div>
+                            </div>
+
+                            <div className="ml-auto">
+                              <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
+                                {tasksByCategory[id]?.length || 0}
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+                      <div className="text-sm text-muted-foreground">
+                        Select which{" "}
+                        {groupBy === "status" ? "statuses" : "priorities"} show
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setAllVisibility(true)}
+                          className="text-sm px-2 py-1 rounded bg-background border border-border"
+                        >
+                          All
+                        </button>
+                        <button
+                          onClick={() => setAllVisibility(false)}
+                          className="text-sm px-2 py-1 rounded bg-background border border-border"
+                        >
+                          None
+                        </button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center gap-2 px-3 py-2 rounded bg-muted border border-border text-sm">
+                      <span className="font-medium">Card Fields</span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-56 p-3 bg-popover border-border z-50"
+                    align="start"
+                  >
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-muted-foreground mb-2">
+                        Visible Card Fields
+                      </div>
+                      {CARD_FIELDS.map((field) => (
                         <label
-                          key={`status-item-${id}`}
+                          key={field.id}
                           className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
                         >
                           <input
                             type="checkbox"
-                            checked={visible}
-                            onChange={() => toggleStatus(id)}
+                            checked={visibleCardFields.has(field.id)}
+                            onChange={() => toggleCardField(field.id)}
                             className="h-4 w-4"
                           />
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-6 h-6 rounded-full"
-                              style={{ backgroundColor: s.color_code }}
-                            />
-                            <div className="text-sm max-w-[160px] truncate">
-                              {s.name}
-                            </div>
-                          </div>
-
-                          <div className="ml-auto">
-                            <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
-                              {tasksByStatus[String(s.id)]?.length || 0}
-                            </span>
-                          </div>
+                          <span className="text-sm">{field.label}</span>
                         </label>
-                      );
-                    })}
-                  </div>
-
-                  <div className="pt-3 border-t border-border flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      Select which statuses will show as Kanban columns
+                      ))}
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setAllStatuses(true)}
-                        className="text-sm px-2 py-1 rounded bg-background border border-border"
-                      >
-                        Show all
-                      </button>
-                      <button
-                        onClick={() => setAllStatuses(false)}
-                        className="text-sm px-2 py-1 rounded bg-background border border-border"
-                      >
-                        Hide all
-                      </button>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                  </PopoverContent>
+                </Popover>
+              </div>
 
+              {/* Group By Selector Popup */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 px-3 py-2 rounded bg-muted border border-border text-sm">
-                    <span className="font-medium">Card Fields</span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                  >
+                    <Settings className="h-5 w-5" />
+                  </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                  className="w-56 p-3 bg-popover border-border z-50"
-                  align="start"
+                  className="w-48 p-2 bg-popover border-border z-50"
+                  align="end"
                 >
-                  <div className="space-y-2">
-                    <div className="text-xs font-semibold text-muted-foreground mb-2">
-                      Visible Card Fields
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 border-b">
+                      Group Columns By
                     </div>
-                    {CARD_FIELDS.map((field) => (
-                      <label
-                        key={field.id}
-                        className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => {
+                          setGroupBy("status");
+                          if (boardId)
+                            localStorage.setItem(
+                              `kanban-group-by-${boardId}`,
+                              "status",
+                            );
+                        }}
+                        className={`flex items-center justify-between px-3 py-2 text-sm font-medium rounded transition-all ${
+                          groupBy === "status"
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={visibleCardFields.has(field.id)}
-                          onChange={() => toggleCardField(field.id)}
-                          className="h-4 w-4"
-                        />
-                        <span className="text-sm">{field.label}</span>
-                      </label>
-                    ))}
+                        Status
+                        {groupBy === "status" && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setGroupBy("priority");
+                          if (boardId)
+                            localStorage.setItem(
+                              `kanban-group-by-${boardId}`,
+                              "priority",
+                            );
+                        }}
+                        className={`flex items-center justify-between px-3 py-2 text-sm font-medium rounded transition-all ${
+                          groupBy === "priority"
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        Priority
+                        {groupBy === "priority" && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </PopoverContent>
               </Popover>
@@ -835,34 +945,30 @@ export function KanbanView({
 
           <div className="flex-1 flex gap-4 overflow-x-auto px-6 py-4 min-h-0">
             <SortableContext
-              items={orderedStatusIds.map((id) => `column-${id}`)}
+              items={activeOrderedIds.map((id) => `column-${id}`)}
               strategy={horizontalListSortingStrategy}
             >
-              {orderedStatusIds
-                .filter((id) => visibleStatuses.has(id))
-                .map((statusId) => {
-                  const status = statuses.find(
-                    (s) => String(s.id) === statusId,
-                  );
-                  if (!status) return null;
+              {activeOrderedIds
+                .filter((id) => activeVisibleIds.has(id))
+                .map((catId) => {
+                  const category = categoriesTable.find((c) => c.id === catId);
+                  if (!category) return null;
 
-                  // Determine if this column is being dragged over
                   let isDraggingOver = false;
                   if (activeId && activeType === "card") {
-                    // Check if optimistic status change points here
-                    if (optimisticStatusChanges[activeId] === statusId) {
+                    if (optimisticStatusChanges[activeId] === catId) {
                       isDraggingOver = true;
                     } else {
-                      // Fallback: check if active task's original status matches (for same-column moves)
-                      const activeTaskOriginalStatusId = String(
+                      const activeTaskOriginalVal = String(
                         groups
                           .flatMap((g) => g.tasks)
-                          .find((t) => String(t.id) === activeId)?.status_id ||
-                          "",
+                          .find((t) => String(t.id) === activeId)?.[
+                          groupBy === "status" ? "status_id" : "priority_id"
+                        ] || "",
                       );
                       if (
                         !optimisticStatusChanges[activeId] &&
-                        activeTaskOriginalStatusId === statusId
+                        activeTaskOriginalVal === catId
                       ) {
                         isDraggingOver = true;
                       }
@@ -871,12 +977,22 @@ export function KanbanView({
 
                   return (
                     <KanbanColumn
-                      key={status.id}
-                      status={status}
-                      tasks={tasksByStatus[String(status.id)] || []}
+                      key={catId}
+                      category={category as any}
+                      tasks={tasksByCategory[catId] || []}
                       onTaskClick={onTaskClick}
                       onAddTask={(name, groupId, parentId) =>
-                        onAddTask(name, String(status.id), groupId, parentId)
+                        onAddTask(
+                          name,
+                          groupBy === "status"
+                            ? catId
+                            : statuses[0]?.id
+                              ? String(statuses[0].id)
+                              : "",
+                          groupId,
+                          parentId,
+                          groupBy === "priority" ? catId : undefined,
+                        )
                       }
                       groups={groups}
                       groupMap={groupMap}
@@ -886,8 +1002,11 @@ export function KanbanView({
                       priorityMap={priorityMap}
                       isDraggingOver={isDraggingOver}
                       onStatusesUpdated={onStatusesUpdated}
+                      onPrioritiesUpdated={onPrioritiesUpdated}
                       boardId={boardId}
                       statuses={statuses}
+                      priorities={priorities}
+                      groupBy={groupBy}
                     />
                   );
                 })}
@@ -910,10 +1029,10 @@ export function KanbanView({
                 members={members}
                 visibleCardFields={visibleCardFields}
               />
-            ) : activeStatus ? (
+            ) : activeCategory ? (
               <KanbanColumn
-                status={activeStatus}
-                tasks={tasksByStatus[String(activeStatus.id)] || []}
+                category={activeCategory as any}
+                tasks={tasksByCategory[activeCategory.id] || []}
                 onTaskClick={onTaskClick}
                 onAddTask={async () => {}}
                 groups={groups}
@@ -923,8 +1042,10 @@ export function KanbanView({
                 statusMap={statusMap}
                 priorityMap={priorityMap}
                 onStatusesUpdated={onStatusesUpdated}
+                onPrioritiesUpdated={onPrioritiesUpdated}
                 boardId={boardId}
-                statuses={statuses}
+                priorities={priorities}
+                groupBy={groupBy}
                 isOverlay
               />
             ) : null}

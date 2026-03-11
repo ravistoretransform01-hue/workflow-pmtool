@@ -585,3 +585,74 @@ function saveDefaultColumnsToLocalStorage(
     console.error("Error saving default columns to localStorage:", error);
   }
 }
+/**
+ * Update the order of statuses in localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param orderedIds - Array of status IDs in the new order
+ */
+export function updateStatusesOrderInCache(
+  boardId: number,
+  orderedIds: string[],
+): void {
+  try {
+    const cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      const statusMap = new Map(cachedData.statuses.map((s) => [String(s.id), s]));
+      const nextStatuses: Status[] = orderedIds
+        .map((id) => statusMap.get(id))
+        .filter((s): s is Status => !!s);
+
+      // If there were statuses in the cache not present in orderedIds, append them
+      const orderedIdsSet = new Set(orderedIds);
+      cachedData.statuses.forEach((s) => {
+        if (!orderedIdsSet.has(String(s.id))) {
+          nextStatuses.push(s);
+        }
+      });
+
+      cachedData.statuses = nextStatuses;
+      cachedData.timestamp = Date.now();
+      saveToLocalStorage(boardId, cachedData);
+      debugLog(`Updated statuses order in cache for board ${boardId}`);
+    }
+  } catch (error) {
+    console.error("Error updating statuses order in cache:", error);
+  }
+}
+
+/**
+ * Update the order of priorities in localStorage cache
+ * @param boardId - Board ID to update cache for
+ * @param orderedIds - Array of priority IDs in the new order
+ */
+export function updatePrioritiesOrderInCache(
+  boardId: number,
+  orderedIds: string[],
+): void {
+  try {
+    const cachedData = getFromLocalStorage(boardId, true);
+    if (cachedData) {
+      const priorityMap = new Map(
+        cachedData.priorities.map((p) => [String(p.id), p]),
+      );
+      const nextPriorities: Priority[] = orderedIds
+        .map((id) => priorityMap.get(id))
+        .filter((p): p is Priority => !!p);
+
+      // If there were priorities in the cache not present in orderedIds, append them
+      const orderedIdsSet = new Set(orderedIds);
+      cachedData.priorities.forEach((p) => {
+        if (!orderedIdsSet.has(String(p.id))) {
+          nextPriorities.push(p);
+        }
+      });
+
+      cachedData.priorities = nextPriorities;
+      cachedData.timestamp = Date.now();
+      saveToLocalStorage(boardId, cachedData);
+      debugLog(`Updated priorities order in cache for board ${boardId}`);
+    }
+  } catch (error) {
+    console.error("Error updating priorities order in cache:", error);
+  }
+}

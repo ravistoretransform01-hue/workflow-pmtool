@@ -34,6 +34,7 @@ import {
   addStatusToCache,
   updateStatusInCache,
   deleteStatusFromCache,
+  updateStatusesOrderInCache,
 } from "@/features/cms/cmsStorage";
 import { getOrganizationId } from "@/lib/utils";
 
@@ -214,6 +215,9 @@ export default function StatusPopoverCell({
               `kanban-column-order-${boardId}`,
               JSON.stringify(order),
             );
+
+            // Sync to global cache
+            updateStatusesOrderInCache(Number(boardId), order);
 
             // Notify parent to sync across views immediately
             if (onStatusesUpdated) {
