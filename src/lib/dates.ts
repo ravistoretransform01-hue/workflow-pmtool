@@ -16,7 +16,7 @@ export function parseApiDateTime(input: string | null | undefined): Date | null 
   const minute = Number(min);
   const second = ss ? Number(ss) : 0;
 
-  return new Date(year, month, day, hour, minute, second);
+  return new Date(Date.UTC(year, month, day, hour, minute, second));
 }
 
 export function formatApiDateTimeToLocale(

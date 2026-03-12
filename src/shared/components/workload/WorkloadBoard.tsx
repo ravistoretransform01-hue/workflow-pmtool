@@ -215,10 +215,18 @@ const PRESET_COLORS = [
 ];
 
 // Helper function to format seconds to time string (e.g., "2h 30m")
-const formatSecondsToTime = (seconds: number): string => {
-  if (seconds <= 0) return "0m";
+const formatSecondsToTime = (
+  seconds: number,
+  includeSeconds: boolean = false,
+): string => {
+  if (seconds <= 0) return includeSeconds ? "0h 0m 0s" : "0m";
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+
+  if (includeSeconds) {
+    return `${hours}h ${minutes}m ${remainingSeconds}s`;
+  }
 
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
@@ -1894,6 +1902,7 @@ export function WorkloadBoard({
     statusId: string,
     groupId: string,
     parentId?: string,
+    priorityId?: string,
   ) => {
     try {
       const boardIdNum = parseInt(boardId, 10);
@@ -1912,8 +1921,9 @@ export function WorkloadBoard({
         board_id: boardIdNum,
         parent_id: parentId ? parseInt(parentId, 10) : null,
         status_id: parseInt(statusId, 10),
-        task_priority_id:
-          priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
+        task_priority_id: priorityId 
+          ? parseInt(priorityId, 10) 
+          : (priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined),
       };
 
       const newTaskResponse = await tasksApi.createTask(payload);
@@ -2423,9 +2433,6 @@ export function WorkloadBoard({
         }),
       })),
     );
-
-    // Close popover after update
-    popoverState.closePopover();
   };
 
   const handleStatusChange = async (taskId: string, statusId: string) => {
@@ -2533,6 +2540,18 @@ export function WorkloadBoard({
       toast.error(
         error?.response.data.message || "Failed to Update Description",
       );
+    }
+  };
+
+  const handleKanbanTaskMove = async (
+    taskId: string,
+    newId: string,
+    type: "status" | "priority",
+  ) => {
+    if (type === "status") {
+      await handleStatusChange(taskId, newId);
+    } else {
+      await handlePriorityChange(taskId, newId);
     }
   };
 
@@ -4721,11 +4740,13 @@ export function WorkloadBoard({
                                       <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
                                         {formatSecondsToTime(
                                           progress.timeSpentSeconds,
+                                          true,
                                         )}{" "}
                                         /{" "}
                                         {progress.estimatedTimeSeconds > 0
                                           ? formatSecondsToTime(
                                               progress.estimatedTimeSeconds,
+                                              true,
                                             )
                                           : "—"}
                                       </span>
@@ -5289,10 +5310,11 @@ export function WorkloadBoard({
             priorities={priorities}
             members={members}
             boardId={boardId}
-            onTaskMove={handleStatusChange}
+            onTaskMove={handleKanbanTaskMove}
             onTaskClick={openTaskCard}
             onAddTask={handleKanbanAddTask}
             onStatusesUpdated={handleStatusesUpdated}
+            onPrioritiesUpdated={handlePrioritiesUpdated}
           />
         )}
 

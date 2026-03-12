@@ -5,7 +5,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Status } from "@/features/cms/types";
+import type { Status, Priority } from "@/features/cms/types";
 import type { Task } from "./WorkloadBoard";
 import { KanbanCard } from "./KanbanCard";
 import { useDroppable } from "@dnd-kit/core";
@@ -31,11 +31,14 @@ import {
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { cn, getOrganizationId } from "@/lib/utils";
 import { cmsApi } from "@/features/cms/cmsApi";
-import { updateStatusInCache } from "@/features/cms/cmsStorage";
+import {
+  updateStatusInCache,
+  updatePriorityInCache,
+} from "@/features/cms/cmsStorage";
 import { toast } from "sonner";
 
 interface KanbanColumnProps {
-  status: Status;
+  category: any;
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onAddTask: (
@@ -52,12 +55,15 @@ interface KanbanColumnProps {
   isOverlay?: boolean;
   isDraggingOver?: boolean;
   onStatusesUpdated?: (statuses: Status[]) => void;
+  onPrioritiesUpdated?: (priorities: Priority[]) => void;
   boardId?: string | number;
   statuses?: Status[];
+  priorities?: Priority[];
+  groupBy: "status" | "priority";
 }
 
 export function KanbanColumn({
-  status,
+  category,
   tasks,
   onTaskClick,
   onAddTask,
@@ -70,12 +76,15 @@ export function KanbanColumn({
   isOverlay = false,
   isDraggingOver = false,
   onStatusesUpdated,
+  onPrioritiesUpdated,
   boardId,
   statuses,
+  priorities,
+  groupBy,
 }: KanbanColumnProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
-  const [editingName, setEditingName] = useState(status.name);
+  const [editingName, setEditingName] = useState(category.name);
   const [isSavingName, setIsSavingName] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -93,18 +102,18 @@ export function KanbanColumn({
     transition,
     isDragging,
   } = useSortable({
-    id: `column-${status.id}`,
+    id: `column-${category.id}`,
     data: {
       type: "column",
-      status,
+      category,
     },
   });
 
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
-    id: `status-${status.id}`,
+    id: `${groupBy}-${category.id}`,
     data: {
       type: "column",
-      status,
+      category,
     },
   });
 
@@ -170,9 +179,9 @@ export function KanbanColumn({
 
   const handleSaveName = async () => {
     const trimmedName = editingName.trim();
-    if (!trimmedName || trimmedName === status.name) {
+    if (!trimmedName || trimmedName === category.name) {
       setIsEditingName(false);
-      setEditingName(status.name);
+      setEditingName(category.name);
       return;
     }
 
@@ -180,38 +189,54 @@ export function KanbanColumn({
     if (!orgId || !boardId) {
       toast.error("Missing organization or board info");
       setIsEditingName(false);
-      setEditingName(status.name);
+      setEditingName(category.name);
       return;
     }
 
     setIsSavingName(true);
     try {
-      const response = await cmsApi.updateStatus({
-        status_id: String(status.id),
-        name: trimmedName,
-        color_code: status.color_code,
-        organization_id: orgId,
-        board_id: Number(boardId),
-      });
+      if (groupBy === "status") {
+        await cmsApi.updateStatus({
+          status_id: String(category.id),
+          name: trimmedName,
+          color_code: category.color_code,
+          organization_id: orgId,
+          board_id: Number(boardId),
+        });
 
-      const updatedStatus = { ...status, name: trimmedName };
-      updateStatusInCache(Number(boardId), updatedStatus);
+        const updated = { ...category, name: trimmedName };
+        updateStatusInCache(Number(boardId), updated);
+        // Trigger global update if handler is provided
+        if (onStatusesUpdated && statuses) {
+          onStatusesUpdated(
+            statuses.map((s) => (String(s.id) === String(category.id) ? updated : s)),
+          );
+        }
+      } else {
+        await cmsApi.updatePriority({
+          priority_id: String(category.id),
+          name: trimmedName,
+          color_code: category.color_code,
+          organization_id: orgId,
+          board_id: Number(boardId),
+        });
 
-      // Trigger global update if handler is provided
-      if (onStatusesUpdated && statuses) {
-        const fullUpdatedStatuses = statuses.map((s) =>
-          String(s.id) === String(status.id) ? updatedStatus : s,
-        );
-        onStatusesUpdated(fullUpdatedStatuses);
+        const updated = { ...category, name: trimmedName };
+        updatePriorityInCache(Number(boardId), updated);
+        // Trigger global update if handler is provided
+        if (onPrioritiesUpdated && priorities) {
+          onPrioritiesUpdated(
+            priorities.map((p) => (String(p.id) === String(category.id) ? updated : p)),
+          );
+        }
       }
 
-      console.log("Updated status response:", response);
-      toast.success(response?.message || "Status updated");
+      toast.success(`${groupBy === "status" ? "Status" : "Priority"} updated`);
       setIsEditingName(false);
     } catch (error) {
-      console.error("Failed to update status name:", error);
-      toast.error("Failed to update status name");
-      setEditingName(status.name);
+      console.error(`Failed to update ${groupBy} name:`, error);
+      toast.error(`Failed to update ${groupBy} name`);
+      setEditingName(category.name);
       setIsEditingName(false);
     } finally {
       setIsSavingName(false);
@@ -245,7 +270,7 @@ export function KanbanColumn({
           <div className="flex items-center gap-2.5">
             <div
               className="w-3.5 h-3.5 rounded-full shadow-sm"
-              style={{ backgroundColor: status.color_code }}
+              style={{ backgroundColor: category.color_code }}
             />
             {isEditingName ? (
               <Input
@@ -257,7 +282,7 @@ export function KanbanColumn({
                   if (e.key === "Enter") handleSaveName();
                   if (e.key === "Escape") {
                     setIsEditingName(false);
-                    setEditingName(status.name);
+                    setEditingName(category.name);
                   }
                 }}
                 autoFocus
@@ -271,7 +296,7 @@ export function KanbanColumn({
                   setIsEditingName(true);
                 }}
               >
-                {status.name}
+                {category.name}
               </h3>
             )}
             <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center">

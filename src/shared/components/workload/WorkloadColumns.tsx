@@ -1,11 +1,9 @@
-import { useState, useRef, useEffect } from "react";
 import {
   ChevronDown,
   ChevronRight,
   MessageCirclePlus,
   Pencil,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { Status, Priority } from "@/features/cms/types";
 import { Input } from "@/shared/components/ui/input";
 import { TagsColumnCell } from "./TagsColumnCell";
@@ -19,13 +17,7 @@ import {
   EstimatedDatePicker,
   EstimatedTimePicker,
 } from "./cells";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  TooltipPortal,
-} from "@/shared/components/ui/tooltip";
+import { TruncatedTaskName } from "./TruncatedTaskName";
 import type { Column, Task } from "./utils";
 
 interface ColumnDefinitionProps {
@@ -75,85 +67,7 @@ interface ColumnDefinitionProps {
   onTimeUpdate?: (taskId: string, seconds: number) => void;
 }
 
-const TruncatedTaskName = ({
-  task,
-  isSubitem,
-}: {
-  task: Task;
-  isSubitem?: boolean;
-}) => {
-  const [isTruncated, setIsTruncated] = useState(false);
-  const textRef = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const checkTruncation = () => {
-      if (textRef.current) {
-        setIsTruncated(
-          textRef.current.scrollWidth > textRef.current.clientWidth,
-        );
-      }
-    };
-
-    // Need a small timeout to ensure layout is settled
-    const timeoutId = setTimeout(checkTruncation, 50);
-    window.addEventListener("resize", checkTruncation);
-    return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener("resize", checkTruncation);
-    };
-  }, [task.name]);
-
-  const nameContent = (
-    <span
-      ref={textRef}
-      className={cn(
-        "truncate flex-1 text-left",
-        isSubitem
-          ? "group-hover/subtask:underline"
-          : "group-hover/taskname:underline",
-      )}
-    >
-      {task.name}
-    </span>
-  );
-
-  const counterContent =
-    !isSubitem && task.subitems && task.subitems.length > 0 ? (
-      <span className="shrink-0 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 transition-colors group-hover/taskname:no-underline dark:group-hover/taskname:bg-blue-800/50 text-center">
-        {task.subitems.length}
-      </span>
-    ) : null;
-
-  if (!isTruncated) {
-    return (
-      <>
-        {nameContent}
-        {counterContent}
-      </>
-    );
-  }
-
-  return (
-    <TooltipProvider delayDuration={200}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden flex-1">
-            {nameContent}
-            {counterContent}
-          </div>
-        </TooltipTrigger>
-        <TooltipPortal>
-          <TooltipContent
-            side="top"
-            className="max-w-[400px] break-words bg-slate-900 text-slate-50 border-slate-800 shadow-xl dark:bg-slate-50 dark:text-slate-900 dark:border-slate-200"
-          >
-            {task.name}
-          </TooltipContent>
-        </TooltipPortal>
-      </Tooltip>
-    </TooltipProvider>
-  );
-};
+// Local component removed, using shared TruncatedTaskName from ./TruncatedTaskName
 
 export const getWorkloadColumns = ({
   expandedTasks,
@@ -244,7 +158,7 @@ export const getWorkloadColumns = ({
                     }}
                     className="font-medium text-foreground cursor-pointer truncate flex-1 text-left min-w-0 group/subtask"
                   >
-                    <TruncatedTaskName task={task} isSubitem={true} />
+                    <TruncatedTaskName name={task.name} />
                   </button>
                 )}
               </div>
@@ -319,9 +233,12 @@ export const getWorkloadColumns = ({
                     setInlineEditingTaskId?.(task.id);
                     setInlineEditingTaskName?.(task.name);
                   }}
-                  className="font-medium text-foreground cursor-pointer flex items-center gap-1.5 group/taskname min-w-0 overflow-hidden"
+                  className="font-medium text-foreground cursor-pointer flex items-center gap-1.5 group/taskname min-w-0 overflow-hidden text-left"
                 >
-                  <TruncatedTaskName task={task} />
+                  <TruncatedTaskName
+                    name={task.name}
+                    subitemsCount={task.subitems?.length}
+                  />
                 </button>
               )}
             </div>
@@ -403,28 +320,28 @@ export const getWorkloadColumns = ({
       width: "250px",
       align: "left",
       render: (task: Task) => {
+        const hasDescription =
+          task.description &&
+          task.description.replace(/<[^>]*>/g, "").trim().length > 0;
+
         return (
           <div
             onClick={(e) => {
               e.stopPropagation();
               onOpenTaskCard?.(task, true);
             }}
-            className="cursor-pointer min-h-[40px] w-full hover:bg-muted/30 rounded p-1 transition-colors group relative"
+            className="cursor-pointer min-h-[40px] flex items-center w-full hover:bg-muted/30 rounded px-2 transition-colors group relative"
             title="Click to view/edit description"
           >
-            {task.description ? (
-              <div
-                className="text-sm text-foreground/80 line-clamp-2 prose prose-sm prose-invert max-w-none [&_p]:m-0"
-                dangerouslySetInnerHTML={{ __html: task.description }}
-              />
+            {hasDescription ? (
+              <span className="text-sm text-primary font-medium hover:underline">
+                Show description
+              </span>
             ) : (
               <span className="text-sm text-muted-foreground italic">
-                No description
+                Add description
               </span>
             )}
-            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Pencil className="h-3 w-3 text-muted-foreground" />
-            </div>
           </div>
         );
       },

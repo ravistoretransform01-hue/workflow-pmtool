@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { parseApiDateTime } from "@/lib/utils";
 import { TaskUpdates } from "./TaskUpdates/TaskUpdates";
 
 import { renderFormattedContent } from "./TaskUpdates/utils";
@@ -19,6 +20,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 
 import { FilePreviewModal } from "@/shared/components/workload/texteditor/FilePreviewModal";
+// import { TruncatedTaskName } from "./TruncatedTaskName";
 import {
   Activity,
   Home,
@@ -192,7 +194,12 @@ export function CommentsPanelSheet({
         <div className="flex flex-col h-full">
           <SheetHeader className="px-6 py-4 border-b border-border">
             <div className="flex items-center justify-between">
-              <SheetTitle className="text-2xl font-semibold">
+              <SheetTitle className="text-2xl font-semibold max-w-[calc(100%-48px)]">
+                {/* <TruncatedTaskName
+                  name={taskName || "Task Details"}
+                  className="w-full"
+                  side="bottom"
+                /> */}
                 {taskName || "Task Details"}
               </SheetTitle>
               <div className="hidden flex items-center gap-4">
@@ -357,7 +364,8 @@ export function CommentsPanelSheet({
                             <span className="text-xs text-muted-foreground">
                               {activity.created_at
                                 ? format(
-                                    new Date(activity.created_at),
+                                    parseApiDateTime(activity.created_at) ||
+                                      new Date(activity.created_at),
                                     "MMM d, h:mm a",
                                   )
                                 : ""}

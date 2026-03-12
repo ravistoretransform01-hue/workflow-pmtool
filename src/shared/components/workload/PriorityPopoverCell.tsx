@@ -23,6 +23,7 @@ import {
   addPriorityToCache,
   updatePriorityInCache,
   deletePriorityFromCache,
+  updatePrioritiesOrderInCache,
 } from "@/features/cms/cmsStorage";
 import { getOrganizationId } from "@/lib/utils";
 import { toast } from "sonner";
@@ -200,11 +201,14 @@ export function PriorityPopoverCell({
           try {
             const order = next.map((p) => String(p.id));
 
-            // Persist to localStorage
+            // Persist to localStorage for Kanban consistency
             localStorage.setItem(
-              `priority-order-${boardId}`,
+              `kanban-priority-order-${boardId}`,
               JSON.stringify(order),
             );
+
+            // Sync to global cache
+            updatePrioritiesOrderInCache(Number(boardId), order);
 
             // Notify parent to sync across views immediately
             if (onPrioritiesUpdated) {
