@@ -339,7 +339,7 @@ export const getWorkloadColumns = ({
               </span>
             ) : (
               <span className="text-sm text-muted-foreground italic">
-                No description
+                Add description
               </span>
             )}
           </div>

@@ -195,11 +195,12 @@ export function CommentsPanelSheet({
           <SheetHeader className="px-6 py-4 border-b border-border">
             <div className="flex items-center justify-between">
               <SheetTitle className="text-2xl font-semibold max-w-[calc(100%-48px)]">
-                <TruncatedTaskName
+                {/* <TruncatedTaskName
                   name={taskName || "Task Details"}
                   className="w-full"
                   side="bottom"
-                />
+                /> */}
+                {taskName || "Task Details"}
               </SheetTitle>
               <div className="hidden flex items-center gap-4">
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
