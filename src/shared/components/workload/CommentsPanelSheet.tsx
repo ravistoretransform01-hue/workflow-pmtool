@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { parseApiDateTime } from "@/lib/utils";
+import { parseApiDateTime, cn } from "@/lib/utils";
 import { TaskUpdates } from "./TaskUpdates/TaskUpdates";
 
 import { renderFormattedContent } from "./TaskUpdates/utils";
@@ -10,6 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/shared/components/ui/sheet";
+import { Input } from "@/shared/components/ui/input";
 import {
   Tabs,
   TabsContent,
@@ -58,6 +59,7 @@ interface CommentsPanelSheetProps {
     replyText: string,
   ) => void | Promise<void>;
   onTaskButtonClick?: () => void;
+  onInlineEditTaskName?: (taskId: string, newName: string) => void;
   isSaving?: boolean;
   boardId?: string;
 }
@@ -82,6 +84,7 @@ export function CommentsPanelSheet({
   onUpdateComment,
   onSaveInlineReply,
   onTaskButtonClick,
+  onInlineEditTaskName,
   isSaving,
   boardId,
 }: CommentsPanelSheetProps) {
@@ -90,6 +93,8 @@ export function CommentsPanelSheet({
     undefined,
   );
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState("");
 
   const handleFilePreview = (src: string, name?: string) => {
     setPreviewSrc(src);
@@ -182,6 +187,15 @@ export function CommentsPanelSheet({
     }
   };
 
+  const handleSaveName = () => {
+    if (tempName.trim() && taskId && onInlineEditTaskName) {
+      onInlineEditTaskName(taskId, tempName.trim());
+      setIsEditingName(false);
+    } else {
+      setIsEditingName(false);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent
@@ -194,13 +208,36 @@ export function CommentsPanelSheet({
         <div className="flex flex-col h-full">
           <SheetHeader className="px-6 py-4 border-b border-border">
             <div className="flex items-center justify-between">
-              <SheetTitle className="text-2xl font-semibold max-w-[calc(100%-48px)]">
-                {/* <TruncatedTaskName
-                  name={taskName || "Task Details"}
-                  className="w-full"
-                  side="bottom"
-                /> */}
-                {taskName || "Task Details"}
+              <SheetTitle className="text-2xl font-semibold flex-1 pr-20 overflow-hidden">
+                {isEditingName ? (
+                  <Input
+                    value={tempName}
+                    onChange={(e) => setTempName(e.target.value)}
+                    className="h-9 m-1 w-full text-2xl font-semibold text-foreground focus-visible:ring-1 focus-visible:ring-blue-500 bg-background border-border/50 pr-4"
+                    autoFocus
+                    onBlur={handleSaveName}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === "Tab") {
+                        handleSaveName();
+                      } else if (e.key === "Escape") {
+                        setTempName(taskName || "");
+                        setIsEditingName(false);
+                      }
+                    }}
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      "cursor-pointer hover:bg-muted/50 rounded px-1 -ml-1 transition-colors truncate block",
+                    )}
+                    onClick={() => {
+                      setTempName(taskName || "");
+                      setIsEditingName(true);
+                    }}
+                  >
+                    {taskName || "Task Details"}
+                  </div>
+                )}
               </SheetTitle>
               <div className="hidden flex items-center gap-4">
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

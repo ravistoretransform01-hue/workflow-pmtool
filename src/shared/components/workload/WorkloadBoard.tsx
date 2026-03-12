@@ -5545,6 +5545,7 @@ export function WorkloadBoard({
           onDeleteComment={handleDeleteComment}
           onUpdateComment={updateTaskComment}
           onSaveInlineReply={saveInlineReply}
+          onInlineEditTaskName={handleInlineEditTaskName}
           isSaving={isSaving}
           onTaskButtonClick={() => {
             closeCommentsPanel();

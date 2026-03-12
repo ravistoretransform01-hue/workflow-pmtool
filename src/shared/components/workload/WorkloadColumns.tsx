@@ -162,24 +162,24 @@ export const getWorkloadColumns = ({
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpenTaskCard?.(task);
                   }}
-                  className="p-1 hover:bg-muted rounded"
+                  className="p-1 rounded"
                 >
-                  <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
                 </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpenComments?.(task);
                   }}
-                  className="p-1 hover:bg-muted rounded"
+                  className="p-1 rounded"
                 >
-                  <MessageCirclePlus className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                  <MessageCirclePlus className="h-4 w-4 text-muted-foreground" />
                 </button>
               </div>
             </div>
@@ -242,24 +242,24 @@ export const getWorkloadColumns = ({
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenTaskCard?.(task);
                 }}
-                className="p-1 hover:bg-muted rounded"
+                className="p-1 rounded"
               >
-                <Pencil className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                <Pencil className="h-4 w-4 text-muted-foreground" />
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenComments?.(task);
                 }}
-                className="p-1 hover:bg-muted rounded"
+                className="p-1 rounded"
               >
-                <MessageCirclePlus className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                <MessageCirclePlus className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
           </div>

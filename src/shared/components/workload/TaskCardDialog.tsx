@@ -150,7 +150,9 @@ export function TaskCardDialog({
   const [isLoadingPage, setIsLoadingPage] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [tempDescription, setTempDescription] = useState("");
-  const [isEditingName, setIsEditingName] = useState(false);
+  const [editingNameSource, setEditingNameSource] = useState<
+    "header" | "sidebar" | null
+  >(null);
   const [tempName, setTempName] = useState("");
 
   const getWordCount = (html: string) => {
@@ -182,9 +184,9 @@ export function TaskCardDialog({
   const handleSaveName = () => {
     if (tempName.trim() && displayTask?.id && onInlineEditTaskName) {
       onInlineEditTaskName(displayTask.id, tempName.trim());
-      setIsEditingName(false);
+      setEditingNameSource(null);
     } else {
-      setIsEditingName(false);
+      setEditingNameSource(null);
     }
   };
 
@@ -445,20 +447,42 @@ export function TaskCardDialog({
         {/* Header */}
         <DialogTitle className="flex items-center justify-between px-6 py-3 border-b border-border">
           <div className="flex-1 min-w-0 mr-4">
-            <div className="flex items-center gap-2 group/title min-w-0">
-              <TruncatedTaskName
-                name={displayTask?.name || ""}
-                className="text-lg font-semibold text-foreground"
-              />
-              {/* <Button
-                variant="secondary"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handleCopyLink}
-                title="Copy task link"
-              >
-                <Link2 className="h-4 w-4 text-muted-foreground" />
-              </Button> */}
+            <div
+              className={cn(
+                "flex items-center gap-2 group/title min-w-0 cursor-pointer rounded px-1 -ml-1 transition-colors",
+                !editingNameSource && "hover:bg-muted/50",
+              )}
+              onClick={() => {
+                if (!editingNameSource) {
+                  setTempName(displayTask?.name || "");
+                  setEditingNameSource("header");
+                }
+              }}
+            >
+              {editingNameSource === "header" ? (
+                <div className="w-full">
+                  <Input
+                    value={tempName}
+                    onChange={(e) => setTempName(e.target.value)}
+                    className="h-9 mb-2 text-lg font-semibold text-foreground focus-visible:ring-1 focus-visible:ring-blue-500 w-full bg-background border-border/50"
+                    autoFocus
+                    onBlur={handleSaveName}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === "Tab") {
+                        handleSaveName();
+                      } else if (e.key === "Escape") {
+                        setTempName(displayTask?.name || "");
+                        setEditingNameSource(null);
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <TruncatedTaskName
+                  name={displayTask?.name || ""}
+                  className="text-lg font-semibold text-foreground"
+                />
+              )}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
               in <ChevronRight className="h-3 w-3" />{" "}
@@ -514,18 +538,18 @@ export function TaskCardDialog({
               <div
                 className={cn(
                   "flex-1 rounded min-h-[36px] flex items-center transition-colors min-w-0 overflow-hidden",
-                  isEditingName
+                  editingNameSource === "sidebar"
                     ? "bg-background"
                     : "bg-gray-500/10 cursor-pointer hover:bg-black/30",
                 )}
                 onClick={() => {
-                  if (!isEditingName) {
+                  if (!editingNameSource) {
                     setTempName(displayTask?.name || "");
-                    setIsEditingName(true);
+                    setEditingNameSource("sidebar");
                   }
                 }}
               >
-                {isEditingName ? (
+                {editingNameSource === "sidebar" ? (
                   <div className="w-full px-1">
                     <Input
                       value={tempName}
@@ -538,7 +562,7 @@ export function TaskCardDialog({
                           handleSaveName();
                         } else if (e.key === "Escape") {
                           setTempName(displayTask?.name || "");
-                          setIsEditingName(false);
+                          setEditingNameSource(null);
                         }
                       }}
                     />
