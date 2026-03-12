@@ -253,16 +253,28 @@ const parseEstimatedToSeconds = (value: string | number): number => {
   return 0;
 };
 
-// Helper function to calculate group progress
-const calculateGroupProgress = (tasks: Task[]) => {
+// Helper function to calculate group progress with real-time timer support
+const calculateGroupProgress = (
+  tasks: Task[],
+  activeTimerId?: string | null,
+  timerStartTime?: string | number | null,
+) => {
   let totalTimeSpentSeconds = 0;
   let totalEstimatedSeconds = 0;
 
   const processTask = (task: Task) => {
     // Add tracked time
-    if (task.tracked_time_seconds) {
-      totalTimeSpentSeconds += task.tracked_time_seconds;
+    let taskSpentSeconds = task.tracked_time_seconds || 0;
+
+    // Add real-time elapsed time if this task has an active timer
+    if (activeTimerId === task.id && timerStartTime) {
+      const start = new Date(timerStartTime).getTime();
+      const now = new Date().getTime();
+      const elapsedSeconds = Math.max(0, Math.floor((now - start) / 1000));
+      taskSpentSeconds += elapsedSeconds;
     }
+
+    totalTimeSpentSeconds += taskSpentSeconds;
 
     // Add estimated time
     if (task.estimatedHours) {
@@ -1921,9 +1933,11 @@ export function WorkloadBoard({
         board_id: boardIdNum,
         parent_id: parentId ? parseInt(parentId, 10) : null,
         status_id: parseInt(statusId, 10),
-        task_priority_id: priorityId 
-          ? parseInt(priorityId, 10) 
-          : (priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined),
+        task_priority_id: priorityId
+          ? parseInt(priorityId, 10)
+          : priorities.length > 0
+            ? parseInt(priorities[0].id, 10)
+            : undefined,
       };
 
       const newTaskResponse = await tasksApi.createTask(payload);
@@ -4728,6 +4742,8 @@ export function WorkloadBoard({
                                 {(() => {
                                   const progress = calculateGroupProgress(
                                     group.tasks,
+                                    timerState.activeTimerId,
+                                    timerState.timerStartTime,
                                   );
                                   return (
                                     <div className="flex items-center gap-3 flex-1 ml-4">
