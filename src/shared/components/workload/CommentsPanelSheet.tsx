@@ -20,7 +20,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 
 import { FilePreviewModal } from "@/shared/components/workload/texteditor/FilePreviewModal";
-import { TruncatedTaskName } from "./TruncatedTaskName";
+// import { TruncatedTaskName } from "./TruncatedTaskName";
 import {
   Activity,
   Home,
