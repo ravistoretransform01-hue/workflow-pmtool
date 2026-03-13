@@ -30,6 +30,7 @@ const TASKS_ENDPOINTS = {
     `/tasks/${taskId}/comments/${commentId}`,
   DELETE_COMMENT: (taskId: string | number, commentId: string | number) =>
     `/tasks/${taskId}/comments/${commentId}`,
+  LIKE_COMMENT: (commentId: string | number) => `/comments/${commentId}/like`,
   START_TIMER: `/tasks/time/start`,
   STOP_TIMER: `/tasks/time/stop`,
   GET_ACTIVE_TIMER: `/tasks/time/active`,
@@ -354,6 +355,33 @@ export const tasksApi = {
       await axios.delete(TASKS_ENDPOINTS.DELETE_COMMENT(taskId, commentId));
     } catch (error) {
       console.error("Failed to delete comment:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Like or unlike a comment
+   */
+  likeComment: async (
+    commentId: string | number,
+  ): Promise<{
+    comment_id: number | string;
+    action: "liked" | "unliked";
+    is_liked_by_me: boolean;
+    total_likes: number;
+  }> => {
+    try {
+      const response = await axios.post<{
+        data: {
+          comment_id: number;
+          action: string;
+          is_liked_by_me: boolean;
+          total_likes: number;
+        };
+      }>(TASKS_ENDPOINTS.LIKE_COMMENT(commentId));
+      return response.data.data as any;
+    } catch (error) {
+      console.error("Failed to like comment:", error);
       throw error;
     }
   },
