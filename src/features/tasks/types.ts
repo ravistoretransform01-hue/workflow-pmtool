@@ -159,6 +159,14 @@ export interface TaskComment {
   user_id?: string | number;
   created_at: string;
   updated_at: string;
+  total_likes?: number;
+  is_liked_by_me?: boolean;
+  liked_by?: Array<{
+    id: number;
+    name: string;
+    email: string;
+    avatar_url?: string;
+  }>;
   user?: {
     id: number;
     name: string;

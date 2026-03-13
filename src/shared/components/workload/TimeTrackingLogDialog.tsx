@@ -15,6 +15,10 @@ import type { TimeEntry } from "@/features/tasks/types";
 import { format, parse, addDays } from "date-fns";
 import { TimePickerInput } from "@/shared/components/TimePickerInput";
 import { debugLog } from "@/lib/debugLog";
+import {
+  parseApiDateTime,
+  formatDateToApi,
+} from "@/lib/dates";
 
 interface TimeLogEntry extends TimeEntry {
   date: string;
@@ -38,42 +42,19 @@ interface TimeTrackingLogDialogProps {
 
 // Helper function to format time entry data
 const formatTimeEntry = (entry: TimeEntry): TimeLogEntry => {
-  /**
-   * API sends UTC datetime without timezone info
-   * Example: "2026-01-22 13:13:46" (UTC)
-   * We must parse it as UTC, not local time
-   */
-  const parseUtcTime = (timeStr: string): Date => {
-    // Convert "YYYY-MM-DD HH:mm:ss" → "YYYY-MM-DDTHH:mm:ssZ"
-    return new Date(timeStr.replace(" ", "T") + "Z");
-  };
-
-  const startDate = parseUtcTime(entry.start_time);
-  const endDate = entry.end_time ? parseUtcTime(entry.end_time) : new Date();
+  const startDate = parseApiDateTime(entry.start_time);
+  const endDate = entry.end_time ? parseApiDateTime(entry.end_time) : new Date();
 
   // ---- Date (Jan 22) ----
-  const dateFormatter = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "2-digit",
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  });
-
-  const dateParts = dateFormatter.formatToParts(startDate);
-  const month = dateParts.find((p) => p.type === "month")?.value ?? "";
-  const day = dateParts.find((p) => p.type === "day")?.value ?? "";
-  const date = `${month} ${day}`;
+  const date = startDate ? format(startDate, "MMM dd") : "";
 
   // ---- Time (hh:mm AM/PM) ----
-  const timeFormatter = new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  });
-
-  const startTime = timeFormatter.format(startDate);
-  const endTime = entry.end_time ? timeFormatter.format(endDate) : "Active...";
+  const startTime = startDate ? format(startDate, "hh:mm:ss a") : "";
+  const endTime = entry.end_time
+    ? endDate
+      ? format(endDate, "hh:mm:ss a")
+      : ""
+    : "Active...";
 
   // ---- Duration ----
   const durationSeconds = entry.elapsed_seconds ?? 0;
@@ -208,6 +189,7 @@ export function TimeTrackingLogDialog({
   // If a log had an end datetime on the next day, we store the exact end date here so
   // the manual session submission can use the correct date for end_time.
   const [endDateOverride, setEndDateOverride] = useState<Date | null>(null);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
   const getDateRange = () => {
     if (!estimatedDate || estimatedDate === "-") {
@@ -358,6 +340,7 @@ export function TimeTrackingLogDialog({
   useEffect(() => {
     if (open) {
       setShowManualSession(false);
+      setEditingEntryId(null);
       // Reset any previously-set end date override
       setEndDateOverride(null);
       fetchTimeEntries();
@@ -489,7 +472,7 @@ export function TimeTrackingLogDialog({
     toast.success("Exported to CSV");
   };
 
-  const handleAddSession = () => {
+  const handleSaveSession = () => {
     // Convert local time to UTC
     const convertLocalToUTC = (dateStr: string, timeStr: string): string => {
       // Parse the local time
@@ -511,20 +494,7 @@ export function TimeTrackingLogDialog({
       const [year, month, day] = dateStr.split("-").map(Number);
       const localDate = new Date(year, month - 1, day, hours, minutes, 0);
 
-      // Convert to UTC by getting the offset and adjusting
-      const utcDate = new Date(
-        localDate.getTime() - localDate.getTimezoneOffset() * 60000,
-      );
-
-      // Format as "YYYY-MM-DD HH:mm:ss" in UTC
-      const utcYear = utcDate.getUTCFullYear();
-      const utcMonth = String(utcDate.getUTCMonth() + 1).padStart(2, "0");
-      const utcDay = String(utcDate.getUTCDate()).padStart(2, "0");
-      const utcHours = String(utcDate.getUTCHours()).padStart(2, "0");
-      const utcMinutes = String(utcDate.getUTCMinutes()).padStart(2, "0");
-      const utcSeconds = String(utcDate.getUTCSeconds()).padStart(2, "0");
-
-      return `${utcYear}-${utcMonth}-${utcDay} ${utcHours}:${utcMinutes}:${utcSeconds}`;
+      return formatDateToApi(localDate);
     };
 
     const dateStr = format(selectedDate, "yyyy-MM-dd");
@@ -565,14 +535,24 @@ export function TimeTrackingLogDialog({
       note: tag || undefined,
     };
 
-    // Call API to add manual time entry
+    // Call API to add or update time entry
     (async () => {
       try {
         setIsLoading(true);
-        await tasksApi.addManualTimeEntry(payload);
-        toast.success("Session Added Successfully");
+        if (editingEntryId) {
+          await tasksApi.updateTimeEntry(editingEntryId, {
+            start_time: payload.start_time,
+            end_time: payload.end_time,
+            note: payload.note,
+          });
+          toast.success("Session Updated Successfully");
+        } else {
+          await tasksApi.addManualTimeEntry(payload);
+          toast.success("Session Added Successfully");
+        }
         // Reset form and go back to time logs view
         setShowManualSession(false);
+        setEditingEntryId(null);
         setSelectedDate(new Date());
         setStartTime("12:00 PM");
         setEndTime("01:00 PM");
@@ -580,8 +560,8 @@ export function TimeTrackingLogDialog({
         // Refresh the time logs list
         await fetchTimeEntries();
       } catch (error) {
-        console.error("Failed to add session:", error);
-        toast.error("Failed to Add Session");
+        console.error("Failed to save session:", error);
+        toast.error(editingEntryId ? "Failed to Update Session" : "Failed to Add Session");
       } finally {
         setIsLoading(false);
       }
@@ -590,6 +570,7 @@ export function TimeTrackingLogDialog({
 
   const handleBackToLogs = () => {
     setShowManualSession(false);
+    setEditingEntryId(null);
     setSelectedDate(new Date());
     setStartTime("12:00 PM");
     setEndTime("01:00 PM");
@@ -667,8 +648,7 @@ export function TimeTrackingLogDialog({
     try {
       // Parse the UTC start_time to get the local date
       const parseUtcToLocalDate = (timeStr: string): Date => {
-        // Convert "YYYY-MM-DD HH:mm:ss" → "YYYY-MM-DDTHH:mm:ssZ"
-        return new Date(timeStr.replace(" ", "T") + "Z");
+        return parseApiDateTime(timeStr) || new Date();
       };
 
       // Normalize time format: remove seconds and ensure proper spacing
@@ -696,15 +676,27 @@ export function TimeTrackingLogDialog({
       // Set the times with normalized format
       setStartTime(normalizeTimeForPicker(log.startTime));
       setEndTime(
-        log.endTime !== "Active..." ? normalizeTimeForPicker(log.endTime) : "1:00 PM",
+        log.endTime !== "Active..."
+          ? normalizeTimeForPicker(log.endTime)
+          : "1:00 PM",
       );
 
       // Set the tag/note
       setTag(log.note || "");
 
-      // Reset end date override since we're editing
-      setEndDateOverride(null);
+      // Handle endDate if it's different from startDate
+      if (log.end_time) {
+        const endDate = parseUtcToLocalDate(log.end_time);
+        if (format(endDate, "yyyy-MM-dd") !== format(startDate, "yyyy-MM-dd")) {
+          setEndDateOverride(endDate);
+        } else {
+          setEndDateOverride(null);
+        }
+      } else {
+        setEndDateOverride(null);
+      }
 
+      setEditingEntryId(log.id);
       setShowManualSession(true);
     } catch (err) {
       console.error("Failed to open manual session from log:", err);
@@ -724,7 +716,7 @@ export function TimeTrackingLogDialog({
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
               <DialogTitle className="text-xl font-semibold text-foreground">
-                Add session
+                {editingEntryId ? "Edit session" : "Add session"}
               </DialogTitle>
               <div className="flex items-center gap-3">
                 <button
@@ -822,10 +814,10 @@ export function TimeTrackingLogDialog({
                 {duration}
               </div>
               <Button
-                onClick={handleAddSession}
+                onClick={handleSaveSession}
                 className="h-10 bg-primary hover:bg-primary/90"
               >
-                Add session
+                {editingEntryId ? "Save session" : "Add session"}
               </Button>
             </div>
           </>

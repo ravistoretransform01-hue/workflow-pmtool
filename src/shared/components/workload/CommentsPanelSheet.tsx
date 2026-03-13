@@ -58,6 +58,7 @@ interface CommentsPanelSheetProps {
     parentId: string | number,
     replyText: string,
   ) => void | Promise<void>;
+  onLikeComment: (commentId: string | number) => void | Promise<void>;
   onTaskButtonClick?: () => void;
   onInlineEditTaskName?: (taskId: string, newName: string) => void;
   isSaving?: boolean;
@@ -83,6 +84,7 @@ export function CommentsPanelSheet({
   onDeleteComment,
   onUpdateComment,
   onSaveInlineReply,
+  onLikeComment,
   onTaskButtonClick,
   onInlineEditTaskName,
   isSaving,
@@ -298,6 +300,7 @@ export function CommentsPanelSheet({
                 onDeleteComment={onDeleteComment}
                 onUpdateComment={onUpdateComment}
                 onSaveInlineReply={onSaveInlineReply}
+                onLikeComment={onLikeComment}
                 onSaveMainUpdate={onSaveUpdate}
                 isSaving={isSaving}
                 onFilePreview={handleFilePreview}

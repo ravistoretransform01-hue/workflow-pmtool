@@ -9,11 +9,12 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import {
-  MessageCirclePlus,
   Pencil,
   Trash2,
   MoreHorizontal,
   X,
+  ThumbsUp,
+  Reply,
 } from "lucide-react";
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
 import { cn, parseApiDateTime } from "@/lib/utils";
@@ -40,6 +41,7 @@ interface CommentItemProps {
   onDeleteComment: (id: string | number) => void;
   onUpdateComment: (id: string | number, text: string) => void;
   onSaveInlineReply: (parentId: string | number, text: string) => void;
+  onLikeComment: (id: string | number) => void;
   onFilePreview: (src: string, name?: string) => void;
   isSaving?: boolean;
 }
@@ -62,6 +64,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onDeleteComment,
   onUpdateComment,
   onSaveInlineReply,
+  onLikeComment,
   onFilePreview,
   isSaving,
 }) => {
@@ -122,7 +125,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 {comment.user?.name || "Unknown User"}
               </span>
               <span
-                className="text-[10px] text-muted-foreground tracking-wider cursor-pointer"
+                className="text-[11px] text-muted-foreground tracking-wider cursor-pointer"
                 onClick={() => setShowRelativeTime(!showRelativeTime)}
                 title={
                   showRelativeTime
@@ -301,14 +304,34 @@ export const CommentItem: React.FC<CommentItemProps> = ({
           </div>
 
           <div className="flex items-center gap-4 py-1">
+            {" "}
+            <button
+              onClick={() => onLikeComment(comment.id)}
+              className={cn(
+                "flex items-center gap-1.5 text-sm   transition-colors tracking-wider",
+                comment.is_liked_by_me
+                  ? "text-primary"
+                  : "text-white hover:text-primary",
+              )}
+            >
+              <ThumbsUp
+                className={cn(
+                  "h-4 w-4",
+                  comment.is_liked_by_me && "fill-current",
+                )}
+              />
+              {comment.total_likes && comment.total_likes > 0
+                ? `${comment.total_likes} ${comment.total_likes === 1 ? "Like" : "Likes"}`
+                : "Like"}
+            </button>
             <button
               onClick={() => {
                 setInlineReplyId(comment.id);
                 setInlineReplyText("");
               }}
-              className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-wider"
+              className="flex items-center gap-1.5 text-sm   text-white hover:text-primary transition-colors uppercase tracking-wider"
             >
-              <MessageCirclePlus className="h-3 w-3" />
+              <Reply className="h-4 w-4" />
               Reply
             </button>
             <button
@@ -316,9 +339,9 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 setEditingCommentId(comment.id);
                 setEditCommentText(comment.content);
               }}
-              className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-wider"
+              className="hidden flex items-center gap-1.5 text-sm   text-white hover:text-primary transition-colors uppercase tracking-wider"
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-4 w-4" />
               Edit
             </button>
           </div>
@@ -394,6 +417,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                   onDeleteComment={onDeleteComment}
                   onUpdateComment={onUpdateComment}
                   onSaveInlineReply={onSaveInlineReply}
+                  onLikeComment={onLikeComment}
                   onFilePreview={onFilePreview}
                   isSaving={isSaving}
                 />
