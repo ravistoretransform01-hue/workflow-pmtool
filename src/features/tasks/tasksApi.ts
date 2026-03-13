@@ -471,6 +471,29 @@ export const tasksApi = {
   },
 
   /**
+   * Update an existing time entry
+   */
+  updateTimeEntry: async (
+    entryId: string | number,
+    payload: {
+      start_time: string;
+      end_time: string;
+      note?: string;
+    },
+  ): Promise<any> => {
+    try {
+      const response = await axios.put<any>(
+        `/tasks/time/entries/${entryId}`,
+        payload,
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to update time entry:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Get activity log for a task
    */
   getActivity: async (params: {

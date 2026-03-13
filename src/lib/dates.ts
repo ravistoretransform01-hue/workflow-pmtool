@@ -19,6 +19,16 @@ export function parseApiDateTime(input: string | null | undefined): Date | null 
   return new Date(Date.UTC(year, month, day, hour, minute, second));
 }
 
+/**
+ * Format a Date object to the API expected format: "YYYY-MM-DD HH:mm:ss"
+ * The output is always in UTC.
+ */
+export function formatDateToApi(date: Date | null | undefined): string {
+  if (!date) return "";
+  const isoString = date.toISOString(); // "YYYY-MM-DDTHH:mm:ss.sssZ"
+  return isoString.replace("T", " ").replace(/\.\d+Z$/, "");
+}
+
 export function formatApiDateTimeToLocale(
   input: string | Date | null | undefined,
   locale = "default",
