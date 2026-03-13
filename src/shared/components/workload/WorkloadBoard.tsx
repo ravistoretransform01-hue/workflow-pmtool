@@ -473,6 +473,11 @@ export function WorkloadBoard({
   const columnState = useColumnPersistence(boardId);
   const filterState = useTaskFilters();
 
+  // Refs for tracking timer teardown to prevent "jump back" bug
+  const lastActiveTimerId = useRef<string | null>(null);
+  const lastTimerStartTime = useRef<number | null>(null);
+  const lastInitialTrackedSeconds = useRef<number>(0);
+
   // Mapping Tab Name -> isViewLive key
   const TAB_TO_VIEW_KEY: Record<string, keyof typeof isViewLive> = {
     "Main Table": "mainTable",
@@ -1062,6 +1067,36 @@ export function WorkloadBoard({
 
     return () => clearInterval(interval);
   }, [timerState.activeTimerId, timerState]);
+
+  // Handle global timer stop synchronization
+  useEffect(() => {
+    if (timerState.activeTimerId) {
+      // Sync refs while timer is active
+      lastActiveTimerId.current = timerState.activeTimerId;
+      lastTimerStartTime.current = timerState.timerStartTime;
+      lastInitialTrackedSeconds.current = activeTaskInfo?.trackedTimeSeconds || 0;
+    } else if (lastActiveTimerId.current) {
+      // Timer just stopped (likely from Header/another view)
+      // Update local state instantly with final calculated time
+      const taskId = lastActiveTimerId.current;
+      const startTime = lastTimerStartTime.current;
+
+      if (startTime) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const finalTrackedTime = lastInitialTrackedSeconds.current + elapsed;
+        updateTaskInGroups(taskId, { tracked_time_seconds: finalTrackedTime });
+      }
+
+      // Cleanup ref
+      lastActiveTimerId.current = null;
+      lastTimerStartTime.current = null;
+    }
+  }, [
+    timerState.activeTimerId,
+    timerState.timerStartTime,
+    activeTaskInfo,
+    updateTaskInGroups,
+  ]);
 
   // Sync with backend on mount to ensure timer state is accurate across tabs/refreshes
   useEffect(() => {
