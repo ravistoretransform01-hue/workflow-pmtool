@@ -356,6 +356,48 @@ export function TaskCardDialog({
     }
   };
 
+  const onLikeComment = async (commentId: string | number) => {
+    // Optimistic Update
+    const originalComments = [...comments];
+    setComments((prev) =>
+      prev.map((c) => {
+        if (String(c.id) === String(commentId)) {
+          const isLiked = !!c.is_liked_by_me;
+          const currentLikes = c.total_likes || 0;
+          return {
+            ...c,
+            is_liked_by_me: !isLiked,
+            total_likes: isLiked
+              ? Math.max(0, currentLikes - 1)
+              : currentLikes + 1,
+          };
+        }
+        return c;
+      }),
+    );
+
+    try {
+      const response = await tasksApi.likeComment(commentId);
+      // Sync with server response
+      setComments((prev) =>
+        prev.map((c) => {
+          if (String(c.id) === String(commentId)) {
+            return {
+              ...c,
+              total_likes: response.total_likes,
+              is_liked_by_me: response.is_liked_by_me,
+            };
+          }
+          return c;
+        }),
+      );
+    } catch (error) {
+      console.error("Failed to like comment:", error);
+      setComments(originalComments);
+      toast.error("Failed to update like status");
+    }
+  };
+
   const onUpdateComment = async (
     commentId: string | number,
     content: string,
@@ -851,6 +893,7 @@ export function TaskCardDialog({
                   onSaveInlineReply={(parentId, text) =>
                     onSaveInlineReply(parentId, text, 1)
                   }
+                  onLikeComment={onLikeComment}
                   onFilePreview={handleFilePreview}
                   layout="dialog"
                   isInternal={1}
@@ -872,6 +915,7 @@ export function TaskCardDialog({
                   onSaveInlineReply={(parentId, text) =>
                     onSaveInlineReply(parentId, text, 0)
                   }
+                  onLikeComment={onLikeComment}
                   onFilePreview={handleFilePreview}
                   layout="dialog"
                   isInternal={0}
