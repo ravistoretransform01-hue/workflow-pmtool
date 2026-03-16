@@ -9,6 +9,13 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
+
+import {
   Pencil,
   Trash2,
   MoreHorizontal,
@@ -304,26 +311,74 @@ export const CommentItem: React.FC<CommentItemProps> = ({
           </div>
 
           <div className="flex items-center gap-4 py-1">
-            {" "}
-            <button
-              onClick={() => onLikeComment(comment.id)}
-              className={cn(
-                "flex items-center gap-1.5 text-sm   transition-colors tracking-wider",
-                comment.is_liked_by_me
-                  ? "text-primary"
-                  : "text-white hover:text-primary",
-              )}
-            >
-              <ThumbsUp
+            {comment.liked_by && comment.liked_by.length > 0 ? (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => onLikeComment(comment.id)}
+                      className={cn(
+                        "flex items-center gap-1.5 text-sm transition-colors tracking-wider",
+                        comment.is_liked_by_me
+                          ? "text-primary"
+                          : "text-white hover:text-primary",
+                      )}
+                    >
+                      <ThumbsUp
+                        className={cn(
+                          "h-4 w-4",
+                          comment.is_liked_by_me && "fill-current",
+                        )}
+                      />
+                      {comment.total_likes && comment.total_likes > 0
+                        ? `${comment.total_likes} ${comment.total_likes === 1 ? "Like" : "Likes"}`
+                        : "Like"}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    align="start"
+                    className="text-xs bg-zinc-900 text-zinc-100 border-zinc-800 px-3 py-2 shadow-xl w-48"
+                  >
+                    <div className="font-semibold mb-2 text-zinc-400 uppercase tracking-wider text-[10px]">
+                      Liked by
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {comment.liked_by.slice(0, 10).map((u) => (
+                        <div key={u.id} className="truncate">
+                          {u.name}
+                        </div>
+                      ))}
+                      {comment.liked_by.length > 10 && (
+                        <div className="text-zinc-500 italic mt-0.5 text-[11px]">
+                          and {comment.liked_by.length - 10} more...
+                        </div>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <button
+                onClick={() => onLikeComment(comment.id)}
                 className={cn(
-                  "h-4 w-4",
-                  comment.is_liked_by_me && "fill-current",
+                  "flex items-center gap-1.5 text-sm transition-colors tracking-wider",
+                  comment.is_liked_by_me
+                    ? "text-primary"
+                    : "text-white hover:text-primary",
                 )}
-              />
-              {comment.total_likes && comment.total_likes > 0
-                ? `${comment.total_likes} ${comment.total_likes === 1 ? "Like" : "Likes"}`
-                : "Like"}
-            </button>
+              >
+                <ThumbsUp
+                  className={cn(
+                    "h-4 w-4",
+                    comment.is_liked_by_me && "fill-current",
+                  )}
+                />
+                {comment.total_likes && comment.total_likes > 0
+                  ? `${comment.total_likes} ${comment.total_likes === 1 ? "Like" : "Likes"}`
+                  : "Like"}
+              </button>
+            )}
             <button
               onClick={() => {
                 setInlineReplyId(comment.id);
