@@ -24,7 +24,7 @@ import {
   Reply,
 } from "lucide-react";
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
-import { cn, parseApiDateTime } from "@/lib/utils";
+import { cn, parseApiDateTime, getCurrentUserId } from "@/lib/utils";
 import type { TaskComment } from "@/features/tasks/types";
 import { renderFormattedContent, getRelativeTimeString } from "./utils";
 
@@ -96,6 +96,13 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [showRelativeTime, setShowRelativeTime] = useState(false);
 
+  // Only allow editing/deleting the current user's own comments
+  const currentUserId = getCurrentUserId();
+  const isOwnComment =
+    currentUserId !== null &&
+    (String(comment.user_id) === String(currentUserId) ||
+      String(comment.user?.id) === String(currentUserId));
+
   // Heuristic for long content: > 800 chars of HTML or > 8 newlines
   const isLongContent =
     comment.content.length > 800 ||
@@ -153,33 +160,35 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               </span>
             </div>
 
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setEditingCommentId(comment.id);
-                      setEditCommentText(comment.content);
-                    }}
-                  >
-                    <Pencil className="h-3 w-3 mr-2" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => onDeleteComment(comment.id)}
-                  >
-                    <Trash2 className="h-3 w-3 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            {isOwnComment && (
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setEditingCommentId(comment.id);
+                        setEditCommentText(comment.content);
+                      }}
+                    >
+                      <Pencil className="h-3 w-3 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => onDeleteComment(comment.id)}
+                    >
+                      <Trash2 className="h-3 w-3 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </div>
 
           <div
