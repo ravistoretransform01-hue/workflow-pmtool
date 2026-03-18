@@ -1053,6 +1053,18 @@ export function WorkloadBoard({
     setBoardNameValue(boardName);
   }, [boardName]);
 
+  // Listen for sidebar renames and sync the header title instantly
+  useEffect(() => {
+    const handleBoardRenamed = (e: Event) => {
+      const { boardId: renamedId, newName } = (e as CustomEvent).detail;
+      if (String(renamedId) === String(boardId)) {
+        setBoardNameValue(newName);
+      }
+    };
+    window.addEventListener("board-renamed", handleBoardRenamed);
+    return () => window.removeEventListener("board-renamed", handleBoardRenamed);
+  }, [boardId]);
+
   // Update timer trigger every second when a timer is running to force progress bar recalculation
   // Also force a re-render to update group progress bars
   const [, forceUpdate] = useState({});

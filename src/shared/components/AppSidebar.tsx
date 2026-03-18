@@ -135,6 +135,17 @@ export const AppSidebar = () => {
       });
 
       toast.success(`Board Renamed to "${renamingBoardName}"`);
+
+      // Notify any open WorkloadBoard to update its displayed name
+      window.dispatchEvent(
+        new CustomEvent("board-renamed", {
+          detail: {
+            boardId: renamingBoardId,
+            newName: renamingBoardName.trim(),
+          },
+        }),
+      );
+
       setRenamingBoardId(null);
       setRenamingBoardName("");
 
@@ -183,6 +194,12 @@ export const AppSidebar = () => {
     try {
       await boardsApi.deleteBoard(deletingBoardId);
       toast.success(`Board "${deletingBoardName}" Deleted Successfully`);
+
+      // Navigate away only if the deleted board is the one currently open
+      if (boardId && String(deletingBoardId) === String(boardId)) {
+        navigate("/home");
+      }
+
       setDeletingBoardId(null);
       setDeletingBoardName("");
       fetchBoards();
