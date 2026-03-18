@@ -224,12 +224,29 @@ export function TaskCardDialog({
     }
   }, [task?.assigned_to_ids, task?.person]);
 
-  // Fetch comments when dialog opens or task changes
+  // Fetch comments when dialog opens or task changes, then poll every 5s for real-time updates
+  // Only poll while the Update tab is active to avoid unnecessary requests on other tabs
   useEffect(() => {
     if (open && task?.id) {
+      // Initial fetch with loading indicator
       fetchComments();
+
+      // Only start polling when the Update tab is visible
+      if (activeTab === "dev-updates") {
+        const pollInterval = setInterval(async () => {
+          if (!task?.id) return;
+          try {
+            const fetched = await tasksApi.getComments(task.id);
+            setComments(fetched);
+          } catch {
+            // Silently ignore poll errors
+          }
+        }, 5000);
+
+        return () => clearInterval(pollInterval);
+      }
     }
-  }, [open, task?.id]);
+  }, [open, task?.id, activeTab]);
 
   // Load activity when dialog opens or task changes
   useEffect(() => {
