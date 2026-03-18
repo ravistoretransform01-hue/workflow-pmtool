@@ -96,6 +96,22 @@ const tasksSlice = createSlice({
         sessionStorage.removeItem("activeTaskInfo");
       }
     },
+    updateActiveTaskTime: (
+      state,
+      action: PayloadAction<{ taskId: string; trackedTimeSeconds: number }>,
+    ) => {
+      if (
+        String(state.activeTimerId) === String(action.payload.taskId) &&
+        state.activeTaskInfo
+      ) {
+        state.activeTaskInfo.trackedTimeSeconds =
+          action.payload.trackedTimeSeconds;
+        sessionStorage.setItem(
+          "activeTaskInfo",
+          JSON.stringify(state.activeTaskInfo),
+        );
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -143,5 +159,5 @@ const tasksSlice = createSlice({
   },
 });
 
-export const { startTimer, stopTimer, setActiveTimerId } = tasksSlice.actions;
+export const { startTimer, stopTimer, setActiveTimerId, updateActiveTaskTime } = tasksSlice.actions;
 export default tasksSlice.reducer;

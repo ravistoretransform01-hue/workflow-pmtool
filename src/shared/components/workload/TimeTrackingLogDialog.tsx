@@ -13,6 +13,8 @@ import { Input } from "@/shared/components/ui/input";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import type { TimeEntry } from "@/features/tasks/types";
 import { format, parse, addDays } from "date-fns";
+import { useAppDispatch } from "@/app/hooks";
+import { updateActiveTaskTime } from "@/features/tasks/tasksSlice";
 import { TimePickerInput } from "@/shared/components/TimePickerInput";
 import { debugLog } from "@/lib/debugLog";
 import {
@@ -181,6 +183,7 @@ export function TimeTrackingLogDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showManualSession, setShowManualSession] = useState(false);
+  const dispatch = useAppDispatch();
 
   // Manual session form state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -426,8 +429,16 @@ export function TimeTrackingLogDialog({
       setTimeLogs((prev) => prev.filter((log) => log.id !== id));
       toast.success("Time Entry Deleted Successfully");
       
-      if (res?.tracked_time_seconds !== undefined && onTimeUpdate) {
-        onTimeUpdate(taskId, res.tracked_time_seconds);
+      if (res?.tracked_time_seconds !== undefined) {
+        if (onTimeUpdate) {
+          onTimeUpdate(taskId, res.tracked_time_seconds);
+        }
+        dispatch(
+          updateActiveTaskTime({
+            taskId,
+            trackedTimeSeconds: res.tracked_time_seconds,
+          }),
+        );
       }
     } catch (error) {
       console.error("Failed to delete time entry:", error);
@@ -448,6 +459,12 @@ export function TimeTrackingLogDialog({
         if (onTimeUpdate) {
           onTimeUpdate(taskId, 0);
         }
+        dispatch(
+          updateActiveTaskTime({
+            taskId,
+            trackedTimeSeconds: 0,
+          }),
+        );
       } catch (error) {
         console.error("Failed to clear time logs:", error);
         toast.error("Failed to Clear Time Logs");
@@ -556,14 +573,30 @@ export function TimeTrackingLogDialog({
             note: payload.note,
           });
           toast.success("Session Updated Successfully");
-          if (res?.tracked_time_seconds !== undefined && onTimeUpdate) {
-            onTimeUpdate(taskId, res.tracked_time_seconds);
+          if (res?.tracked_time_seconds !== undefined) {
+            if (onTimeUpdate) {
+              onTimeUpdate(taskId, res.tracked_time_seconds);
+            }
+            dispatch(
+              updateActiveTaskTime({
+                taskId,
+                trackedTimeSeconds: res.tracked_time_seconds,
+              }),
+            );
           }
         } else {
           const res = await tasksApi.addManualTimeEntry(payload);
           toast.success("Session Added Successfully");
-          if (res?.tracked_time_seconds !== undefined && onTimeUpdate) {
-            onTimeUpdate(taskId, res.tracked_time_seconds);
+          if (res?.tracked_time_seconds !== undefined) {
+            if (onTimeUpdate) {
+              onTimeUpdate(taskId, res.tracked_time_seconds);
+            }
+            dispatch(
+              updateActiveTaskTime({
+                taskId,
+                trackedTimeSeconds: res.tracked_time_seconds,
+              }),
+            );
           }
         }
         // Reset form and go back to time logs view
@@ -919,13 +952,20 @@ export function TimeTrackingLogDialog({
                   {timeLogs.map((log) => (
                     <div
                       key={log.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => openManualFromLog(log)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") openManualFromLog(log);
+                      role={log.endTime === "Active..." ? undefined : "button"}
+                      tabIndex={log.endTime === "Active..." ? undefined : 0}
+                      onClick={() => {
+                        if (log.endTime !== "Active...") openManualFromLog(log);
                       }}
-                      className="cursor-pointer flex items-center gap-2 px-6 py-2 border-border/30 hover:bg-muted/80 transition-colors group bg-background hover:shadow-sm rounded-md"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && log.endTime !== "Active...") 
+                          openManualFromLog(log);
+                      }}
+                      className={`flex items-center gap-2 px-6 py-2 border-border/30 rounded-md transition-colors bg-background ${
+                        log.endTime === "Active..."
+                          ? "cursor-default opacity-95"
+                          : "cursor-pointer hover:bg-muted/80 hover:shadow-sm group"
+                      }`}
                     >
                       {/* User Avatar */}
                       <Avatar className="h-10 w-10 flex-shrink-0">
@@ -965,11 +1005,15 @@ export function TimeTrackingLogDialog({
                           <span className="text-xs text-primary font-medium">
                             {log.note}
                           </span>
+                        ) : log.endTime === "Active..." ? (
+                          <span className="text-xs text-muted-foreground/50 font-medium">
+                            --
+                          </span>
                         ) : (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              /* TODO: open tag editor */
+                              openManualFromLog(log);
                             }}
                             className="text-xs text-primary hover:underline font-medium"
                           >
@@ -979,16 +1023,20 @@ export function TimeTrackingLogDialog({
                       </div>
 
                       {/* Delete Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteLog(log.id);
-                        }}
-                        className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
-                        title="Delete log entry"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {log.endTime !== "Active..." ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteLog(log.id);
+                          }}
+                          className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                          title="Delete log entry"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <div className="w-7 h-7" /> /* Placeholder space */
+                      )}
                     </div>
                   ))}
                 </div>
