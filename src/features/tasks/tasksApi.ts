@@ -489,9 +489,10 @@ export const tasksApi = {
   /**
    * Delete a time entry
    */
-  deleteTimeEntry: async (entryId: string | number): Promise<void> => {
+  deleteTimeEntry: async (entryId: string | number): Promise<any> => {
     try {
-      await axios.delete(`/tasks/time/entries/${entryId}`);
+      const response = await axios.delete(`/tasks/time/entries/${entryId}`);
+      return response.data;
     } catch (error) {
       console.error("Failed to delete time entry:", error);
       throw error;

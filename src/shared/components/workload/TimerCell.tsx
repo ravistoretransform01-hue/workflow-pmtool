@@ -262,6 +262,7 @@ export function TimerCell({
         taskId={taskId}
         taskName={taskName}
         estimatedDate={estimatedDate}
+        onTimeUpdate={onTimeUpdate}
       />
     </>
   );
