@@ -133,9 +133,11 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
         prev.filter((task) => !selectedTaskIds.includes(task.id)),
       );
       setSelectedItems({});
-    } catch (error) {
-      console.error("Error deleting tasks:", error);
-      toast.error("Failed to delete tasks");
+    } catch (error: any) {
+      // console.error("Error deleting tasks:", error);
+      const errorMessage =
+        error?.response?.data?.message || "Failed to delete task";
+      toast.error(errorMessage);
     } finally {
       setIsDeleting(false);
     }
@@ -152,9 +154,11 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
       await trashApi.deleteTaskPermanently(taskId, orgId);
       toast.success("Task Deleted Permanently");
       setDeletedTasks((prev) => prev.filter((task) => task.id !== taskId));
-    } catch (error) {
-      console.error("Error deleting task:", error);
-      toast.error("Failed to delete task");
+    } catch (error: any) {
+      // console.error("Error deleting task:", error);
+      const errorMessage =
+        error?.response?.data?.message || "Failed to delete task";
+      toast.error(errorMessage);
     }
   };
 

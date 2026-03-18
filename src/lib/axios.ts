@@ -23,7 +23,7 @@ export const setLoadingListener = (callback: (isLoading: boolean) => void) => {
 };
 
 const updateLoadingState = (delta: number) => {
-  activeRequests += delta;
+  activeRequests = Math.max(0, activeRequests + delta);
   if (onLoadingChanged) {
     onLoadingChanged(activeRequests > 0);
   }
@@ -109,6 +109,7 @@ api.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
+    updateLoadingState(-1); // Immediately decrement for this failed request
     debugLog(`\n[ERROR] ========== ERROR DETECTED ==========`);
     const originalRequest = error.config as any;
     const errorData = error.response?.data as any;
@@ -378,7 +379,6 @@ api.interceptors.response.use(
     }
 
     debugLog(`[ERROR] ========== ERROR HANDLING COMPLETE ==========\n`);
-    updateLoadingState(-1);
     return Promise.reject(error);
   },
 );
