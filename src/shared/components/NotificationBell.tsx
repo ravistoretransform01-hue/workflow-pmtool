@@ -34,6 +34,11 @@ export function NotificationBell() {
     (state: RootState) => state.ui.refreshCounter,
   );
 
+  // Load once on mount so the red-dot badge is visible right away
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
   useEffect(() => {
     if (open || refreshCounter > 0) {
       loadNotifications();
