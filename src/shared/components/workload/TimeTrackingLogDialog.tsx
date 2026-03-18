@@ -38,6 +38,7 @@ interface TimeTrackingLogDialogProps {
   taskId: string;
   taskName?: string;
   estimatedDate?: string;
+  onTimeUpdate?: (taskId: string, seconds: number) => void;
 }
 
 // Helper function to format time entry data
@@ -174,6 +175,7 @@ export function TimeTrackingLogDialog({
   taskId,
   taskName,
   estimatedDate,
+  onTimeUpdate,
 }: TimeTrackingLogDialogProps) {
   const [timeLogs, setTimeLogs] = useState<TimeLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -420,9 +422,13 @@ export function TimeTrackingLogDialog({
 
   const handleDeleteLog = async (id: string) => {
     try {
-      await tasksApi.deleteTimeEntry(id);
+      const res = await tasksApi.deleteTimeEntry(id);
       setTimeLogs((prev) => prev.filter((log) => log.id !== id));
       toast.success("Time Entry Deleted Successfully");
+      
+      if (res?.tracked_time_seconds !== undefined && onTimeUpdate) {
+        onTimeUpdate(taskId, res.tracked_time_seconds);
+      }
     } catch (error) {
       console.error("Failed to delete time entry:", error);
       toast.error("Failed to Delete Time Entry");
@@ -438,6 +444,10 @@ export function TimeTrackingLogDialog({
         );
         setTimeLogs([]);
         toast.success("All Time Entries Deleted Successfully");
+        
+        if (onTimeUpdate) {
+          onTimeUpdate(taskId, 0);
+        }
       } catch (error) {
         console.error("Failed to clear time logs:", error);
         toast.error("Failed to Clear Time Logs");
@@ -540,15 +550,21 @@ export function TimeTrackingLogDialog({
       try {
         setIsLoading(true);
         if (editingEntryId) {
-          await tasksApi.updateTimeEntry(editingEntryId, {
+          const res = await tasksApi.updateTimeEntry(editingEntryId, {
             start_time: payload.start_time,
             end_time: payload.end_time,
             note: payload.note,
           });
           toast.success("Session Updated Successfully");
+          if (res?.tracked_time_seconds !== undefined && onTimeUpdate) {
+            onTimeUpdate(taskId, res.tracked_time_seconds);
+          }
         } else {
-          await tasksApi.addManualTimeEntry(payload);
+          const res = await tasksApi.addManualTimeEntry(payload);
           toast.success("Session Added Successfully");
+          if (res?.tracked_time_seconds !== undefined && onTimeUpdate) {
+            onTimeUpdate(taskId, res.tracked_time_seconds);
+          }
         }
         // Reset form and go back to time logs view
         setShowManualSession(false);
