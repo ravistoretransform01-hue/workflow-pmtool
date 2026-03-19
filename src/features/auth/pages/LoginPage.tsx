@@ -13,6 +13,8 @@ import {
 import { BarChart3, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
+import { requestNotificationPermission } from "@/lib/firebase";
+import { authApi } from "@/features/auth/authApi";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -117,6 +119,14 @@ const LoginPage = () => {
         description: "Welcome Back!",
       });
       navigate("/home");
+
+      // Register FCM token in the background (non-blocking)
+      requestNotificationPermission().then((token) => {
+        if (token) {
+          console.log("FCM Token:", token);
+          authApi.saveFcmToken(token);
+        }
+      });
     }
   };
 
