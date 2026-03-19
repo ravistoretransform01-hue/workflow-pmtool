@@ -46,7 +46,9 @@ export { onMessage };
  * Requests browser notification permission and returns the FCM token.
  * Returns null if unsupported, notification disabled, permission denied, or an error occurs.
  */
-export const requestNotificationPermission = async (): Promise<string | null> => {
+export const requestNotificationPermission = async (): Promise<
+  string | null
+> => {
   if (!PUSH_NOTIFICATIONS_ENABLED) return null;
   try {
     const msg = await getFirebaseMessaging();

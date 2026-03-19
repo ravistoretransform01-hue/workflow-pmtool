@@ -26,11 +26,12 @@ messaging.onBackgroundMessage((payload) => {
 
   const title = payload.data?.title || "PM Tool";
   const body = payload.data?.body || "";
-  const icon = payload.data?.icon || "/favicon.ico";
+  const icon = payload.data?.icon || "/favicon.png";
+  const badge = payload.data?.badge || "/favicon.png";
 
   self.registration.showNotification(title, {
     body,
     icon,
-    badge: "/favicon.ico",
+    badge,
   });
 });
