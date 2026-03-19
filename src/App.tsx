@@ -1,4 +1,5 @@
-import { Toaster as Sonner } from "sonner";
+import { useEffect } from "react";
+import { Toaster as Sonner, toast } from "sonner";
 import { TooltipProvider } from "@/shared/components/ui/tooltip";
 import ToasterFromUseToast from "@/shared/components/ToasterFromUseToast";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -7,6 +8,7 @@ import {
   ProtectedRoute,
   ProtectedLayout,
 } from "@/shared/components/ProtectedRoute";
+import { getFirebaseMessaging, onMessage } from "@/lib/firebase";
 
 // Pages
 import LoginPage from "@/features/auth/pages/LoginPage";
@@ -26,63 +28,80 @@ import BoardDashboardPage from "@/pages/BoardDashboardPage";
 import DocumentEditor from "@/pages/DocumentEditor";
 import NotFound from "@/pages/NotFound";
 
-const App = () => (
-  <TooltipProvider>
-    <Sonner />
-    <ToasterFromUseToast />
-    <BrowserRouter>
-      <TestUserProvider>
-        {/* <WorkspaceProvider> */}
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+const App = () => {
+  // Show foreground push notifications as Sonner toasts while the tab is open
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
 
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<ProtectedLayout />}>
-              <Route path="home" element={<HomePage />} />
-              <Route path="my-work" element={<MyWork />} />
-              <Route path="my-team" element={<MyTeam />} />
-              <Route path="all-items" element={<AllItems />} />
-              <Route path="my-habits" element={<MyHabits />} />
-              <Route path="members" element={<MembersPage />} />
+    getFirebaseMessaging().then((msg) => {
+      if (!msg) return; // unsupported browser / non-secure context
+      unsubscribe = onMessage(msg, (payload) => {
+        toast(payload.notification?.title || "New Notification", {
+          description: payload.notification?.body,
+        });
+      });
+    });
 
-              <Route
-                path="workspace/:workspaceId"
-                element={<DynamicWorkspace />}
-              />
-              <Route path="board/:boardId" element={<DynamicBoard />} />
-              <Route
-                path="board/:boardId/view/:viewName"
-                element={<DynamicBoard />}
-              />
-              <Route path="board/:boardId/view" element={<DynamicBoard />} />
-              <Route
-                path="board/:boardId/dashboard"
-                element={<BoardDashboardPage />}
-              />
-              <Route
-                path="workspace/:workspaceId/doc/:documentId"
-                element={<DocumentEditor />}
-              />
+    return () => unsubscribe?.();
+  }, []);
 
-              <Route path="*" element={<NotFound />} />
+  return (
+    <TooltipProvider>
+      <Sonner />
+      <ToasterFromUseToast />
+      <BrowserRouter>
+        <TestUserProvider>
+          {/* <WorkspaceProvider> */}
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<ProtectedLayout />}>
+                <Route path="home" element={<HomePage />} />
+                <Route path="my-work" element={<MyWork />} />
+                <Route path="my-team" element={<MyTeam />} />
+                <Route path="all-items" element={<AllItems />} />
+                <Route path="my-habits" element={<MyHabits />} />
+                <Route path="members" element={<MembersPage />} />
+
+                <Route
+                  path="workspace/:workspaceId"
+                  element={<DynamicWorkspace />}
+                />
+                <Route path="board/:boardId" element={<DynamicBoard />} />
+                <Route
+                  path="board/:boardId/view/:viewName"
+                  element={<DynamicBoard />}
+                />
+                <Route path="board/:boardId/view" element={<DynamicBoard />} />
+                <Route
+                  path="board/:boardId/dashboard"
+                  element={<BoardDashboardPage />}
+                />
+                <Route
+                  path="workspace/:workspaceId/doc/:documentId"
+                  element={<DocumentEditor />}
+                />
+
+                <Route path="*" element={<NotFound />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
-        {/* </WorkspaceProvider> */}
-      </TestUserProvider>
-    </BrowserRouter>
-  </TooltipProvider>
-);
-
+          </Routes>
+          {/* </WorkspaceProvider> */}
+        </TestUserProvider>
+      </BrowserRouter>
+    </TooltipProvider>
+  );
+};
 export default App;
 
-// import { Toaster as Sonner } from "sonner";
+// import { useEffect } from "react";
 // import { TooltipProvider } from "@/shared/components/ui/tooltip";
 // import { BrowserRouter, Routes, Route } from "react-router-dom";
 // import { SidebarProvider } from "@/shared/components/ui/sidebar";

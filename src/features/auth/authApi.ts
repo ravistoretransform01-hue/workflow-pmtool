@@ -9,6 +9,7 @@ const AUTH_ENDPOINTS = {
   ME: "/me",
   FORGOT_PASSWORD: "/auth/forgot-password",
   RESET_PASSWORD: "/auth/reset-password",
+  SAVE_FCM_TOKEN: "/save-fcm-token",
 };
 
 export const authApi = {
@@ -86,5 +87,17 @@ export const authApi = {
       data
     );
     return response.data;
+  },
+
+  /**
+   * Save FCM device token for push notifications
+   */
+  saveFcmToken: async (token: string): Promise<void> => {
+    try {
+      await api.post(AUTH_ENDPOINTS.SAVE_FCM_TOKEN, { fcm_token: token });
+    } catch (error) {
+      // Non-fatal: don't block the user even if this fails
+      console.error("Failed to save FCM token:", error);
+    }
   },
 };
