@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Toaster as Sonner, toast } from "sonner";
+import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/shared/components/ui/tooltip";
 import ToasterFromUseToast from "@/shared/components/ToasterFromUseToast";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -36,9 +36,25 @@ const App = () => {
     getFirebaseMessaging().then((msg) => {
       if (!msg) return; // unsupported browser / non-secure context
       unsubscribe = onMessage(msg, (payload) => {
-        toast(payload.notification?.title || "New Notification", {
-          description: payload.notification?.body,
-        });
+        const url = payload.data?.url;
+
+        if (Notification.permission === "granted") {
+          const notification = new Notification(
+            payload.notification?.title || "New Notification",
+            {
+              body: payload.notification?.body,
+              icon: "/favicon.png",
+            },
+          );
+
+          notification.onclick = (event) => {
+            event.preventDefault();
+            if (url) {
+              window.open(url, "_blank");
+            }
+            notification.close();
+          };
+        }
       });
     });
 
