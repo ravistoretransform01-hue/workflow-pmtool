@@ -25,13 +25,63 @@ messaging.onBackgroundMessage((payload) => {
   if (payload.notification) return;
 
   const title = payload.data?.title || "PM Tool";
-  const body = payload.data?.body || "";
+  const body = payload.data?.message || "";
   const icon = payload.data?.icon || "/favicon.png";
   const badge = payload.data?.badge || "/favicon.png";
+  const url = payload.data?.url || "/";
 
   self.registration.showNotification(title, {
     body,
     icon,
     badge,
+    data: { url }, // Store URL to use in the click handler
   });
+});
+
+// Force service worker to update immediately
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(clients.claim());
+});
+
+// Handle notification click
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  let urlToOpen = "/";
+
+  // ✅ Case 1: Your custom data
+  if (event.notification.data?.url) {
+    urlToOpen = event.notification.data.url;
+  }
+
+  // ✅ Case 2: FCM wrapped data
+  else if (event.notification.data?.FCM_MSG?.data?.url) {
+    urlToOpen = event.notification.data.FCM_MSG.data.url;
+  }
+
+  // ✅ Case 3: notification click_action (if used)
+  else if (event.notification.data?.click_action) {
+    urlToOpen = event.notification.data.click_action;
+  }
+
+  const targetUrl = new URL(urlToOpen, self.location.origin).href;
+
+  event.waitUntil(
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientsArr) => {
+        for (const client of clientsArr) {
+          if (client.url.includes(self.location.origin) && "focus" in client) {
+            client.focus();
+            return client.navigate(targetUrl);
+          }
+        }
+        return clients.openWindow(targetUrl);
+      }),
+  );
 });
