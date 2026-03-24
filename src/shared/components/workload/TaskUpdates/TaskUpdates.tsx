@@ -49,9 +49,6 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
     externalUpdateText !== undefined ? externalUpdateText : localUpdateText;
   const onUpdateTextChange = externalOnUpdateTextChange || setLocalUpdateText;
 
-  const [expandedThreads, setExpandedThreads] = useState<
-    Record<string | number, boolean>
-  >({});
   const [editingCommentId, setEditingCommentId] = useState<
     string | number | null
   >(null);
@@ -121,43 +118,74 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
         <div
           className={cn("space-y-8", layout === "dialog" && "space-y-4 pt-1")}
         >
-          {comments
-            .filter(
-              (c) =>
-                !c.parent_id &&
-                (isInternal === undefined ||
-                  (c.is_internal ? 1 : 0) === isInternal),
-            )
-            .sort(
-              (a, b) =>
-                new Date(b.created_at).getTime() -
-                new Date(a.created_at).getTime(),
-            )
-            .map((comment) => (
-              <CommentItem
-                key={comment.id}
-                comment={comment}
-                allComments={comments}
-                depth={0}
-                boardId={boardId}
-                expandedThreads={expandedThreads}
-                setExpandedThreads={setExpandedThreads}
-                editingCommentId={editingCommentId}
-                setEditingCommentId={setEditingCommentId}
-                editCommentText={editCommentText}
-                setEditCommentText={setEditCommentText}
-                inlineReplyId={inlineReplyId}
-                setInlineReplyId={setInlineReplyId}
-                inlineReplyText={inlineReplyText}
-                setInlineReplyText={setInlineReplyText}
-                onDeleteComment={onDeleteComment}
-                onUpdateComment={handleUpdateCommentWrapped}
-                onSaveInlineReply={handleSaveInlineReplyWrapped}
-                onLikeComment={onLikeComment}
-                onFilePreview={onFilePreview}
-                isSaving={isSaving}
-              />
-            ))}
+          {(() => {
+            const rootComments = comments
+              .filter(
+                (c) =>
+                  !c.parent_id &&
+                  (isInternal === undefined ||
+                    (c.is_internal ? 1 : 0) === isInternal),
+              )
+              .sort(
+                (a, b) =>
+                  new Date(b.created_at).getTime() -
+                  new Date(a.created_at).getTime(),
+              );
+
+            return rootComments.map((comment) => {
+              // Find all descendants for this root
+              const getThreadComments = (rootId: string | number) => {
+                const result: TaskComment[] = [];
+                const queue = [rootId];
+                const seen = new Set([String(rootId)]);
+
+                while (queue.length > 0) {
+                  const pid = queue.shift();
+                  const children = comments.filter(
+                    (c) => String(c.parent_id) === String(pid),
+                  );
+                  for (const child of children) {
+                    if (!seen.has(String(child.id))) {
+                      seen.add(String(child.id));
+                      result.push(child);
+                      queue.push(child.id);
+                    }
+                  }
+                }
+                // Sort thread comments by date ascending (oldest first)
+                return result.sort(
+                  (a, b) =>
+                    new Date(a.created_at).getTime() -
+                    new Date(b.created_at).getTime(),
+                );
+              };
+
+              const threadReplies = getThreadComments(comment.id);
+
+              return (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  replies={threadReplies}
+                  boardId={boardId}
+                  editingCommentId={editingCommentId}
+                  setEditingCommentId={setEditingCommentId}
+                  editCommentText={editCommentText}
+                  setEditCommentText={setEditCommentText}
+                  inlineReplyId={inlineReplyId}
+                  setInlineReplyId={setInlineReplyId}
+                  inlineReplyText={inlineReplyText}
+                  setInlineReplyText={setInlineReplyText}
+                  onDeleteComment={onDeleteComment}
+                  onUpdateComment={handleUpdateCommentWrapped}
+                  onSaveInlineReply={handleSaveInlineReplyWrapped}
+                  onLikeComment={onLikeComment}
+                  onFilePreview={onFilePreview}
+                  isSaving={isSaving}
+                />
+              );
+            });
+          })()}
         </div>
       )}
     </div>

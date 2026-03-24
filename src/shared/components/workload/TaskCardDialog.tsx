@@ -35,6 +35,7 @@ import type { TaskComment } from "@/features/tasks/types";
 import { getWorkloadColumns } from "./WorkloadColumns";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import { tasksApi } from "@/features/tasks/tasksApi";
+import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TiptapEditor } from "./texteditor/TiptapEditor";
@@ -345,8 +346,9 @@ export function TaskCardDialog({
     if (!task?.id || !content.trim()) return;
     setIsSubmittingComment(true);
     try {
+      const finalHtml = await attachmentsApi.uploadAndReplace(content.trim());
       const createdComment = await tasksApi.createComment(task.id, {
-        content: content.trim(),
+        content: finalHtml,
         parent_id: null,
         is_internal: isInternalParam,
       });
@@ -421,8 +423,9 @@ export function TaskCardDialog({
   ) => {
     if (!task?.id) return;
     try {
+      const finalHtml = await attachmentsApi.uploadAndReplace(content);
       const updated = await tasksApi.updateComment(task.id, commentId, {
-        content,
+        content: finalHtml,
       });
       setComments((prev) =>
         prev.map((c) =>
@@ -445,8 +448,9 @@ export function TaskCardDialog({
     if (!task?.id || !text.trim()) return;
     setIsSubmittingComment(true);
     try {
+      const finalHtml = await attachmentsApi.uploadAndReplace(text.trim());
       const createdComment = await tasksApi.createComment(task.id, {
-        content: text.trim(),
+        content: finalHtml,
         parent_id: Number(parentId),
         is_internal: isInternalParam,
       });
@@ -852,9 +856,13 @@ export function TaskCardDialog({
                                 }
 
                                 if (displayTask?.id && onDescriptionChange) {
+                                  const finalHtml =
+                                    await attachmentsApi.uploadAndReplace(
+                                      tempDescription,
+                                    );
                                   await onDescriptionChange(
                                     displayTask.id,
-                                    tempDescription,
+                                    finalHtml,
                                   );
                                   setIsEditingDescription(false);
                                 }
@@ -867,25 +875,55 @@ export function TaskCardDialog({
                       </div>
                     ) : (
                       <div
-                        className="p-8 cursor-pointer min-h-full hover:bg-muted/5 transition-colors"
-                        onClick={() => {
-                          setTempDescription(displayTask?.description || "");
-                          setIsEditingDescription(true);
+                        className="p-8 min-h-full"
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.tagName === "IMG") {
+                            handleFilePreview((target as HTMLImageElement).src);
+                            return;
+                          }
+
+                          // Handle File/PDF Card Preview button
+                          const previewBtn =
+                            target.closest(".file-card-preview-btn") ||
+                            target.closest(".pdf-card-preview-btn");
+                          const openBtn =
+                            target.closest(".file-card-open-btn") ||
+                            target.closest(".pdf-card-open-btn");
+
+                          if (previewBtn || openBtn) {
+                            const wrapper =
+                              target.closest("[data-type='file-card']") ||
+                              target.closest("[data-type='pdf-card']");
+                            if (wrapper) {
+                              const href = wrapper.getAttribute("data-href");
+                              const fileName =
+                                wrapper.getAttribute("data-file-name") ||
+                                undefined;
+                              if (href) {
+                                handleFilePreview(href, fileName);
+                              }
+                            }
+                          }
                         }}
                       >
-                        {displayTask?.description ? (
+                        {displayTask?.description &&
+                        (displayTask.description.replace(/<[^>]*>/g, "").trim()
+                          .length > 0 ||
+                          displayTask.description.includes("<img") ||
+                          displayTask.description.includes("<iframe")) ? (
                           <div
-                            className="text-base text-foreground/90 leading-relaxed prose prose-invert max-w-none prose-p:my-2"
+                            className="text-base text-foreground/90 leading-relaxed prose prose-invert max-w-none prose-p:my-2 [&_img]:cursor-pointer [&_img]:transition-opacity hover:[&_img]:opacity-90 [&_.file-card]:cursor-default"
                             dangerouslySetInnerHTML={{
                               __html: displayTask.description,
                             }}
                           />
                         ) : (
-                          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground italic">
+                          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground italic text-center">
                             <AlignLeft className="h-12 w-12 mb-4 opacity-20" />
                             <p>No description provided yet.</p>
-                            <p className="text-sm mt-1 not-italic opacity-70">
-                              Click anywhere to start adding details.
+                            <p className="text-sm mt-1 not-italic opacity-70 max-w-[200px]">
+                              Hit the 'Edit' button to add more details.
                             </p>
                           </div>
                         )}
