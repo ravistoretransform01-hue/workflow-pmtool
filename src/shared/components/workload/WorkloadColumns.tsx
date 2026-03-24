@@ -322,7 +322,9 @@ export const getWorkloadColumns = ({
       render: (task: Task) => {
         const hasDescription =
           task.description &&
-          task.description.replace(/<[^>]*>/g, "").trim().length > 0;
+          (task.description.replace(/<[^>]*>/g, "").trim().length > 0 ||
+            task.description.includes("<img") ||
+            task.description.includes("<iframe"));
 
         return (
           <div

@@ -2554,11 +2554,12 @@ export function WorkloadBoard({
     description: string,
   ) => {
     try {
+      const finalHtml = await attachmentsApi.uploadAndReplace(description);
       const boardIdNum = Number(boardId);
       const payload: UpdateTaskRequest = {
         id: taskId,
         board_id: boardIdNum,
-        description,
+        description: finalHtml,
       };
 
       await tasksApi.updateTask(payload);
@@ -2571,7 +2572,7 @@ export function WorkloadBoard({
             if (task.id === taskId) {
               return {
                 ...task,
-                description,
+                description: finalHtml,
               };
             }
 
