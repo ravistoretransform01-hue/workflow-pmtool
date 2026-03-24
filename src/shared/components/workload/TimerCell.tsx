@@ -261,7 +261,6 @@ export function TimerCell({
         onOpenChange={setShowTimeLog}
         taskId={taskId}
         taskName={taskName}
-        estimatedDate={estimatedDate}
         onTimeUpdate={onTimeUpdate}
       />
     </>

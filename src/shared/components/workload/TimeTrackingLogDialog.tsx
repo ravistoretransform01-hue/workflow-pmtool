@@ -12,7 +12,7 @@ import { Calendar } from "@/shared/components/ui/calendar";
 import { Input } from "@/shared/components/ui/input";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import type { TimeEntry } from "@/features/tasks/types";
-import { format, parse, addDays } from "date-fns";
+import { format, addDays, isAfter, startOfToday } from "date-fns";
 import { useAppDispatch } from "@/app/hooks";
 import { updateActiveTaskTime } from "@/features/tasks/tasksSlice";
 import { TimePickerInput } from "@/shared/components/TimePickerInput";
@@ -39,7 +39,6 @@ interface TimeTrackingLogDialogProps {
   onOpenChange: (open: boolean) => void;
   taskId: string;
   taskName?: string;
-  estimatedDate?: string;
   onTimeUpdate?: (taskId: string, seconds: number) => void;
 }
 
@@ -176,7 +175,6 @@ export function TimeTrackingLogDialog({
   onOpenChange,
   taskId,
   taskName,
-  estimatedDate,
   onTimeUpdate,
 }: TimeTrackingLogDialogProps) {
   const [timeLogs, setTimeLogs] = useState<TimeLogEntry[]>([]);
@@ -196,149 +194,11 @@ export function TimeTrackingLogDialog({
   const [endDateOverride, setEndDateOverride] = useState<Date | null>(null);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
-  const getDateRange = () => {
-    if (!estimatedDate || estimatedDate === "-") {
-      return { startDate: null, endDate: null };
-    }
 
-    try {
-      const currentYear = new Date().getFullYear();
-      const separator = estimatedDate.includes(" – ") ? " – " : " - ";
-      const parts = estimatedDate.split(separator);
 
-      if (parts.length !== 2) {
-        return { startDate: null, endDate: null };
-      }
-
-      const startStr = parts[0].trim();
-      const endStr = parts[1].trim();
-
-      let startDate: Date;
-      let endDate: Date;
-
-      /* ----------------------------------
-       CASE 3: "Dec 31, '26 – Jan 8, '27"
-    -----------------------------------*/
-      if (startStr.includes("'") || endStr.includes("'")) {
-        startDate = parse(startStr.replace("'", ""), "MMM d, yy", new Date());
-        endDate = parse(endStr.replace("'", ""), "MMM d, yy", new Date());
-
-        if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
-          return { startDate, endDate };
-        }
-      }
-
-      /* ----------------------------------
-       Parse start date (month + day)
-    -----------------------------------*/
-      startDate = parse(startStr, "MMM d", new Date(currentYear, 0, 1));
-      startDate.setFullYear(currentYear);
-
-      /* ----------------------------------
-       CASE 1: "Jan 19 - 30"
-       (end has only day)
-    -----------------------------------*/
-      if (/^\d+$/.test(endStr)) {
-        endDate = new Date(startDate);
-        endDate.setDate(Number(endStr));
-        return { startDate, endDate };
-      }
-
-      /* ----------------------------------
-       CASE 2: "Jan 31 – Feb 15"
-       (end has month + day)
-    -----------------------------------*/
-      endDate = parse(endStr, "MMM d", new Date(currentYear, 0, 1));
-      endDate.setFullYear(currentYear);
-
-      // Handle year rollover (Dec → Jan)
-      if (endDate < startDate) {
-        endDate.setFullYear(currentYear + 1);
-      }
-
-      return { startDate, endDate };
-    } catch (error) {
-      console.warn("Failed to parse estimated date:", error);
-      return { startDate: null, endDate: null };
-    }
-  };
-
-  // Parse estimated date range to get start and end dates
-  // const getDateRange = () => {
-  //   if (!estimatedDate || estimatedDate === "-") {
-  //     return { startDate: null, endDate: null };
-  //   }
-
-  //   try {
-  //     // Handle formats like "Jan 19 - 30", "Jan 31 – Feb 15", "Dec 31, '26 – Jan 8, '27"
-  //     const dateStr = estimatedDate;
-
-  //     console.log("dateStr", dateStr)
-
-  //     // Try to parse range format
-  //     if (dateStr.includes(" - ") || dateStr.includes(" – ")) {
-  //       const separator = dateStr.includes(" – ") ? " – " : " - ";
-  //       const parts = dateStr.split(separator);
-
-  //       if (parts.length === 2) {
-  //         const startPart = parts[0].trim();
-  //         const endPart = parts[1].trim();
-
-  //         console.log("startPart", startPart, "endPart", endPart)
-
-  //         // Parse start date
-  //         let startDate: Date | null = null;
-  //         let endDate: Date | null = null;
-
-  //         // Handle "Jan 19" or "Dec 31, '26" format
-  //         const parseDate = (dateStr: string): Date | null => {
-  //           try {
-  //             // Try parsing with current year first
-  //             const currentYear = new Date().getFullYear();
-  //             let parsed = new Date(`${dateStr}, ${currentYear}`);
-
-  //             // If parsing failed or date is invalid, try other formats
-  //             if (isNaN(parsed.getTime())) {
-  //               parsed = new Date(dateStr);
-  //             }
-
-  //             return isNaN(parsed.getTime()) ? null : parsed;
-  //           } catch {
-  //             return null;
-  //           }
-  //         };
-
-  //         startDate = parseDate(startPart);
-  //         endDate = parseDate(endPart);
-
-  //         return { startDate, endDate };
-  //       }
-  //     }
-
-  //     // Single date format
-  //     const parsed = new Date(dateStr);
-  //     if (!isNaN(parsed.getTime())) {
-  //       return { startDate: parsed, endDate: parsed };
-  //     }
-  //   } catch (error) {
-  //     console.warn("Failed to parse estimated date:", error);
-  //   }
-
-  //   return { startDate: null, endDate: null };
-  // };
-
-  const { startDate, endDate } = getDateRange();
-
-  // Disable function for calendar - only allow dates within the range
+  // Disable function for calendar - restrict to dates up to today
   const isDateDisabled = (date: Date): boolean => {
-    // If no date range is set, disable future dates only
-    if (!startDate || !endDate) {
-      return date > new Date();
-    }
-
-    // console.log("date", date);
-    // Disable dates outside the range
-    return date < startDate || date > endDate;
+    return isAfter(date, startOfToday());
   };
 
   // Fetch time entries when dialog opens
@@ -500,32 +360,22 @@ export function TimeTrackingLogDialog({
   };
 
   const handleSaveSession = () => {
-    // Convert local time to UTC
-    const convertLocalToUTC = (dateStr: string, timeStr: string): string => {
-      // Parse the local time
-      const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (!match) return "";
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
 
+    const getLocalDateTime = (dStr: string, tStr: string): Date => {
+      const match = tStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (!match) return new Date();
       let hours = parseInt(match[1]);
       const minutes = parseInt(match[2]);
       const period = match[3].toUpperCase();
-
-      // Convert to 24-hour format
-      if (period === "PM" && hours !== 12) {
-        hours += 12;
-      } else if (period === "AM" && hours === 12) {
-        hours = 0;
-      }
-
-      // Create a local date object
-      const [year, month, day] = dateStr.split("-").map(Number);
-      const localDate = new Date(year, month - 1, day, hours, minutes, 0);
-
-      return formatDateToApi(localDate);
+      if (period === "PM" && hours !== 12) hours += 12;
+      else if (period === "AM" && hours === 12) hours = 0;
+      const [yr, mo, dy] = dStr.split("-").map(Number);
+      return new Date(yr, mo - 1, dy, hours, minutes, 0);
     };
 
-    const dateStr = format(selectedDate, "yyyy-MM-dd");
-    const startTimeUTC = convertLocalToUTC(dateStr, startTime);
+    const startLocal = getLocalDateTime(dateStr, startTime);
+    const startTimeUTC = formatDateToApi(startLocal);
 
     // Compute end date string: prefer explicit endDateOverride (if log had a different day),
     // otherwise, if end time is earlier than or equal to start time, assume next day.
@@ -553,7 +403,15 @@ export function TimeTrackingLogDialog({
       }
     }
 
-    const endTimeUTC = convertLocalToUTC(endDateStr, endTime);
+    const endLocal = getLocalDateTime(endDateStr, endTime);
+    const endTimeUTC = formatDateToApi(endLocal);
+
+    // Validation: No future logging
+    const now = new Date();
+    if (isAfter(startLocal, now) || isAfter(endLocal, now)) {
+      toast.error("You cannot log time in the future");
+      return;
+    }
 
     const payload = {
       task_id: taskId,
