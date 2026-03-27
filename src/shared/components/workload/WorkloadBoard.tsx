@@ -4766,12 +4766,24 @@ export function WorkloadBoard({
                                                   <button
                                                     key={`label-${label.id}`}
                                                     onClick={() => {
-                                                      setEditGroupLabelInput(
-                                                        label.label_name,
-                                                      );
-                                                      setEditGroupLabelColorInput(
-                                                        label.label_color,
-                                                      );
+                                                      if (
+                                                        editGroupLabelInput ===
+                                                        label.label_name
+                                                      ) {
+                                                        setEditGroupLabelInput(
+                                                          "",
+                                                        );
+                                                        setEditGroupLabelColorInput(
+                                                          "#3b82f6",
+                                                        );
+                                                      } else {
+                                                        setEditGroupLabelInput(
+                                                          label.label_name,
+                                                        );
+                                                        setEditGroupLabelColorInput(
+                                                          label.label_color,
+                                                        );
+                                                      }
                                                     }}
                                                     className={`px-3 py-1 rounded-full text-xs font-medium text-white hover:opacity-80 transition-opacity ${
                                                       editGroupLabelInput ===
