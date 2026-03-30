@@ -47,6 +47,7 @@ interface CommentItemProps {
   onLikeComment: (id: string | number) => void;
   onFilePreview: (src: string, name?: string) => void;
   isSaving?: boolean;
+  assignedToIds?: string[];
 }
 
 export const CommentItem: React.FC<CommentItemProps> = ({
@@ -68,6 +69,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onLikeComment,
   onFilePreview,
   isSaving,
+  assignedToIds,
 }) => {
   const isReplyingToThis = String(inlineReplyId) === String(comment.id);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
@@ -188,6 +190,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                     value={editCommentText}
                     onChange={setEditCommentText}
                     boardId={boardId ? Number(boardId) : undefined}
+                    assignedToIds={assignedToIds}
                   />
                   <div className="flex justify-end gap-2">
                     <Button
@@ -420,6 +423,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                     value={inlineReplyText}
                     onChange={setInlineReplyText}
                     boardId={boardId ? Number(boardId) : undefined}
+                    assignedToIds={assignedToIds}
                     key={`reply-${comment.id}`}
                   />
                 </div>
@@ -478,6 +482,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               onLikeComment={onLikeComment}
               onFilePreview={onFilePreview}
               isSaving={isSaving}
+              assignedToIds={assignedToIds}
             />
           ))}
 

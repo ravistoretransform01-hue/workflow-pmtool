@@ -37,7 +37,10 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 overflow-visible border-none bg-transparent shadow-none">
+      <DialogContent 
+        hideCloseButton
+        className="max-w-[95vw] max-h-[95vh] p-0 overflow-visible border-none bg-transparent shadow-none"
+      >
         <div className="relative w-full h-[90vh] flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-lg overflow-hidden">
           {/* Content Container */}
           <div className="w-full h-full p-4 flex items-center justify-center overflow-auto">
