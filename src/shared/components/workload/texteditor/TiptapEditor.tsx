@@ -48,6 +48,7 @@ interface TiptapEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   boardId?: number;
+  assignedToIds?: string[];
 }
 
 const colors = [
@@ -130,6 +131,7 @@ export function TiptapEditor({
   onChange,
   placeholder,
   boardId,
+  assignedToIds,
 }: TiptapEditorProps) {
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionItems, setMentionItems] = useState<
@@ -359,9 +361,22 @@ export function TiptapEditor({
         },
         suggestion: {
           items: ({ query }) => {
-            const filtered = membersRef.current.filter((user) =>
+            let filtered = membersRef.current;
+
+            // Filter by assignedToIds if provided
+            if (assignedToIds && assignedToIds.length > 0) {
+              // Normalize assignedToIds to strings for comparison
+              const assignedIdsStr = assignedToIds.map(String);
+              filtered = filtered.filter((user) =>
+                assignedIdsStr.includes(String(user.id)),
+              );
+            }
+
+            // Filter by query
+            filtered = filtered.filter((user) =>
               user.name.toLowerCase().includes(query.toLowerCase()),
             );
+
             setMentionItems(filtered);
             mentionItemsRef.current = filtered;
             return filtered;
@@ -422,9 +437,21 @@ export function TiptapEditor({
                   setMentionPosition({ top, left, isAbove });
                 }
 
-                const filtered = membersRef.current.filter((user) =>
+                let filtered = membersRef.current;
+
+                // Filter by assignedToIds if provided
+                if (assignedToIds && assignedToIds.length > 0) {
+                  const assignedIdsStr = assignedToIds.map(String);
+                  filtered = filtered.filter((user) =>
+                    assignedIdsStr.includes(String(user.id)),
+                  );
+                }
+
+                // Filter by query
+                filtered = filtered.filter((user) =>
                   user.name.toLowerCase().includes(props.query.toLowerCase()),
                 );
+
                 setMentionItems(filtered);
                 mentionItemsRef.current = filtered;
                 setSelectedIndex(0);
