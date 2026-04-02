@@ -167,6 +167,14 @@ export function TiptapEditor({
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [, setUpdateCount] = useState(0);
 
+  // Use a ref to keep assignedToIds current inside the editor's non-reactive config
+  const assignedToIdsRef = useRef(assignedToIds);
+
+  // Sync prop with ref on every render or change
+  useEffect(() => {
+    assignedToIdsRef.current = assignedToIds;
+  }, [assignedToIds]);
+
   // Load members from localStorage
   useEffect(() => {
     if (boardId) {
@@ -364,9 +372,9 @@ export function TiptapEditor({
             let filtered = membersRef.current;
 
             // Filter by assignedToIds if provided
-            if (assignedToIds && assignedToIds.length > 0) {
+            if (assignedToIdsRef.current && assignedToIdsRef.current.length > 0) {
               // Normalize assignedToIds to strings for comparison
-              const assignedIdsStr = assignedToIds.map(String);
+              const assignedIdsStr = assignedToIdsRef.current.map(String);
               filtered = filtered.filter((user) =>
                 assignedIdsStr.includes(String(user.id)),
               );
@@ -440,8 +448,8 @@ export function TiptapEditor({
                 let filtered = membersRef.current;
 
                 // Filter by assignedToIds if provided
-                if (assignedToIds && assignedToIds.length > 0) {
-                  const assignedIdsStr = assignedToIds.map(String);
+                if (assignedToIdsRef.current && assignedToIdsRef.current.length > 0) {
+                  const assignedIdsStr = assignedToIdsRef.current.map(String);
                   filtered = filtered.filter((user) =>
                     assignedIdsStr.includes(String(user.id)),
                   );
