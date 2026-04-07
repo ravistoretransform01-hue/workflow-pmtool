@@ -26,7 +26,6 @@ interface TaskUpdatesProps {
   mainUpdateText?: string;
   onMainUpdateTextChange?: (text: string) => void;
   isInternal?: number;
-  assignedToIds?: string[];
 }
 
 export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
@@ -44,7 +43,6 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
   mainUpdateText: externalUpdateText,
   onMainUpdateTextChange: externalOnUpdateTextChange,
   isInternal,
-  assignedToIds,
 }) => {
   const [localUpdateText, setLocalUpdateText] = useState("");
   const updateText =
@@ -184,7 +182,6 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
                   onLikeComment={onLikeComment}
                   onFilePreview={onFilePreview}
                   isSaving={isSaving}
-                  assignedToIds={assignedToIds}
                 />
               );
             });
@@ -254,7 +251,6 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
             value={updateText}
             onChange={onUpdateTextChange}
             boardId={boardId ? Number(boardId) : undefined}
-            assignedToIds={assignedToIds}
             key="main-update-editor"
           />
         </div>

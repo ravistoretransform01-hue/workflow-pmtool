@@ -63,7 +63,6 @@ interface CommentsPanelSheetProps {
   onInlineEditTaskName?: (taskId: string, newName: string) => void;
   isSaving?: boolean;
   boardId?: string;
-  assignedToIds?: string[];
 }
 
 /**
@@ -90,7 +89,6 @@ export function CommentsPanelSheet({
   onInlineEditTaskName,
   isSaving,
   boardId,
-  assignedToIds,
 }: CommentsPanelSheetProps) {
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [previewFileName, setPreviewFileName] = useState<string | undefined>(
@@ -203,6 +201,7 @@ export function CommentsPanelSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent
+        id="comments-sheet-content"
         side="right"
         className="w-full sm:max-w-4xl p-0"
         showOverlay={false}
@@ -308,7 +307,6 @@ export function CommentsPanelSheet({
                 onFilePreview={handleFilePreview}
                 mainUpdateText={updateText}
                 onMainUpdateTextChange={onUpdateTextChange}
-                assignedToIds={assignedToIds}
               />
             </TabsContent>
 

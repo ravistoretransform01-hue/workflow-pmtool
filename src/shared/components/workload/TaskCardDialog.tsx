@@ -504,6 +504,7 @@ export function TaskCardDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        id="task-card-dialog-content"
         className="bg-background border-border max-w-7xl p-0 h-[85vh] max-h-[900px] flex flex-col"
         hideCloseButton
       >
@@ -819,7 +820,6 @@ export function TaskCardDialog({
                             onChange={setTempDescription}
                             placeholder="Add a detailed description..."
                             boardId={boardId}
-                            assignedToIds={displayTask?.assigned_to_ids}
                             key="dialog-description-editor-tab"
                           />
                         </div>
@@ -953,7 +953,6 @@ export function TaskCardDialog({
                   onFilePreview={handleFilePreview}
                   layout="dialog"
                   isInternal={1}
-                  assignedToIds={displayTask?.assigned_to_ids}
                 />
               </TabsContent>
 
@@ -976,7 +975,6 @@ export function TaskCardDialog({
                   onFilePreview={handleFilePreview}
                   layout="dialog"
                   isInternal={0}
-                  assignedToIds={displayTask?.assigned_to_ids}
                 />
               </TabsContent>
 

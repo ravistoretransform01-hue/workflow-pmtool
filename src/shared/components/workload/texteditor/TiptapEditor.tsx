@@ -48,7 +48,6 @@ interface TiptapEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   boardId?: number;
-  assignedToIds?: string[];
 }
 
 const colors = [
@@ -131,7 +130,6 @@ export function TiptapEditor({
   onChange,
   placeholder,
   boardId,
-  assignedToIds,
 }: TiptapEditorProps) {
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionItems, setMentionItems] = useState<
@@ -167,13 +165,6 @@ export function TiptapEditor({
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [, setUpdateCount] = useState(0);
 
-  // Use a ref to keep assignedToIds current inside the editor's non-reactive config
-  const assignedToIdsRef = useRef(assignedToIds);
-
-  // Sync prop with ref on every render or change
-  useEffect(() => {
-    assignedToIdsRef.current = assignedToIds;
-  }, [assignedToIds]);
 
   // Load members from localStorage
   useEffect(() => {
@@ -371,15 +362,6 @@ export function TiptapEditor({
           items: ({ query }) => {
             let filtered = membersRef.current;
 
-            // Filter by assignedToIds if provided
-            if (assignedToIdsRef.current && assignedToIdsRef.current.length > 0) {
-              // Normalize assignedToIds to strings for comparison
-              const assignedIdsStr = assignedToIdsRef.current.map(String);
-              filtered = filtered.filter((user) =>
-                assignedIdsStr.includes(String(user.id)),
-              );
-            }
-
             // Filter by query
             filtered = filtered.filter((user) =>
               user.name.toLowerCase().includes(query.toLowerCase()),
@@ -397,15 +379,31 @@ export function TiptapEditor({
                 mentionCommandRef.current = props.command;
                 const coords = props.clientRect?.();
 
-                const portalTarget = document.body;
-                setMentionPortalTarget(portalTarget);
+                // Look for common portal containers to avoid interaction blocking by Radix modal traps
+                const portalTarget =
+                  document.getElementById("task-card-dialog-content") ||
+                  document.getElementById("comments-sheet-content") ||
+                  document.querySelector('[role="dialog"]') ||
+                  document.querySelector('[data-radix-portal]') ||
+                  document.body;
+                setMentionPortalTarget(portalTarget as HTMLElement);
 
                 if (coords) {
                   const dropdownHeight = 300;
+                  const isBody = portalTarget === document.body;
 
-                  // Since it's appended to document.body, coordinates are just clientRect + window scroll
-                  let left = coords.left + window.scrollX;
-                  let top = coords.bottom + window.scrollY;
+                  // Since it's appended to a potentially transformed container, calculate relative coordinates
+                  const targetRect = (
+                    portalTarget as HTMLElement
+                  ).getBoundingClientRect();
+
+                  let left = coords.left + (isBody ? window.scrollX : 0);
+                  let top = coords.bottom + (isBody ? window.scrollY : 0);
+
+                  if (!isBody) {
+                    left -= targetRect.left;
+                    top -= targetRect.top;
+                  }
 
                   const spaceBelow = window.innerHeight - coords.bottom;
                   const spaceAbove = coords.top;
@@ -413,7 +411,10 @@ export function TiptapEditor({
                     spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
 
                   if (isAbove) {
-                    top = coords.top + window.scrollY;
+                    top =
+                      (isAbove ? coords.top : coords.bottom) -
+                      (isBody ? 0 : targetRect.top) +
+                      (isBody ? window.scrollY : 0);
                   }
 
                   setMentionPosition({ top, left, isAbove });
@@ -427,11 +428,20 @@ export function TiptapEditor({
                 mentionCommandRef.current = props.command;
                 const coords = props.clientRect?.();
 
-                if (coords) {
+                if (coords && mentionPortalTarget) {
                   const dropdownHeight = 300;
+                  const isBody = mentionPortalTarget === document.body;
+                  const targetRect = (
+                    mentionPortalTarget as HTMLElement
+                  ).getBoundingClientRect();
 
-                  let left = coords.left + window.scrollX;
-                  let top = coords.bottom + window.scrollY;
+                  let left = coords.left + (isBody ? window.scrollX : 0);
+                  let top = coords.bottom + (isBody ? window.scrollY : 0);
+
+                  if (!isBody) {
+                    left -= targetRect.left;
+                    top -= targetRect.top;
+                  }
 
                   const spaceBelow = window.innerHeight - coords.bottom;
                   const spaceAbove = coords.top;
@@ -439,21 +449,16 @@ export function TiptapEditor({
                     spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
 
                   if (isAbove) {
-                    top = coords.top + window.scrollY;
+                    top =
+                      (isAbove ? coords.top : coords.bottom) -
+                      (isBody ? 0 : targetRect.top) +
+                      (isBody ? window.scrollY : 0);
                   }
 
                   setMentionPosition({ top, left, isAbove });
                 }
 
                 let filtered = membersRef.current;
-
-                // Filter by assignedToIds if provided
-                if (assignedToIdsRef.current && assignedToIdsRef.current.length > 0) {
-                  const assignedIdsStr = assignedToIdsRef.current.map(String);
-                  filtered = filtered.filter((user) =>
-                    assignedIdsStr.includes(String(user.id)),
-                  );
-                }
 
                 // Filter by query
                 filtered = filtered.filter((user) =>
@@ -1468,6 +1473,8 @@ export function TiptapEditor({
               <div
                 ref={mentionScrollRef}
                 className="flex flex-col max-h-64 overflow-y-auto bg-card overscroll-contain"
+                onWheel={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
               >
                 {mentionItems.length > 0 ? (
                   mentionItems.map((user, index) => (

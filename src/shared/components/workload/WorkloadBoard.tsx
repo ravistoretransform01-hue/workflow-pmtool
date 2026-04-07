@@ -5680,7 +5680,6 @@ export function WorkloadBoard({
             });
           }}
           boardId={boardId}
-          assignedToIds={getTaskById(selectedCommentsId)?.assigned_to_ids}
         />
 
         {/* Bulk Actions Toolbar */}
