@@ -62,3 +62,29 @@ export const getRelativeTimeString = (dateStr: string) => {
 
   return `${parts.join(" ")} ago`;
 };
+
+/**
+ * Helper to check if Tiptap HTML content is effectively empty
+ */
+export const isContentEmpty = (html: string) => {
+  if (!html || html.trim() === "" || html === "<p></p>" || html === "<p><br></p>")
+    return true;
+
+  // Strip all HTML tags and check if any non-whitespace text remains
+  const textOnly = html.replace(/<[^>]*>/g, "").trim();
+  if (textOnly.length > 0) return false;
+
+  // If text is empty, check for content-bearing tags like img or card components
+  // that don't have text inside them but are still content
+  if (
+    html.includes("<img") ||
+    html.includes('data-type="pdf-card"') ||
+    html.includes('data-type="file-card"') ||
+    html.includes('data-type="mention"') ||
+    html.includes("<iframe")
+  ) {
+    return false;
+  }
+
+  return true;
+};

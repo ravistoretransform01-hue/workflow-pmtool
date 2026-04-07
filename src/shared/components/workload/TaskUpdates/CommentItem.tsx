@@ -26,7 +26,11 @@ import {
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
 import { cn, parseApiDateTime, getCurrentUserId } from "@/lib/utils";
 import type { TaskComment } from "@/features/tasks/types";
-import { renderFormattedContent, getRelativeTimeString } from "./utils";
+import {
+  renderFormattedContent,
+  getRelativeTimeString,
+  isContentEmpty,
+} from "./utils";
 
 interface CommentItemProps {
   comment: TaskComment;
@@ -204,7 +208,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                       onClick={() =>
                         onUpdateComment(comment.id, editCommentText)
                       }
-                      disabled={isSaving}
+                      disabled={isContentEmpty(editCommentText) || isSaving}
                     >
                       {isSaving ? "Saving..." : "Save Changes"}
                     </Button>
@@ -438,7 +442,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                     onClick={() =>
                       onSaveInlineReply(comment.id, inlineReplyText)
                     }
-                    disabled={!inlineReplyText.trim() || isSaving}
+                    disabled={isContentEmpty(inlineReplyText) || isSaving}
                   >
                     {isSaving ? "Replying..." : "Reply"}
                   </Button>

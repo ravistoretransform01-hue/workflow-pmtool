@@ -6,6 +6,7 @@ import { CommentItem } from "./CommentItem";
 import { cn } from "@/lib/utils";
 import type { TaskComment } from "@/features/tasks/types";
 import { debugError } from "@/lib/debugLog";
+import { isContentEmpty } from "./utils";
 
 interface TaskUpdatesProps {
   boardId?: string | number;
@@ -264,7 +265,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
           <Button
             size="sm"
             onClick={handleSaveMainUpdate}
-            disabled={!updateText.trim() || isSaving}
+            disabled={isContentEmpty(updateText) || isSaving}
             className={cn(
               layout === "sidebar" ? "bg-primary hover:bg-primary/90" : "",
             )}
