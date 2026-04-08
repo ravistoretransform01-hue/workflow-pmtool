@@ -156,11 +156,6 @@ export function TaskCardDialog({
   >(null);
   const [tempName, setTempName] = useState("");
 
-  const getWordCount = (html: string) => {
-    const cleanText = html.replace(/<[^>]*>?/gm, " ").trim();
-    const words = cleanText.split(/\s+/).filter((word) => word.length > 0);
-    return words.length;
-  };
 
   useEffect(() => {
     if (task?.description) {
@@ -824,16 +819,7 @@ export function TaskCardDialog({
                           />
                         </div>
                         <div className="flex items-center justify-between gap-2 p-4 bg-muted/20 border-t border-border/50 shrink-0">
-                          <div
-                            className={cn(
-                              "text-sm font-medium",
-                              getWordCount(tempDescription) > 100
-                                ? "text-red-500"
-                                : "text-muted-foreground",
-                            )}
-                          >
-                            {getWordCount(tempDescription)} / 100 words
-                          </div>
+                          <div className="flex-1" />
                           <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
@@ -848,13 +834,6 @@ export function TaskCardDialog({
                               size="sm"
                               className="h-9 px-6 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm"
                               onClick={async () => {
-                                const wordCount = getWordCount(tempDescription);
-                                if (wordCount > 100) {
-                                  toast.error(
-                                    `Description is too long (${wordCount}/100 words). Please shorten it.`,
-                                  );
-                                  return;
-                                }
 
                                 if (displayTask?.id && onDescriptionChange) {
                                   const finalHtml =
