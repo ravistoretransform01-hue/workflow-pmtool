@@ -8,7 +8,7 @@ export const isViewLive = {
   time: false,
   recurring: false,
   completed: false,
-  sop: false,
+  sop: true,
   doc: false,
   updates: false,
   dashboard: false,

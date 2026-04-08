@@ -8,6 +8,8 @@ import type {
   CreateCommentRequest,
   UpdateCommentRequest,
   TimeEntriesResponse,
+  BoardSOP,
+  BoardSOPResponse,
 } from "./types";
 
 const TASKS_ENDPOINTS = {
@@ -38,6 +40,7 @@ const TASKS_ENDPOINTS = {
   GET_TIME_ENTRIES: `/tasks/time/entries`,
   ADD_MANUAL_TIME_ENTRY: `/tasks/time/manual`,
   GET_ACTIVITY: `/activity`,
+  GET_BOARD_SOPS: (boardId: string | number) => `/boards/${boardId}/sops`,
 };
 
 export const tasksApi = {
@@ -621,6 +624,21 @@ export const tasksApi = {
       };
     } catch (error) {
       console.error("Failed to toggle SOP:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all SOPs for a board
+   */
+  getBoardSOPs: async (boardId: string | number): Promise<BoardSOP[]> => {
+    try {
+      const response = await axios.get<BoardSOPResponse>(
+        TASKS_ENDPOINTS.GET_BOARD_SOPS(boardId),
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to fetch board SOPs:", error);
       throw error;
     }
   },
