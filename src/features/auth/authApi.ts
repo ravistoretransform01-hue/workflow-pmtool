@@ -9,7 +9,7 @@ const AUTH_ENDPOINTS = {
   ME: "/me",
   FORGOT_PASSWORD: "/auth/forgot-password",
   RESET_PASSWORD: "/auth/reset-password",
-  SAVE_FCM_TOKEN: "/save-fcm-token",
+  SAVE_FCM_TOKEN: "/save-token",
 };
 
 export const authApi = {
@@ -94,7 +94,7 @@ export const authApi = {
    */
   saveFcmToken: async (token: string): Promise<void> => {
     try {
-      await api.post(AUTH_ENDPOINTS.SAVE_FCM_TOKEN, { fcm_token: token });
+      await api.post(AUTH_ENDPOINTS.SAVE_FCM_TOKEN, { token: token });
     } catch (error) {
       // Non-fatal: don't block the user even if this fails
       console.error("Failed to save FCM token:", error);
