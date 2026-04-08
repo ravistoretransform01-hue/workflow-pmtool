@@ -7,6 +7,8 @@ import {
   X,
   RotateCcw,
   Loader2,
+  Filter,
+  ChevronDown,
 } from "lucide-react";
 import {
   Dialog,
@@ -30,8 +32,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
-import { trashApi, type TrashTask } from "@/features/trash/trashApi";
-import { getOrganizationId } from "@/lib/utils";
+import {
+  trashApi,
+  type TrashTask,
+  type TrashResponse,
+  type TrashBoard,
+  type TrashGroup,
+  type TrashStatus,
+  type TrashPriority,
+} from "@/features/trash/trashApi";
+import { getOrganizationId, cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export function TrashButton() {
@@ -58,12 +68,15 @@ interface TrashDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+type TrashItemType = "task" | "board" | "group" | "status" | "priority";
+
 function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>(
     {},
   );
-  const [deletedTasks, setDeletedTasks] = useState<TrashTask[]>([]);
+  const [trashData, setTrashData] = useState<TrashResponse | null>(null);
+  const [activeType, setActiveType] = useState<TrashItemType>("task");
   const [loading, setLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -92,7 +105,7 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
         }
 
         const data = await trashApi.getTrash(orgId);
-        setDeletedTasks(data.tasks || []);
+        setTrashData(data);
       } catch (error) {
         console.error("Error loading trash data:", error);
         toast.error("Failed to load trash data");
@@ -104,17 +117,40 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
     loadTrashData();
   }, [open]);
 
-  const filteredTasks = deletedTasks.filter((task) => {
+  // Map activeType to the key in trashData
+  const getItemsByType = (
+    type: TrashItemType,
+  ): (TrashTask | TrashBoard | TrashGroup | TrashStatus | TrashPriority)[] => {
+    if (!trashData) return [];
+    switch (type) {
+      case "task":
+        return trashData.tasks || [];
+      case "board":
+        return trashData.boards || [];
+      case "group":
+        return trashData.groups || [];
+      case "status":
+        return trashData.statuses || [];
+      case "priority":
+        return trashData.priorities || [];
+      default:
+        return [];
+    }
+  };
+
+  const currentItems = getItemsByType(activeType);
+
+  const filteredItems = currentItems.filter((item: any) => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
-    return task.name.toLowerCase().includes(query);
+    return item.name?.toLowerCase().includes(query);
   });
 
   const handleDeletePermanently = async () => {
-    const selectedTaskIds = Object.keys(selectedItems).filter(
+    const selectedIds = Object.keys(selectedItems).filter(
       (id) => selectedItems[id],
     );
-    if (selectedTaskIds.length === 0) return;
+    if (selectedIds.length === 0) return;
 
     setIsDeleting(true);
     try {
@@ -124,26 +160,39 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
         return;
       }
 
-      for (const taskId of selectedTaskIds) {
-        await trashApi.deleteTaskPermanently(taskId, orgId);
+      for (const id of selectedIds) {
+        await trashApi.deletePermanently(id, orgId, activeType);
       }
 
-      toast.success(`${selectedTaskIds.length} Task(s) Deleted Permanently`);
-      setDeletedTasks((prev) =>
-        prev.filter((task) => !selectedTaskIds.includes(task.id)),
-      );
+      toast.success(`${selectedIds.length} Item(s) Deleted Permanently`);
+      
+      // Update local state by removing deleted items from the specific collection
+      if (trashData) {
+        const keyMap: Record<TrashItemType, keyof TrashResponse> = {
+          task: "tasks",
+          board: "boards",
+          group: "groups",
+          status: "statuses",
+          priority: "priorities"
+        };
+        const key = keyMap[activeType];
+        setTrashData({
+          ...trashData,
+          [key]: (trashData[key] as any[]).filter(item => !selectedIds.includes(item.id))
+        });
+      }
+      
       setSelectedItems({});
     } catch (error: any) {
-      // console.error("Error deleting tasks:", error);
       const errorMessage =
-        error?.response?.data?.message || "Failed to delete task";
+        error?.response?.data?.message || "Failed to delete item";
       toast.error(errorMessage);
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const handleDeleteTask = async (taskId: string) => {
+  const handleDeleteItem = async (itemId: string) => {
     try {
       const orgId = getOrganizationId();
       if (!orgId) {
@@ -151,13 +200,26 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
         return;
       }
 
-      await trashApi.deleteTaskPermanently(taskId, orgId);
-      toast.success("Task Deleted Permanently");
-      setDeletedTasks((prev) => prev.filter((task) => task.id !== taskId));
+      await trashApi.deletePermanently(itemId, orgId, activeType);
+      toast.success("Item Deleted Permanently");
+      
+      if (trashData) {
+        const keyMap: Record<TrashItemType, keyof TrashResponse> = {
+          task: "tasks",
+          board: "boards",
+          group: "groups",
+          status: "statuses",
+          priority: "priorities"
+        };
+        const key = keyMap[activeType];
+        setTrashData({
+          ...trashData,
+          [key]: (trashData[key] as any[]).filter(item => item.id !== itemId)
+        });
+      }
     } catch (error: any) {
-      // console.error("Error deleting task:", error);
       const errorMessage =
-        error?.response?.data?.message || "Failed to delete task";
+        error?.response?.data?.message || "Failed to delete item";
       toast.error(errorMessage);
     }
   };
@@ -206,18 +268,58 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
             value="trash"
             className="flex-1 flex flex-col m-0 p-0 overflow-hidden min-h-0 data-[state=inactive]:hidden"
           >
-            <div className="px-8 py-4  border-border flex-shrink-0">
-              <div className="flex items-center gap-4">
+            <div className="px-8 py-4 border-border flex-shrink-0">
+              <div className="flex items-center justify-between gap-4">
                 <div className="relative flex-1 max-w-xs">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
                   <Input
                     type="search"
-                    placeholder="Search tasks by name..."
+                    placeholder={`Search ${activeType}s by name...`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 bg-muted/50 border-border"
                   />
                 </div>
+
+                {/* Filter Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-2 bg-muted/30 border-border">
+                      <Filter className="h-4 w-4" />
+                      <span>
+                        {activeType === "task" && "Tasks"}
+                        {activeType === "board" && "Boards"}
+                        {activeType === "group" && "Groups"}
+                        {activeType === "status" && "Statuses"}
+                        {activeType === "priority" && "Priorities"}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 bg-card border-border">
+                    {[
+                      { id: "task", label: "Tasks" },
+                      { id: "board", label: "Boards" },
+                      { id: "group", label: "Groups" },
+                      { id: "status", label: "Statuses" },
+                      { id: "priority", label: "Priorities" },
+                    ].map((filter) => (
+                      <DropdownMenuItem 
+                        key={filter.id} 
+                        onClick={() => {
+                          setActiveType(filter.id as TrashItemType);
+                          setSelectedItems({});
+                        }}
+                        className={cn(
+                          "cursor-pointer",
+                          activeType === filter.id && "bg-accent text-accent-foreground"
+                        )}
+                      >
+                        {filter.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
@@ -231,16 +333,18 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                     </span>
                   </div>
                 </div>
-              ) : filteredTasks.length === 0 ? (
+              ) : filteredItems.length === 0 ? (
                 <div className="flex items-center justify-center h-full min-h-[400px]">
                   <div className="text-center">
                     <Trash2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                     <h3 className="text-xl font-semibold mb-2">
-                      {searchQuery ? "No tasks found" : "No deleted tasks"}
+                      {searchQuery
+                        ? `No ${activeType}s found`
+                        : `No deleted ${activeType}s`}
                     </h3>
                     <p className="text-muted-foreground">
                       {searchQuery
-                        ? `No tasks matching "${searchQuery}"`
+                        ? `No ${activeType}s matching "${searchQuery}"`
                         : "Your trash is empty"}
                     </p>
                   </div>
@@ -284,51 +388,65 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
 
                   {/* List Items */}
                   <div className="divide-y divide-border">
-                    {filteredTasks.map((task) => (
+                    {filteredItems.map((item: any) => (
                       <div
-                        key={task.id}
+                        key={item.id}
                         className="flex items-center px-6 py-4 hover:bg-hover/50 transition-colors"
                       >
                         <div className="w-10 flex-shrink-0">
                           <Checkbox
-                            checked={selectedItems[task.id] || false}
+                            checked={selectedItems[item.id] || false}
                             onCheckedChange={(checked) =>
                               setSelectedItems((prev) => ({
                                 ...prev,
-                                [task.id]: checked as boolean,
+                                [item.id]: checked as boolean,
                               }))
                             }
                             className="rounded-md"
                           />
                         </div>
                         <div className="flex-1 min-w-0 px-3">
-                          <p className="font-medium truncate">{task.name}</p>
+                          <div className="flex items-center gap-2">
+                            {activeType === "status" || activeType === "priority" ? (
+                              <div 
+                                className="w-3 h-3 rounded-full flex-shrink-0" 
+                                style={{ backgroundColor: item.color_code }} 
+                              />
+                            ) : null}
+                            <p className="font-medium truncate">{item.name}</p>
+                          </div>
                         </div>
-                        <div className="w-32 flex-shrink-0 px-3">
+                        <div className="w-32 flex-shrink-0 px-3 capitalize">
                           <span className="text-sm text-muted-foreground">
-                            Task
+                            {activeType}
                           </span>
                         </div>
                         <div className="w-48 flex-shrink-0 px-3">
                           <span className="text-sm text-muted-foreground truncate block">
-                            {task.board_name}
+                            {activeType === "board" ? "-" : (item as any).board_name}
                           </span>
                         </div>
                         <div className="w-40 flex-shrink-0 px-3">
                           <div className="flex items-center gap-2">
-                            <Avatar className="h-6 w-6">
-                              <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                                {getInitials(task.creator_name || "Unknown")}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm text-muted-foreground truncate">
-                              {task.creator_name || "Unknown"}
-                            </span>
+                            {activeType === "task" ? (
+                              <>
+                                <Avatar className="h-6 w-6">
+                                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                                    {getInitials((item as TrashTask).creator_name || "Unknown")}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm text-muted-foreground truncate">
+                                  {(item as TrashTask).creator_name || "Unknown"}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">-</span>
+                            )}
                           </div>
                         </div>
                         <div className="w-32 flex-shrink-0 px-3">
                           <span className="text-sm text-muted-foreground">
-                            {format(new Date(task.deleted_at), "MMM d, yyyy")}
+                            {format(new Date(item.deleted_at), "MMM d, yyyy")}
                           </span>
                         </div>
                         <div className="hidden w-20 flex-shrink-0 px-3">
@@ -348,7 +466,7 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
                                 <span>Restore</span>
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => handleDeleteTask(task.id)}
+                                onClick={() => handleDeleteItem(item.id)}
                                 className="text-destructive focus:text-destructive"
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
