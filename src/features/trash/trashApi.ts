@@ -17,12 +17,44 @@ export interface TrashTask {
   // created_by: string;
 }
 
+export interface TrashBoard {
+  id: string;
+  name: string;
+  deleted_at: string;
+}
+
+export interface TrashGroup {
+  id: string;
+  name: string;
+  board_id: string;
+  deleted_at: string;
+  board_name: string;
+}
+
+export interface TrashStatus {
+  id: string;
+  name: string;
+  board_id: string;
+  color_code: string;
+  deleted_at: string;
+  board_name: string;
+}
+
+export interface TrashPriority {
+  id: string;
+  name: string;
+  board_id: string;
+  color_code: string;
+  deleted_at: string;
+  board_name: string;
+}
+
 export interface TrashResponse {
-  boards: any[];
-  groups: any[];
+  boards: TrashBoard[];
+  groups: TrashGroup[];
   tasks: TrashTask[];
-  statuses: any[];
-  priorities: any[];
+  statuses: TrashStatus[];
+  priorities: TrashPriority[];
 }
 
 export const trashApi = {
@@ -43,14 +75,15 @@ export const trashApi = {
     });
   },
 
-  deleteTaskPermanently: async (
-    taskId: string,
+  deletePermanently: async (
+    id: string,
     organizationId: number,
+    itemType: "task" | "board" | "group" | "status" | "priority",
   ): Promise<void> => {
     await api.post("/permanent-delete", {
-      id: taskId,
+      id: id,
       organization_id: organizationId,
-      item_type: "task",
+      item_type: itemType,
     });
   },
 };
