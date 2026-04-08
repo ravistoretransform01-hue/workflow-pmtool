@@ -20,6 +20,7 @@ interface TaskUpdatesProps {
     text: string,
   ) => void | Promise<void>;
   onLikeComment: (id: string | number) => void | Promise<void>;
+  onToggleSOP: (id: string | number) => void | Promise<void>;
   onSaveMainUpdate: (text: string) => void | Promise<void>;
   isSaving?: boolean;
   onFilePreview: (src: string, name?: string) => void;
@@ -39,6 +40,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
   onSaveInlineReply,
   onSaveMainUpdate,
   onLikeComment,
+  onToggleSOP,
   isSaving = false,
   onFilePreview,
   mainUpdateText: externalUpdateText,
@@ -181,6 +183,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
                   onUpdateComment={handleUpdateCommentWrapped}
                   onSaveInlineReply={handleSaveInlineReplyWrapped}
                   onLikeComment={onLikeComment}
+                  onToggleSOP={onToggleSOP}
                   onFilePreview={onFilePreview}
                   isSaving={isSaving}
                 />

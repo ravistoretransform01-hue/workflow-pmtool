@@ -173,6 +173,7 @@ export interface TaskComment {
     email: string;
     avatar_url?: string;
   };
+  sop?: boolean;
 }
 
 export interface TaskCommentResponse {
@@ -188,7 +189,8 @@ export interface CreateCommentRequest {
 }
 
 export interface UpdateCommentRequest {
-  content: string;
+  content?: string;
+  sop?: number;
 }
 
 export interface DeleteTaskRequest {

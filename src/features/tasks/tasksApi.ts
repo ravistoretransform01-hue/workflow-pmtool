@@ -290,12 +290,18 @@ export const tasksApi = {
 
       // Handle the API response format
       if (data && data.data && Array.isArray(data.data)) {
-        return data.data;
+        return data.data.map((comment: any) => ({
+          ...comment,
+          sop: comment.sop === "1" || comment.sop === 1,
+        }));
       }
 
       // Fallback if response is array directly
       if (Array.isArray(data)) {
-        return data;
+        return data.map((comment: any) => ({
+          ...comment,
+          sop: comment.sop === "1" || comment.sop === 1,
+        }));
       }
 
       return [];
@@ -317,7 +323,11 @@ export const tasksApi = {
         TASKS_ENDPOINTS.CREATE_COMMENT(taskId),
         payload,
       );
-      return response.data.data;
+      const comment = response.data.data as any;
+      return {
+        ...comment,
+        sop: comment.sop === "1" || comment.sop === 1,
+      };
     } catch (error) {
       console.error("Failed to create comment:", error);
       throw error;
@@ -337,7 +347,11 @@ export const tasksApi = {
         TASKS_ENDPOINTS.UPDATE_COMMENT(taskId, commentId),
         payload,
       );
-      return response.data.data;
+      const comment = response.data.data as any;
+      return {
+        ...comment,
+        sop: comment.sop === "1" || comment.sop === 1,
+      };
     } catch (error) {
       console.error("Failed to update comment:", error);
       throw error;
@@ -542,11 +556,13 @@ export const tasksApi = {
       old_value: string | null;
       new_value: string;
       created_at: string;
-      user: {
+      user?: {
         id: number;
         name: string;
         email: string;
+        avatar_url?: string;
       };
+      sop?: boolean;
       old_value_parsed: any;
       new_value_parsed: any;
       action_label: string;
@@ -575,6 +591,36 @@ export const tasksApi = {
       return response.data;
     } catch (error) {
       console.error("Failed to fetch activity:", error);
+      throw error;
+    }
+  },
+  /**
+   * Toggle SOP status for a comment using the update API
+   */
+  toggleSOP: async (
+    taskId: string | number,
+    commentId: string | number,
+    sop: boolean,
+  ): Promise<{
+    id: number | string;
+    sop: boolean;
+  }> => {
+    try {
+      const response = await axios.put<{
+        data: {
+          id: number;
+          sop: string | number;
+        };
+      }>(TASKS_ENDPOINTS.UPDATE_COMMENT(taskId, commentId), {
+        sop: sop ? 1 : 0,
+      });
+      const data = response.data.data;
+      return {
+        id: data.id,
+        sop: data.sop === "1" || data.sop === 1,
+      };
+    } catch (error) {
+      console.error("Failed to toggle SOP:", error);
       throw error;
     }
   },
