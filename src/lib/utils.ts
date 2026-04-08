@@ -48,6 +48,41 @@ export const clearAllBrowserStorage = () => {
   }
 };
 
+export async function copyToClipboard(text: string): Promise<boolean> {
+  // Use the Clipboard API if available (only works in secure contexts like HTTPS or localhost)
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.error("Clipboard API failed: ", err);
+    }
+  }
+
+  // Fallback: use a hidden textarea and document.execCommand('copy')
+  // This works in non-secure contexts
+  try {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+
+    // Ensure the textarea is off-screen
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    textArea.style.top = "0";
+    document.body.appendChild(textArea);
+
+    textArea.focus();
+    textArea.select();
+
+    const successful = document.execCommand("copy");
+    document.body.removeChild(textArea);
+    return successful;
+  } catch (err) {
+    console.error("Fallback copy method failed: ", err);
+    return false;
+  }
+}
+
 export {
   parseApiDateTime,
   formatApiDateTimeToLocale,

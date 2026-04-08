@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { TaskComment } from "@/features/tasks/types";
 import { debugError } from "@/lib/debugLog";
 import { isContentEmpty } from "./utils";
+import { toast } from "sonner";
 
 interface TaskUpdatesProps {
   boardId?: string | number;
@@ -20,6 +21,7 @@ interface TaskUpdatesProps {
     text: string,
   ) => void | Promise<void>;
   onLikeComment: (id: string | number) => void | Promise<void>;
+  onShareComment: (id: string | number) => void | Promise<void>;
   onToggleSOP: (id: string | number) => void | Promise<void>;
   onSaveMainUpdate: (text: string) => void | Promise<void>;
   isSaving?: boolean;
@@ -40,6 +42,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
   onSaveInlineReply,
   onSaveMainUpdate,
   onLikeComment,
+  onShareComment,
   onToggleSOP,
   isSaving = false,
   onFilePreview,
@@ -47,6 +50,33 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
   onMainUpdateTextChange: externalOnUpdateTextChange,
   isInternal,
 }) => {
+  React.useEffect(() => {
+    if (isLoadingComments) return;
+    const searchParams = new URLSearchParams(window.location.search);
+    const commentIdFromUrl = searchParams.get("comment");
+    if (commentIdFromUrl) {
+      setTimeout(() => {
+        const element = document.getElementById(`comment-${commentIdFromUrl}`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+          element.classList.add(
+            "ring-2",
+            "ring-primary/50",
+            "ring-offset-4",
+            "transition-all",
+            "duration-500",
+          );
+          setTimeout(() => {
+            element.classList.remove("ring-2", "ring-primary/50", "ring-offset-4");
+          }, 4000);
+        } else if (comments.length > 0) {
+          // If we have comments loaded but the specific one is missing
+          toast.info("The shared comment could not be found.");
+        }
+      }, 600);
+    }
+  }, [isLoadingComments, comments.length]);
+
   const [localUpdateText, setLocalUpdateText] = useState("");
   const updateText =
     externalUpdateText !== undefined ? externalUpdateText : localUpdateText;
@@ -183,6 +213,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
                   onUpdateComment={handleUpdateCommentWrapped}
                   onSaveInlineReply={handleSaveInlineReplyWrapped}
                   onLikeComment={onLikeComment}
+                  onShareComment={onShareComment}
                   onToggleSOP={onToggleSOP}
                   onFilePreview={onFilePreview}
                   isSaving={isSaving}

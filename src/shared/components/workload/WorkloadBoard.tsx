@@ -37,7 +37,7 @@ import {
   Save,
   Pencil,
 } from "lucide-react";
-import { cn, getCurrentUserId } from "@/lib/utils";
+import { cn, getCurrentUserId, copyToClipboard } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
 import {
   updateColumnLabel,
@@ -1062,7 +1062,8 @@ export function WorkloadBoard({
       }
     };
     window.addEventListener("board-renamed", handleBoardRenamed);
-    return () => window.removeEventListener("board-renamed", handleBoardRenamed);
+    return () =>
+      window.removeEventListener("board-renamed", handleBoardRenamed);
   }, [boardId]);
 
   // Update timer trigger every second when a timer is running to force progress bar recalculation
@@ -1086,7 +1087,8 @@ export function WorkloadBoard({
       // Sync refs while timer is active
       lastActiveTimerId.current = timerState.activeTimerId;
       lastTimerStartTime.current = timerState.timerStartTime;
-      lastInitialTrackedSeconds.current = activeTaskInfo?.trackedTimeSeconds || 0;
+      lastInitialTrackedSeconds.current =
+        activeTaskInfo?.trackedTimeSeconds || 0;
     } else if (lastActiveTimerId.current) {
       // Timer just stopped (likely from Header/another view)
       // Update local state instantly with final calculated time
@@ -1404,6 +1406,7 @@ export function WorkloadBoard({
 
       const next = new URLSearchParams(searchParams);
       next.delete("task");
+      next.delete("comment");
       next.set("comments", task.id);
       navigate({
         pathname: `/board/${boardId}/view/${encodeURIComponent(activeTab)}`,
@@ -1416,6 +1419,7 @@ export function WorkloadBoard({
   const closeCommentsPanel = useCallback(() => {
     const next = new URLSearchParams(searchParams);
     next.delete("comments");
+    next.delete("comment");
     navigate({
       pathname: `/board/${boardId}/view/${encodeURIComponent(activeTab)}`,
       search: next.toString() ? `?${next.toString()}` : "",
@@ -1440,6 +1444,7 @@ export function WorkloadBoard({
     setSearchParams((prev: URLSearchParams) => {
       const next = new URLSearchParams(prev);
       next.delete("task");
+      next.delete("comment");
       return next;
     });
   }, [setSearchParams]);
@@ -3145,6 +3150,21 @@ export function WorkloadBoard({
     } catch (error) {
       console.error("Failed to toggle SOP:", error);
       toast.error("Failed to update SOP status");
+    }
+  };
+
+  const handleShareComment = async (commentId: string | number) => {
+    if (!selectedCommentsId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("comments", String(selectedCommentsId));
+    url.searchParams.set("comment", String(commentId));
+
+    const coreUrl = url.toString();
+    const successful = await copyToClipboard(coreUrl);
+    if (successful) {
+      toast.success("Comment link copied to clipboard");
+    } else {
+      toast.error("Failed to copy link");
     }
   };
 
@@ -5690,6 +5710,7 @@ export function WorkloadBoard({
           onUpdateComment={updateTaskComment}
           onSaveInlineReply={saveInlineReply}
           onLikeComment={handleLikeComment}
+          onShareComment={handleShareComment}
           onToggleSOP={handleToggleSOP}
           onInlineEditTaskName={handleInlineEditTaskName}
           isSaving={isSaving}

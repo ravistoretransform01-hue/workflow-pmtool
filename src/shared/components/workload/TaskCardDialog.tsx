@@ -39,7 +39,7 @@ import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TiptapEditor } from "./texteditor/TiptapEditor";
-import { getCurrentUserId, getOrganizationId, cn } from "@/lib/utils";
+import { getCurrentUserId, getOrganizationId, cn, copyToClipboard } from "@/lib/utils";
 import { TaskUpdates } from "./TaskUpdates/TaskUpdates";
 import { renderFormattedContent } from "./TaskUpdates/utils";
 import { FilePreviewModal } from "./texteditor/FilePreviewModal";
@@ -186,23 +186,20 @@ export function TaskCardDialog({
     }
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     if (!task?.id) return;
 
-    // Construct the absolute URL with the task parameter
+    // Construct the absolute URL with the comments parameter (sidebar view)
     const url = new URL(window.location.href);
-    url.searchParams.set("task", task.id);
+    url.searchParams.delete("task");
+    url.searchParams.set("comments", task.id);
 
-    // Copy to clipboard
-    navigator.clipboard
-      .writeText(url.toString())
-      .then(() => {
-        toast.success("Task link copied to clipboard");
-      })
-      .catch((err) => {
-        console.error("Failed to copy link:", err);
-        toast.error("Failed to copy link");
-      });
+    const successful = await copyToClipboard(url.toString());
+    if (successful) {
+      toast.success("Task link copied to clipboard");
+    } else {
+      toast.error("Failed to copy link");
+    }
   };
 
   // Reset form when dialog opens
@@ -432,6 +429,22 @@ export function TaskCardDialog({
     } catch (error) {
       console.error("Failed to toggle SOP:", error);
       toast.error("Failed to update SOP status");
+    }
+  };
+
+  const onShareComment = async (commentId: string | number) => {
+    if (!task?.id) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("task");
+    url.searchParams.set("comments", String(task.id));
+    url.searchParams.set("comment", String(commentId));
+
+    const coreUrl = url.toString();
+    const successful = await copyToClipboard(coreUrl);
+    if (successful) {
+      toast.success("Comment link copied to clipboard");
+    } else {
+      toast.error("Failed to copy link");
     }
   };
 
@@ -952,6 +965,7 @@ export function TaskCardDialog({
                     onSaveInlineReply(parentId, text, 1)
                   }
                   onLikeComment={onLikeComment}
+                  onShareComment={onShareComment}
                   onToggleSOP={onToggleSOP}
                   onFilePreview={handleFilePreview}
                   layout="dialog"
@@ -975,6 +989,7 @@ export function TaskCardDialog({
                     onSaveInlineReply(parentId, text, 0)
                   }
                   onLikeComment={onLikeComment}
+                  onShareComment={onShareComment}
                   onToggleSOP={onToggleSOP}
                   onFilePreview={handleFilePreview}
                   layout="dialog"
