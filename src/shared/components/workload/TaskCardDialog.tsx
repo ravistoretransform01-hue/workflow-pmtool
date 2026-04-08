@@ -412,6 +412,29 @@ export function TaskCardDialog({
     }
   };
 
+  const onToggleSOP = async (commentId: string | number) => {
+    if (!task?.id) return;
+    const comment = comments.find((c) => String(c.id) === String(commentId));
+    if (!comment) return;
+
+    try {
+      const response = await tasksApi.toggleSOP(
+        task.id,
+        commentId,
+        !comment.sop,
+      );
+      setComments((prev) =>
+        prev.map((c) =>
+          String(c.id) === String(commentId) ? { ...c, sop: response.sop } : c,
+        ),
+      );
+      toast.success(response.sop ? "Added to SOP" : "Removed from SOP");
+    } catch (error) {
+      console.error("Failed to toggle SOP:", error);
+      toast.error("Failed to update SOP status");
+    }
+  };
+
   const onUpdateComment = async (
     commentId: string | number,
     content: string,
@@ -929,6 +952,7 @@ export function TaskCardDialog({
                     onSaveInlineReply(parentId, text, 1)
                   }
                   onLikeComment={onLikeComment}
+                  onToggleSOP={onToggleSOP}
                   onFilePreview={handleFilePreview}
                   layout="dialog"
                   isInternal={1}
@@ -951,6 +975,7 @@ export function TaskCardDialog({
                     onSaveInlineReply(parentId, text, 0)
                   }
                   onLikeComment={onLikeComment}
+                  onToggleSOP={onToggleSOP}
                   onFilePreview={handleFilePreview}
                   layout="dialog"
                   isInternal={0}

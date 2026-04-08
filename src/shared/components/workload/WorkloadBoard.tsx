@@ -3125,6 +3125,29 @@ export function WorkloadBoard({
     }
   };
 
+  const handleToggleSOP = async (commentId: string | number) => {
+    if (!selectedCommentsId) return;
+    const comment = comments.find((c) => String(c.id) === String(commentId));
+    if (!comment) return;
+
+    try {
+      const response = await tasksApi.toggleSOP(
+        selectedCommentsId,
+        commentId,
+        !comment.sop,
+      );
+      setComments((prev) =>
+        prev.map((c) =>
+          String(c.id) === String(commentId) ? { ...c, sop: response.sop } : c,
+        ),
+      );
+      toast.success(response.sop ? "Added to SOP" : "Removed from SOP");
+    } catch (error) {
+      console.error("Failed to toggle SOP:", error);
+      toast.error("Failed to update SOP status");
+    }
+  };
+
   const updateTaskComment = async (
     commentId: string | number,
     content: string,
@@ -5667,6 +5690,7 @@ export function WorkloadBoard({
           onUpdateComment={updateTaskComment}
           onSaveInlineReply={saveInlineReply}
           onLikeComment={handleLikeComment}
+          onToggleSOP={handleToggleSOP}
           onInlineEditTaskName={handleInlineEditTaskName}
           isSaving={isSaving}
           onTaskButtonClick={() => {

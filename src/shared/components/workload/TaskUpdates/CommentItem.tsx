@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
+import { Badge } from "@/shared/components/ui/badge";
 
 import {
   Pencil,
@@ -22,6 +23,7 @@ import {
   X,
   ThumbsUp,
   Reply,
+  FileText,
 } from "lucide-react";
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
 import { cn, parseApiDateTime, getCurrentUserId } from "@/lib/utils";
@@ -49,6 +51,7 @@ interface CommentItemProps {
   onUpdateComment: (id: string | number, text: string) => void;
   onSaveInlineReply: (parentId: string | number, text: string) => void;
   onLikeComment: (id: string | number) => void;
+  onToggleSOP: (id: string | number) => void;
   onFilePreview: (src: string, name?: string) => void;
   isSaving?: boolean;
 }
@@ -70,6 +73,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onUpdateComment,
   onSaveInlineReply,
   onLikeComment,
+  onToggleSOP,
   onFilePreview,
   isSaving,
 }) => {
@@ -147,6 +151,11 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                         })()
                     : ""}
                 </span>
+                {comment.sop && (
+                  <Badge className="bg-slate-700/80 text-white border-none text-[10px] h-5 px-2 rounded-full font-bold uppercase tracking-wider">
+                    SOP
+                  </Badge>
+                )}
               </div>
 
               {isOwnComment && (
@@ -158,6 +167,12 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => onToggleSOP(comment.id)}
+                      >
+                        <FileText className="h-3 w-3 mr-2" />
+                        {comment.sop ? "Remove From SOP" : "Add To SOP"}
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
                           setEditingCommentId(comment.id);
@@ -480,6 +495,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               onUpdateComment={onUpdateComment}
               onSaveInlineReply={onSaveInlineReply}
               onLikeComment={onLikeComment}
+              onToggleSOP={onToggleSOP}
               onFilePreview={onFilePreview}
               isSaving={isSaving}
             />
