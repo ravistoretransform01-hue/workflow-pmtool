@@ -234,3 +234,26 @@ export interface TimeEntriesResponse {
     entry_count: number;
   };
 }
+
+export interface BoardSOP {
+  id: number;
+  task_id: number;
+  parent_id: number | null;
+  user_id: number;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  task_name: string;
+  user_name: string;
+}
+
+export interface BoardSOPResponse {
+  code: number;
+  status: string;
+  message: string;
+  data: BoardSOP[];
+  meta: {
+    total_sops: number;
+    board_id: number;
+  };
+}
