@@ -24,6 +24,7 @@ import {
   ThumbsUp,
   Reply,
   FileText,
+  Share2,
 } from "lucide-react";
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
 import { cn, parseApiDateTime, getCurrentUserId } from "@/lib/utils";
@@ -51,6 +52,7 @@ interface CommentItemProps {
   onUpdateComment: (id: string | number, text: string) => void;
   onSaveInlineReply: (parentId: string | number, text: string) => void;
   onLikeComment: (id: string | number) => void;
+  onShareComment: (id: string | number) => void;
   onToggleSOP: (id: string | number) => void;
   onFilePreview: (src: string, name?: string) => void;
   isSaving?: boolean;
@@ -73,6 +75,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onUpdateComment,
   onSaveInlineReply,
   onLikeComment,
+  onShareComment,
   onToggleSOP,
   onFilePreview,
   isSaving,
@@ -97,6 +100,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   return (
     <div
       key={comment.id}
+      id={`comment-${comment.id}`}
       className={cn(
         "relative transition-all duration-200",
         !isReply
@@ -172,6 +176,12 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                       >
                         <FileText className="h-3 w-3 mr-2" />
                         {comment.sop ? "Remove From SOP" : "Add To SOP"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => onShareComment(comment.id)}
+                      >
+                        <Share2 className="h-3 w-3 mr-2" />
+                        Share Link
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
@@ -495,6 +505,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               onUpdateComment={onUpdateComment}
               onSaveInlineReply={onSaveInlineReply}
               onLikeComment={onLikeComment}
+              onShareComment={onShareComment}
               onToggleSOP={onToggleSOP}
               onFilePreview={onFilePreview}
               isSaving={isSaving}

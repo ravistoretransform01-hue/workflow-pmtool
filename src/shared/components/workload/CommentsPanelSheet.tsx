@@ -59,6 +59,7 @@ interface CommentsPanelSheetProps {
     replyText: string,
   ) => void | Promise<void>;
   onLikeComment: (commentId: string | number) => void | Promise<void>;
+  onShareComment: (commentId: string | number) => void | Promise<void>;
   onToggleSOP: (commentId: string | number) => void | Promise<void>;
   onTaskButtonClick?: () => void;
   onInlineEditTaskName?: (taskId: string, newName: string) => void;
@@ -86,6 +87,7 @@ export function CommentsPanelSheet({
   onUpdateComment,
   onSaveInlineReply,
   onLikeComment,
+  onShareComment,
   onToggleSOP,
   onTaskButtonClick,
   onInlineEditTaskName,
@@ -304,6 +306,7 @@ export function CommentsPanelSheet({
                 onUpdateComment={onUpdateComment}
                 onSaveInlineReply={onSaveInlineReply}
                 onLikeComment={onLikeComment}
+                onShareComment={onShareComment}
                 onToggleSOP={onToggleSOP}
                 onSaveMainUpdate={onSaveUpdate}
                 isSaving={isSaving}
