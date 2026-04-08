@@ -588,11 +588,22 @@ export function AddBoardDialog({
     });
 
     try {
-      // Prepare members array with user_id and role_id as numbers
-      const boardMembers = members.map(m => ({
-        user_id: Number(m.user_id),
-        role_id: Number(m.role_id),
-      }));
+      // Find the "Organization Admin" role ID from fetched roles
+      const orgAdminRole = roles.find((r) => r.name === "Organization Admin");
+      // Use the found ID, or fallback to 5 as per user's requirement/hint
+      const creatorRoleId = orgAdminRole ? orgAdminRole.id : "5";
+
+      // Prepare members array including the creator (current user) with "Organization Admin" role
+      const allMembers = [
+        {
+          user_id: Number(currentUser?.user_id || getCurrentUserId()),
+          role_id: Number(creatorRoleId),
+        },
+        ...members.map((m) => ({
+          user_id: Number(m.user_id),
+          role_id: Number(m.role_id),
+        })),
+      ];
 
       // Call API to create board
       const result = await createBoard({
@@ -602,7 +613,7 @@ export function AddBoardDialog({
         icon_type: "letter",
         icon_value: boardName.charAt(0).toUpperCase(),
         icon_color: iconColor,
-        members: boardMembers.length > 0 ? boardMembers : undefined,
+        members: allMembers,
       });
 
       if (result.type === "boards/createBoard/fulfilled") {
@@ -828,8 +839,8 @@ export function AddBoardDialog({
                       </div>
                     </div>
 
-                    <div className="w-32 px-3 py-2 bg-[#1e293b] border border-[#334155] rounded-md text-sm text-white">
-                      Board Owner
+                    <div className="px-3 py-2 bg-[#1e293b] border border-[#334155] rounded-md text-sm text-white">
+                      Organization Admin
                     </div>
 
                     {/* Empty space to align with other members */}
