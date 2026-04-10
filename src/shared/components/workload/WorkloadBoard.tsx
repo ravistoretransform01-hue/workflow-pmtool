@@ -466,6 +466,7 @@ export function WorkloadBoard({
     (state: RootState) => state.ui.refreshCounter,
   );
   const { activeTaskInfo } = useAppSelector((state: RootState) => state.tasks);
+  const user = useAppSelector((state: RootState) => state.auth.user);
 
   // Initialize hooks for state management
   const taskState = useTaskState();
@@ -744,7 +745,7 @@ export function WorkloadBoard({
 
         const [groupsRes, tasksRes] = await Promise.all([
           groupsApi.getGroupsByBoard(boardIdNum),
-          tasksApi.getTasksByBoardId(boardIdNum),
+          tasksApi.getTasksByBoardId(boardIdNum, user?.organization_id),
         ]);
 
         debugLog("Fetched Groups:", groupsRes);

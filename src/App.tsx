@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/shared/components/ui/tooltip";
 import ToasterFromUseToast from "@/shared/components/ToasterFromUseToast";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { TestUserProvider } from "@/contexts/TestUserContext";
 import {
   ProtectedRoute,
@@ -28,7 +28,39 @@ import BoardDashboardPage from "@/pages/BoardDashboardPage";
 import DocumentEditor from "@/pages/DocumentEditor";
 import NotFound from "@/pages/NotFound";
 
+// import { io } from "socket.io-client";
+import { useAppSelector } from "./app/hooks";
+
+const RootPathRedirect = () => {
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+  
+  if (isAuthenticated && user?.organization_id) {
+    return <Navigate to={`/org/${user.organization_id}/home`} replace />;
+  }
+  
+  return <LandingPage />;
+};
+
 const App = () => {
+  // socket.io code
+  // useEffect(() => {
+  //   // 2. Connect to your Buzzer Server
+  //   const socket = io("http://35.225.58.131:4000");
+  //   socket.on("connect", () => {
+  //     console.log("🟢 BEEP! Connected to Buzzer");
+  //   });
+  //   // 3. The "Ring the Bell" Listener
+  //   socket.on("data_changed", (data) => {
+  //     console.log("⚡ Signal received from Node.js:", data);
+
+  //     // FOR NOW: Just refresh the whole page
+  //     window.location.reload();
+  //   });
+  //   return () => {
+  //     socket.disconnect();
+  //   };
+  // }, []);
+
   // Show foreground push notifications as Sonner toasts while the tab is open
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -70,40 +102,41 @@ const App = () => {
           {/* <WorkspaceProvider> */}
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<RootPathRedirect />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-            {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
               <Route element={<ProtectedLayout />}>
-                <Route path="home" element={<HomePage />} />
-                <Route path="my-work" element={<MyWork />} />
-                <Route path="my-team" element={<MyTeam />} />
-                <Route path="all-items" element={<AllItems />} />
-                <Route path="my-habits" element={<MyHabits />} />
-                <Route path="members" element={<MembersPage />} />
+                <Route path="org/:orgId">
+                  <Route path="home" element={<HomePage />} />
+                  <Route path="my-work" element={<MyWork />} />
+                  <Route path="my-team" element={<MyTeam />} />
+                  <Route path="all-items" element={<AllItems />} />
+                  <Route path="my-habits" element={<MyHabits />} />
+                  <Route path="members" element={<MembersPage />} />
 
-                <Route
-                  path="workspace/:workspaceId"
-                  element={<DynamicWorkspace />}
-                />
-                <Route path="board/:boardId" element={<DynamicBoard />} />
-                <Route
-                  path="board/:boardId/view/:viewName"
-                  element={<DynamicBoard />}
-                />
-                <Route path="board/:boardId/view" element={<DynamicBoard />} />
-                <Route
-                  path="board/:boardId/dashboard"
-                  element={<BoardDashboardPage />}
-                />
-                <Route
-                  path="workspace/:workspaceId/doc/:documentId"
-                  element={<DocumentEditor />}
-                />
+                  <Route
+                    path="workspace/:workspaceId"
+                    element={<DynamicWorkspace />}
+                  />
+                  <Route path="board/:boardId" element={<DynamicBoard />} />
+                  <Route
+                    path="board/:boardId/view/:viewName"
+                    element={<DynamicBoard />}
+                  />
+                  <Route path="board/:boardId/view" element={<DynamicBoard />} />
+                  <Route
+                    path="board/:boardId/dashboard"
+                    element={<BoardDashboardPage />}
+                  />
+                  <Route
+                    path="workspace/:workspaceId/doc/:documentId"
+                    element={<DocumentEditor />}
+                  />
+                </Route>
 
                 <Route path="*" element={<NotFound />} />
               </Route>

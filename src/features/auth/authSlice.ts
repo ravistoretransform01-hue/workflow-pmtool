@@ -9,8 +9,17 @@ import {
 import { clearCMSCache } from "../cms/cmsStorage";
 import { debugLog } from "@/lib/debugLog";
 
+const getUserFromStorage = (): User | null => {
+  try {
+    const userData = localStorage.getItem("user_data");
+    return userData ? JSON.parse(userData) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
 const initialState: AuthState = {
-  user: null,
+  user: getUserFromStorage(),
   token: localStorage.getItem("access_token"),
   refreshToken: localStorage.getItem("refresh_token"),
   loading: false,
@@ -43,6 +52,27 @@ const authSlice = createSlice({
     // Set user
     setUser: (state, action: PayloadAction<User>) => {
       state.user = action.payload;
+      localStorage.setItem("user_data", JSON.stringify(action.payload));
+    },
+    // Switch Organization
+    switchOrganization: (state, action: PayloadAction<number>) => {
+      if (state.user) {
+        state.user.organization_id = action.payload;
+        
+        // Update role if available in organization list
+        const orgInfo = state.user.organizations?.find(
+          (o) => o.organization_id === action.payload
+        );
+        if (orgInfo) {
+          state.user.role_id = orgInfo.role_id;
+          state.user.role_label = orgInfo.role_label;
+        }
+        
+        localStorage.setItem("user_data", JSON.stringify(state.user));
+        
+        // Clear cache but don't reload here as we'll handle navigation in components
+        clearCMSCache();
+      }
     },
   },
   extraReducers: (builder) => {
@@ -157,5 +187,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, logout, setUser } = authSlice.actions;
+export const { clearError, logout, setUser, switchOrganization } = authSlice.actions;
 export default authSlice.reducer;

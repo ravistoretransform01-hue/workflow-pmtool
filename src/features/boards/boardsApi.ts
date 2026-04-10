@@ -23,14 +23,14 @@ const BOARD_ENDPOINTS = {
 
 export const boardsApi = {
   /**
-   * Get all boards
+   * Get all boards for an organization
    */
-  getBoards: async (): Promise<Board[]> => {
+  getBoards: async (organizationId?: number): Promise<Board[]> => {
     try {
       const response = await api.get<GetBoardsResponse>(
         BOARD_ENDPOINTS.GET_ALL,
         {
-          // headers: CACHE_CONTROL_HEADERS
+          params: { organization_id: organizationId }
         }
       );
 

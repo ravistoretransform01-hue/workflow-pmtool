@@ -30,7 +30,13 @@ export interface User {
   role_label: string;
   avatar?: string;
   createdAt?: string;
-  role: string[];
+  role?: string[];
+  organizations?: {
+    organization_id: number;
+    organization_name: string;
+    role_id: number;
+    role_label: string;
+  }[];
   // User meta fields from API
   phone?: string;
   mobile_phone?: string;
@@ -43,6 +49,8 @@ export interface AuthResponse {
   user: User;
   access_token: string;
   refresh_token: string;
+  token_type: string;
+  expires_in: number;
   message: string;
 }
 

@@ -25,7 +25,7 @@ const LoginPage = () => {
   // Redirect to home if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/home");
+      navigate("/");
     }
   }, [isAuthenticated, navigate]);
 
@@ -118,7 +118,7 @@ const LoginPage = () => {
       toast.success("Login Successful!", {
         description: "Welcome Back!",
       });
-      navigate("/home");
+      navigate("/");
 
       // Register FCM token in the background (non-blocking)
       requestNotificationPermission().then((token) => {

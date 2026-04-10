@@ -49,10 +49,14 @@ export const tasksApi = {
    */
   getTasksByBoardId: async (
     boardId: string | number,
+    organizationId?: number | null,
   ): Promise<TaskResponse[]> => {
     try {
       const response = await axios.get<{ data: TaskResponse[] }>(
         TASKS_ENDPOINTS.GET_ALL_TASKS_BY_BOARDID(boardId),
+        {
+          params: { organization_id: organizationId },
+        },
       );
       return response.data.data || [];
     } catch (error) {
@@ -61,14 +65,20 @@ export const tasksApi = {
     }
   },
 
-  getSingleTasks: async (boardId: string | number): Promise<TaskResponse> => {
+  getSingleTasks: async (
+    taskId: string | number,
+    organizationId?: number | null,
+  ): Promise<TaskResponse> => {
     try {
       const response = await axios.get<{ data: TaskResponse }>(
-        TASKS_ENDPOINTS.GET_SINGLE_TASK(boardId),
+        TASKS_ENDPOINTS.GET_SINGLE_TASK(taskId),
+        {
+          params: { organization_id: organizationId },
+        },
       );
-      return response.data.data || [];
+      return response.data.data as any;
     } catch (error) {
-      console.error("Failed to fetch tasks:", error);
+      console.error("Failed to fetch task:", error);
       throw error;
     }
   },
@@ -436,7 +446,9 @@ export const tasksApi = {
   /**
    * Get the current user's active timer
    */
-  getActiveTimer: async (): Promise<{
+  getActiveTimer: async (
+    organizationId?: number | null,
+  ): Promise<{
     timer_id: string;
     task_id: string;
     start_time: string;
@@ -444,7 +456,9 @@ export const tasksApi = {
     is_running: boolean;
   } | null> => {
     try {
-      const response = await axios.get<any>(TASKS_ENDPOINTS.GET_ACTIVE_TIMER);
+      const response = await axios.get<any>(TASKS_ENDPOINTS.GET_ACTIVE_TIMER, {
+        params: { organization_id: organizationId },
+      });
       return response.data.data;
     } catch (error) {
       console.error("Failed to fetch active timer:", error);
