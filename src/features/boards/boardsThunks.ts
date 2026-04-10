@@ -56,11 +56,15 @@ export const fetchBoardsThunk = createAsyncThunk<
   void,
   {
     rejectValue: string;
+    state: any; // Use any or import RootState if preferred, but usually state is fine here
   }
->("boards/fetchBoards", async (_, { rejectWithValue }) => {
+>("boards/fetchBoards", async (_, { rejectWithValue, getState }) => {
   try {
-    debugLog("Fetching boards...");
-    const boards = await boardsApi.getBoards();
+    const state = getState() as any;
+    const orgId = state.auth.user?.organization_id;
+    
+    debugLog("Fetching boards for organization:", orgId);
+    const boards = await boardsApi.getBoards(orgId);
     debugLog("Boards fetched:", boards);
     return boards;
   } catch (error: any) {

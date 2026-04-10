@@ -17,11 +17,14 @@ interface TasksState {
 
 export const fetchActiveTimer = createAsyncThunk(
   "tasks/fetchActiveTimer",
-  async () => {
-    const activeTimer = await tasksApi.getActiveTimer();
+  async (_, { getState }) => {
+    const state = getState() as any;
+    const orgId = state.auth.user?.organization_id;
+    
+    const activeTimer = await tasksApi.getActiveTimer(orgId);
     if (activeTimer) {
       try {
-        const task = await tasksApi.getSingleTasks(activeTimer.task_id);
+        const task = await tasksApi.getSingleTasks(activeTimer.task_id, orgId);
         return {
           ...activeTimer,
           taskName: task.name,

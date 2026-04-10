@@ -7,7 +7,10 @@ import {
   LogOut,
   FileText,
   UserPlus,
+  Building2,
 } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "@/app/hooks";
+import { switchOrganization } from "@/features/auth/authSlice";
 import { Button } from "@/shared/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useParams } from "react-router-dom";
@@ -31,12 +34,24 @@ import {
 export function Header() {
   const { logout, loading } = useAuth();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.auth.user);
   const { boardId } = useParams<{ boardId: string }>();
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [boardInviteOpen, setBoardInviteOpen] = useState(false);
+
+  const currentOrg = user?.organizations?.find(
+    (org) => org.organization_id === user.organization_id
+  );
+
+  const handleSwitchOrg = (orgId: string) => {
+    dispatch(switchOrganization(parseInt(orgId, 10)));
+    toast.success("Switched Organization");
+    navigate(`/org/${orgId}/home`);
+  };
 
   const handleLogout = async () => {
     try {
@@ -68,6 +83,49 @@ export function Header() {
         <NotificationBell />
         <TrashButton />
 
+        {/* Organization Switcher / Display */}
+        {user?.organization_id && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild disabled={!user?.organizations || user.organizations.length <= 1}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`gap-2 px-3 h-9 ${user?.organizations && user.organizations.length > 1 ? 'hover:bg-hover' : 'cursor-default hover:bg-transparent'}`}
+              >
+                <Building2 className="h-4 w-4" />
+                <span className="text-sm font-medium hidden md:inline">
+                  {currentOrg?.organization_name || "Organization"}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            {user?.organizations && user.organizations.length > 1 && (
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Switch Organization
+                </div>
+                {user.organizations.map((org) => (
+                  <DropdownMenuItem
+                    key={org.organization_id}
+                    onClick={() => handleSwitchOrg(String(org.organization_id))}
+                    className={
+                      user.organization_id === org.organization_id
+                        ? "bg-primary/10 font-bold"
+                        : ""
+                    }
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm">{org.organization_name}</span>
+                      <span className="text-[10px] opacity-60">
+                        {org.role_label}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            )}
+          </DropdownMenu>
+        )}
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="hover:bg-hover">
@@ -79,7 +137,7 @@ export function Header() {
               <User className="mr-2 h-4 w-4" />
               <span>My profile</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate("/members")}>
+            <DropdownMenuItem onClick={() => navigate(`/org/${user?.organization_id}/members`)}>
               <Users className="mr-2 h-4 w-4" />
               <span>Members</span>
             </DropdownMenuItem>

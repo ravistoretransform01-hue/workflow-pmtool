@@ -51,9 +51,12 @@ import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useBoards } from "@/hooks/useBoards";
 import { boardsApi } from "@/features/boards/boardsApi";
-import { getOrganizationId } from "@/lib/utils";
+import { useAppSelector } from "@/app/hooks";
 
 export const AppSidebar = () => {
+  const user = useAppSelector((state) => state.auth.user);
+  const orgId = user?.organization_id;
+
   const navigate = useNavigate();
   const { boardId } = useParams();
   const { open } = useSidebar();
@@ -72,15 +75,17 @@ export const AppSidebar = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
 
-  // Fetch boards on component mount
+  // Fetch boards when organization changes or component mounts
   useEffect(() => {
-    fetchBoards();
-  }, [fetchBoards]);
+    if (orgId) {
+      fetchBoards();
+    }
+  }, [orgId, fetchBoards]);
 
   const mainMenuItems = [
-    { icon: Home, label: "Dashboard", href: "/home" },
-    { icon: FolderKanban, label: "All Items", href: "/all-items" },
-    { icon: Briefcase, label: "My Habits", href: "/my-habits" },
+    { icon: Home, label: "Dashboard", href: `/org/${orgId}/home` },
+    { icon: FolderKanban, label: "All Items", href: `/org/${orgId}/all-items` },
+    { icon: Briefcase, label: "My Habits", href: `/org/${orgId}/my-habits` },
   ];
 
   // const currentBoard = boards.find((b) => b.id === boardId);
@@ -114,7 +119,7 @@ export const AppSidebar = () => {
   };
 
   const handleOpenBoardInNewTab = (boardId: string) => {
-    window.open(`/board/${boardId}/view/Main%20Table`, "_blank");
+    window.open(`/org/${orgId}/board/${boardId}/view/Main%20Table`, "_blank");
   };
 
   const handleRenameBoard = (boardId: string, currentName: string) => {
@@ -197,7 +202,7 @@ export const AppSidebar = () => {
 
       // Navigate away only if the deleted board is the one currently open
       if (boardId && String(deletingBoardId) === String(boardId)) {
-        navigate("/home");
+        navigate(`/org/${orgId}/home`);
       }
 
       setDeletingBoardId(null);
@@ -449,7 +454,7 @@ export const AppSidebar = () => {
                     >
                       <button
                         onClick={() =>
-                          navigate(`/board/${board.id}/view/Main%20Table`)
+                          navigate(`/org/${orgId}/board/${board.id}/view/Main%20Table`)
                         }
                         className="flex items-center gap-2 flex-1 text-left min-w-0"
                         title={board.name}
@@ -535,7 +540,7 @@ export const AppSidebar = () => {
         }}
         onBoardCreated={fetchBoards}
         // templateId={selectedTemplateId}
-        organizationId={getOrganizationId() || -1}
+        organizationId={Number(orgId) || -1}
       />
 
       {/* Add Board Dialog */}
@@ -608,7 +613,7 @@ export const AppSidebar = () => {
                   <button
                     key={board.id}
                     onClick={() => {
-                      navigate(`/board/${board.id}/view/Main%20Table`);
+                      navigate(`/org/${orgId}/board/${board.id}/view/Main%20Table`);
                       setBoardSearchOpen(false);
                       setBoardSearchQuery("");
                     }}
