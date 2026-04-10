@@ -459,7 +459,7 @@ export function WorkloadBoard({
   // workspaceName,
 }: WorkloadBoardProps) {
   const navigate = useNavigate();
-  const { viewName } = useParams<{ viewName?: string }>();
+  const { orgId, viewName } = useParams<{ orgId?: string; viewName?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const dispatch = useAppDispatch();
   const refreshCounter = useAppSelector(
@@ -544,7 +544,8 @@ export function WorkloadBoard({
 
     // Handle view redirection if necessary
     if (!viewName || !TAB_TO_VIEW_KEY[decodedViewName]) {
-      navigate(`/board/${boardId}/view/Main%20Table${window.location.search}`, {
+      const orgPrefix = orgId ? `/org/${orgId}` : "";
+      navigate(`${orgPrefix}/board/${boardId}/view/Main%20Table${window.location.search}`, {
         replace: true,
       });
       return;
@@ -1326,8 +1327,9 @@ export function WorkloadBoard({
     }
     // Navigate to the new path, preserving current search params from state
     const currentSearch = searchParams.toString();
+    const orgPrefix = orgId ? `/org/${orgId}` : "";
     navigate(
-      `/board/${boardId}/view/${encodeURIComponent(tab)}${currentSearch ? "?" + currentSearch : ""}`,
+      `${orgPrefix}/board/${boardId}/view/${encodeURIComponent(tab)}${currentSearch ? "?" + currentSearch : ""}`,
     );
   };
 
@@ -1410,23 +1412,25 @@ export function WorkloadBoard({
       next.delete("task");
       next.delete("comment");
       next.set("comments", task.id);
+      const orgPrefix = orgId ? `/org/${orgId}` : "";
       navigate({
-        pathname: `/board/${boardId}/view/${encodeURIComponent(activeTab)}`,
+        pathname: `${orgPrefix}/board/${boardId}/view/${encodeURIComponent(activeTab)}`,
         search: `?${next.toString()}`,
       });
     },
-    [searchParams, boardId, activeTab, navigate],
+    [searchParams, boardId, activeTab, navigate, orgId],
   ); // Removed dependencies to avoid stale closures, using searchParams directly
 
   const closeCommentsPanel = useCallback(() => {
     const next = new URLSearchParams(searchParams);
     next.delete("comments");
     next.delete("comment");
+    const orgPrefix = orgId ? `/org/${orgId}` : "";
     navigate({
-      pathname: `/board/${boardId}/view/${encodeURIComponent(activeTab)}`,
+      pathname: `${orgPrefix}/board/${boardId}/view/${encodeURIComponent(activeTab)}`,
       search: next.toString() ? `?${next.toString()}` : "",
     });
-  }, [searchParams, boardId, activeTab, navigate]);
+  }, [searchParams, boardId, activeTab, navigate, orgId]);
 
   const openTaskCard = useCallback(
     (task: Task, initialEditDescription: boolean = false) => {
@@ -3922,7 +3926,10 @@ export function WorkloadBoard({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(`/board/${boardId}/dashboard`)}
+              onClick={() => {
+                const orgPrefix = orgId ? `/org/${orgId}` : "";
+                navigate(`${orgPrefix}/board/${boardId}/dashboard`);
+              }}
               className="h-8 px-3"
             >
               <LayoutDashboard className="h-4 w-4 mr-2" />
