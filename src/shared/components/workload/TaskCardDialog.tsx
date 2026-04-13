@@ -39,7 +39,12 @@ import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TiptapEditor } from "./texteditor/TiptapEditor";
-import { getCurrentUserId, getOrganizationId, cn, copyToClipboard } from "@/lib/utils";
+import {
+  getCurrentUserId,
+  getOrganizationId,
+  cn,
+  copyToClipboard,
+} from "@/lib/utils";
 import { TaskUpdates } from "./TaskUpdates/TaskUpdates";
 import { renderFormattedContent } from "./TaskUpdates/utils";
 import { FilePreviewModal } from "./texteditor/FilePreviewModal";
@@ -155,7 +160,6 @@ export function TaskCardDialog({
     "header" | "sidebar" | null
   >(null);
   const [tempName, setTempName] = useState("");
-
 
   useEffect(() => {
     if (task?.description) {
@@ -870,7 +874,6 @@ export function TaskCardDialog({
                               size="sm"
                               className="h-9 px-6 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm"
                               onClick={async () => {
-
                                 if (displayTask?.id && onDescriptionChange) {
                                   const finalHtml =
                                     await attachmentsApi.uploadAndReplace(
@@ -929,7 +932,7 @@ export function TaskCardDialog({
                           displayTask.description.includes("<img") ||
                           displayTask.description.includes("<iframe")) ? (
                           <div
-                            className="text-base text-foreground/90 leading-relaxed prose prose-invert max-w-none prose-p:my-2 [&_img]:cursor-pointer [&_img]:transition-opacity hover:[&_img]:opacity-90 [&_.file-card]:cursor-default"
+                            className="text-sm text-foreground/90 prose prose-invert prose-content max-w-none prose-p:my-2 [&_img]:cursor-pointer [&_img]:transition-opacity hover:[&_img]:opacity-90 [&_.file-card]:cursor-default"
                             dangerouslySetInnerHTML={{
                               __html: displayTask.description,
                             }}
