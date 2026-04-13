@@ -287,3 +287,42 @@ button:focus-visible {
 .file-card-open-btn, .pdf-card-open-btn {
   text-decoration: none;
 }
+
+/* Rich Text / Tiptap Compatibility Styles */
+.prose-content ul, .prose-content ol {
+  padding-left: 1.1rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.prose-content ul {
+  list-style-type: disc !important;
+}
+
+.prose-content ol {
+  list-style-type: decimal !important;
+}
+
+.prose-content li {
+  margin-bottom: 0.125rem !important;
+  display: list-item !important;
+  padding-left: 0.25rem !important;
+}
+
+.prose-content p {
+  margin-top: 0.4rem !important;
+  margin-bottom: 0.4rem !important;
+  line-height: 1.5;
+}
+
+.prose-content h1 { font-size: 1.75rem; font-weight: 700; margin: 1.25rem 0 0.75rem; }
+.prose-content h2 { font-size: 1.4rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+.prose-content h3 { font-size: 1.15rem; font-weight: 600; margin: 0.75rem 0 0.4rem; }
+
+.prose-content blockquote {
+  border-left: 4px solid hsl(var(--border));
+  padding-left: 1rem;
+  font-style: italic;
+  color: hsl(var(--muted-foreground));
+  margin: 1.5rem 0;
+}
