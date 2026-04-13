@@ -637,7 +637,7 @@ export function AddBoardDialog({
         const createdBoardId =
           payload?.id || payload?.board?.id || payload?.board_id || payload?.boardId;
         if (createdBoardId) {
-          navigate(`/board/${createdBoardId}`);
+          navigate(`/org/${organizationId}/board/${createdBoardId}`);
         } else {
           console.warn("createBoard fulfilled but no board id returned", payload);
         }
