@@ -1,5 +1,6 @@
 import api from "@/lib/axios";
 import type { LoginRequest, SignupRequest, AuthResponse, ResetPasswordRequest } from "./types";
+import { debugError } from "@/lib/debugLog";
 
 const AUTH_ENDPOINTS = {
   LOGIN: "/loginup",
@@ -97,7 +98,7 @@ export const authApi = {
       await api.post(AUTH_ENDPOINTS.SAVE_FCM_TOKEN, { token: token });
     } catch (error) {
       // Non-fatal: don't block the user even if this fails
-      console.error("Failed to save FCM token:", error);
+      debugError("Failed to save FCM token:", error);
     }
   },
 };

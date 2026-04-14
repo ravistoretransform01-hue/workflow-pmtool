@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
 import { requestNotificationPermission } from "@/lib/firebase";
 import { authApi } from "@/features/auth/authApi";
+import { debugLog } from "@/lib/debugLog";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -123,7 +124,7 @@ const LoginPage = () => {
       // Register FCM token in the background (non-blocking)
       requestNotificationPermission().then((token) => {
         if (token) {
-          console.log("FCM Token:", token);
+          debugLog("FCM Token:", token);
           authApi.saveFcmToken(token);
         }
       });

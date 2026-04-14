@@ -20,6 +20,27 @@ export interface ResetPasswordRequest {
   new_password: string;
 }
 
+export interface Permissions {
+  boards?: {
+    can_create: boolean;
+    can_edit: boolean;
+    can_delete: boolean;
+    can_view: boolean;
+  };
+  groups?: {
+    can_create: boolean;
+    can_edit: boolean;
+    can_delete: boolean;
+    can_view: boolean;
+  };
+  tasks?: {
+    can_create: boolean;
+    can_edit: boolean;
+    can_delete: boolean;
+    can_assign: boolean;
+  };
+}
+
 export interface User {
   user_id: number;
   username: string;
@@ -31,6 +52,7 @@ export interface User {
   avatar?: string;
   createdAt?: string;
   role?: string[];
+  permissions?: Permissions;
   organizations?: {
     organization_id: number;
     organization_name: string;
