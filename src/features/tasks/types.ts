@@ -156,6 +156,7 @@ export interface TaskComment {
   content: string;
   parent_id: string | number | null;
   is_internal: number | string;
+  isclient?: number | string | boolean;
   user_id?: string | number;
   created_at: string;
   updated_at: string;
@@ -190,7 +191,8 @@ export interface CreateCommentRequest {
 
 export interface UpdateCommentRequest {
   content?: string;
-  sop?: number;
+  sop?: number | boolean;
+  isclient?: number | boolean;
 }
 
 export interface DeleteTaskRequest {

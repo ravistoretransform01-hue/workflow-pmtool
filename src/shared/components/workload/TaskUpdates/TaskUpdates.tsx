@@ -23,6 +23,7 @@ interface TaskUpdatesProps {
   onLikeComment: (id: string | number) => void | Promise<void>;
   onShareComment: (id: string | number) => void | Promise<void>;
   onToggleSOP: (id: string | number) => void | Promise<void>;
+  onToggleIsClient: (id: string | number) => void | Promise<void>;
   onSaveMainUpdate: (text: string) => void | Promise<void>;
   isSaving?: boolean;
   onFilePreview: (src: string, name?: string) => void;
@@ -44,6 +45,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
   onLikeComment,
   onShareComment,
   onToggleSOP,
+  onToggleIsClient,
   isSaving = false,
   onFilePreview,
   mainUpdateText: externalUpdateText,
@@ -215,6 +217,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
                   onLikeComment={onLikeComment}
                   onShareComment={onShareComment}
                   onToggleSOP={onToggleSOP}
+                  onToggleIsClient={onToggleIsClient}
                   onFilePreview={onFilePreview}
                   isSaving={isSaving}
                 />

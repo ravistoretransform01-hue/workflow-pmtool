@@ -25,6 +25,7 @@ import {
   Reply,
   FileText,
   Share2,
+  Send,
 } from "lucide-react";
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
 import { cn, parseApiDateTime, getCurrentUserId } from "@/lib/utils";
@@ -54,6 +55,7 @@ interface CommentItemProps {
   onLikeComment: (id: string | number) => void;
   onShareComment: (id: string | number) => void;
   onToggleSOP: (id: string | number) => void;
+  onToggleIsClient: (id: string | number) => void;
   onFilePreview: (src: string, name?: string) => void;
   isSaving?: boolean;
 }
@@ -77,6 +79,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onLikeComment,
   onShareComment,
   onToggleSOP,
+  onToggleIsClient,
   onFilePreview,
   isSaving,
 }) => {
@@ -158,6 +161,11 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 {comment.sop && (
                   <Badge className="bg-slate-700/80 text-white border-none text-[10px] h-5 px-2 rounded-full font-bold uppercase tracking-wider">
                     SOP
+                  </Badge>
+                )}
+                {(comment.isclient === 1 || comment.isclient === "1" || comment.isclient === true) && (
+                  <Badge className="bg-blue-600/80 text-white border-none text-[10px] h-5 px-2 rounded-full font-bold uppercase tracking-wider">
+                    Client
                   </Badge>
                 )}
               </div>
@@ -416,6 +424,39 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 Reply
               </button>
               <button
+                onClick={() => onToggleIsClient(comment.id)}
+                className={cn(
+                  "flex items-center gap-1.5 text-sm transition-colors uppercase tracking-wider",
+                  comment.isclient === 1 ||
+                    comment.isclient === "1" ||
+                    comment.isclient === true
+                    ? "text-primary font-semibold"
+                    : "text-white hover:text-primary",
+                )}
+                title={
+                  comment.isclient === 1 ||
+                  comment.isclient === "1" ||
+                  comment.isclient === true
+                    ? "Visible to client"
+                    : "Send to client"
+                }
+              >
+                <Send
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    (comment.isclient === 1 ||
+                      comment.isclient === "1" ||
+                      comment.isclient === true) &&
+                      "fill-current",
+                  )}
+                />
+                {comment.isclient === 1 ||
+                comment.isclient === "1" ||
+                comment.isclient === true
+                  ? "Sent"
+                  : "Client"}
+              </button>
+              <button
                 onClick={() => {
                   setEditingCommentId(comment.id);
                   setEditCommentText(comment.content);
@@ -505,8 +546,9 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               onUpdateComment={onUpdateComment}
               onSaveInlineReply={onSaveInlineReply}
               onLikeComment={onLikeComment}
-              onShareComment={onShareComment}
+               onShareComment={onShareComment}
               onToggleSOP={onToggleSOP}
+              onToggleIsClient={onToggleIsClient}
               onFilePreview={onFilePreview}
               isSaving={isSaving}
             />

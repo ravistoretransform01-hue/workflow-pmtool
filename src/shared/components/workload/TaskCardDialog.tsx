@@ -436,6 +436,37 @@ export function TaskCardDialog({
     }
   };
 
+  const onToggleIsClient = async (commentId: string | number) => {
+    if (!task?.id) return;
+    const comment = comments.find((c) => String(c.id) === String(commentId));
+    if (!comment) return;
+
+    try {
+      const response = await tasksApi.toggleIsClient(
+        task.id,
+        commentId,
+        !(
+          comment.isclient === 1 ||
+          comment.isclient === "1" ||
+          comment.isclient === true
+        ),
+      );
+      setComments((prev) =>
+        prev.map((c) =>
+          String(c.id) === String(commentId)
+            ? { ...c, isclient: response.isclient }
+            : c,
+        ),
+      );
+      toast.success(
+        response.isclient ? "Sent to client" : "Removed from client",
+      );
+    } catch (error) {
+      console.error("Failed to toggle isclient:", error);
+      toast.error("Failed to update client status");
+    }
+  };
+
   const onShareComment = async (commentId: string | number) => {
     if (!task?.id) return;
     const url = new URL(window.location.href);
@@ -970,6 +1001,7 @@ export function TaskCardDialog({
                   onLikeComment={onLikeComment}
                   onShareComment={onShareComment}
                   onToggleSOP={onToggleSOP}
+                  onToggleIsClient={onToggleIsClient}
                   onFilePreview={handleFilePreview}
                   layout="dialog"
                   isInternal={1}
@@ -994,6 +1026,7 @@ export function TaskCardDialog({
                   onLikeComment={onLikeComment}
                   onShareComment={onShareComment}
                   onToggleSOP={onToggleSOP}
+                  onToggleIsClient={onToggleIsClient}
                   onFilePreview={handleFilePreview}
                   layout="dialog"
                   isInternal={0}
