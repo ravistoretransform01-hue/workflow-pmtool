@@ -643,6 +643,37 @@ export const tasksApi = {
   },
 
   /**
+   * Toggle isclient status for a comment using the update API
+   */
+  toggleIsClient: async (
+    taskId: string | number,
+    commentId: string | number,
+    isclient: boolean,
+  ): Promise<{
+    id: number | string;
+    isclient: boolean;
+  }> => {
+    try {
+      const response = await axios.put<{
+        data: {
+          id: number;
+          isclient: string | number;
+        };
+      }>(TASKS_ENDPOINTS.UPDATE_COMMENT(taskId, commentId), {
+        isclient: isclient ? 1 : 0,
+      });
+      const data = response.data.data;
+      return {
+        id: data.id,
+        isclient: data.isclient === "1" || data.isclient === 1,
+      };
+    } catch (error) {
+      console.error("Failed to toggle isclient:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Get all SOPs for a board
    */
   getBoardSOPs: async (boardId: string | number): Promise<BoardSOP[]> => {
