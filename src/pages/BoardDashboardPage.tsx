@@ -389,7 +389,7 @@ export default function BoardDashboardPage() {
         <Button
           variant="ghost"
           className="mb-4 pl-0 hover:bg-transparent hover:text-primary"
-          onClick={() => navigate(`/board/${boardId}`)}
+          onClick={() => navigate(`/org/${getOrganizationId()}/board/${boardId}`)}
         >
           ← Back to Project
         </Button>
@@ -460,7 +460,7 @@ export default function BoardDashboardPage() {
                     variant="outline"
                     className="w-full sm:w-auto h-11 text-sm font-semibold rounded-lg bg-[#ffffff05] border-[#ffffff10] text-[#ffffff80] hover:text-[#fff] hover:bg-[#ffffff10] transition-colors"
                     onClick={() =>
-                      navigate(`/board/${boardId}/view/Main%20Table`)
+                      navigate(`/org/${getOrganizationId()}/board/${boardId}/view/Main%20Table`)
                     }
                   >
                     View Items
@@ -494,7 +494,7 @@ export default function BoardDashboardPage() {
                 <DropdownMenuContent align="start" className="w-56">
                   <DropdownMenuItem
                     onClick={() =>
-                      navigate(`/board/${boardId}/view/Main%20Table`)
+                      navigate(`/org/${getOrganizationId()}/board/${boardId}/view/Main%20Table`)
                     }
                   >
                     <LayoutDashboard className="h-4 w-4 mr-2" />
