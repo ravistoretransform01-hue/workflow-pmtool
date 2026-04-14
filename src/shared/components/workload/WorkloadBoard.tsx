@@ -1432,6 +1432,19 @@ export function WorkloadBoard({
     });
   }, [searchParams, boardId, activeTab, navigate, orgId]);
 
+  const handleHighlightComplete = useCallback(() => {
+    if (searchParams.has("comment")) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("comment");
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [searchParams, setSearchParams]);
+
   const openTaskCard = useCallback(
     (task: Task, initialEditDescription: boolean = false) => {
       setTaskCardInitialEditDescription(initialEditDescription);
@@ -5766,6 +5779,7 @@ export function WorkloadBoard({
           onToggleSOP={handleToggleSOP}
           onToggleIsClient={handleToggleIsClient}
           onInlineEditTaskName={handleInlineEditTaskName}
+          onHighlightComplete={handleHighlightComplete}
           isSaving={isSaving}
           onTaskButtonClick={() => {
             closeCommentsPanel();

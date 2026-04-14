@@ -27,6 +27,7 @@ interface TaskUpdatesProps {
   onSaveMainUpdate: (text: string) => void | Promise<void>;
   isSaving?: boolean;
   onFilePreview: (src: string, name?: string) => void;
+  onHighlightComplete?: () => void;
   // Optional for sidebar mode
   mainUpdateText?: string;
   onMainUpdateTextChange?: (text: string) => void;
@@ -48,6 +49,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
   onToggleIsClient,
   isSaving = false,
   onFilePreview,
+  onHighlightComplete,
   mainUpdateText: externalUpdateText,
   onMainUpdateTextChange: externalOnUpdateTextChange,
   isInternal,
@@ -70,6 +72,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
           );
           setTimeout(() => {
             element.classList.remove("ring-2", "ring-primary/50", "ring-offset-4");
+            if (onHighlightComplete) onHighlightComplete();
           }, 4000);
         } else if (comments.length > 0) {
           // If we have comments loaded but the specific one is missing

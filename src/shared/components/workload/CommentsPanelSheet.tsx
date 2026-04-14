@@ -64,6 +64,7 @@ interface CommentsPanelSheetProps {
   onToggleIsClient: (commentId: string | number) => void | Promise<void>;
   onTaskButtonClick?: () => void;
   onInlineEditTaskName?: (taskId: string, newName: string) => void;
+  onHighlightComplete?: () => void;
   isSaving?: boolean;
   boardId?: string;
 }
@@ -93,6 +94,7 @@ export function CommentsPanelSheet({
   onToggleIsClient,
   onTaskButtonClick,
   onInlineEditTaskName,
+  onHighlightComplete,
   isSaving,
   boardId,
 }: CommentsPanelSheetProps) {
@@ -312,6 +314,7 @@ export function CommentsPanelSheet({
                 onToggleSOP={onToggleSOP}
                 onToggleIsClient={onToggleIsClient}
                 onSaveMainUpdate={onSaveUpdate}
+                onHighlightComplete={onHighlightComplete}
                 isSaving={isSaving}
                 onFilePreview={handleFilePreview}
                 mainUpdateText={updateText}

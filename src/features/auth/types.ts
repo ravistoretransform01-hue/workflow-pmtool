@@ -84,3 +84,36 @@ export interface AuthState {
   error: string | null;
   isAuthenticated: boolean;
 }
+export interface Organization {
+  organization_id: number;
+  organization_name: string;
+  role_id: number;
+  role_label: string;
+  is_owner: boolean;
+  is_primary: boolean;
+  owner_id: number;
+  member_count: number;
+  board_count: number;
+  permissions: Permissions;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganizationsResponse {
+  code: number;
+  status: string;
+  message: string;
+  data: {
+    user_id: number;
+    username: string;
+    email: string;
+    display_name: string;
+    primary_organization_id: number;
+    organizations: Organization[];
+  };
+  meta: {
+    total_organizations: number;
+    owned_organizations: number;
+    member_organizations: number;
+  };
+}

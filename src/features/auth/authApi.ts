@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import type { LoginRequest, SignupRequest, AuthResponse, ResetPasswordRequest } from "./types";
+import type { LoginRequest, SignupRequest, AuthResponse, ResetPasswordRequest, OrganizationsResponse } from "./types";
 import { debugError } from "@/lib/debugLog";
 
 const AUTH_ENDPOINTS = {
@@ -11,6 +11,7 @@ const AUTH_ENDPOINTS = {
   FORGOT_PASSWORD: "/auth/forgot-password",
   RESET_PASSWORD: "/auth/reset-password",
   SAVE_FCM_TOKEN: "/save-token",
+  GET_ORGANIZATIONS: "/users/me/organizations",
 };
 
 export const authApi = {
@@ -100,5 +101,13 @@ export const authApi = {
       // Non-fatal: don't block the user even if this fails
       debugError("Failed to save FCM token:", error);
     }
+  },
+
+  /**
+   * Get all organizations for the current user
+   */
+  getOrganizations: async (): Promise<OrganizationsResponse> => {
+    const response = await api.get<OrganizationsResponse>(AUTH_ENDPOINTS.GET_ORGANIZATIONS);
+    return response.data;
   },
 };
