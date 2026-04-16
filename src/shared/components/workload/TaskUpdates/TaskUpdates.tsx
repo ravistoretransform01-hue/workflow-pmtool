@@ -27,10 +27,13 @@ interface TaskUpdatesProps {
   onSaveMainUpdate: (text: string) => void | Promise<void>;
   isSaving?: boolean;
   onFilePreview: (src: string, name?: string) => void;
+  onHighlightComplete?: () => void;
   // Optional for sidebar mode
   mainUpdateText?: string;
   onMainUpdateTextChange?: (text: string) => void;
   isInternal?: number;
+  noNesting?: boolean;
+  hideEditor?: boolean;
 }
 
 export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
@@ -48,9 +51,12 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
   onToggleIsClient,
   isSaving = false,
   onFilePreview,
+  onHighlightComplete,
   mainUpdateText: externalUpdateText,
   onMainUpdateTextChange: externalOnUpdateTextChange,
   isInternal,
+  noNesting = false,
+  hideEditor = false,
 }) => {
   React.useEffect(() => {
     if (isLoadingComments) return;
@@ -70,6 +76,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
           );
           setTimeout(() => {
             element.classList.remove("ring-2", "ring-primary/50", "ring-offset-4");
+            if (onHighlightComplete) onHighlightComplete();
           }, 4000);
         } else if (comments.length > 0) {
           // If we have comments loaded but the specific one is missing
@@ -154,6 +161,40 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
           className={cn("space-y-8", layout === "dialog" && "space-y-4 pt-1")}
         >
           {(() => {
+            if (noNesting) {
+              return comments
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime(),
+                )
+                .map((comment) => (
+                  <CommentItem
+                    key={comment.id}
+                    comment={comment}
+                    replies={[]}
+                    boardId={boardId}
+                    editingCommentId={editingCommentId}
+                    setEditingCommentId={setEditingCommentId}
+                    editCommentText={editCommentText}
+                    setEditCommentText={setEditCommentText}
+                    inlineReplyId={inlineReplyId}
+                    setInlineReplyId={setInlineReplyId}
+                    inlineReplyText={inlineReplyText}
+                    setInlineReplyText={setInlineReplyText}
+                    onDeleteComment={onDeleteComment}
+                    onUpdateComment={handleUpdateCommentWrapped}
+                    onSaveInlineReply={handleSaveInlineReplyWrapped}
+                    onLikeComment={onLikeComment}
+                    onShareComment={onShareComment}
+                    onToggleSOP={onToggleSOP}
+                    onToggleIsClient={onToggleIsClient}
+                    onFilePreview={onFilePreview}
+                    isSaving={isSaving}
+                  />
+                ));
+            }
+
             const rootComments = comments
               .filter(
                 (c) =>
@@ -324,13 +365,13 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
     <div className="flex flex-col h-full overflow-hidden">
       {layout === "sidebar" ? (
         <>
-          {mainEditor}
+          {!hideEditor && mainEditor}
           {commentList}
         </>
       ) : (
         <>
           {commentList}
-          {mainEditor}
+          {!hideEditor && mainEditor}
         </>
       )}
     </div>

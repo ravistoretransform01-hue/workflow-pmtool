@@ -64,6 +64,7 @@ interface CommentsPanelSheetProps {
   onToggleIsClient: (commentId: string | number) => void | Promise<void>;
   onTaskButtonClick?: () => void;
   onInlineEditTaskName?: (taskId: string, newName: string) => void;
+  onHighlightComplete?: () => void;
   isSaving?: boolean;
   boardId?: string;
 }
@@ -93,6 +94,7 @@ export function CommentsPanelSheet({
   onToggleIsClient,
   onTaskButtonClick,
   onInlineEditTaskName,
+  onHighlightComplete,
   isSaving,
   boardId,
 }: CommentsPanelSheetProps) {
@@ -101,6 +103,35 @@ export function CommentsPanelSheet({
     undefined,
   );
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [activeCommentsTab, setActiveCommentsTab] = useState("updates");
+  const [clientComments, setClientComments] = useState<TaskComment[]>([]);
+  const [isLoadingClientComments, setIsLoadingClientComments] = useState(false);
+
+  useEffect(() => {
+    if (open && activeCommentsTab === "client-updates" && taskId) {
+      fetchClientComments();
+    }
+  }, [open, activeCommentsTab, taskId]);
+
+  useEffect(() => {
+    // Clear client comments when task changes or panel closes or standard comments change
+    // to ensure they stay somewhat in sync or at least don't show stale data
+    setClientComments([]);
+  }, [taskId, open]);
+
+  const fetchClientComments = async () => {
+    if (!taskId) return;
+    setIsLoadingClientComments(true);
+    try {
+      const fetched = await tasksApi.getClientComments(taskId);
+      setClientComments(fetched);
+    } catch (error) {
+      console.error("Failed to fetch client comments:", error);
+    } finally {
+      setIsLoadingClientComments(false);
+    }
+  };
+
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
 
@@ -256,7 +287,11 @@ export function CommentsPanelSheet({
             </div>
           </SheetHeader>
 
-          <Tabs defaultValue="updates" className="flex-1 flex flex-col min-h-0">
+          <Tabs
+            value={activeCommentsTab}
+            onValueChange={setActiveCommentsTab}
+            className="flex-1 flex flex-col min-h-0"
+          >
             <div className="px-6 border-b border-border">
               <TabsList className="w-full justify-start h-12 bg-transparent p-0">
                 <TabsTrigger
@@ -269,7 +304,7 @@ export function CommentsPanelSheet({
 
                 <TabsTrigger
                   value="client-updates"
-                  className="hidden rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
                 >
                   <RefreshCcw className="h-4 w-4 mr-2" />
                   Client Updates
@@ -312,6 +347,58 @@ export function CommentsPanelSheet({
                 onToggleSOP={onToggleSOP}
                 onToggleIsClient={onToggleIsClient}
                 onSaveMainUpdate={onSaveUpdate}
+                onHighlightComplete={onHighlightComplete}
+                isSaving={isSaving}
+                onFilePreview={handleFilePreview}
+                mainUpdateText={updateText}
+                onMainUpdateTextChange={onUpdateTextChange}
+              />
+            </TabsContent>
+
+            {/* client updates content */}
+            <TabsContent
+              value="client-updates"
+              className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
+            >
+              <TaskUpdates
+                boardId={boardId}
+                comments={clientComments}
+                isLoadingComments={isLoadingClientComments}
+                layout="sidebar"
+                onDeleteComment={async (id) => {
+                  await onDeleteComment(id);
+                  fetchClientComments();
+                }}
+                onUpdateComment={async (id, content) => {
+                  await onUpdateComment(id, content);
+                  fetchClientComments();
+                }}
+                onSaveInlineReply={async (pid, txt) => {
+                  await onSaveInlineReply(pid, txt);
+                  fetchClientComments();
+                }}
+                onLikeComment={async (id) => {
+                  await onLikeComment(id);
+                  fetchClientComments();
+                }}
+                onShareComment={onShareComment}
+                onToggleSOP={async (id) => {
+                  await onToggleSOP(id);
+                  fetchClientComments();
+                }}
+                onToggleIsClient={async (id) => {
+                  await onToggleIsClient(id);
+                  fetchClientComments();
+                }}
+                onSaveMainUpdate={async (text) => {
+                  // The parent onSaveUpdate uses the internal updateText state from Board
+                  // but it will be cleared after successful save.
+                  await onSaveUpdate();
+                  fetchClientComments();
+                }}
+                onHighlightComplete={onHighlightComplete}
+                noNesting={true}
+                hideEditor={true}
                 isSaving={isSaving}
                 onFilePreview={handleFilePreview}
                 mainUpdateText={updateText}

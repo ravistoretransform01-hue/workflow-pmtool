@@ -163,9 +163,11 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                     SOP
                   </Badge>
                 )}
-                {(comment.isclient === 1 || comment.isclient === "1" || comment.isclient === true) && (
+                {(comment.isclient === 1 ||
+                  comment.isclient === "1" ||
+                  comment.isclient === true) && (
                   <Badge className="bg-blue-600/80 text-white border-none text-[10px] h-5 px-2 rounded-full font-bold uppercase tracking-wider">
-                    Client
+                    Client Notified
                   </Badge>
                 )}
               </div>
@@ -179,9 +181,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => onToggleSOP(comment.id)}
-                      >
+                      <DropdownMenuItem onClick={() => onToggleSOP(comment.id)}>
                         <FileText className="h-3 w-3 mr-2" />
                         {comment.sop ? "Remove From SOP" : "Add To SOP"}
                       </DropdownMenuItem>
@@ -453,8 +453,8 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 {comment.isclient === 1 ||
                 comment.isclient === "1" ||
                 comment.isclient === true
-                  ? "Sent"
-                  : "Client"}
+                  ? "Notified"
+                  : "Notify client"}
               </button>
               <button
                 onClick={() => {
@@ -546,7 +546,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               onUpdateComment={onUpdateComment}
               onSaveInlineReply={onSaveInlineReply}
               onLikeComment={onLikeComment}
-               onShareComment={onShareComment}
+              onShareComment={onShareComment}
               onToggleSOP={onToggleSOP}
               onToggleIsClient={onToggleIsClient}
               onFilePreview={onFilePreview}
