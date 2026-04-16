@@ -41,6 +41,8 @@ const TASKS_ENDPOINTS = {
   ADD_MANUAL_TIME_ENTRY: `/tasks/time/manual`,
   GET_ACTIVITY: `/activity`,
   GET_BOARD_SOPS: (boardId: string | number) => `/boards/${boardId}/sops`,
+  GET_CLIENT_COMMENTS: (taskId: string | number) =>
+    `/tasks/${taskId}/comments/isclient`,
 };
 
 export const tasksApi = {
@@ -320,6 +322,38 @@ export const tasksApi = {
       return [];
     } catch (error) {
       console.error("Failed to fetch comments:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all client comments for a task
+   */
+  getClientComments: async (taskId: string | number): Promise<TaskComment[]> => {
+    try {
+      const { data } = await axios.get<{ data: TaskComment[] }>(
+        TASKS_ENDPOINTS.GET_CLIENT_COMMENTS(taskId),
+      );
+
+      // Handle the API response format
+      if (data && data.data && Array.isArray(data.data)) {
+        return data.data.map((comment: any) => ({
+          ...comment,
+          sop: comment.sop === "1" || comment.sop === 1,
+        }));
+      }
+
+      // Fallback if response is array directly
+      if (Array.isArray(data)) {
+        return data.map((comment: any) => ({
+          ...comment,
+          sop: comment.sop === "1" || comment.sop === 1,
+        }));
+      }
+
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch client comments:", error);
       throw error;
     }
   },
