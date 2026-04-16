@@ -390,7 +390,7 @@ export function CommentsPanelSheet({
                   await onToggleIsClient(id);
                   fetchClientComments();
                 }}
-                onSaveMainUpdate={async (text) => {
+                onSaveMainUpdate={async (_text) => {
                   // The parent onSaveUpdate uses the internal updateText state from Board
                   // but it will be cleared after successful save.
                   await onSaveUpdate();
