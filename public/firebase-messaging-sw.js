@@ -17,11 +17,18 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handle background / closed-tab notifications
+// DEBUG: Listen for raw push events to see if browser is receiving ANY signal
+// self.addEventListener("push", (event) => {
+//   console.log("[Service Worker] Raw Push RECEIVED:", event.data?.text());
+// });
+
+  // Handle background / closed-tab notifications
 messaging.onBackgroundMessage((payload) => {
-  // If the payload has a `notification` field, the browser automatically
-  // shows the OS notification — calling showNotification here would duplicate it.
-  // Only show manually for data-only payloads (no notification field).
+  // console.log("[Service Worker] Background Message received:", payload);
+
+  // If the server sends a 'notification' block, the browser shows its own notification.
+  // We can't easily override that with the favicon unless the server is changed.
+  // However, for data-only messages, we will force the favicon here.
   if (payload.notification) return;
 
   const title = payload.data?.title || "PM Tool";
@@ -30,12 +37,18 @@ messaging.onBackgroundMessage((payload) => {
   const badge = payload.data?.badge || "/favicon.png";
   const url = payload.data?.url || "/";
 
-  self.registration.showNotification(title, {
-    body,
-    icon,
-    badge,
-    data: { url }, // Store URL to use in the click handler
-  });
+  const notificationOptions = {
+    body: body,
+    icon: icon,
+    badge: badge,
+    data: { 
+      url: payload.data?.url || "/" 
+    },
+    tag: 'pm-tool-notif',
+    renotify: true
+  };
+
+  self.registration.showNotification(title, notificationOptions);
 });
 
 // Force service worker to update immediately

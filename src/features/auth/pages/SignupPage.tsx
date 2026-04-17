@@ -10,10 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/components/card";
-import { BarChart3, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Logo } from "@/shared/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/axios";
 import { clearAllBrowserStorage } from "@/lib/utils";
+import { appName } from "@/lib/constants";
 
 const SignupPage = () => {
   const navigate = useNavigate();
@@ -241,12 +243,10 @@ const SignupPage = () => {
       <div className="w-full max-w-md space-y-8 animate-slide-up">
         {/* Logo and Title */}
         <div className="text-center space-y-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 border border-primary/20 rounded-2xl shadow-elegant backdrop-blur-sm">
-            <BarChart3 className="w-8 h-8 text-primary" />
-          </div>
+          <Logo size={64} rounded="rounded-xl" className="mx-auto" bgColor="bg-white"  />
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              Project Manager
+              {appName}
             </h1>
             <p className="text-muted-foreground text-lg">
               {inviteToken

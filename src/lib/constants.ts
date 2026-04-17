@@ -13,3 +13,5 @@ export const isViewLive = {
   updates: false,
   dashboard: false,
 };
+
+export const appName = "WORKFLOWPM";
