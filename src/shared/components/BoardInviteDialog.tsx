@@ -233,6 +233,15 @@ export function BoardInviteDialog({
       : internalBoardMembers;
   }, [currentMembers, internalBoardMembers]);
 
+  // Check if the typed email already belongs to a member of this board
+  const isAlreadyMemberByEmail = useMemo(() => {
+    if (!isEmail) return false;
+    const searchEmail = searchQuery.trim().toLowerCase();
+    return filteredMembers.some(
+      (m) => m.email?.toLowerCase() === searchEmail,
+    );
+  }, [searchQuery, isEmail, filteredMembers]);
+
   const handleAddMember = async (userId: string) => {
     setAddingUserId(userId);
     try {
@@ -359,7 +368,10 @@ export function BoardInviteDialog({
             />
 
             {/* Invite by email button */}
-            {searchQuery.trim() && isEmail && availableUsers.length === 0 && (
+            {searchQuery.trim() &&
+              isEmail &&
+              availableUsers.length === 0 &&
+              !isAlreadyMemberByEmail && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-[#404463] border-2 border-primary rounded-lg shadow-lg z-50">
                 <button
                   onClick={handleInviteByEmail}

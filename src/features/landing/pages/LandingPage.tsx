@@ -2,7 +2,9 @@ import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { BarChart3, Users, FolderKanban, ArrowRight } from "lucide-react";
+import { Users, FolderKanban, ArrowRight, BarChart3 } from "lucide-react";
+import { appName } from "@/lib/constants";
+import { Logo } from "@/shared/components/Logo";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -19,15 +21,18 @@ const LandingPage = () => {
     <div className="min-h-screen w-full bg-gradient-dark flex items-center justify-center">
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16 flex flex-col items-center justify-center text-center animate-fade-in w-full">
-        <div className="inline-flex items-center justify-center w-20 h-20 bg-primary/10 border border-primary/20 rounded-3xl shadow-elegant mb-8 animate-slide-up backdrop-blur-sm">
-          <BarChart3 className="w-10 h-10 text-primary" />
-        </div>
+        <Logo
+          size={80}
+          rounded="rounded-3xl"
+          bgColor="bg-white"
+          className="mb-8 animate-slide-up"
+        />
 
         <h1
           className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 animate-slide-up"
           style={{ animationDelay: "0.1s" }}
         >
-          Project Manager
+          {appName}
         </h1>
 
         <p

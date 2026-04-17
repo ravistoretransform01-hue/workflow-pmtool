@@ -10,9 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/components/card";
-import { BarChart3, Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { authApi } from "../authApi";
+import { appName } from "@/lib/constants";
+import { Logo } from "@/shared/components/Logo";
 
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
@@ -89,11 +91,16 @@ const ResetPasswordPage = () => {
         {/* Logo and Title */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 border border-primary/20 rounded-2xl shadow-elegant backdrop-blur-sm">
-            <BarChart3 className="w-8 h-8 text-primary" />
+            <Logo
+              size={64}
+              rounded="rounded-xl"
+              className="mx-auto"
+              bgColor="bg-white"
+            />
           </div>
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              Project Manager
+              {appName}
             </h1>
             <p className="text-muted-foreground text-lg">
               Set your new password

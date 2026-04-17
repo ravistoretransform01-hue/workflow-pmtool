@@ -33,7 +33,6 @@ import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { AddBoardDialog } from "@/shared/components/AddBoardDialog";
 import {
-  BarChart3,
   Home,
   FolderKanban,
   Briefcase,
@@ -52,6 +51,9 @@ import { toast } from "sonner";
 import { useBoards } from "@/hooks/useBoards";
 import { boardsApi } from "@/features/boards/boardsApi";
 import { useAppSelector } from "@/app/hooks";
+import { appName } from "@/lib/constants";
+
+import { Logo } from "@/shared/components/Logo";
 
 export const AppSidebar = () => {
   const user = useAppSelector((state) => state.auth.user);
@@ -219,12 +221,10 @@ export const AppSidebar = () => {
   return (
     <Sidebar className="z-20">
       <SidebarHeader className="h-16 flex items-center justify-center">
-        <div className="flex items-center justify-between gap-2 w-full">
+        <div className="flex items-center justify-between gap-2 w-full px-6">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-              <BarChart3 className="h-5 w-5 text-primary" />
-            </div>
-            {open && <h1 className="font-bold text-lg">PM Tool</h1>}
+            <Logo size={32} rounded="rounded-md" bgColor="bg-white" />
+            {open && <h1 className="text-lg">{appName}</h1>}
           </div>
         </div>
       </SidebarHeader>
@@ -454,7 +454,9 @@ export const AppSidebar = () => {
                     >
                       <button
                         onClick={() =>
-                          navigate(`/org/${orgId}/board/${board.id}/view/Main%20Table`)
+                          navigate(
+                            `/org/${orgId}/board/${board.id}/view/Main%20Table`,
+                          )
                         }
                         className="flex items-center gap-2 flex-1 text-left min-w-0"
                         title={board.name}
@@ -613,7 +615,9 @@ export const AppSidebar = () => {
                   <button
                     key={board.id}
                     onClick={() => {
-                      navigate(`/org/${orgId}/board/${board.id}/view/Main%20Table`);
+                      navigate(
+                        `/org/${orgId}/board/${board.id}/view/Main%20Table`,
+                      );
                       setBoardSearchOpen(false);
                       setBoardSearchQuery("");
                     }}
