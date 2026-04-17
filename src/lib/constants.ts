@@ -14,4 +14,4 @@ export const isViewLive = {
   dashboard: false,
 };
 
-export const appName = "WORKFLOWPM";
+export const appName = "WorkFlowPM";
