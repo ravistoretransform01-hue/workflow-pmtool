@@ -163,14 +163,39 @@ export function KanbanView({
     setOrderedStatusIds((prev) =>
       JSON.stringify(newOrder) !== JSON.stringify(prev) ? newOrder : prev,
     );
-  }, [statuses]);
+
+    // If we have statuses but none are marked as visible yet (initial load), show them all
+    setVisibleStatuses((prev) => {
+      if (prev.size === 0 && statuses.length > 0) {
+        // Check if we already have a saved preference in localStorage
+        const saved = localStorage.getItem(`kanban-visible-statuses-${boardId}`);
+        if (!saved) {
+          return new Set(statuses.map((s) => String(s.id)));
+        }
+      }
+      return prev;
+    });
+  }, [statuses, boardId]);
 
   useEffect(() => {
     const newOrder = priorities.map((p) => String(p.id));
     setOrderedPriorityIds((prev) =>
       JSON.stringify(newOrder) !== JSON.stringify(prev) ? newOrder : prev,
     );
-  }, [priorities]);
+
+    // If we have priorities but none are marked as visible yet (initial load), show them all
+    setVisiblePriorities((prev) => {
+      if (prev.size === 0 && priorities.length > 0) {
+        const saved = localStorage.getItem(
+          `kanban-visible-priorities-${boardId}`,
+        );
+        if (!saved) {
+          return new Set(priorities.map((p) => String(p.id)));
+        }
+      }
+      return prev;
+    });
+  }, [priorities, boardId]);
 
   // Combined Active State
   const activeOrderedIds =
