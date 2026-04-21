@@ -151,9 +151,15 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
           <p className="text-sm text-muted-foreground">Loading updates...</p>
         </div>
       ) : comments.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-sm text-muted-foreground">
-            No updates yet. Be the first to add one!
+        <div className="text-center py-12 flex flex-col items-center justify-center opacity-60">
+          <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+            <MessageSquare className="h-8 w-8 text-muted-foreground/30" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground">
+            No updates yet.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
+            Be the first to share an update or mention someone with @
           </p>
         </div>
       ) : (

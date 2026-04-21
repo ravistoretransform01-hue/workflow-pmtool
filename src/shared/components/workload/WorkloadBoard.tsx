@@ -1034,9 +1034,18 @@ export function WorkloadBoard({
     };
 
     if (commentsPanelOpen && selectedCommentsId) {
-      // Initial fetch without loading state to avoid flickering
-      fetchComments(selectedCommentsId);
-      setIsLoadingComments(false);
+      const isInitialFetch = comments.length === 0;
+      
+      const fetchWithLoading = async (id: string) => {
+        if (isInitialFetch) setIsLoadingComments(true);
+        try {
+          await fetchComments(id);
+        } finally {
+          setIsLoadingComments(false);
+        }
+      };
+
+      fetchWithLoading(selectedCommentsId);
 
       // Set up interval to auto-refresh comments every 6 seconds
       const refreshInterval = setInterval(() => {
