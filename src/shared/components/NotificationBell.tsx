@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/app/store";
 import { Bell, Search, Settings as SettingsIcon, Loader2 } from "lucide-react";
@@ -19,6 +20,7 @@ import {
 import { cn, timeAgoFromApiDate } from "@/lib/utils";
 
 export function NotificationBell() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -73,6 +75,7 @@ export function NotificationBell() {
 
   const handleNotificationClick = (notification: Notification) => {
     const taskId = notification.task_id;
+    const commentId = notification.comment_id;
     // Fallback names if they differ in API
     const boardId = notification.board_id || (notification as any).boardId;
     const orgId =
@@ -82,8 +85,15 @@ export function NotificationBell() {
       user?.organization_id;
 
     if (taskId && boardId && orgId) {
-      const url = `/org/${orgId}/board/${boardId}/view/Main%20Table?task=${taskId}`;
-      window.open(url, "_blank");
+      let url = `/org/${orgId}/board/${boardId}/view/Main%20Table?task=${taskId}`;
+
+      // If it's a comment type and has a comment_id, use the specific params
+      if (notification.type === "comment" && commentId) {
+        url = `/org/${orgId}/board/${boardId}/view/Main%20Table?comments=${taskId}&comment=${commentId}`;
+      }
+
+      navigate(url);
+      setOpen(false); // Close the notification dialog
     }
 
     // Still mark as read when clicking the tile if it's unread
