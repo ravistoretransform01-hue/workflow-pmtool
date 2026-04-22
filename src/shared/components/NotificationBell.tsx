@@ -10,12 +10,6 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import {
@@ -29,10 +23,10 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
   const refreshCounter = useSelector(
     (state: RootState) => state.ui.refreshCounter,
   );
+  const user = useSelector((state: RootState) => state.auth.user);
 
   // Load once on mount so the red-dot badge is visible right away
   useEffect(() => {
@@ -78,25 +72,35 @@ export function NotificationBell() {
   };
 
   const handleNotificationClick = (notification: Notification) => {
+    const taskId = notification.task_id;
+    // Fallback names if they differ in API
+    const boardId = notification.board_id || (notification as any).boardId;
+    const orgId =
+      notification.organization_id ||
+      (notification as any).organizationId ||
+      (notification as any).org_id ||
+      user?.organization_id;
+
+    if (taskId && boardId && orgId) {
+      const url = `/org/${orgId}/board/${boardId}/view/Main%20Table?task=${taskId}`;
+      window.open(url, "_blank");
+    }
+
+    // Still mark as read when clicking the tile if it's unread
     if (notification.is_read === "0") {
       markAsRead(notification.id);
     }
-    // Future navigation logic based on task_id/comment_id can be added here
   };
 
   const filteredNotifications = notifications.filter((n) => {
     const matchesSearch =
       searchQuery === "" ||
-      n.sender_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      n.message.toLowerCase().includes(searchQuery.toLowerCase());
+      (n.sender_name?.toLowerCase() || "").includes(
+        searchQuery.toLowerCase(),
+      ) ||
+      (n.message?.toLowerCase() || "").includes(searchQuery.toLowerCase());
 
-    const matchesTab =
-      activeTab === "all" ||
-      (activeTab === "mentioned" && n.type === "mention") ||
-      (activeTab === "assigned" && n.type === "assigned") ||
-      (activeTab === "board_invite" && n.type === "board_invite");
-
-    return matchesSearch && matchesTab;
+    return matchesSearch;
   });
 
   const renderNotificationList = (
@@ -166,7 +170,14 @@ export function NotificationBell() {
                   </span>
                 </p>
                 {notification.is_read === "0" && (
-                  <div className="shrink-0 w-2.5 h-2.5 bg-primary rounded-full mt-1.5 ring-4 ring-primary/10" />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markAsRead(notification.id);
+                    }}
+                    className="shrink-0 w-2.5 h-2.5 bg-primary rounded-full mt-1.5 ring-4 ring-primary/10 hover:scale-125 transition-transform cursor-pointer"
+                    title="Mark as read"
+                  />
                 )}
               </div>
               <p className="text-xs text-muted-foreground/70 font-medium">
@@ -210,40 +221,9 @@ export function NotificationBell() {
             </div>
           </DialogHeader>
 
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="flex-1 flex flex-col min-h-0"
-          >
-            <div className="px-6 pt-2 shrink-0">
-              <TabsList className="w-full justify-start border-b rounded-none bg-transparent p-0 gap-6">
-                <TabsTrigger
-                  value="all"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 text-sm font-semibold transition-none"
-                >
-                  All
-                </TabsTrigger>
-                <TabsTrigger
-                  value="mentioned"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 text-sm font-semibold transition-none"
-                >
-                  Mentioned
-                </TabsTrigger>
-                <TabsTrigger
-                  value="assigned"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 text-sm font-semibold transition-none"
-                >
-                  Assigned to me
-                </TabsTrigger>
-                <TabsTrigger
-                  value="board_invite"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 text-sm font-semibold transition-none"
-                >
-                  Board Invites
-                </TabsTrigger>
-              </TabsList>
-
-              <div className="mt-4 mb-4">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="px-6 pt-4 shrink-0">
+              <div className="mb-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
                   <Input
@@ -257,52 +237,14 @@ export function NotificationBell() {
             </div>
 
             <div className="flex-1 min-h-0 overflow-hidden">
-              <TabsContent
-                value="all"
-                className="h-full mt-0 focus-visible:ring-0"
-              >
-                <ScrollArea className="h-full px-6">
-                  {renderNotificationList(
-                    filteredNotifications,
-                    "No notifications",
-                  )}
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent
-                value="mentioned"
-                className="h-full mt-0 focus-visible:ring-0"
-              >
-                <ScrollArea className="h-full px-6">
-                  {renderNotificationList(filteredNotifications, "No mentions")}
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent
-                value="assigned"
-                className="h-full mt-0 focus-visible:ring-0"
-              >
-                <ScrollArea className="h-full px-6">
-                  {renderNotificationList(
-                    filteredNotifications,
-                    "No assignments",
-                  )}
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent
-                value="board_invite"
-                className="h-full mt-0 focus-visible:ring-0"
-              >
-                <ScrollArea className="h-full px-6">
-                  {renderNotificationList(
-                    filteredNotifications,
-                    "No board invites",
-                  )}
-                </ScrollArea>
-              </TabsContent>
+              <ScrollArea className="h-full px-6">
+                {renderNotificationList(
+                  filteredNotifications,
+                  "No notifications",
+                )}
+              </ScrollArea>
             </div>
-          </Tabs>
+          </div>
         </DialogContent>
       </Dialog>
     </>
