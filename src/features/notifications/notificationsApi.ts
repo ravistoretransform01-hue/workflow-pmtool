@@ -5,6 +5,7 @@ export interface Notification {
   user_id: string;
   sender_id: string;
   organization_id: string;
+  board_id: string;
   task_id: string;
   comment_id: string;
   type: string | null;
