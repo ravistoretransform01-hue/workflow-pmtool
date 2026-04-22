@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import devtools from "devtools-detect";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/shared/components/ui/tooltip";
 import ToasterFromUseToast from "@/shared/components/ToasterFromUseToast";
@@ -33,11 +34,11 @@ import { useAppSelector } from "./app/hooks";
 
 const RootPathRedirect = () => {
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
-  
+
   if (isAuthenticated && user?.organization_id) {
     return <Navigate to={`/org/${user.organization_id}/home`} replace />;
   }
-  
+
   return <LandingPage />;
 };
 
@@ -60,6 +61,24 @@ const App = () => {
   //     socket.disconnect();
   //   };
   // }, []);
+  const [isDevOpen, setIsDevOpen] = useState(devtools.isOpen);
+
+  useEffect(() => {
+    const handleChange = (event: any) => {
+      const open = event.detail.isOpen;
+      setIsDevOpen(open);
+
+      if (open) {
+        // Optional: clear some sensitive state if needed
+      } else {
+        // Reload on close to restore app state safely
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener("devtoolschange", handleChange);
+    return () => window.removeEventListener("devtoolschange", handleChange);
+  }, []);
 
   // Show foreground push notifications as Sonner toasts while the tab is open
   useEffect(() => {
@@ -92,6 +111,47 @@ const App = () => {
 
     return () => unsubscribe?.();
   }, []);
+
+  if (
+    isDevOpen &&
+    (import.meta.env.PROD ||
+      import.meta.env.VITE_FORCE_DEVTOOLS_PROTECTION === "true")
+  ) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0f172a] text-white p-10 text-center font-sans">
+        <div className="w-20 h-20 bg-blue-600/20 rounded-full flex items-center justify-center mb-8 animate-pulse">
+          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+            </svg>
+          </div>
+        </div>
+        <h1 className="text-4xl font-bold mb-4 tracking-tight">
+          Security Access Restricted
+        </h1>
+        <p className="text-slate-400 max-w-md text-lg leading-relaxed">
+          For security reasons, this application cannot be used while Developer
+          Tools are open. Please close the console to continue.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-10 px-8 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+        >
+          Refresh App
+        </button>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>
@@ -127,7 +187,10 @@ const App = () => {
                     path="board/:boardId/view/:viewName"
                     element={<DynamicBoard />}
                   />
-                  <Route path="board/:boardId/view" element={<DynamicBoard />} />
+                  <Route
+                    path="board/:boardId/view"
+                    element={<DynamicBoard />}
+                  />
                   <Route
                     path="board/:boardId/dashboard"
                     element={<BoardDashboardPage />}
