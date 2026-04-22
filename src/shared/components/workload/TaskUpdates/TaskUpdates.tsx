@@ -77,7 +77,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
           setTimeout(() => {
             element.classList.remove("ring-2", "ring-primary/50", "ring-offset-4");
             if (onHighlightComplete) onHighlightComplete();
-          }, 4000);
+          }, 500);
         } else if (comments.length > 0) {
           // If we have comments loaded but the specific one is missing
           toast.info("The shared comment could not be found.");
