@@ -280,7 +280,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
     <div
       className={cn(
         layout === "sidebar"
-          ? "p-3 border-b border-border bg-background"
+          ? "p-3 border-border bg-background"
           : "border-t border-border p-3",
       )}
     >

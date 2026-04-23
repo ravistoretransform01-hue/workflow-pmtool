@@ -5771,7 +5771,7 @@ export function WorkloadBoard({
             if (!open) closeCommentsPanel();
             else setCommentsPanelOpen(true);
           }}
-          taskName={getTaskById(selectedCommentsId)?.name || "Task Details"}
+          taskName={getTaskById(selectedCommentsId)?.name || "Loading..."}
           taskId={selectedCommentsId}
           comments={comments}
           isLoadingComments={isLoadingComments}

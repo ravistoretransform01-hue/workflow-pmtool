@@ -237,18 +237,84 @@ export function CommentsPanelSheet({
     }
   };
 
+  const [sheetWidth, setSheetWidth] = useState(896); // Default 4xl width in px
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResizing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  const stopResizing = () => {
+    setIsResizing(false);
+  };
+
+  const resize = (e: MouseEvent) => {
+    if (isResizing) {
+      const newWidth = Math.min(
+        Math.max(800, window.innerWidth - e.clientX),
+        window.innerWidth * 0.9
+      );
+      setSheetWidth(newWidth);
+    }
+  };
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener("mousemove", resize);
+      window.addEventListener("mouseup", stopResizing);
+    } else {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+    }
+    return () => {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [isResizing]);
+
+  const handleDoubleClick = () => {
+    const minWidth = 800;
+    const maxWidth = window.innerWidth * 0.9;
+    
+    // Toggle logic: If at min -> go to max. Otherwise (if > min or at max) -> go to min.
+    if (Math.abs(sheetWidth - minWidth) < 10) {
+      setSheetWidth(maxWidth);
+    } else {
+      setSheetWidth(minWidth);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent
         id="comments-sheet-content"
         side="right"
-        className="w-full sm:max-w-4xl p-0"
+        className={cn(
+          "p-0 transition-all duration-300",
+          isResizing ? "select-none transition-none" : ""
+        )}
+        style={{ width: `${sheetWidth}px`, maxWidth: "none" }}
         showOverlay={false}
         hideCloseButton={true}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <div className="flex flex-col h-full">
+        {/* Resize Handle */}
+        <div
+          className={cn(
+            "group absolute left-0 top-0 bottom-0 w-4 cursor-col-resize z-50 flex items-center justify-center transition-colors hover:bg-blue-500/10",
+            isResizing ? "bg-blue-500/20 w-3" : ""
+          )}
+          onMouseDown={startResizing}
+          onDoubleClick={handleDoubleClick}
+        >
+          <div className={cn(
+            "w-1.5 h-16 rounded-full bg-blue-500/50 opacity-0 transition-all group-hover:opacity-100 group-hover:h-20",
+            isResizing ? "opacity-100 bg-blue-500 h-32" : ""
+          )} />
+        </div>
+        <div className="flex flex-col h-full w-full overflow-hidden bg-background">
           <SheetHeader className="px-6 py-4 border-b border-border">
             <div className="flex items-center gap-6">
               <SheetClose className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
@@ -341,25 +407,27 @@ export function CommentsPanelSheet({
               value="updates"
               className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
             >
-              <TaskUpdates
-                boardId={boardId}
-                comments={comments}
-                isLoadingComments={isLoadingComments}
-                layout="sidebar"
-                onDeleteComment={onDeleteComment}
-                onUpdateComment={onUpdateComment}
-                onSaveInlineReply={onSaveInlineReply}
-                onLikeComment={onLikeComment}
-                onShareComment={onShareComment}
-                onToggleSOP={onToggleSOP}
-                onToggleIsClient={onToggleIsClient}
-                onSaveMainUpdate={onSaveUpdate}
-                onHighlightComplete={onHighlightComplete}
-                isSaving={isSaving}
-                onFilePreview={handleFilePreview}
-                mainUpdateText={updateText}
-                onMainUpdateTextChange={onUpdateTextChange}
-              />
+              <div className="w-full max-w-[800px] mx-auto flex-1 flex flex-col min-h-0">
+                <TaskUpdates
+                  boardId={boardId}
+                  comments={comments}
+                  isLoadingComments={isLoadingComments}
+                  layout="sidebar"
+                  onDeleteComment={onDeleteComment}
+                  onUpdateComment={onUpdateComment}
+                  onSaveInlineReply={onSaveInlineReply}
+                  onLikeComment={onLikeComment}
+                  onShareComment={onShareComment}
+                  onToggleSOP={onToggleSOP}
+                  onToggleIsClient={onToggleIsClient}
+                  onSaveMainUpdate={onSaveUpdate}
+                  onHighlightComplete={onHighlightComplete}
+                  isSaving={isSaving}
+                  onFilePreview={handleFilePreview}
+                  mainUpdateText={updateText}
+                  onMainUpdateTextChange={onUpdateTextChange}
+                />
+              </div>
             </TabsContent>
 
             {/* client updates content */}
@@ -367,50 +435,52 @@ export function CommentsPanelSheet({
               value="client-updates"
               className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
             >
-              <TaskUpdates
-                boardId={boardId}
-                comments={clientComments}
-                isLoadingComments={isLoadingClientComments}
-                layout="sidebar"
-                onDeleteComment={async (id) => {
-                  await onDeleteComment(id);
-                  fetchClientComments();
-                }}
-                onUpdateComment={async (id, content) => {
-                  await onUpdateComment(id, content);
-                  fetchClientComments();
-                }}
-                onSaveInlineReply={async (pid, txt) => {
-                  await onSaveInlineReply(pid, txt);
-                  fetchClientComments();
-                }}
-                onLikeComment={async (id) => {
-                  await onLikeComment(id);
-                  fetchClientComments();
-                }}
-                onShareComment={onShareComment}
-                onToggleSOP={async (id) => {
-                  await onToggleSOP(id);
-                  fetchClientComments();
-                }}
-                onToggleIsClient={async (id) => {
-                  await onToggleIsClient(id);
-                  fetchClientComments();
-                }}
-                onSaveMainUpdate={async (_text) => {
-                  // The parent onSaveUpdate uses the internal updateText state from Board
-                  // but it will be cleared after successful save.
-                  await onSaveUpdate();
-                  fetchClientComments();
-                }}
-                onHighlightComplete={onHighlightComplete}
-                noNesting={true}
-                hideEditor={true}
-                isSaving={isSaving}
-                onFilePreview={handleFilePreview}
-                mainUpdateText={updateText}
-                onMainUpdateTextChange={onUpdateTextChange}
-              />
+              <div className="w-full max-w-[800px] mx-auto flex-1 flex flex-col min-h-0">
+                <TaskUpdates
+                  boardId={boardId}
+                  comments={clientComments}
+                  isLoadingComments={isLoadingClientComments}
+                  layout="sidebar"
+                  onDeleteComment={async (id) => {
+                    await onDeleteComment(id);
+                    fetchClientComments();
+                  }}
+                  onUpdateComment={async (id, content) => {
+                    await onUpdateComment(id, content);
+                    fetchClientComments();
+                  }}
+                  onSaveInlineReply={async (pid, txt) => {
+                    await onSaveInlineReply(pid, txt);
+                    fetchClientComments();
+                  }}
+                  onLikeComment={async (id) => {
+                    await onLikeComment(id);
+                    fetchClientComments();
+                  }}
+                  onShareComment={onShareComment}
+                  onToggleSOP={async (id) => {
+                    await onToggleSOP(id);
+                    fetchClientComments();
+                  }}
+                  onToggleIsClient={async (id) => {
+                    await onToggleIsClient(id);
+                    fetchClientComments();
+                  }}
+                  onSaveMainUpdate={async (_text) => {
+                    // The parent onSaveUpdate uses the internal updateText state from Board
+                    // but it will be cleared after successful save.
+                    await onSaveUpdate();
+                    fetchClientComments();
+                  }}
+                  onHighlightComplete={onHighlightComplete}
+                  noNesting={true}
+                  hideEditor={true}
+                  isSaving={isSaving}
+                  onFilePreview={handleFilePreview}
+                  mainUpdateText={updateText}
+                  onMainUpdateTextChange={onUpdateTextChange}
+                />
+              </div>
             </TabsContent>
 
             {/* activity log content */}
@@ -418,7 +488,8 @@ export function CommentsPanelSheet({
               value="activity"
               className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
             >
-              <div className="flex-1 overflow-auto px-6 py-4 relative">
+              <div className="w-full max-w-[800px] mx-auto flex-1 flex flex-col min-h-0">
+                <div className="flex-1 overflow-auto px-6 py-4 relative">
                 {/* Loading overlay for pagination */}
                 {isLoadingPage && (
                   <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center">
@@ -594,16 +665,17 @@ export function CommentsPanelSheet({
                   </div>
                 </div>
               )}
-            </TabsContent>
-          </Tabs>
-          <FilePreviewModal
-            src={previewSrc}
-            isOpen={isPreviewOpen}
-            onClose={() => setIsPreviewOpen(false)}
-            fileName={previewFileName}
-          />
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
+            </div>
+          </TabsContent>
+        </Tabs>
+        <FilePreviewModal
+          src={previewSrc}
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          fileName={previewFileName}
+        />
+      </div>
+    </SheetContent>
+  </Sheet>
+);
 }
