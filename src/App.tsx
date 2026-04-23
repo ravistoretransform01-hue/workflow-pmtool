@@ -27,6 +27,7 @@ import DynamicWorkspace from "@/pages/DynamicWorkspace";
 import DynamicBoard from "@/pages/DynamicBoard";
 import BoardDashboardPage from "@/pages/BoardDashboardPage";
 import DocumentEditor from "@/pages/DocumentEditor";
+import ProfilePage from "@/pages/ProfilePage";
 import NotFound from "@/pages/NotFound";
 
 // import { io } from "socket.io-client";
@@ -177,6 +178,7 @@ const App = () => {
                   <Route path="all-items" element={<AllItems />} />
                   <Route path="my-habits" element={<MyHabits />} />
                   <Route path="members" element={<MembersPage />} />
+                  <Route path="profile" element={<ProfilePage />} />
 
                   <Route
                     path="workspace/:workspaceId"
