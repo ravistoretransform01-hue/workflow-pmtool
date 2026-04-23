@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
@@ -63,6 +64,55 @@ export const AppSidebar = () => {
   const { boardId } = useParams();
   const { open } = useSidebar();
   const { boards, fetchLoading, fetchBoards } = useBoards();
+
+  // Resize logic
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem("sidebar_width");
+    return saved ? parseInt(saved, 10) : 260; // Default to 260px (approx 16rem)
+  });
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResizing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  const stopResizing = () => {
+    setIsResizing(false);
+    localStorage.setItem("sidebar_width", sidebarWidth.toString());
+  };
+
+  const resize = (e: MouseEvent) => {
+    if (isResizing) {
+      const newWidth = Math.min(Math.max(260, e.clientX), 500);
+      setSidebarWidth(newWidth);
+    }
+  };
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener("mousemove", resize);
+      window.addEventListener("mouseup", stopResizing);
+    } else {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+    }
+    return () => {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [isResizing]);
+
+  // Sync with global CSS variable so the whole layout reacts
+  useEffect(() => {
+    const provider = document.querySelector(
+      ".group\\/sidebar-wrapper"
+    ) as HTMLElement;
+    if (provider) {
+      provider.style.setProperty("--sidebar-width", `${sidebarWidth}px`);
+    }
+  }, [sidebarWidth]);
+
   const [addBoardOpen, setAddBoardOpen] = useState(false);
   const [createDocOpen, setCreateDocOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -219,7 +269,34 @@ export const AppSidebar = () => {
   };
 
   return (
-    <Sidebar className="z-20">
+    <>
+      {isResizing && (
+        <style>
+          {`
+            .group\\/sidebar-wrapper *,
+            .group\\/sidebar-wrapper {
+              transition: none !important;
+            }
+          `}
+        </style>
+      )}
+      <Sidebar 
+        className={cn("z-20", isResizing && "transition-none")}
+        style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
+      >
+      {/* Resize Handle */}
+      <div
+        className={cn(
+          "absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-50 transition-colors hover:bg-blue-500/30 group/sidebar-handle",
+          isResizing ? "bg-blue-500/50 w-1.5" : ""
+        )}
+        onMouseDown={startResizing}
+      >
+        <div className={cn(
+          "absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-12 rounded-l-md bg-blue-500/50 opacity-0 transition-all group-hover/sidebar-handle:opacity-100",
+          isResizing ? "opacity-100 h-24 w-2" : ""
+        )} />
+      </div>
       <SidebarHeader className="h-16 flex items-center justify-center">
         <div className="flex items-center justify-between gap-2 w-full px-6">
           <div className="flex items-center gap-2">
@@ -731,5 +808,6 @@ export const AppSidebar = () => {
         </DialogContent>
       </Dialog>
     </Sidebar>
+    </>
   );
 };
