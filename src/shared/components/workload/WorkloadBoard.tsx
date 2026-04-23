@@ -473,7 +473,7 @@ export function WorkloadBoard({
   const popoverState = usePopoverState();
   const timerState = useTaskTimer();
   const columnState = useColumnPersistence(boardId);
-  const filterState = useTaskFilters();
+  const filterState = useTaskFilters(boardId);
 
   // Refs for tracking timer teardown to prevent "jump back" bug
   const lastActiveTimerId = useRef<string | null>(null);
@@ -4067,9 +4067,42 @@ export function WorkloadBoard({
               {/* Show/Hide Filter Popover */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
-                    <Eye className="h-4 w-4" />
-                    Only Show
+                  <button 
+                    className={cn(
+                      "flex items-center px-3 py-1.5 gap-2 text-sm font-medium transition-all rounded-md cursor-pointer",
+                      (filterState.taskFilters.persons.size > 0 ||
+                       filterState.taskFilters.statuses.size > 0 ||
+                       filterState.taskFilters.priorities.size > 0 ||
+                       filterState.taskFilters.labels.size > 0 ||
+                       filterState.taskFilters.groups.size > 0)
+                        ? "bg-primary/10 text-primary border border-primary/20"
+                        : "text-foreground hover:bg-hover"
+                    )}
+                  >
+                    <Eye className={cn(
+                      "h-4 w-4",
+                      (filterState.taskFilters.persons.size > 0 ||
+                       filterState.taskFilters.statuses.size > 0 ||
+                       filterState.taskFilters.priorities.size > 0 ||
+                       filterState.taskFilters.labels.size > 0 ||
+                       filterState.taskFilters.groups.size > 0)
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    )} />
+                    <span>Only Show</span>
+                    {(filterState.taskFilters.persons.size +
+                      filterState.taskFilters.statuses.size +
+                      filterState.taskFilters.priorities.size +
+                      filterState.taskFilters.labels.size +
+                      filterState.taskFilters.groups.size) > 0 && (
+                      <span className="text-xs font-bold opacity-70">
+                        /{"  "}{filterState.taskFilters.persons.size +
+                          filterState.taskFilters.statuses.size +
+                          filterState.taskFilters.priorities.size +
+                          filterState.taskFilters.labels.size +
+                          filterState.taskFilters.groups.size}
+                      </span>
+                    )}
                   </button>
                 </PopoverTrigger>
 
