@@ -9,6 +9,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetClose,
 } from "@/shared/components/ui/sheet";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -30,6 +31,7 @@ import {
   MoreHorizontal,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react";
 import type { TaskComment } from "@/features/tasks/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
@@ -242,13 +244,18 @@ export function CommentsPanelSheet({
         side="right"
         className="w-full sm:max-w-4xl p-0"
         showOverlay={false}
+        hideCloseButton={true}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
       >
         <div className="flex flex-col h-full">
           <SheetHeader className="px-6 py-4 border-b border-border">
-            <div className="flex items-center justify-between">
-              <SheetTitle className="text-2xl font-semibold flex-1 pr-20 overflow-hidden">
+            <div className="flex items-center gap-6">
+              <SheetClose className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
+                <X className="h-6 w-6" />
+                <span className="sr-only">Close</span>
+              </SheetClose>
+              <SheetTitle className="text-2xl font-normal flex-1 overflow-hidden">
                 {isEditingName ? (
                   <Input
                     value={tempName}
@@ -268,7 +275,7 @@ export function CommentsPanelSheet({
                 ) : (
                   <div
                     className={cn(
-                      "cursor-pointer hover:bg-muted/50 rounded px-1 -ml-1 transition-colors truncate block",
+                      "cursor-pointer hover:bg-muted/50 rounded px-1 -ml-1 transition-colors line-clamp-2",
                     )}
                     onClick={() => {
                       setTempName(taskName || "");
