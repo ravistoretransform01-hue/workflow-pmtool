@@ -50,23 +50,11 @@ const DynamicBoard = () => {
         </div>
       </div>
     );
-    // return <NotFound />;
-  }
-
-  if (error || !board) {
-    return (
-      <WorkloadBoard
-        boardName={"Board Name"}
-        boardId={boardId!}
-        workspaceId={"00"}
-        workspaceName="Workspace"
-      />
-    );
-    // return <NotFound />;
   }
 
   return (
     <WorkloadBoard
+      key={boardId}
       boardName={board.name}
       boardId={boardId!}
       workspaceId={board.workspace_id}
