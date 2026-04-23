@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { switchOrganization } from "@/features/auth/authSlice";
 import type { RootState } from "@/app/store";
 import { Bell, Search, Settings as SettingsIcon, Loader2 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
@@ -20,6 +21,7 @@ import {
 import { cn, timeAgoFromApiDate } from "@/lib/utils";
 
 export function NotificationBell() {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -78,13 +80,20 @@ export function NotificationBell() {
     const commentId = notification.comment_id;
     // Fallback names if they differ in API
     const boardId = notification.board_id || (notification as any).boardId;
-    const orgId =
+
+    const orgIdStr =
       notification.organization_id ||
       (notification as any).organizationId ||
-      (notification as any).org_id ||
-      user?.organization_id;
+      (notification as any).org_id;
+
+    const orgId = orgIdStr ? Number(orgIdStr) : user?.organization_id;
 
     if (taskId && boardId && orgId) {
+      // Switch organization if it's different from the current one
+      if (user && user.organization_id !== orgId) {
+        dispatch(switchOrganization(orgId));
+      }
+
       let url = `/org/${orgId}/board/${boardId}/view/Main%20Table?task=${taskId}`;
 
       // If it's a comment type and has a comment_id, use the specific params
