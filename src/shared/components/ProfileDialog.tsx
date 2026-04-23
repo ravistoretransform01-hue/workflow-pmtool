@@ -8,7 +8,10 @@ import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Badge } from "@/shared/components/ui/badge";
-import { Mail, Phone, Smartphone, MapPin, Calendar } from "lucide-react";
+import { Mail, Phone, Smartphone, MapPin, Calendar, BellRing } from "lucide-react";
+import { Switch } from "@/shared/components/ui/switch";
+import { Label } from "@/shared/components/ui/label";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { userApi } from "@/features/auth/userAPI";
 import { ScheduleDialog } from "./ScheduleDialog";
@@ -25,6 +28,8 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   const [phone, setPhone] = useState("");
   const [mobilePhone, setMobilePhone] = useState("");
   const [location, setLocation] = useState("");
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [isEmailPrefsLoading, setIsEmailPrefsLoading] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -40,13 +45,18 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
   const loadUserMeta = async () => {
     setIsLoading(true);
+    setIsEmailPrefsLoading(true);
     try {
       // Always fetch fresh user meta data
-      const userMeta = await userApi.getUserMeta();
+      const [userMeta, emailPrefs] = await Promise.all([
+        userApi.getUserMeta(),
+        userApi.getEmailPreferences()
+      ]);
       setJobTitle(userMeta.job_title || "");
       setPhone(userMeta.phone || "");
       setMobilePhone(userMeta.mobile_phone || "");
       setLocation(userMeta.location || "");
+      setEmailNotifications(emailPrefs.emails_enabled);
       setRetryCount(0); // Reset retry count on success
     } catch (error) {
       console.error("Failed to fetch user meta:", error);
@@ -65,6 +75,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
       }
     } finally {
       setIsLoading(false);
+      setIsEmailPrefsLoading(false);
     }
   };
 
@@ -82,13 +93,17 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
     setIsSaving(true);
     try {
-      await userApi.updateUserMeta({
-        email: displayEmail,
-        phone,
-        mobile_phone: mobilePhone,
-        location,
-        job_title: jobTitle,
-      });
+      await Promise.all([
+        userApi.updateUserMeta({
+          email: displayEmail,
+          phone,
+          mobile_phone: mobilePhone,
+          location,
+          job_title: jobTitle,
+          email_notifications: emailNotifications,
+        }),
+        userApi.updateEmailPreferences(emailNotifications)
+      ]);
       onOpenChange(false);
       toast.success("Profile Updated Successfully");
     } catch (error) {
@@ -96,6 +111,21 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
       toast.error("Failed to update profile");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleToggleEmailNotifications = async (checked: boolean) => {
+    // Optimistic update
+    setEmailNotifications(checked);
+    
+    try {
+      await userApi.updateEmailPreferences(checked);
+      toast.success(`Email notifications ${checked ? "enabled" : "disabled"}`);
+    } catch (error) {
+      console.error("Failed to update email preferences:", error);
+      toast.error("Failed to update email preferences");
+      // Revert on failure
+      setEmailNotifications(!checked);
     }
   };
 
@@ -153,6 +183,28 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                         <Calendar className="h-4 w-4" />
                         Schedule
                       </Button>
+                    </div>
+
+                    <div className="space-y-3 pt-4">
+                      <h3 className="font-semibold flex items-center gap-2">
+                        <BellRing className="h-4 w-4 text-primary" />
+                        Preferences
+                      </h3>
+                      <div className="flex items-center gap-4">
+                        {isEmailPrefsLoading ? (
+                          <Skeleton className="h-6 w-9 rounded-full" />
+                        ) : (
+                          <Switch
+                            id="dialog-email-notifications"
+                            checked={emailNotifications}
+                            onCheckedChange={handleToggleEmailNotifications}
+                          />
+                        )}
+                        <div className="space-y-0.5">
+                          <Label htmlFor="dialog-email-notifications" className="text-sm font-medium">Email Notifications</Label>
+                          <p className="text-xs text-muted-foreground">Receive updates via email.</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

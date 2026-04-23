@@ -22,6 +22,7 @@ export interface UpdateUserMetaRequest {
   mobile_phone?: string;
   location?: string;
   job_title?: string;
+  email_notifications?: boolean;
 }
 
 // const USER_ENDPOINTS = {
@@ -74,6 +75,37 @@ export const userApi = {
       throw new Error("Invalid update response");
     } catch (error) {
       console.error("Update user meta error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get email notification preferences
+   */
+  getEmailPreferences: async (): Promise<{ emails_enabled: boolean }> => {
+    try {
+      const response = await api.get('/email-preferences');
+      if (response.data && response.data.status === "success") {
+        return response.data.data;
+      }
+      return { emails_enabled: true }; // Default fallback
+    } catch (error) {
+      console.error("Get email preferences error:", error);
+      return { emails_enabled: true }; // Return default on error to avoid breaking UI
+    }
+  },
+
+  /**
+   * Update email notification preferences
+   */
+  updateEmailPreferences: async (enabled: boolean): Promise<any> => {
+    try {
+      const response = await api.put('/email-preferences', {
+        emails_enabled: enabled,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Update email preferences error:", error);
       throw error;
     }
   },

@@ -459,7 +459,10 @@ export function WorkloadBoard({
   // workspaceName,
 }: WorkloadBoardProps) {
   const navigate = useNavigate();
-  const { orgId, viewName } = useParams<{ orgId?: string; viewName?: string }>();
+  const { orgId, viewName } = useParams<{
+    orgId?: string;
+    viewName?: string;
+  }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const dispatch = useAppDispatch();
   const refreshCounter = useAppSelector(
@@ -545,9 +548,12 @@ export function WorkloadBoard({
     // Handle view redirection if necessary
     if (!viewName || !TAB_TO_VIEW_KEY[decodedViewName]) {
       const orgPrefix = orgId ? `/org/${orgId}` : "";
-      navigate(`${orgPrefix}/board/${boardId}/view/Main%20Table${window.location.search}`, {
-        replace: true,
-      });
+      navigate(
+        `${orgPrefix}/board/${boardId}/view/Main%20Table${window.location.search}`,
+        {
+          replace: true,
+        },
+      );
       return;
     }
 
@@ -1035,7 +1041,7 @@ export function WorkloadBoard({
 
     if (commentsPanelOpen && selectedCommentsId) {
       const isInitialFetch = comments.length === 0;
-      
+
       const fetchWithLoading = async (id: string) => {
         if (isInitialFetch) setIsLoadingComments(true);
         try {
@@ -4067,36 +4073,40 @@ export function WorkloadBoard({
               {/* Show/Hide Filter Popover */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <button 
+                  <button
                     className={cn(
                       "flex items-center px-3 py-1.5 gap-2 text-sm font-medium transition-all rounded-md cursor-pointer",
-                      (filterState.taskFilters.persons.size > 0 ||
-                       filterState.taskFilters.statuses.size > 0 ||
-                       filterState.taskFilters.priorities.size > 0 ||
-                       filterState.taskFilters.labels.size > 0 ||
-                       filterState.taskFilters.groups.size > 0)
+                      filterState.taskFilters.persons.size > 0 ||
+                        filterState.taskFilters.statuses.size > 0 ||
+                        filterState.taskFilters.priorities.size > 0 ||
+                        filterState.taskFilters.labels.size > 0 ||
+                        filterState.taskFilters.groups.size > 0
                         ? "bg-primary/10 text-primary border border-primary/20"
-                        : "text-foreground hover:bg-hover"
+                        : "text-foreground hover:bg-hover",
                     )}
                   >
-                    <Eye className={cn(
-                      "h-4 w-4",
-                      (filterState.taskFilters.persons.size > 0 ||
-                       filterState.taskFilters.statuses.size > 0 ||
-                       filterState.taskFilters.priorities.size > 0 ||
-                       filterState.taskFilters.labels.size > 0 ||
-                       filterState.taskFilters.groups.size > 0)
-                        ? "text-primary"
-                        : "text-muted-foreground"
-                    )} />
+                    <Eye
+                      className={cn(
+                        "h-4 w-4",
+                        filterState.taskFilters.persons.size > 0 ||
+                          filterState.taskFilters.statuses.size > 0 ||
+                          filterState.taskFilters.priorities.size > 0 ||
+                          filterState.taskFilters.labels.size > 0 ||
+                          filterState.taskFilters.groups.size > 0
+                          ? "text-primary"
+                          : "text-muted-foreground",
+                      )}
+                    />
                     <span>Only Show</span>
-                    {(filterState.taskFilters.persons.size +
+                    {filterState.taskFilters.persons.size +
                       filterState.taskFilters.statuses.size +
                       filterState.taskFilters.priorities.size +
                       filterState.taskFilters.labels.size +
-                      filterState.taskFilters.groups.size) > 0 && (
+                      filterState.taskFilters.groups.size >
+                      0 && (
                       <span className="text-xs font-bold opacity-70">
-                        /{"  "}{filterState.taskFilters.persons.size +
+                        /{"  "}
+                        {filterState.taskFilters.persons.size +
                           filterState.taskFilters.statuses.size +
                           filterState.taskFilters.priorities.size +
                           filterState.taskFilters.labels.size +
@@ -4288,7 +4298,9 @@ export function WorkloadBoard({
                     {/* Label Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
                       <button
-                        onClick={() => filterState.toggleFilterDropdown("labels")}
+                        onClick={() =>
+                          filterState.toggleFilterDropdown("labels")
+                        }
                         className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
                       >
                         <span className="text-sm font-medium">Label</span>
@@ -4346,7 +4358,9 @@ export function WorkloadBoard({
                     {/* Group Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
                       <button
-                        onClick={() => filterState.toggleFilterDropdown("groups")}
+                        onClick={() =>
+                          filterState.toggleFilterDropdown("groups")
+                        }
                         className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
                       >
                         <span className="text-sm font-medium">Group</span>
@@ -4464,7 +4478,8 @@ export function WorkloadBoard({
                       debugLog("Save View payload:", payload);
 
                       // Call the API to save the layout
-                      const response = await cmsApi.saveUserGroupColumns(payload);
+                      const response =
+                        await cmsApi.saveUserGroupColumns(payload);
 
                       // Update localStorage with the response to ensure sync
                       if (response.columns) {
@@ -4511,7 +4526,9 @@ export function WorkloadBoard({
                           // Check whether all non-required columns are visible (item is always required)
                           checked={ALL_AVAILABLE_COLUMNS.filter(
                             (c) => c !== "item",
-                          ).every((c) => columnState.visibleColumns[c] !== false)}
+                          ).every(
+                            (c) => columnState.visibleColumns[c] !== false,
+                          )}
                           onChange={() => {
                             const others = ALL_AVAILABLE_COLUMNS.filter(
                               (c) => c !== "item",
@@ -5625,12 +5642,12 @@ export function WorkloadBoard({
 
         {/* SOP VIEW */}
         {activeTab === "SOP" && isViewLive.sop && (
-          <SOPView 
-            boardId={boardId} 
+          <SOPView
+            boardId={boardId}
             onTaskClick={(taskId) => {
               const task = getTaskById(taskId);
               if (task) openTaskCard(task);
-            }} 
+            }}
           />
         )}
 
