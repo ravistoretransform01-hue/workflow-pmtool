@@ -52,6 +52,7 @@ export interface Task {
     tagged_at: string;
   }>;
   subitems?: Task[];
+  position?: string;
 }
 
 /**

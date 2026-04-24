@@ -173,6 +173,7 @@ export interface Task {
     tagged_at: string;
   }>;
   subitems?: Task[];
+  position?: string;
   assignee_names?: string[];
   recurrence?: any;
 }
@@ -451,6 +452,51 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     </button>
   );
 }
+
+// Sortable Task Row Component
+interface SortableTaskRowProps {
+  id: string;
+  className?: string;
+  onClick?: () => void;
+  children: (dragListeners: any, dragAttributes: any) => React.ReactNode;
+}
+
+const SortableTaskRow = ({
+  id,
+  className,
+  onClick,
+  children,
+}: SortableTaskRowProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: transform ? `translate3d(0, ${transform.y}px, 0)` : undefined,
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 1,
+    position: "relative" as const,
+  };
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className={className}
+      onClick={onClick}
+      {...attributes}
+      {...listeners}
+    >
+      {children(listeners, attributes)}
+    </tr>
+  );
+};
 
 export function WorkloadBoard({
   boardName,
@@ -831,6 +877,7 @@ export function WorkloadBoard({
             assignee_names:
               task.assignees?.map((a) => a.name || a.username || "") ||
               (task.assignee?.name ? [task.assignee.name] : []),
+            position: task.position,
 
             subitems: subtasks
               .filter((st) => String(st.parent_id) === String(task.id))
@@ -877,6 +924,7 @@ export function WorkloadBoard({
                   st.assignees?.map((a) => a.name || a.username || "") ||
                   (st.assignee?.name ? [st.assignee.name] : []),
                 subitems: [],
+                position: st.position,
               })),
           };
         });
@@ -901,13 +949,24 @@ export function WorkloadBoard({
             label_id: groupLabelId,
             tasks: tasksWithSubtasks
               .filter((task) => String(task.group_id) === groupIdStr)
+              .sort((a, b) => {
+                const posA = Number(a.position) || 0;
+                const posB = Number(b.position) || 0;
+                return posA - posB;
+              })
               .map((task) => ({
                 ...task,
                 label_id: groupLabelId,
-                subitems: task.subitems?.map((sub) => ({
-                  ...sub,
-                  label_id: groupLabelId,
-                })),
+                subitems: task.subitems
+                  ?.sort((a, b) => {
+                    const posA = Number(a.position) || 0;
+                    const posB = Number(b.position) || 0;
+                    return posA - posB;
+                  })
+                  .map((sub) => ({
+                    ...sub,
+                    label_id: groupLabelId,
+                  })),
               })),
           };
         });
@@ -1399,6 +1458,33 @@ export function WorkloadBoard({
         JSON.stringify(newGroups),
       );
     }
+  };
+
+  const handleTaskDragEnd = (event: DragEndEvent, groupId: string) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setGroups((prevGroups) => {
+      const newGroups = prevGroups.map((group) => {
+        if (group.id !== groupId) return group;
+
+        const oldIndex = group.tasks.findIndex((t) => t.id === active.id);
+        const newIndex = group.tasks.findIndex((t) => t.id === over.id);
+
+        if (oldIndex === -1 || newIndex === -1) return group;
+
+        const updatedTasks = arrayMove(group.tasks, oldIndex, newIndex);
+        return { ...group, tasks: updatedTasks };
+      });
+
+      // Persist to localStorage
+      localStorage.setItem(
+        `board-groups-${boardId}`,
+        JSON.stringify(newGroups),
+      );
+
+      return newGroups;
+    });
   };
 
   // Helper to find current task by ID from groups state
@@ -4085,18 +4171,22 @@ export function WorkloadBoard({
                         : "text-foreground hover:bg-hover",
                     )}
                   >
-                    <Eye
-                      className={cn(
-                        "h-4 w-4",
-                        filterState.taskFilters.persons.size > 0 ||
-                          filterState.taskFilters.statuses.size > 0 ||
-                          filterState.taskFilters.priorities.size > 0 ||
-                          filterState.taskFilters.labels.size > 0 ||
-                          filterState.taskFilters.groups.size > 0
-                          ? "text-primary"
-                          : "text-muted-foreground",
-                      )}
-                    />
+                    {filterState.isLoadingFilters ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    ) : (
+                      <Eye
+                        className={cn(
+                          "h-4 w-4",
+                          filterState.taskFilters.persons.size > 0 ||
+                            filterState.taskFilters.statuses.size > 0 ||
+                            filterState.taskFilters.priorities.size > 0 ||
+                            filterState.taskFilters.labels.size > 0 ||
+                            filterState.taskFilters.groups.size > 0
+                            ? "text-primary"
+                            : "text-muted-foreground",
+                        )}
+                      />
+                    )}
                     <span>Only Show</span>
                     {filterState.taskFilters.persons.size +
                       filterState.taskFilters.statuses.size +
@@ -4105,7 +4195,7 @@ export function WorkloadBoard({
                       filterState.taskFilters.groups.size >
                       0 && (
                       <span className="text-xs font-bold opacity-70">
-                        /{"  "}
+                        /{"  "} 
                         {filterState.taskFilters.persons.size +
                           filterState.taskFilters.statuses.size +
                           filterState.taskFilters.priorities.size +
@@ -5049,273 +5139,175 @@ export function WorkloadBoard({
                                     );
                                   }}
                                 >
-                                  <table
-                                    className="w-full border-separate border-spacing-0"
-                                    style={{ tableLayout: "fixed" }}
+                                  <DndContext
+                                    sensors={sensors}
+                                    collisionDetection={closestCenter}
+                                    onDragEnd={(e) =>
+                                      handleTaskDragEnd(e, group.id)
+                                    }
                                   >
-                                    {/* Table head */}
-                                    {/* <thead className="border-b border-border bg-muted/30">
-                                      <tr className="text-sm text-muted-foreground">
-                                        <th className="p-4 w-12 border-r border-border text-center">
-                                          <input type="checkbox" />
-                                        </th>
-
-                                        {workloadColumns.map((col) => (
-                                          <th
-                                            key={col.id}
-                                            className="p-4 font-medium border-r border-border last:border-r-0"
-                                            style={{ width: col.width }}
-                                          >
-                                            <div className="flex items-center justify-between">
-                                              <span className="flex-1 text-center">
-                                                {col.label}
-                                              </span>
-                                              <MoreHorizontal className="h-4 w-4 cursor-pointer" />
-                                            </div>
-                                          </th>
-                                        ))}
-                                      </tr>
-                                    </thead> */}
-
-                                    <DndContext
-                                      sensors={sensors}
-                                      collisionDetection={closestCenter}
-                                      onDragEnd={handleColumnDragEnd}
+                                    <table
+                                      className="w-full border-separate border-spacing-0"
+                                      style={{ tableLayout: "fixed" }}
                                     >
-                                      <SortableContext
-                                        items={workloadColumns.map((c) => c.id)}
-                                        strategy={horizontalListSortingStrategy}
+                                      <DndContext
+                                        sensors={sensors}
+                                        collisionDetection={closestCenter}
+                                        onDragEnd={handleColumnDragEnd}
                                       >
-                                        <thead className="bg-muted/30 top-0 z-30">
-                                          <tr className="text-sm text-muted-foreground group">
-                                            <th className="p-4 w-12 border-b border-r border-border text-center sticky left-0 z-10 bg-card">
-                                              <input
-                                                type="checkbox"
-                                                checked={
-                                                  group.tasks.length > 0 &&
-                                                  group.tasks.every(
-                                                    (task) =>
-                                                      taskState.checkedTasks[
-                                                        task.id
-                                                      ] || false,
-                                                  )
-                                                }
-                                                onChange={(e) => {
-                                                  const updatedChecked: Record<
-                                                    string,
-                                                    boolean
-                                                  > = {};
-                                                  group.tasks.forEach(
-                                                    (task) => {
-                                                      updatedChecked[task.id] =
-                                                        e.target.checked;
-                                                      // Also select/deselect subitems
-                                                      if (task.subitems) {
-                                                        task.subitems.forEach(
-                                                          (subitem) => {
-                                                            updatedChecked[
-                                                              subitem.id
-                                                            ] =
-                                                              e.target.checked;
-                                                          },
-                                                        );
-                                                      }
-                                                    },
-                                                  );
-                                                  taskState.setCheckedTasks(
-                                                    (prev) => ({
-                                                      ...prev,
-                                                      ...updatedChecked,
-                                                    }),
-                                                  );
-                                                }}
-                                              />
-                                            </th>
-
-                                            {workloadColumns.map((col) => (
-                                              <SortableColumnHeader
-                                                key={col.id}
-                                                column={col}
-                                                onToggleCollapse={() =>
-                                                  toggleCollapseColumn(col.id)
-                                                }
-                                                onStartResize={
-                                                  startColumnResize
-                                                }
-                                                onColumnLabelChange={
-                                                  handleColumnLabelChange
-                                                }
-                                                onSort={(
-                                                  columnId: string,
-                                                  direction: "asc" | "desc",
-                                                ) =>
-                                                  handleSortGroupItems(
-                                                    group.id,
-                                                    columnId,
-                                                    direction,
-                                                  )
-                                                }
-                                              />
-                                            ))}
-                                            {/* Filler column to absorb extra space and prevent stretching */}
-                                            <th
-                                              className="p-0 border-b border-border"
-                                              style={{ width: "auto" }}
-                                            />
-                                          </tr>
-                                        </thead>
-                                      </SortableContext>
-                                    </DndContext>
-
-                                    {/* Table Body */}
-                                    <tbody>
-                                      {group.tasks.map((task) => {
-                                        const taskWithProps = {
-                                          ...task,
-                                          boardId: boardId,
-                                          activeTimerId:
-                                            timerState.activeTimerId,
-                                          onTimerStart: handleTimerStart,
-                                          onTimerConflict: handleTimerConflict,
-                                        };
-                                        return (
-                                          <React.Fragment key={task.id}>
-                                            {/* ================= TASK ROW ================= */}
-                                            <tr
-                                              className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
-                                              onClick={() => {
-                                                openTaskCard(task);
-                                              }}
-                                            >
-                                              <td
-                                                className="p-4 text-center border-b border-border border-r sticky left-0 z-10 bg-card"
-                                                onClick={(e) =>
-                                                  e.stopPropagation()
-                                                }
-                                              >
+                                        <SortableContext
+                                          items={workloadColumns.map((c) => c.id)}
+                                          strategy={horizontalListSortingStrategy}
+                                        >
+                                          <thead className="bg-muted/30 top-0 z-30">
+                                            <tr className="text-sm text-muted-foreground group">
+                                              <th className="p-4 w-12 border-b border-r border-border text-center sticky left-0 z-10 bg-card">
                                                 <input
                                                   type="checkbox"
                                                   checked={
-                                                    taskState.checkedTasks[
-                                                      task.id
-                                                    ] || false
+                                                    group.tasks.length > 0 &&
+                                                    group.tasks.every(
+                                                      (task) =>
+                                                        taskState.checkedTasks[
+                                                          task.id
+                                                        ] || false,
+                                                    )
                                                   }
-                                                  onChange={(e) =>
-                                                    handleTaskCheckChange(
-                                                      task.id,
-                                                      e.target.checked,
+                                                  onChange={(e) => {
+                                                    const updatedChecked: Record<
+                                                      string,
+                                                      boolean
+                                                    > = {};
+                                                    group.tasks.forEach(
+                                                      (task) => {
+                                                        updatedChecked[task.id] =
+                                                          e.target.checked;
+                                                        // Also select/deselect subitems
+                                                        if (task.subitems) {
+                                                          task.subitems.forEach(
+                                                            (subitem) => {
+                                                              updatedChecked[
+                                                                subitem.id
+                                                              ] =
+                                                                e.target.checked;
+                                                            },
+                                                          );
+                                                        }
+                                                      },
+                                                    );
+                                                    taskState.setCheckedTasks(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        ...updatedChecked,
+                                                      }),
+                                                    );
+                                                  }}
+                                                />
+                                              </th>
+
+                                              {workloadColumns.map((col) => (
+                                                <SortableColumnHeader
+                                                  key={col.id}
+                                                  column={col}
+                                                  onToggleCollapse={() =>
+                                                    toggleCollapseColumn(col.id)
+                                                  }
+                                                  onStartResize={
+                                                    startColumnResize
+                                                  }
+                                                  onColumnLabelChange={
+                                                    handleColumnLabelChange
+                                                  }
+                                                  onSort={(
+                                                    columnId: string,
+                                                    direction: "asc" | "desc",
+                                                  ) =>
+                                                    handleSortGroupItems(
+                                                      group.id,
+                                                      columnId,
+                                                      direction,
                                                     )
                                                   }
                                                 />
-                                              </td>
-
-                                              {workloadColumns.map((col) => (
-                                                <td
-                                                  key={col.id}
-                                                  className={cn(
-                                                    "p-4 border-r border-b border-border last:border-r-0",
-                                                    col.align === "center" &&
-                                                      "text-center",
-                                                    col.align === "left" &&
-                                                      "text-left",
-                                                    col.id === "item" &&
-                                                      "sticky left-12 z-10 bg-card",
-                                                  )}
-                                                  style={{
-                                                    width: col.width,
-                                                    minWidth:
-                                                      col.minWidth || col.width,
-                                                    maxWidth:
-                                                      col.maxWidth || col.width,
-                                                  }}
-                                                  onClick={(e) =>
-                                                    e.stopPropagation()
-                                                  }
-                                                >
-                                                  {col.collapsed ? (
-                                                    <div className="flex items-center justify-center">
-                                                      <button
-                                                        className="h-6 w-6 rounded-sm   flex items-center justify-center"
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          toggleCollapseColumn(
-                                                            col.id,
-                                                          );
-                                                        }}
-                                                        aria-label={`Expand ${col.label}`}
-                                                        title={`Expand ${col.label}`}
-                                                      >
-                                                        <MoreHorizontal className="h-3 w-3" />
-                                                      </button>
-                                                    </div>
-                                                  ) : (
-                                                    col.render(taskWithProps)
-                                                  )}
-                                                </td>
                                               ))}
                                               {/* Filler column to absorb extra space and prevent stretching */}
-                                              <td
+                                              <th
                                                 className="p-0 border-b border-border"
                                                 style={{ width: "auto" }}
                                               />
                                             </tr>
+                                          </thead>
+                                        </SortableContext>
+                                      </DndContext>
 
-                                            {/* ================= SUBITEM ROWS ================= */}
-                                            {effectiveExpandedTasks[task.id] &&
-                                              task.subitems?.map((subtask) => {
-                                                const subtaskWithProps = {
-                                                  ...subtask,
-                                                  boardId: boardId,
-                                                  activeTimerId:
-                                                    timerState.activeTimerId,
-                                                  onTimerStart:
-                                                    handleTimerStart,
-                                                  onTimerConflict:
-                                                    handleTimerConflict,
-                                                };
-                                                return (
-                                                  <tr
-                                                    key={subtask.id}
-                                                    className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors"
-                                                  >
-                                                    <td
-                                                      className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card"
-                                                      onClick={(e) =>
-                                                        e.stopPropagation()
-                                                      }
-                                                    >
-                                                      <input
-                                                        type="checkbox"
-                                                        checked={
-                                                          taskState
-                                                            .checkedTasks[
-                                                            subtask.id
-                                                          ] || false
+                                      {/* Table Body */}
+                                      <tbody>
+                                        <SortableContext
+                                          items={group.tasks.map((t) => t.id)}
+                                          strategy={verticalListSortingStrategy}
+                                        >
+                                          {group.tasks.map((task) => {
+                                            const taskWithProps = {
+                                              ...task,
+                                              boardId: boardId,
+                                              activeTimerId:
+                                                timerState.activeTimerId,
+                                              onTimerStart: handleTimerStart,
+                                              onTimerConflict: handleTimerConflict,
+                                            };
+                                            return (
+                                              <React.Fragment key={task.id}>
+                                                {/* ================= TASK ROW ================= */}
+                                                <SortableTaskRow
+                                                  id={task.id}
+                                                  className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
+                                                  onClick={() => {
+                                                    openTaskCard(task);
+                                                  }}
+                                                >
+                                                  {() => (
+                                                    <>
+                                                      <td
+                                                        className="p-4 text-center border-b border-border border-r sticky left-0 z-10 bg-card"
+                                                        onClick={(e) =>
+                                                          e.stopPropagation()
                                                         }
-                                                        onChange={(e) =>
-                                                          handleTaskCheckChange(
-                                                            subtask.id,
-                                                            e.target.checked,
-                                                          )
-                                                        }
-                                                      />
-                                                    </td>
+                                                      >
+                                                        <input
+                                                          type="checkbox"
+                                                          checked={
+                                                            taskState.checkedTasks[
+                                                              task.id
+                                                            ] || false
+                                                          }
+                                                          onChange={(e) =>
+                                                            handleTaskCheckChange(
+                                                              task.id,
+                                                              e.target.checked,
+                                                            )
+                                                          }
+                                                        />
+                                                      </td>
 
-                                                    {workloadColumns.map(
-                                                      (col) => (
+                                                      {workloadColumns.map((col) => (
                                                         <td
                                                           key={col.id}
                                                           className={cn(
                                                             "p-4 border-r border-b border-border last:border-r-0",
-                                                            col.align ===
-                                                              "center" &&
+                                                            col.align === "center" &&
                                                               "text-center",
-                                                            col.align ===
-                                                              "left" &&
+                                                            col.align === "left" &&
                                                               "text-left",
                                                             col.id === "item" &&
                                                               "sticky left-12 z-10 bg-card",
                                                           )}
+                                                          style={{
+                                                            width: col.width,
+                                                            minWidth:
+                                                              col.minWidth || col.width,
+                                                            maxWidth:
+                                                              col.maxWidth || col.width,
+                                                          }}
                                                           onClick={(e) =>
                                                             e.stopPropagation()
                                                           }
@@ -5323,10 +5315,8 @@ export function WorkloadBoard({
                                                           {col.collapsed ? (
                                                             <div className="flex items-center justify-center">
                                                               <button
-                                                                className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
-                                                                onClick={(
-                                                                  e,
-                                                                ) => {
+                                                                className="h-6 w-6 rounded-sm   flex items-center justify-center"
+                                                                onClick={(e) => {
                                                                   e.stopPropagation();
                                                                   toggleCollapseColumn(
                                                                     col.id,
@@ -5335,178 +5325,272 @@ export function WorkloadBoard({
                                                                 aria-label={`Expand ${col.label}`}
                                                                 title={`Expand ${col.label}`}
                                                               >
-                                                                <ChevronRight className="h-3 w-3" />
+                                                                <MoreHorizontal className="h-3 w-3" />
                                                               </button>
                                                             </div>
                                                           ) : (
-                                                            col.render(
-                                                              subtaskWithProps,
-                                                              true,
-                                                            )
+                                                            col.render(taskWithProps)
                                                           )}
                                                         </td>
-                                                      ),
-                                                    )}
-                                                    {/* Filler column to absorb extra space and prevent stretching */}
-                                                    <td
-                                                      className="p-0 border-b border-border"
-                                                      style={{ width: "auto" }}
-                                                    />
-                                                  </tr>
-                                                );
-                                              })}
+                                                      ))}
+                                                      {/* Filler column to absorb extra space and prevent stretching */}
+                                                      <td
+                                                        className="p-0 border-b border-border"
+                                                        style={{ width: "auto" }}
+                                                      />
+                                                    </>
+                                                  )}
+                                                </SortableTaskRow>
 
-                                            {/* ================= ADD SUBITEM ================= */}
-                                            {effectiveExpandedTasks[
-                                              task.id
-                                            ] && (
-                                              <tr>
-                                                <td className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card">
-                                                  {/* Empty Cell */}
-                                                </td>
-                                                <td
-                                                  colSpan={2}
-                                                  className="p-4 border-t border-border sticky left-12 z-10 bg-card"
-                                                >
-                                                  {addingSubitemToTask ===
-                                                  task.id ? (
-                                                    <div className="flex items-center gap-2 pl-8">
-                                                      <span className="text-muted-foreground">
-                                                        └
-                                                      </span>
-                                                      <Input
-                                                        className="h-8 flex-1"
-                                                        autoFocus
-                                                        placeholder="Enter subitem name"
-                                                        value={newSubitemName}
-                                                        onChange={(e) =>
-                                                          setNewSubitemName(
-                                                            e.target.value,
-                                                          )
-                                                        }
-                                                        onKeyDown={(e) => {
-                                                          if (
-                                                            (e.key ===
-                                                              "Enter" ||
-                                                              e.key ===
-                                                                "Tab") &&
-                                                            newSubitemName.trim()
-                                                          ) {
-                                                            addSubitem(
-                                                              group.id,
+                                                {/* ================= SUBITEM ROWS ================= */}
+                                                {effectiveExpandedTasks[task.id] &&
+                                                  task.subitems?.map((subtask) => {
+                                                    const subtaskWithProps = {
+                                                      ...subtask,
+                                                      boardId: boardId,
+                                                      activeTimerId:
+                                                        timerState.activeTimerId,
+                                                      onTimerStart:
+                                                        handleTimerStart,
+                                                      onTimerConflict:
+                                                        handleTimerConflict,
+                                                    };
+                                                    return (
+                                                      <tr
+                                                        key={subtask.id}
+                                                        className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors"
+                                                      >
+                                                        <td
+                                                          className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card"
+                                                          onClick={(e) =>
+                                                            e.stopPropagation()
+                                                          }
+                                                        >
+                                                          <input
+                                                            type="checkbox"
+                                                            checked={
+                                                              taskState
+                                                                .checkedTasks[
+                                                                subtask.id
+                                                              ] || false
+                                                            }
+                                                            onChange={(e) =>
+                                                              handleTaskCheckChange(
+                                                                subtask.id,
+                                                                e.target.checked,
+                                                              )
+                                                            }
+                                                          />
+                                                        </td>
+
+                                                        {workloadColumns.map(
+                                                          (col) => (
+                                                            <td
+                                                              key={col.id}
+                                                              className={cn(
+                                                                "p-4 border-r border-b border-border last:border-r-0",
+                                                                col.align ===
+                                                                  "center" &&
+                                                                  "text-center",
+                                                                col.align ===
+                                                                  "left" &&
+                                                                  "text-left",
+                                                                col.id === "item" &&
+                                                                  "sticky left-12 z-10 bg-card",
+                                                              )}
+                                                              onClick={(e) =>
+                                                                e.stopPropagation()
+                                                              }
+                                                            >
+                                                              {col.collapsed ? (
+                                                                <div className="flex items-center justify-center">
+                                                                  <button
+                                                                    className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
+                                                                    onClick={(
+                                                                      e,
+                                                                    ) => {
+                                                                      e.stopPropagation();
+                                                                      toggleCollapseColumn(
+                                                                        col.id,
+                                                                      );
+                                                                    }}
+                                                                    aria-label={`Expand ${col.label}`}
+                                                                    title={`Expand ${col.label}`}
+                                                                  >
+                                                                    <ChevronRight className="h-3 w-3" />
+                                                                  </button>
+                                                                </div>
+                                                              ) : (
+                                                                col.render(
+                                                                  subtaskWithProps,
+                                                                  true,
+                                                                )
+                                                              )}
+                                                            </td>
+                                                          ),
+                                                        )}
+                                                        {/* Filler column to absorb extra space and prevent stretching */}
+                                                        <td
+                                                          className="p-0 border-b border-border"
+                                                          style={{ width: "auto" }}
+                                                        />
+                                                      </tr>
+                                                    );
+                                                  })}
+
+                                                {/* ================= ADD SUBITEM ================= */}
+                                                {effectiveExpandedTasks[
+                                                  task.id
+                                                ] && (
+                                                  <tr>
+                                                    <td className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card">
+                                                      {/* Empty Cell */}
+                                                    </td>
+                                                    <td
+                                                      colSpan={2}
+                                                      className="p-4 border-t border-border sticky left-12 z-10 bg-card"
+                                                    >
+                                                      {addingSubitemToTask ===
+                                                      task.id ? (
+                                                        <div className="flex items-center gap-2 pl-8">
+                                                          <span className="text-muted-foreground">
+                                                            └
+                                                          </span>
+                                                          <Input
+                                                            className="h-8 flex-1"
+                                                            autoFocus
+                                                            placeholder="Enter subitem name"
+                                                            value={newSubitemName}
+                                                            onChange={(e) =>
+                                                              setNewSubitemName(
+                                                                e.target.value,
+                                                              )
+                                                            }
+                                                            onKeyDown={(e) => {
+                                                              if (
+                                                                (e.key ===
+                                                                  "Enter" ||
+                                                                  e.key ===
+                                                                    "Tab") &&
+                                                                newSubitemName.trim()
+                                                              ) {
+                                                                addSubitem(
+                                                                  group.id,
+                                                                  task.id,
+                                                                );
+                                                              }
+                                                              if (
+                                                                e.key === "Escape"
+                                                              ) {
+                                                                setAddingSubitemToTask(
+                                                                  null,
+                                                                );
+                                                                setNewSubitemName(
+                                                                  "",
+                                                                );
+                                                              }
+                                                            }}
+                                                            onBlur={() => {
+                                                              setAddingSubitemToTask(
+                                                                null,
+                                                              );
+                                                              setNewSubitemName("");
+                                                            }}
+                                                          />
+                                                        </div>
+                                                      ) : (
+                                                        <button
+                                                          onClick={() => {
+                                                            taskState.setExpandedTasks(
+                                                              (prev) => ({
+                                                                ...prev,
+                                                                [task.id]: true,
+                                                              }),
+                                                            );
+                                                            setAddingSubitemToTask(
                                                               task.id,
                                                             );
-                                                          }
-                                                          if (
-                                                            e.key === "Escape"
-                                                          ) {
-                                                            setAddingSubitemToTask(
-                                                              null,
-                                                            );
-                                                            setNewSubitemName(
-                                                              "",
-                                                            );
-                                                          }
-                                                        }}
-                                                        onBlur={() => {
-                                                          setAddingSubitemToTask(
-                                                            null,
-                                                          );
-                                                          setNewSubitemName("");
-                                                        }}
-                                                      />
-                                                    </div>
-                                                  ) : (
-                                                    <button
-                                                      onClick={() => {
-                                                        taskState.setExpandedTasks(
-                                                          (prev) => ({
-                                                            ...prev,
-                                                            [task.id]: true,
-                                                          }),
-                                                        );
-                                                        setAddingSubitemToTask(
-                                                          task.id,
-                                                        );
-                                                      }}
-                                                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 pl-8"
-                                                    >
-                                                      <span className="text-muted-foreground">
-                                                        {"└"}
-                                                        {/* ├ */}
-                                                      </span>
-                                                      <span className="text-lg">
-                                                        +
-                                                      </span>{" "}
-                                                      Add subitem
-                                                    </button>
-                                                  )}
-                                                </td>
-                                              </tr>
-                                            )}
-                                          </React.Fragment>
-                                        );
-                                      })}
+                                                          }}
+                                                          className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 pl-8"
+                                                        >
+                                                          <span className="text-muted-foreground">
+                                                            {"└"}
+                                                            {/* ├ */}
+                                                          </span>
+                                                          <span className="text-lg">
+                                                            +
+                                                          </span>{" "}
+                                                          Add subitem
+                                                        </button>
+                                                      )}
+                                                    </td>
+                                                  </tr>
+                                                )}
+                                              </React.Fragment>
+                                            );
+                                          })}
+                                        </SortableContext>
 
-                                      {/* ================= ADD ITEM ROW ================= */}
-                                      <tr>
-                                        <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
-                                          {/* Empty Cell */}
-                                        </td>
-                                        <td
-                                          colSpan={2}
-                                          className="p-4 border-t border-border sticky left-12 z-10 bg-card"
-                                        >
-                                          {addingItemToGroup === group.id ? (
-                                            <Input
-                                              className="h-8 max-w"
-                                              autoFocus
-                                              placeholder="Enter item name..."
-                                              value={newItemName}
-                                              onChange={(e) =>
-                                                setNewItemName(e.target.value)
-                                              }
-                                              onKeyDown={(e) => {
-                                                if (
-                                                  (e.key === "Enter" ||
-                                                    e.key === "Tab") &&
-                                                  newItemName.trim()
-                                                ) {
-                                                  addNewItem(group.id);
+                                        {/* ================= ADD ITEM ROW ================= */}
+                                        <tr>
+                                          <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
+                                            {/* Empty Cell */}
+                                          </td>
+                                          <td
+                                            colSpan={2}
+                                            className="p-4 border-t border-border sticky left-12 z-10 bg-card"
+                                          >
+                                            {addingItemToGroup === group.id ? (
+                                              <Input
+                                                className="h-8 max-w"
+                                                autoFocus
+                                                placeholder="Enter item name..."
+                                                value={newItemName}
+                                                onChange={(e) =>
+                                                  setNewItemName(e.target.value)
                                                 }
-                                                if (e.key === "Escape") {
+                                                onKeyDown={(e) => {
+                                                  if (
+                                                    (e.key === "Enter" ||
+                                                      e.key === "Tab") &&
+                                                    newItemName.trim()
+                                                  ) {
+                                                    addNewItem(group.id);
+                                                  }
+                                                  if (e.key === "Escape") {
+                                                    setAddingItemToGroup(null);
+                                                    setNewItemName("");
+                                                  }
+                                                }}
+                                                onBlur={() => {
                                                   setAddingItemToGroup(null);
                                                   setNewItemName("");
-                                                }
-                                              }}
-                                              onBlur={() => {
-                                                setAddingItemToGroup(null);
-                                                setNewItemName("");
-                                              }}
-                                            />
-                                          ) : (
-                                            <button
-                                              onClick={() => {
-                                                setAddingItemToGroup(group.id);
-                                                // Scroll the main flex container to the right
-                                                if (
-                                                  mainFlexContainerRef.current
-                                                ) {
-                                                  mainFlexContainerRef.current.scrollLeft =
-                                                    mainFlexContainerRef.current.scrollWidth;
-                                                }
-                                              }}
-                                              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
-                                            >
-                                              <span className="text-md">
-                                                + Add Item
-                                              </span>{" "}
-                                            </button>
-                                          )}
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
+                                                }}
+                                              />
+                                            ) : (
+                                              <button
+                                                onClick={() => {
+                                                  setAddingItemToGroup(group.id);
+                                                  // Scroll the main flex container to the right
+                                                  if (
+                                                    mainFlexContainerRef.current
+                                                  ) {
+                                                    mainFlexContainerRef.current.scrollLeft =
+                                                      mainFlexContainerRef.current.scrollWidth;
+                                                  }
+                                                }}
+                                                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                                              >
+                                                <span className="text-md">
+                                                  + Add Item
+                                                </span>{" "}
+                                              </button>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </DndContext>
                                 </div>
                               )}
                             </div>

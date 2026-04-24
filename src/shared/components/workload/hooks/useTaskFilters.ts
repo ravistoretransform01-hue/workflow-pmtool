@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { TaskFilters } from "../utils/workload-types";
+import { filtersApi, type TaskFiltersData } from "@/features/filters/filtersApi";
 
 /**
  * Hook for managing task filters
@@ -50,33 +51,90 @@ export function useTaskFilters(storageKey?: string) {
 
   const [taskFilters, setTaskFilters] = useState<TaskFilters>(() => loadState(storageKey));
   const [showDoneItemsOnly, setShowDoneItemsOnly] = useState(() => loadDoneState(storageKey));
+  const [isLoadingFilters, setIsLoadingFilters] = useState(false);
   
   // Track which key the current state belongs to
   const loadedKeyRef = useRef(storageKey);
+  const isInitialLoadRef = useRef(true);
+  const lastSavedStateRef = useRef<string>("");
 
-  // Synchronize state when storageKey changes (handling possible lack of remount)
+  // Synchronize state when storageKey changes
   if (storageKey !== loadedKeyRef.current) {
     setTaskFilters(loadState(storageKey));
     setShowDoneItemsOnly(loadDoneState(storageKey));
     loadedKeyRef.current = storageKey;
+    isInitialLoadRef.current = true;
+    lastSavedStateRef.current = "";
   }
 
-  // Save to localStorage whenever filters change
+  // Fetch filters from API on mount or storageKey change
   useEffect(() => {
-    // ONLY save if we have a valid key AND the current state belongs to that key
+    if (!storageKey) return;
+
+    const fetchFilters = async () => {
+      setIsLoadingFilters(true);
+      const apiFilters = await filtersApi.getFiltersByBoard(storageKey);
+      
+      if (apiFilters) {
+        // Create a new TaskFilters object from API data
+        const newFilters = {
+          persons: new Set(apiFilters.persons || []),
+          statuses: new Set(apiFilters.statuses || []),
+          priorities: new Set(apiFilters.priorities || []),
+          labels: new Set(apiFilters.labels || []),
+          groups: new Set(apiFilters.groups || []),
+        };
+        
+        setTaskFilters(newFilters);
+        
+        // Update localStorage
+        localStorage.setItem(`task_filters_${storageKey}`, JSON.stringify(apiFilters));
+        
+        // Mark this as the last saved state so we don't immediately POST it back
+        lastSavedStateRef.current = JSON.stringify(apiFilters);
+      }
+      
+      setIsLoadingFilters(false);
+      // We've finished the initial sync
+      isInitialLoadRef.current = false;
+    };
+
+    fetchFilters();
+  }, [storageKey]);
+
+  // Save to localStorage and API whenever filters change
+  useEffect(() => {
     if (!storageKey || storageKey !== loadedKeyRef.current) return;
 
+    // Don't save during the very first render cycle before useEffects run
+    // or while the initial fetch is happening
+    if (isInitialLoadRef.current && !lastSavedStateRef.current) return;
+
     try {
-      const stateToSave = {
+      const stateToSave: TaskFiltersData = {
         persons: Array.from(taskFilters.persons),
         statuses: Array.from(taskFilters.statuses),
         priorities: Array.from(taskFilters.priorities),
         labels: Array.from(taskFilters.labels),
         groups: Array.from(taskFilters.groups),
       };
-      localStorage.setItem(`task_filters_${storageKey}`, JSON.stringify(stateToSave));
+      
+      const stateString = JSON.stringify(stateToSave);
+      
+      // ONLY save if the state has actually changed from what we last saved/loaded
+      if (stateString === lastSavedStateRef.current) return;
+
+      // Save to localStorage
+      localStorage.setItem(`task_filters_${storageKey}`, stateString);
+      
+      // Save to API
+      // We skip if it's the very first load and we haven't fetched yet
+      if (!isInitialLoadRef.current) {
+        filtersApi.saveFilters(storageKey, stateToSave);
+        lastSavedStateRef.current = stateString;
+      }
     } catch (error) {
-      console.error("Failed to save task filters to localStorage:", error);
+      console.error("Failed to save task filters:", error);
     }
   }, [taskFilters, storageKey]);
 
@@ -184,6 +242,7 @@ export function useTaskFilters(storageKey?: string) {
     taskFilters,
     openFilterDropdowns,
     showDoneItemsOnly,
+    isLoadingFilters,
 
     // Setters
     setTaskFilters,
