@@ -39,10 +39,17 @@ export const notificationsApi = {
     return response.data;
   },
 
-  markAsRead: async (notificationId: string | number): Promise<{ success: boolean; message: string; unread_count: number }> => {
-    const response = await api.put("/notifications/mark-read", {
-      notification_id: notificationId
-    });
+  markAsRead: async (params: { 
+    notificationId?: string | number; 
+    markAll?: boolean; 
+    organizationId?: string | number; 
+  }): Promise<{ success: boolean; message: string; unread_count: number }> => {
+    const body: any = {};
+    if (params.notificationId) body.notification_id = params.notificationId;
+    if (params.markAll) body.mark_all = true;
+    if (params.organizationId) body.organization_id = params.organizationId;
+
+    const response = await api.put("/notifications/mark-read", body);
     return response.data;
   },
 };

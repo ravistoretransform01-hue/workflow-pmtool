@@ -70,10 +70,27 @@ export function NotificationBell() {
     );
 
     try {
-      await notificationsApi.markAsRead(notificationId);
+      await notificationsApi.markAsRead({ notificationId });
     } catch (error) {
       console.error("Error marking notification as read:", error);
-      // Revert if API fail? For now, we keep it as is to avoid flickers
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!user?.organization_id) return;
+
+    // Optimistic UI update
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: "1" })));
+
+    try {
+      await notificationsApi.markAsRead({
+        markAll: true,
+        organizationId: user.organization_id,
+      });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      // Optional: re-load notifications if it failed
+      loadNotifications(user.organization_id);
     }
   };
 
@@ -232,20 +249,22 @@ export function NotificationBell() {
               <DialogTitle className="text-2xl font-bold">
                 Notifications
               </DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="hidden text-muted-foreground hover:text-foreground"
-              >
-                <SettingsIcon className="h-5 w-5" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hidden text-muted-foreground hover:text-foreground"
+                >
+                  <SettingsIcon className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
           </DialogHeader>
 
           <div className="flex-1 flex flex-col min-h-0">
             <div className="px-6 pt-4 shrink-0">
-              <div className="mb-4">
-                <div className="relative">
+              <div className="mb-4 flex items-center gap-4">
+                <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
                   <Input
                     placeholder="Search notifications..."
@@ -254,6 +273,16 @@ export function NotificationBell() {
                     className="pl-10 h-11 bg-muted/30 border-none focus-visible:ring-1 focus-visible:ring-primary/20"
                   />
                 </div>
+                {unreadCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-primary hover:text-primary/80 hover:bg-primary/10 text-xs font-bold px-3 py-1.5 h-auto transition-colors shrink-0"
+                    onClick={handleMarkAllAsRead}
+                  >
+                    Mark all as read
+                  </Button>
+                )}
               </div>
             </div>
 
