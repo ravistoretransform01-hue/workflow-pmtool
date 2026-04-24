@@ -23,20 +23,33 @@ export interface NotificationsResponse {
 }
 
 export const notificationsApi = {
-  getAllNotifications: async (): Promise<NotificationsResponse> => {
-    const response = await api.get<NotificationsResponse>("/notifications/all?status=all");
+  getAllNotifications: async (organizationId?: string | number): Promise<NotificationsResponse> => {
+    const url = organizationId 
+      ? `/notifications/all?status=all&organization_id=${organizationId}`
+      : "/notifications/all?status=all";
+    const response = await api.get<NotificationsResponse>(url);
     return response.data;
   },
 
-  getUnreadNotifications: async (): Promise<NotificationsResponse> => {
-    const response = await api.get<NotificationsResponse>("/notifications/all?status=unread");
+  getUnreadNotifications: async (organizationId?: string | number): Promise<NotificationsResponse> => {
+    const url = organizationId 
+      ? `/notifications/all?status=unread&organization_id=${organizationId}`
+      : "/notifications/all?status=unread";
+    const response = await api.get<NotificationsResponse>(url);
     return response.data;
   },
 
-  markAsRead: async (notificationId: string | number): Promise<{ success: boolean; message: string; unread_count: number }> => {
-    const response = await api.put("/notifications/mark-read", {
-      notification_id: notificationId
-    });
+  markAsRead: async (params: { 
+    notificationId?: string | number; 
+    markAll?: boolean; 
+    organizationId?: string | number; 
+  }): Promise<{ success: boolean; message: string; unread_count: number }> => {
+    const body: any = {};
+    if (params.notificationId) body.notification_id = params.notificationId;
+    if (params.markAll) body.mark_all = true;
+    if (params.organizationId) body.organization_id = params.organizationId;
+
+    const response = await api.put("/notifications/mark-read", body);
     return response.data;
   },
 };
