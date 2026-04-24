@@ -23,13 +23,19 @@ export interface NotificationsResponse {
 }
 
 export const notificationsApi = {
-  getAllNotifications: async (): Promise<NotificationsResponse> => {
-    const response = await api.get<NotificationsResponse>("/notifications/all?status=all");
+  getAllNotifications: async (organizationId?: string | number): Promise<NotificationsResponse> => {
+    const url = organizationId 
+      ? `/notifications/all?status=all&organization_id=${organizationId}`
+      : "/notifications/all?status=all";
+    const response = await api.get<NotificationsResponse>(url);
     return response.data;
   },
 
-  getUnreadNotifications: async (): Promise<NotificationsResponse> => {
-    const response = await api.get<NotificationsResponse>("/notifications/all?status=unread");
+  getUnreadNotifications: async (organizationId?: string | number): Promise<NotificationsResponse> => {
+    const url = organizationId 
+      ? `/notifications/all?status=unread&organization_id=${organizationId}`
+      : "/notifications/all?status=unread";
+    const response = await api.get<NotificationsResponse>(url);
     return response.data;
   },
 

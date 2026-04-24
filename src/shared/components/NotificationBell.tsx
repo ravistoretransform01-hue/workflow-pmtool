@@ -34,19 +34,21 @@ export function NotificationBell() {
 
   // Load once on mount so the red-dot badge is visible right away
   useEffect(() => {
-    loadNotifications();
-  }, []);
+    if (user?.organization_id) {
+      loadNotifications(user.organization_id);
+    }
+  }, [user?.organization_id]);
 
   useEffect(() => {
-    if (open || refreshCounter > 0) {
-      loadNotifications();
+    if ((open || refreshCounter > 0) && user?.organization_id) {
+      loadNotifications(user.organization_id);
     }
-  }, [open, refreshCounter]);
+  }, [open, refreshCounter, user?.organization_id]);
 
-  const loadNotifications = async () => {
+  const loadNotifications = async (orgId?: string | number) => {
     setLoading(true);
     try {
-      const response = await notificationsApi.getAllNotifications();
+      const response = await notificationsApi.getAllNotifications(orgId);
       if (response.success) {
         setNotifications(response.data || []);
       }
