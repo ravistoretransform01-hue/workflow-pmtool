@@ -46,7 +46,7 @@ import {
   ExternalLink,
   Pencil,
   Trash2,
-  User,
+  // User,
 } from "lucide-react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -139,7 +139,7 @@ export const AppSidebar = () => {
     { icon: Home, label: "Dashboard", href: `/org/${orgId}/home` },
     { icon: FolderKanban, label: "All Items", href: `/org/${orgId}/all-items` },
     { icon: Briefcase, label: "My Habits", href: `/org/${orgId}/my-habits` },
-    { icon: User, label: "Profile", href: `/org/${orgId}/profile` },
+    // { icon: User, label: "Profile", href: `/org/${orgId}/profile` },
   ];
 
   // const currentBoard = boards.find((b) => b.id === boardId);
