@@ -5,14 +5,33 @@ export interface Notification {
   user_id: string;
   sender_id: string;
   organization_id: string;
-  board_id: string;
+  board_id: string | null;
   task_id: string;
-  comment_id: string;
+  comment_id: string | null;
   type: string | null;
   message: string;
   is_read: string; // "0" or "1"
   created_at: string;
-  sender_name: string;
+  sender_name: string | null;
+  context?: {
+    task?: {
+      id: string;
+      name: string | null;
+      status_id: string | null;
+      priority_id: string | null;
+      group_name: string | null;
+    };
+    board?: {
+      id: string;
+      name: string;
+      color: string;
+    };
+    comment?: {
+      id: string;
+      content: string | null;
+      is_reply: boolean;
+    };
+  };
 }
 
 export interface NotificationsResponse {
