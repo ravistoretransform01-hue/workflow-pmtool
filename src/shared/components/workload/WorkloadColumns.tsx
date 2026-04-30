@@ -332,15 +332,15 @@ export const getWorkloadColumns = ({
               e.stopPropagation();
               onOpenTaskCard?.(task, true);
             }}
-            className="cursor-pointer min-h-[40px] flex items-center w-full hover:bg-muted/30 rounded px-2 transition-colors group relative"
+            className="cursor-pointer min-h-[40px] flex items-center w-full max-w-[230px] hover:bg-muted/30 rounded px-2 transition-colors group relative overflow-hidden"
             title="Click to view/edit description"
           >
             {hasDescription ? (
-              <span className="text-sm text-primary font-medium hover:underline">
+              <span className="text-sm text-primary font-medium hover:underline truncate w-full block text-left">
                 Show description
               </span>
             ) : (
-              <span className="text-sm text-muted-foreground italic">
+              <span className="text-sm text-muted-foreground italic truncate w-full block text-left">
                 Add description
               </span>
             )}

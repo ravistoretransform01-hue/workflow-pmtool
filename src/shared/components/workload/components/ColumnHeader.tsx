@@ -186,12 +186,12 @@ export const SortableColumnHeader = ({
               </div>
             ) : (
               <span
-                className="flex-1 text-center cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors"
+                className="flex-1 text-center cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors truncate min-w-0 block"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsEditing(true);
                 }}
-                title="Click to edit column name"
+                title={column.label || "Click to edit column name"}
               >
                 {column.label}
               </span>

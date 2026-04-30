@@ -409,13 +409,13 @@ export function PriorityPopoverCell({
       <PopoverTrigger asChild>
         <Button
           size="sm"
-          className="h-8 px-3 text-xs text-white"
+          className="h-8 px-3 text-xs text-white max-w-full"
           style={{
             backgroundColor: priorityObj?.color_code || "#e5e7eb",
             border: "none",
           }}
         >
-          {priorityObj?.name || "No Priority"}
+          <span className="truncate block min-w-0">{priorityObj?.name || "No Priority"}</span>
         </Button>
       </PopoverTrigger>
 
