@@ -1,6 +1,12 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { GripVertical, MoreVertical, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 import type { Task } from "./WorkloadBoard";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { stringToHslColor } from "./utils";
@@ -18,6 +24,7 @@ interface KanbanCardProps {
   priorityName?: string;
   priorityColor?: string;
   members: any[];
+  onDeleteTask?: (taskId: string) => Promise<void>;
 }
 
 export function KanbanCard({
@@ -30,6 +37,7 @@ export function KanbanCard({
   statusName,
   priorityName,
   members,
+  onDeleteTask,
 }: KanbanCardProps) {
   const {
     attributes,
@@ -90,9 +98,9 @@ export function KanbanCard({
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pr-5">
           {showGroup && groupName && (
-            <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="flex items-center gap-1.5 mb-1.5 mt-0.5">
               {groupColor && (
                 <div
                   className="w-1.5 h-1.5 rounded-full"
@@ -108,6 +116,29 @@ export function KanbanCard({
           <p className="text-sm font-medium text-foreground line-clamp-2">
             {task.name}
           </p>
+            {onDeleteTask && !overlay && (
+              <div onClick={(e) => e.stopPropagation()} className="absolute top-2.5 right-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100">
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-36">
+                    <DropdownMenuItem
+                      className="text-red-600 focus:text-red-600 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteTask(task.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
 
           {(showStatus || showPriority) && (
             <div className="mt-1.5 flex flex-col gap-0.5">

@@ -60,6 +60,7 @@ interface KanbanColumnProps {
   statuses?: Status[];
   priorities?: Priority[];
   groupBy: "status" | "priority";
+  onDeleteTask?: (taskId: string) => Promise<void>;
 }
 
 export function KanbanColumn({
@@ -81,6 +82,7 @@ export function KanbanColumn({
   statuses,
   priorities,
   groupBy,
+  onDeleteTask,
 }: KanbanColumnProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -339,6 +341,7 @@ export function KanbanColumn({
                 priorityColor={priorityInfo?.color}
                 members={members}
                 visibleCardFields={visibleCardFields}
+                onDeleteTask={onDeleteTask}
               />
             );
           })}

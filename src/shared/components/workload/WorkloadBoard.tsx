@@ -2908,6 +2908,28 @@ export function WorkloadBoard({
     }
   };
 
+  const deleteSingleTask = async (taskId: string) => {
+    try {
+      await tasksApi.deleteTask(taskId);
+      
+      const updatedGroups = groups.map((group) => ({
+        ...group,
+        tasks: group.tasks
+          .filter((task) => task.id !== taskId)
+          .map((task) => ({
+            ...task,
+            subitems: task.subitems?.filter((subitem) => subitem.id !== taskId),
+          })),
+      }));
+
+      setGroups(updatedGroups);
+      toast.success("Task Deleted Successfully");
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      toast.error("Failed to Delete Task");
+    }
+  };
+
   // const openCommentsPanel = (task: Task) => {
   //   setSelectedTask(task);
   //   setCommentsPanelOpen(true);
@@ -5676,6 +5698,7 @@ export function WorkloadBoard({
             onAddTask={handleKanbanAddTask}
             onStatusesUpdated={handleStatusesUpdated}
             onPrioritiesUpdated={handlePrioritiesUpdated}
+            onDeleteTask={deleteSingleTask}
           />
         )}
 
