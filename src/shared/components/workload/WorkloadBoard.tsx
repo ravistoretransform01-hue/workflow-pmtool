@@ -2491,10 +2491,10 @@ export function WorkloadBoard({
       // Don't close the popover - let user continue selecting multiple assignees
       // popoverState.closePopover();
 
-      toast.success("Person Assigned Successfully");
+      toast.success("Member Updated.");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to Assign Person");
+      toast.error("Failed to Update Member.");
     }
   };
 

@@ -1,5 +1,11 @@
 import api from "@/lib/axios";
-import type { LoginRequest, SignupRequest, AuthResponse, ResetPasswordRequest, OrganizationsResponse } from "./types";
+import type {
+  LoginRequest,
+  SignupRequest,
+  AuthResponse,
+  ResetPasswordRequest,
+  OrganizationsResponse,
+} from "./types";
 import { debugError } from "@/lib/debugLog";
 
 const AUTH_ENDPOINTS = {
@@ -33,10 +39,7 @@ export const authApi = {
    * Sign up with email, password, and name
    */
   signup: async (data: SignupRequest): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>(
-      AUTH_ENDPOINTS.SIGNUP,
-      data
-    );
+    const response = await api.post<AuthResponse>(AUTH_ENDPOINTS.SIGNUP, data);
     return response.data;
   },
 
@@ -71,11 +74,13 @@ export const authApi = {
   /**
    * Request a password reset link
    */
-  forgotPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
+  forgotPassword: async (
+    email: string,
+  ): Promise<{ success: boolean; message: string }> => {
     const response = await api.post<{ success: boolean; message: string }>(
       AUTH_ENDPOINTS.FORGOT_PASSWORD,
       null,
-      { params: { email } }
+      { params: { email } },
     );
     return response.data;
   },
@@ -83,10 +88,12 @@ export const authApi = {
   /**
    * Reset password with key and login
    */
-  resetPassword: async (data: ResetPasswordRequest): Promise<{ success: boolean; message: string }> => {
+  resetPassword: async (
+    data: ResetPasswordRequest,
+  ): Promise<{ success: boolean; message: string }> => {
     const response = await api.post<{ success: boolean; message: string }>(
       AUTH_ENDPOINTS.RESET_PASSWORD,
-      data
+      data,
     );
     return response.data;
   },
@@ -107,7 +114,9 @@ export const authApi = {
    * Get all organizations for the current user
    */
   getOrganizations: async (): Promise<OrganizationsResponse> => {
-    const response = await api.get<OrganizationsResponse>(AUTH_ENDPOINTS.GET_ORGANIZATIONS);
+    const response = await api.get<OrganizationsResponse>(
+      AUTH_ENDPOINTS.GET_ORGANIZATIONS,
+    );
     return response.data;
   },
 };

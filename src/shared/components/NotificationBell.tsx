@@ -299,12 +299,13 @@ export function NotificationBell() {
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div className="mt-1.5 text-[13px] text-muted-foreground/80 line-clamp-2 leading-relaxed  ">
-                              "{stripHtml(notification.context.comment.content)}"
+                              "{stripHtml(notification.context.comment.content)}
+                              "
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent 
-                            side="bottom" 
-                            align="start" 
+                          <TooltipContent
+                            side="bottom"
+                            align="start"
                             className="max-w-[320px] p-4 bg-white text-slate-900 border border-slate-200 shadow-xl rounded-xl z-[150]"
                           >
                             <div className="space-y-2">
@@ -312,7 +313,9 @@ export function NotificationBell() {
                                 {notification.sender_name || "System"}
                               </p> */}
                               <div className="text-[14px] leading-relaxed text-slate-700 line-clamp-[7] whitespace-pre-wrap">
-                                {stripHtml(notification.context.comment.content)}
+                                {stripHtml(
+                                  notification.context.comment.content,
+                                )}
                               </div>
                             </div>
                           </TooltipContent>
@@ -363,7 +366,9 @@ export function NotificationBell() {
         >
           <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <div className="flex items-center justify-between">
-              <SheetTitle className="font-normal text-2xl">Notifications</SheetTitle>
+              <SheetTitle className="font-normal text-2xl">
+                Notifications
+              </SheetTitle>
               <div className="flex items-center gap-1">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -376,14 +381,19 @@ export function NotificationBell() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuPortal>
-                    <DropdownMenuContent align="end" className="w-56 bg-[#1a2433] border-primary/20 shadow-xl z-[100]">
-                      <DropdownMenuItem 
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-56 bg-[#1a2433] border-primary/20 shadow-xl z-[100]"
+                    >
+                      <DropdownMenuItem
                         onClick={handleMarkAllAsRead}
                         disabled={unreadCount === 0}
                         className="cursor-pointer focus:bg-primary/20 focus:text-primary-foreground py-3"
                       >
                         <Check className="mr-2 h-4 w-4 text-primary font-bold" />
-                        <span className="font-semibold text-sm">Mark all as read</span>
+                        <span className="font-semibold text-sm">
+                          Mark all as read
+                        </span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenuPortal>
@@ -431,7 +441,7 @@ export function NotificationBell() {
               </Tabs>
             </div>
 
-             <div className="px-6 py-4 shrink-0 flex items-center justify-between gap-4">
+            <div className="px-6 py-4 shrink-0 flex items-center justify-between gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
                 <Input
@@ -444,13 +454,16 @@ export function NotificationBell() {
 
               <div className="flex items-center gap-3">
                 <div className="flex items-center space-x-2 bg-muted/30 px-3 py-2 rounded-lg border border-border/50">
-                  <Switch 
-                    id="unread-only" 
-                    checked={showUnreadOnly} 
+                  <Switch
+                    id="unread-only"
+                    checked={showUnreadOnly}
                     onCheckedChange={setShowUnreadOnly}
                     className="data-[state=checked]:bg-blue-500 data-[state=unchecked]:bg-gray-600"
                   />
-                  <Label htmlFor="unread-only" className="text-xs font-semibold cursor-pointer whitespace-nowrap">
+                  <Label
+                    htmlFor="unread-only"
+                    className="text-xs font-semibold cursor-pointer whitespace-nowrap"
+                  >
                     Unread only
                   </Label>
                 </div>

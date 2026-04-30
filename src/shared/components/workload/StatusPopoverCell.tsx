@@ -417,13 +417,13 @@ export default function StatusPopoverCell({
       <PopoverTrigger asChild>
         <Button
           size="sm"
-          className="h-8 px-3 text-xs text-white"
+          className="h-8 px-3 text-xs text-white max-w-full"
           style={{
             backgroundColor: statusObj?.color_code || "#e5e7eb",
             border: "none",
           }}
         >
-          {statusObj?.name || "No Status"}
+          <span className="truncate block min-w-0">{statusObj?.name || "No Status"}</span>
         </Button>
       </PopoverTrigger>
 
