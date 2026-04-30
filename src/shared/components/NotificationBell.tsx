@@ -250,11 +250,11 @@ export function NotificationBell() {
             </Avatar>
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-start justify-between gap-2">
-                <div className="text-[15px] leading-snug">
+                <div className="flex-1 min-w-0 text-[15px] leading-snug break-words">
                   <span className="font-bold text-foreground pr-1">
                     {notification.sender_name || "System"}
                   </span>
-                  <span className="text-muted-foreground whitespace-pre-wrap">
+                  <span className="text-muted-foreground whitespace-pre-wrap break-words">
                     {notification.message.split("**").map((part, i) =>
                       i % 2 === 1 ? (
                         <b key={i} className="text-foreground font-semibold">
@@ -269,7 +269,7 @@ export function NotificationBell() {
                   {notification.context && (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {notification.context.board && (
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/50 border border-border/50 max-w-[200px]">
+                        <div className="flex items-center min-w-0 gap-1.5 px-2 py-0.5 rounded-md bg-muted/50 border border-border/50 max-w-full">
                           <div
                             className="w-2 h-2 rounded-full shrink-0"
                             style={{
@@ -277,15 +277,15 @@ export function NotificationBell() {
                                 notification.context.board.color || "#0073aa",
                             }}
                           />
-                          <span className="text-[11px] font-medium text-muted-foreground truncate">
+                          <span className="text-[11px] font-medium text-muted-foreground truncate block">
                             {notification.context.board.name}
                           </span>
                         </div>
                       )}
                       {notification.context.task &&
                         notification.context.task.name && (
-                          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/50 border border-border/50 max-w-[250px]">
-                            <span className="text-[11px] font-medium text-muted-foreground truncate">
+                          <div className="flex items-center min-w-0 gap-1.5 px-2 py-0.5 rounded-md bg-muted/50 border border-border/50 max-w-full">
+                            <span className="text-[11px] font-medium text-muted-foreground truncate block">
                               {notification.context.task.name}
                             </span>
                           </div>
@@ -298,7 +298,7 @@ export function NotificationBell() {
                       <TooltipProvider delayDuration={300}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="mt-1.5 text-[13px] text-muted-foreground/80 line-clamp-2 leading-relaxed  ">
+                            <div className="mt-1.5 text-[13px] text-muted-foreground/80 line-clamp-2 leading-relaxed">
                               "{stripHtml(notification.context.comment.content)}
                               "
                             </div>
@@ -309,9 +309,6 @@ export function NotificationBell() {
                             className="max-w-[320px] p-4 bg-white text-slate-900 border border-slate-200 shadow-xl rounded-xl z-[150]"
                           >
                             <div className="space-y-2">
-                              {/* <p className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">
-                                {notification.sender_name || "System"}
-                              </p> */}
                               <div className="text-[14px] leading-relaxed text-slate-700 line-clamp-[7] whitespace-pre-wrap">
                                 {stripHtml(
                                   notification.context.comment.content,
@@ -471,7 +468,7 @@ export function NotificationBell() {
             </div>
 
             <div className="flex-1 min-h-0 overflow-hidden">
-              <ScrollArea className="h-full px-0">
+              <ScrollArea className="h-full w-full min-h-0 px-0 overflow-x-hidden [&_[data-radix-scroll-area-viewport]>div]:!block">
                 {renderNotificationList(
                   filteredNotifications,
                   filterTab === "all"
