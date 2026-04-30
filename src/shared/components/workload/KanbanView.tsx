@@ -55,6 +55,7 @@ interface KanbanViewProps {
   ) => Promise<void>;
   onStatusesUpdated?: (statuses: Status[]) => void;
   onPrioritiesUpdated?: (priorities: Priority[]) => void;
+  onDeleteTask?: (taskId: string) => Promise<void>;
 }
 
 export function KanbanView({
@@ -68,6 +69,7 @@ export function KanbanView({
   onAddTask,
   onStatusesUpdated,
   onPrioritiesUpdated,
+  onDeleteTask,
 }: KanbanViewProps) {
   const [groupBy, setGroupBy] = useState<"status" | "priority">(() => {
     try {
@@ -1032,6 +1034,7 @@ export function KanbanView({
                       statuses={statuses}
                       priorities={priorities}
                       groupBy={groupBy}
+                      onDeleteTask={onDeleteTask}
                     />
                   );
                 })}
@@ -1071,6 +1074,7 @@ export function KanbanView({
                 boardId={boardId}
                 priorities={priorities}
                 groupBy={groupBy}
+                onDeleteTask={onDeleteTask}
                 isOverlay
               />
             ) : null}
