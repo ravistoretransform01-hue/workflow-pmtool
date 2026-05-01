@@ -29,6 +29,7 @@ import { Input } from "@/shared/components/ui/input";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { stringToHslColor } from "@/shared/components/workload/utils/workload-utils";
 
 const stripHtml = (html: string) => {
   if (!html) return "";
@@ -217,17 +218,9 @@ export function NotificationBell() {
       );
     }
 
-    const avatarColors = [
-      "bg-blue-500",
-      "bg-rose-500",
-      "bg-amber-500",
-      "bg-emerald-500",
-      "bg-indigo-500",
-    ];
-
     return (
       <div className="space-y-1 px-2 pb-4">
-        {list.map((notification, index) => (
+        {list.map((notification) => (
           <div
             key={notification.id}
             onClick={() => handleNotificationClick(notification)}
@@ -239,11 +232,13 @@ export function NotificationBell() {
             )}
           >
             <Avatar className="h-11 w-11 shrink-0">
-              <AvatarFallback
-                className={cn(
-                  "text-white font-bold text-base",
-                  avatarColors[index % avatarColors.length],
-                )}
+              <AvatarFallback 
+                className="text-white font-bold text-base"
+                style={{
+                  backgroundColor: stringToHslColor(
+                    notification.sender_name || "System"
+                  ),
+                }}
               >
                 {notification.sender_name?.[0] || "?"}
               </AvatarFallback>
