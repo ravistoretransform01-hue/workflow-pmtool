@@ -14,7 +14,8 @@ export function stringToHslColor(
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const h = Math.abs(hash) % 360;
+  // Multiply by a prime to widely distribute similar strings/single chars
+  const h = Math.abs(hash * 137) % 360;
   return `hsl(${h} ${s}% ${l}%)`;
 }
 
