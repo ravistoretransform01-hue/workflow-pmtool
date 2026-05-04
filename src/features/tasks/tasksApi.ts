@@ -721,4 +721,23 @@ export const tasksApi = {
       throw error;
     }
   },
+
+  /**
+   * Update task position for reordering
+   */
+  updateTaskPosition: async (payload: {
+    id: string | number;
+    position: string;
+  }): Promise<TaskResponse> => {
+    try {
+      const response = await axios.put<{ data: TaskResponse }>(
+        TASKS_ENDPOINTS.UPDATE_TASK,
+        payload,
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to update task position:", error);
+      throw error;
+    }
+  },
 };

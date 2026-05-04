@@ -1460,6 +1460,34 @@ export function WorkloadBoard({
     }
   };
 
+  /**
+   * Helper to calculate a new position value for a task
+   * based on its neighbors in the array using a midpoint algorithm.
+   */
+  const calculateNewTaskPosition = (
+    tasks: Task[],
+    newIndex: number,
+  ): number => {
+    const prevTask = tasks[newIndex - 1];
+    const nextTask = tasks[newIndex + 1];
+
+    const prevPos = prevTask ? parseFloat(prevTask.position || "0") : 0;
+
+    if (!prevTask && nextTask) {
+      // Top of list
+      return parseFloat(nextTask.position || "0") / 2;
+    } else if (prevTask && !nextTask) {
+      // Bottom of list
+      return prevPos + 16384;
+    } else if (prevTask && nextTask) {
+      // Between two items
+      const nextPos = parseFloat(nextTask.position || "0");
+      return (prevPos + nextPos) / 2;
+    } else {
+      return 16384; // First item
+    }
+  };
+
   const handleTaskDragEnd = (event: DragEndEvent, groupId: string) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -1474,6 +1502,25 @@ export function WorkloadBoard({
         if (oldIndex === -1 || newIndex === -1) return group;
 
         const updatedTasks = arrayMove(group.tasks, oldIndex, newIndex);
+
+        // Calculate new position using helper
+        const newPosition = calculateNewTaskPosition(updatedTasks, newIndex);
+
+        // Update the position locally
+        updatedTasks[newIndex] = {
+          ...updatedTasks[newIndex],
+          position: newPosition.toString(),
+        };
+
+        // Persist to Database via API
+        tasksApi.updateTaskPosition({
+          id: active.id,
+          position: newPosition.toString(),
+        }).catch((err) => {
+          debugLog("Failed to persist task position:", err);
+          toast.error("Failed to save new task order");
+        });
+
         return { ...group, tasks: updatedTasks };
       });
 
@@ -2911,7 +2958,7 @@ export function WorkloadBoard({
   const deleteSingleTask = async (taskId: string) => {
     try {
       await tasksApi.deleteTask(taskId);
-      
+
       const updatedGroups = groups.map((group) => ({
         ...group,
         tasks: group.tasks
@@ -3201,9 +3248,9 @@ export function WorkloadBoard({
 
       toast.success("Reply Saved Successfully");
 
-      console.log("Saving inline reply:", payload);
+      debugLog("Saving inline reply:", payload);
     } catch (error) {
-      console.error("Failed to save reply:", error);
+      debugLog("Failed to save reply:", error);
       toast.error("Failed to Save Reply");
       throw error;
     } finally {
@@ -4228,7 +4275,7 @@ export function WorkloadBoard({
                       filterState.taskFilters.groups.size >
                       0 && (
                       <span className="text-xs font-bold opacity-70">
-                        /{"  "} 
+                        /{"  "}
                         {filterState.taskFilters.persons.size +
                           filterState.taskFilters.statuses.size +
                           filterState.taskFilters.priorities.size +
@@ -5189,8 +5236,12 @@ export function WorkloadBoard({
                                         onDragEnd={handleColumnDragEnd}
                                       >
                                         <SortableContext
-                                          items={workloadColumns.map((c) => c.id)}
-                                          strategy={horizontalListSortingStrategy}
+                                          items={workloadColumns.map(
+                                            (c) => c.id,
+                                          )}
+                                          strategy={
+                                            horizontalListSortingStrategy
+                                          }
                                         >
                                           <thead className="bg-muted/30 top-0 z-30">
                                             <tr className="text-sm text-muted-foreground group">
@@ -5213,8 +5264,9 @@ export function WorkloadBoard({
                                                     > = {};
                                                     group.tasks.forEach(
                                                       (task) => {
-                                                        updatedChecked[task.id] =
-                                                          e.target.checked;
+                                                        updatedChecked[
+                                                          task.id
+                                                        ] = e.target.checked;
                                                         // Also select/deselect subitems
                                                         if (task.subitems) {
                                                           task.subitems.forEach(
@@ -5286,7 +5338,8 @@ export function WorkloadBoard({
                                               activeTimerId:
                                                 timerState.activeTimerId,
                                               onTimerStart: handleTimerStart,
-                                              onTimerConflict: handleTimerConflict,
+                                              onTimerConflict:
+                                                handleTimerConflict,
                                             };
                                             return (
                                               <React.Fragment key={task.id}>
@@ -5309,7 +5362,8 @@ export function WorkloadBoard({
                                                         <input
                                                           type="checkbox"
                                                           checked={
-                                                            taskState.checkedTasks[
+                                                            taskState
+                                                              .checkedTasks[
                                                               task.id
                                                             ] || false
                                                           }
@@ -5322,163 +5376,185 @@ export function WorkloadBoard({
                                                         />
                                                       </td>
 
-                                                      {workloadColumns.map((col) => (
-                                                        <td
-                                                          key={col.id}
-                                                          className={cn(
-                                                            "p-4 border-r border-b border-border last:border-r-0",
-                                                            col.align === "center" &&
-                                                              "text-center",
-                                                            col.align === "left" &&
-                                                              "text-left",
-                                                            col.id === "item" &&
-                                                              "sticky left-12 z-10 bg-card",
-                                                          )}
-                                                          style={{
-                                                            width: col.width,
-                                                            minWidth:
-                                                              col.minWidth || col.width,
-                                                            maxWidth:
-                                                              col.maxWidth || col.width,
-                                                          }}
-                                                          onClick={(e) =>
-                                                            e.stopPropagation()
-                                                          }
-                                                        >
-                                                          {col.collapsed ? (
-                                                            <div className="flex items-center justify-center">
-                                                              <button
-                                                                className="h-6 w-6 rounded-sm   flex items-center justify-center"
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  toggleCollapseColumn(
-                                                                    col.id,
-                                                                  );
-                                                                }}
-                                                                aria-label={`Expand ${col.label}`}
-                                                                title={`Expand ${col.label}`}
-                                                              >
-                                                                <MoreHorizontal className="h-3 w-3" />
-                                                              </button>
-                                                            </div>
-                                                          ) : (
-                                                            col.render(taskWithProps)
-                                                          )}
-                                                        </td>
-                                                      ))}
+                                                      {workloadColumns.map(
+                                                        (col) => (
+                                                          <td
+                                                            key={col.id}
+                                                            className={cn(
+                                                              "p-4 border-r border-b border-border last:border-r-0",
+                                                              col.align ===
+                                                                "center" &&
+                                                                "text-center",
+                                                              col.align ===
+                                                                "left" &&
+                                                                "text-left",
+                                                              col.id ===
+                                                                "item" &&
+                                                                "sticky left-12 z-10 bg-card",
+                                                            )}
+                                                            style={{
+                                                              width: col.width,
+                                                              minWidth:
+                                                                col.minWidth ||
+                                                                col.width,
+                                                              maxWidth:
+                                                                col.maxWidth ||
+                                                                col.width,
+                                                            }}
+                                                            onClick={(e) =>
+                                                              e.stopPropagation()
+                                                            }
+                                                          >
+                                                            {col.collapsed ? (
+                                                              <div className="flex items-center justify-center">
+                                                                <button
+                                                                  className="h-6 w-6 rounded-sm   flex items-center justify-center"
+                                                                  onClick={(
+                                                                    e,
+                                                                  ) => {
+                                                                    e.stopPropagation();
+                                                                    toggleCollapseColumn(
+                                                                      col.id,
+                                                                    );
+                                                                  }}
+                                                                  aria-label={`Expand ${col.label}`}
+                                                                  title={`Expand ${col.label}`}
+                                                                >
+                                                                  <MoreHorizontal className="h-3 w-3" />
+                                                                </button>
+                                                              </div>
+                                                            ) : (
+                                                              col.render(
+                                                                taskWithProps,
+                                                              )
+                                                            )}
+                                                          </td>
+                                                        ),
+                                                      )}
                                                       {/* Filler column to absorb extra space and prevent stretching */}
                                                       <td
                                                         className="p-0 border-b border-border"
-                                                        style={{ width: "auto" }}
+                                                        style={{
+                                                          width: "auto",
+                                                        }}
                                                       />
                                                     </>
                                                   )}
                                                 </SortableTaskRow>
 
                                                 {/* ================= SUBITEM ROWS ================= */}
-                                                {effectiveExpandedTasks[task.id] &&
-                                                  task.subitems?.map((subtask) => {
-                                                    const subtaskWithProps = {
-                                                      ...subtask,
-                                                      boardId: boardId,
-                                                      activeTimerId:
-                                                        timerState.activeTimerId,
-                                                      onTimerStart:
-                                                        handleTimerStart,
-                                                      onTimerConflict:
-                                                        handleTimerConflict,
-                                                    };
-                                                    return (
-                                                      <tr
-                                                        key={subtask.id}
-                                                        className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors"
-                                                      >
-                                                        <td
-                                                          className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card"
-                                                          onClick={(e) =>
-                                                            e.stopPropagation()
-                                                          }
+                                                {effectiveExpandedTasks[
+                                                  task.id
+                                                ] &&
+                                                  task.subitems?.map(
+                                                    (subtask) => {
+                                                      const subtaskWithProps = {
+                                                        ...subtask,
+                                                        boardId: boardId,
+                                                        activeTimerId:
+                                                          timerState.activeTimerId,
+                                                        onTimerStart:
+                                                          handleTimerStart,
+                                                        onTimerConflict:
+                                                          handleTimerConflict,
+                                                      };
+                                                      return (
+                                                        <tr
+                                                          key={subtask.id}
+                                                          className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors"
                                                         >
-                                                          <input
-                                                            type="checkbox"
-                                                            checked={
-                                                              taskState
-                                                                .checkedTasks[
-                                                                subtask.id
-                                                              ] || false
+                                                          <td
+                                                            className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card"
+                                                            onClick={(e) =>
+                                                              e.stopPropagation()
                                                             }
-                                                            onChange={(e) =>
-                                                              handleTaskCheckChange(
-                                                                subtask.id,
-                                                                e.target.checked,
-                                                              )
-                                                            }
-                                                          />
-                                                        </td>
-
-                                                        {workloadColumns.map(
-                                                          (col) => (
-                                                            <td
-                                                              key={col.id}
-                                                              className={cn(
-                                                                "p-4 border-r border-b border-border last:border-r-0",
-                                                                col.align ===
-                                                                  "center" &&
-                                                                  "text-center",
-                                                                col.align ===
-                                                                  "left" &&
-                                                                  "text-left",
-                                                                col.id === "item" &&
-                                                                  "sticky left-12 z-10 bg-card",
-                                                              )}
-                                                              style={{
-                                                                width: col.width,
-                                                                minWidth:
-                                                                  col.minWidth ||
-                                                                  col.width,
-                                                                maxWidth:
-                                                                  col.maxWidth ||
-                                                                  col.width,
-                                                              }}
-                                                              onClick={(e) =>
-                                                                e.stopPropagation()
+                                                          >
+                                                            <input
+                                                              type="checkbox"
+                                                              checked={
+                                                                taskState
+                                                                  .checkedTasks[
+                                                                  subtask.id
+                                                                ] || false
                                                               }
-                                                            >
-                                                              {col.collapsed ? (
-                                                                <div className="flex items-center justify-center">
-                                                                  <button
-                                                                    className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
-                                                                    onClick={(
-                                                                      e,
-                                                                    ) => {
-                                                                      e.stopPropagation();
-                                                                      toggleCollapseColumn(
-                                                                        col.id,
-                                                                      );
-                                                                    }}
-                                                                    aria-label={`Expand ${col.label}`}
-                                                                    title={`Expand ${col.label}`}
-                                                                  >
-                                                                    <ChevronRight className="h-3 w-3" />
-                                                                  </button>
-                                                                </div>
-                                                              ) : (
-                                                                col.render(
-                                                                  subtaskWithProps,
-                                                                  true,
+                                                              onChange={(e) =>
+                                                                handleTaskCheckChange(
+                                                                  subtask.id,
+                                                                  e.target
+                                                                    .checked,
                                                                 )
-                                                              )}
-                                                            </td>
-                                                          ),
-                                                        )}
-                                                        {/* Filler column to absorb extra space and prevent stretching */}
-                                                        <td
-                                                          className="p-0 border-b border-border"
-                                                          style={{ width: "auto" }}
-                                                        />
-                                                      </tr>
-                                                    );
-                                                  })}
+                                                              }
+                                                            />
+                                                          </td>
+
+                                                          {workloadColumns.map(
+                                                            (col) => (
+                                                              <td
+                                                                key={col.id}
+                                                                className={cn(
+                                                                  "p-4 border-r border-b border-border last:border-r-0",
+                                                                  col.align ===
+                                                                    "center" &&
+                                                                    "text-center",
+                                                                  col.align ===
+                                                                    "left" &&
+                                                                    "text-left",
+                                                                  col.id ===
+                                                                    "item" &&
+                                                                    "sticky left-12 z-10 bg-card",
+                                                                )}
+                                                                style={{
+                                                                  width:
+                                                                    col.width,
+                                                                  minWidth:
+                                                                    col.minWidth ||
+                                                                    col.width,
+                                                                  maxWidth:
+                                                                    col.maxWidth ||
+                                                                    col.width,
+                                                                }}
+                                                                onClick={(e) =>
+                                                                  e.stopPropagation()
+                                                                }
+                                                              >
+                                                                {col.collapsed ? (
+                                                                  <div className="flex items-center justify-center">
+                                                                    <button
+                                                                      className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
+                                                                      onClick={(
+                                                                        e,
+                                                                      ) => {
+                                                                        e.stopPropagation();
+                                                                        toggleCollapseColumn(
+                                                                          col.id,
+                                                                        );
+                                                                      }}
+                                                                      aria-label={`Expand ${col.label}`}
+                                                                      title={`Expand ${col.label}`}
+                                                                    >
+                                                                      <ChevronRight className="h-3 w-3" />
+                                                                    </button>
+                                                                  </div>
+                                                                ) : (
+                                                                  col.render(
+                                                                    subtaskWithProps,
+                                                                    true,
+                                                                  )
+                                                                )}
+                                                              </td>
+                                                            ),
+                                                          )}
+                                                          {/* Filler column to absorb extra space and prevent stretching */}
+                                                          <td
+                                                            className="p-0 border-b border-border"
+                                                            style={{
+                                                              width: "auto",
+                                                            }}
+                                                          />
+                                                        </tr>
+                                                      );
+                                                    },
+                                                  )}
 
                                                 {/* ================= ADD SUBITEM ================= */}
                                                 {effectiveExpandedTasks[
@@ -5502,7 +5578,9 @@ export function WorkloadBoard({
                                                             className="h-8 flex-1"
                                                             autoFocus
                                                             placeholder="Enter subitem name"
-                                                            value={newSubitemName}
+                                                            value={
+                                                              newSubitemName
+                                                            }
                                                             onChange={(e) =>
                                                               setNewSubitemName(
                                                                 e.target.value,
@@ -5522,7 +5600,8 @@ export function WorkloadBoard({
                                                                 );
                                                               }
                                                               if (
-                                                                e.key === "Escape"
+                                                                e.key ===
+                                                                "Escape"
                                                               ) {
                                                                 setAddingSubitemToTask(
                                                                   null,
@@ -5536,7 +5615,9 @@ export function WorkloadBoard({
                                                               setAddingSubitemToTask(
                                                                 null,
                                                               );
-                                                              setNewSubitemName("");
+                                                              setNewSubitemName(
+                                                                "",
+                                                              );
                                                             }}
                                                           />
                                                         </div>
@@ -5612,7 +5693,9 @@ export function WorkloadBoard({
                                             ) : (
                                               <button
                                                 onClick={() => {
-                                                  setAddingItemToGroup(group.id);
+                                                  setAddingItemToGroup(
+                                                    group.id,
+                                                  );
                                                   // Scroll the main flex container to the right
                                                   if (
                                                     mainFlexContainerRef.current

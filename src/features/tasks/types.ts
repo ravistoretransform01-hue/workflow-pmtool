@@ -143,6 +143,7 @@ export interface UpdateTaskRequest {
   assignees?: number[]; // Multiple assignees
   is_private?: number;
   member?: string;
+  position?: string; // Support for task reordering
   // optional rating update - now an object with rating and assignee_id
   rating?: {
     rating: string | number;
