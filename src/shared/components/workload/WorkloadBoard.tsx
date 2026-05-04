@@ -3559,9 +3559,9 @@ export function WorkloadBoard({
   };
 
   const startColumnResize = (columnId: string, e: React.PointerEvent) => {
-    // Prevent resizing fixed columns
+    // Prevent resizing fixed columns (except for the item column)
     const column = workloadColumns.find((c) => c.id === columnId);
-    if (column?.fixed) {
+    if (column?.fixed && columnId !== "item") {
       return;
     }
 
@@ -3578,9 +3578,20 @@ export function WorkloadBoard({
 
     const onPointerMove = (ev: PointerEvent) => {
       const delta = (ev as PointerEvent).clientX - startX;
-      const newWidth = Math.round(startWidth + delta);
+      let newWidth = Math.round(startWidth + delta);
 
-      // Check if width is below minimum threshold
+      // Parse constraints from the column definition
+      const minW = currentCol?.minWidth
+        ? parseInt(String(currentCol.minWidth).replace(/px$/, ""))
+        : MIN_COLUMN_WIDTH;
+      const maxW = currentCol?.maxWidth
+        ? parseInt(String(currentCol.maxWidth).replace(/px$/, ""))
+        : 2000;
+
+      // Enforce constraints
+      newWidth = Math.max(minW, Math.min(maxW, newWidth));
+
+      // Check if width is below auto-collapse threshold
       if (newWidth < MIN_COLUMN_WIDTH) {
         // Auto-collapse the column
         setCollapsedColumns((prev) => ({
@@ -5420,6 +5431,15 @@ export function WorkloadBoard({
                                                                 col.id === "item" &&
                                                                   "sticky left-12 z-10 bg-card",
                                                               )}
+                                                              style={{
+                                                                width: col.width,
+                                                                minWidth:
+                                                                  col.minWidth ||
+                                                                  col.width,
+                                                                maxWidth:
+                                                                  col.maxWidth ||
+                                                                  col.width,
+                                                              }}
                                                               onClick={(e) =>
                                                                 e.stopPropagation()
                                                               }

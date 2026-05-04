@@ -80,13 +80,14 @@ export const AppSidebar = () => {
 
   const stopResizing = () => {
     setIsResizing(false);
-    localStorage.setItem("sidebar_width", sidebarWidth.toString());
   };
 
   const resize = (e: MouseEvent) => {
     if (isResizing) {
-      const newWidth = Math.min(Math.max(260, e.clientX), 500);
-      setSidebarWidth(newWidth);
+      setSidebarWidth((prev) => {
+        const newWidth = prev + e.movementX;
+        return Math.min(Math.max(260, newWidth), 500);
+      });
     }
   };
 
@@ -107,11 +108,12 @@ export const AppSidebar = () => {
   // Sync with global CSS variable so the whole layout reacts
   useEffect(() => {
     const provider = document.querySelector(
-      ".group\\/sidebar-wrapper"
+      ".group\\/sidebar-wrapper",
     ) as HTMLElement;
     if (provider) {
       provider.style.setProperty("--sidebar-width", `${sidebarWidth}px`);
     }
+    localStorage.setItem("sidebar_width", sidebarWidth.toString());
   }, [sidebarWidth]);
 
   const [addBoardOpen, setAddBoardOpen] = useState(false);
@@ -310,66 +312,66 @@ export const AppSidebar = () => {
 
       <SidebarSeparator />
 
-      <SidebarContent className="p-4">
-        {/* Main Navigation */}
-        <SidebarGroup>
-          {/* <SidebarGroupLabel>Navigation</SidebarGroupLabel> */}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {mainMenuItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.href}
-                      className={({ isActive }) =>
-                        `flex items-center gap-2 ${isActive ? "bg-hover" : ""}`
-                      }
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </NavLink>
+        <SidebarContent className="p-4">
+          {/* Main Navigation */}
+          <SidebarGroup>
+            {/* <SidebarGroupLabel>Navigation</SidebarGroupLabel> */}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {mainMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.href}
+                        className={({ isActive }) =>
+                          `flex items-center gap-2 ${isActive ? "bg-hover" : ""}`
+                        }
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+          <SidebarGroup className="hidden">
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    className="  hover:bg-red-500/30"
+                    onClick={() =>
+                      window.open(
+                        "https://www.loom.com/share/0355f68386c544959b6247d9c7750e9e",
+                        "_blank",
+                      )
+                    }
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="italic">Working Model</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  className="  hover:bg-red-500/30"
-                  onClick={() =>
-                    window.open(
-                      "https://www.loom.com/share/0355f68386c544959b6247d9c7750e9e",
-                      "_blank",
-                    )
-                  }
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  <span className="italic">Working Model</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  className="  hover:bg-red-500/30"
-                  onClick={() =>
-                    window.open(
-                      "https://www.canva.com/design/DAG_9fIOItw/idRFofw2acd1HKW7AsL1eQ/view",
-                      "_blank",
-                    )
-                  }
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  <span className="italic">Tool Guide</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    className="  hover:bg-red-500/30"
+                    onClick={() =>
+                      window.open(
+                        "https://www.canva.com/design/DAG_9fIOItw/idRFofw2acd1HKW7AsL1eQ/view",
+                        "_blank",
+                      )
+                    }
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="italic">Tool Guide</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
 
         {/* Workspace Selector & Add Menu */}
         <SidebarGroup>
