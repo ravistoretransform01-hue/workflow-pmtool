@@ -130,7 +130,7 @@ export const SortableColumnHeader = ({
         }`}
       >
         {/* Resizer handle (right edge) */}
-        {!column.fixed && !column.collapsed && (
+        {(!column.fixed || column.id === "item") && !column.collapsed && (
           <div
             onPointerDown={(e) => {
               e.stopPropagation();

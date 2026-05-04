@@ -115,7 +115,7 @@ export const getWorkloadColumns = ({
       label: "Item",
       width: "300px",
       minWidth: "300px",
-      maxWidth: "300px",
+      maxWidth: "800px",
       align: "left",
       fixed: true,
       render: (task: Task, isSubitem?: boolean) => {
