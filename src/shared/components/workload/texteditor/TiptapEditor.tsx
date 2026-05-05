@@ -557,20 +557,31 @@ export function TiptapEditor({
     ],
     content: value,
     editorProps: {
-      // handleKeyDown(view, event) {
-      //   return false; // allow other plugins (like mention) to handle it
-      // },
-      // handleKeyDown: (_, event) => {
-      //   if (
-      //     event.key === "Enter" &&
-      //     !event.shiftKey &&
-      //     !event.ctrlKey &&
-      //     !event.metaKey
-      //   ) {
-      //     return false;
-      //   }
-      //   return false;
-      // },
+      handleKeyDown: (_, event) => {
+        if (
+          event.key === "Enter" &&
+          !event.shiftKey &&
+          !event.ctrlKey &&
+          !event.metaKey
+        ) {
+          // If mention dropdown is open, let it handle Enter for selection
+          if (mentionOpen) return false;
+
+          // If we're inside a list, let the default behavior (new list item) happen
+          if (
+            editor?.isActive("bulletList") ||
+            editor?.isActive("orderedList") ||
+            editor?.isActive("taskList")
+          ) {
+            return false;
+          }
+
+          // Otherwise, insert a hard break (<br>) instead of a new paragraph
+          editor?.commands.setHardBreak();
+          return true;
+        }
+        return false;
+      },
       handlePaste: (view, event) => {
         const items = Array.from(event.clipboardData?.items || []);
         const images = items.filter((item) => item.type.startsWith("image/"));
@@ -1532,6 +1543,7 @@ export function TiptapEditor({
               "[&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto",
               "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2",
               "[&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_code]:text-sm",
+              "[&_p]:min-h-[1em] [&_p]:my-1",
               "[&_a]:text-primary [&_a]:hover:underline [&_a]:cursor-pointer",
               "[&_.ProseMirror.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror.is-editor-empty:first-child::before]:pointer-events-none",
               "[&_input[type='checkbox']]:cursor-pointer [&_input[type='checkbox']]:accent-primary",

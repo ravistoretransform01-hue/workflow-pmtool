@@ -259,6 +259,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                       "[&_code]:bg-muted/50 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-primary/90",
                       "[&_a]:text-primary [&_a]:font-medium [&_a]:underline-offset-4 hover:[&_a]:underline",
                       "[&_img]:rounded-lg [&_img]:my-2 [&_img]:border [&_img]:border-border/50 [&_img]:max-h-[350px] [&_img]:w-auto",
+                      "[&_p]:min-h-[1em] [&_p]:my-1",
                       !isContentExpanded &&
                         isLongContent &&
                         "max-h-[300px] overflow-hidden",
