@@ -34,6 +34,7 @@ import {
   Maximize2,
   Minimize2,
   Trash2,
+  Archive,
   Save,
   Pencil,
 } from "lucide-react";
@@ -428,6 +429,9 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     },
   });
 
+  const implementedTabs = ["Main Table", "List", "Kanban", "SOP"];
+  const isImplemented = implementedTabs.includes(tab);
+
   // Restrict transform to horizontal only (remove Y axis)
   let style = {
     transform: transform ? `translate3d(${transform.x}px, 0px, 0)` : undefined,
@@ -439,12 +443,17 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     <button
       ref={setNodeRef}
       style={style}
-      className={`px-3 py-2 text-sm font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
+      className={cn(
+        "px-3 py-2 text-sm font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap",
         activeTab === tab
           ? "text-primary border-b-primary"
-          : "text-muted-foreground border-b-transparent hover:text-foreground"
-      }`}
+          : isImplemented
+            ? "text-muted-foreground border-b-transparent hover:text-foreground"
+            : "text-amber-400/80 border-b-transparent hover:text-amber-400",
+      )}
+      // onClick={() => isImplemented && onTabClick(tab)}
       onClick={() => onTabClick(tab)}
+      title={!isImplemented ? "Coming Soon" : undefined}
       {...attributes}
       {...listeners}
     >
@@ -1513,13 +1522,15 @@ export function WorkloadBoard({
         };
 
         // Persist to Database via API
-        tasksApi.updateTaskPosition({
-          id: active.id,
-          position: newPosition.toString(),
-        }).catch((err) => {
-          debugLog("Failed to persist task position:", err);
-          toast.error("Failed to save new task order");
-        });
+        tasksApi
+          .updateTaskPosition({
+            id: active.id,
+            position: newPosition.toString(),
+          })
+          .catch((err) => {
+            debugLog("Failed to persist task position:", err);
+            toast.error("Failed to save new task order");
+          });
 
         return { ...group, tasks: updatedTasks };
       });
@@ -2953,6 +2964,27 @@ export function WorkloadBoard({
       console.error("Failed to delete tasks:", error);
       toast.error("Failed to Delete Tasks");
     }
+  };
+
+  const archiveCheckedTasks = async () => {
+    const checkedTaskIds = Object.entries(taskState.checkedTasks)
+      .filter(([, checked]) => checked)
+      .map(([id]) => id);
+
+    if (checkedTaskIds.length === 0) return;
+
+    // For now, we'll mark this as "Coming Soon" styling if requested, 
+    // but the user asked for the button next to delete.
+    // If there's no archive API yet, we'll show a toast.
+    toast.info("Archive functionality coming soon", {
+      description: `Attempted to archive ${checkedTaskIds.length} task(s).`,
+      style: {
+        border: '1px solid #fbbf24',
+      }
+    });
+    
+    // Optional: if we want it to actually do something, we could update status to an 'archived' status if known.
+    // But since I don't see an archive property or specific status, I'll stick to the "Coming Soon" pattern used elsewhere.
   };
 
   const deleteSingleTask = async (taskId: string) => {
@@ -6088,6 +6120,15 @@ export function WorkloadBoard({
                   >
                     <Trash2 className="h-5 w-5" />
                     <span className="text-xs">Delete</span>
+                  </button>
+
+                  <button
+                    className="flex flex-col items-center gap-1 text-amber-400 hover:text-amber-500 transition-colors cursor-help"
+                    onClick={archiveCheckedTasks}
+                    title="Archive (Coming Soon)"
+                  >
+                    <Archive className="h-5 w-5" />
+                    <span className="text-xs">Archive</span>
                   </button>
                 </div>
               </div>

@@ -538,8 +538,8 @@ export default function BoardDashboardPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full max-w-2xl grid-cols-3 mb-6">
             <TabsTrigger value="user-management">User management</TabsTrigger>
-            <TabsTrigger value="permissions">Permissions</TabsTrigger>
-            <TabsTrigger value="my-schedule">My Schedule</TabsTrigger>
+            <TabsTrigger value="permissions" className="text-amber-400" title="Coming Soon">Permissions</TabsTrigger>
+            <TabsTrigger value="my-schedule" className="text-amber-400" title="Coming Soon">My Schedule</TabsTrigger>
           </TabsList>
 
           {/* User Management Tab */}

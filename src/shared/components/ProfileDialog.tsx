@@ -8,7 +8,14 @@ import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Badge } from "@/shared/components/ui/badge";
-import { Mail, Phone, Smartphone, MapPin, Calendar, BellRing } from "lucide-react";
+import {
+  Mail,
+  Phone,
+  Smartphone,
+  MapPin,
+  Calendar,
+  BellRing,
+} from "lucide-react";
 import { Switch } from "@/shared/components/ui/switch";
 import { Label } from "@/shared/components/ui/label";
 import { Skeleton } from "@/shared/components/ui/skeleton";
@@ -50,7 +57,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
       // Always fetch fresh user meta data
       const [userMeta, emailPrefs] = await Promise.all([
         userApi.getUserMeta(),
-        userApi.getEmailPreferences()
+        userApi.getEmailPreferences(),
       ]);
       setJobTitle(userMeta.job_title || "");
       setPhone(userMeta.phone || "");
@@ -102,7 +109,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
           job_title: jobTitle,
           email_notifications: emailNotifications,
         }),
-        userApi.updateEmailPreferences(emailNotifications)
+        userApi.updateEmailPreferences(emailNotifications),
       ]);
       onOpenChange(false);
       toast.success("Profile Updated Successfully");
@@ -117,7 +124,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   const handleToggleEmailNotifications = async (checked: boolean) => {
     // Optimistic update
     setEmailNotifications(checked);
-    
+
     try {
       await userApi.updateEmailPreferences(checked);
       toast.success(`Email notifications ${checked ? "enabled" : "disabled"}`);
@@ -173,7 +180,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                       {displayRole}
                     </Badge>
 
-                    <div className="space-y-3 pt-4">
+                    <div className="hidden space-y-3 pt-4">
                       <h3 className="font-semibold">Your work schedules:</h3>
                       <Button
                         variant="outline"
@@ -201,8 +208,15 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                           />
                         )}
                         <div className="space-y-0.5">
-                          <Label htmlFor="dialog-email-notifications" className="text-sm font-medium">Email Notifications</Label>
-                          <p className="text-xs text-muted-foreground">Receive updates via email.</p>
+                          <Label
+                            htmlFor="dialog-email-notifications"
+                            className="text-sm font-medium"
+                          >
+                            Email Notifications
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Receive updates via email.
+                          </p>
                         </div>
                       </div>
                     </div>
