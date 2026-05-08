@@ -16,19 +16,20 @@
 //   return <>{children}</>;
 // }
 
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { SidebarProvider } from "@/shared/components/ui/sidebar";
 import { AppSidebar } from "@/shared/components/AppSidebar";
 import { Header } from "@/shared/components/Header";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { setUser } from "@/features/auth/authSlice";
+import { setUser, switchOrganization } from "@/features/auth/authSlice";
 import type { AppDispatch } from "@/app/store";
 import type { User } from "@/features/auth/types";
 
 function ProtectedRoute() {
   const { isAuthenticated, user } = useAuth();
+  const { orgId } = useParams<{ orgId: string }>();
   const dispatch = useDispatch<AppDispatch>();
 
   // Restore user data from localStorage on app load if user is not in Redux
@@ -45,6 +46,52 @@ function ProtectedRoute() {
       }
     }
   }, [isAuthenticated, user, dispatch]);
+
+  // Synchronize organization ID from URL if it exists and differs from current user state
+  // This ensures the current tab always prioritizes its own URL
+  useEffect(() => {
+    if (isAuthenticated && user && orgId) {
+      const urlOrgId = parseInt(orgId, 10);
+      if (!isNaN(urlOrgId) && user.organization_id !== urlOrgId) {
+        // Verify if user is actually a member of this organization
+        const isMember = user.organizations?.some(
+          (org) => org.organization_id === urlOrgId
+        );
+
+        if (isMember) {
+          dispatch(switchOrganization(urlOrgId));
+        }
+      }
+    }
+  }, [isAuthenticated, user?.organization_id, orgId, dispatch]);
+
+  // Listen for localStorage changes from other tabs to keep Redux in sync
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "user_data" && e.newValue) {
+        try {
+          const parsedUser = JSON.parse(e.newValue) as User;
+          // Only update if the user_id matches (to avoid cross-user issues)
+          // but allow the organization_id to be updated via Redux
+          if (user && parsedUser.user_id === user.user_id) {
+            // Check if we need to force a re-sync with our URL
+            const urlOrgId = orgId ? parseInt(orgId, 10) : null;
+            if (urlOrgId && !isNaN(urlOrgId) && parsedUser.organization_id !== urlOrgId) {
+               // The storage changed but it doesn't match THIS tab's URL
+               // The URL sync effect above will handle switching it back to what THIS tab needs
+               return;
+            }
+            dispatch(setUser(parsedUser));
+          }
+        } catch (err) {
+          console.error("Failed to sync state from storage event:", err);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [user, orgId, dispatch]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
