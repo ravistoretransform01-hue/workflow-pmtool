@@ -138,9 +138,24 @@ export const AppSidebar = () => {
   }, [orgId, fetchBoards]);
 
   const mainMenuItems = [
-    { icon: Home, label: "Dashboard", href: `/org/${orgId}/home` },
-    { icon: FolderKanban, label: "All Items", href: `/org/${orgId}/all-items` },
-    { icon: Briefcase, label: "My Habits", href: `/org/${orgId}/my-habits` },
+    {
+      icon: Home,
+      label: "Dashboard",
+      href: `/org/${orgId}/home`,
+      isImplemented: false,
+    },
+    {
+      icon: FolderKanban,
+      label: "All Items",
+      href: `/org/${orgId}/all-items`,
+      isImplemented: false,
+    },
+    {
+      icon: Briefcase,
+      label: "My Habits",
+      href: `/org/${orgId}/my-habits`,
+      isImplemented: false,
+    },
     // { icon: User, label: "Profile", href: `/org/${orgId}/profile` },
   ];
 
@@ -284,33 +299,37 @@ export const AppSidebar = () => {
           `}
         </style>
       )}
-      <Sidebar 
+      <Sidebar
         className={cn("z-20", isResizing && "transition-none")}
-        style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
+        style={
+          { "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties
+        }
       >
-      {/* Resize Handle */}
-      <div
-        className={cn(
-          "absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-50 transition-colors hover:bg-blue-500/30 group/sidebar-handle",
-          isResizing ? "bg-blue-500/50 w-1.5" : ""
-        )}
-        onMouseDown={startResizing}
-      >
-        <div className={cn(
-          "absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-12 rounded-l-md bg-blue-500/50 opacity-0 transition-all group-hover/sidebar-handle:opacity-100",
-          isResizing ? "opacity-100 h-24 w-2" : ""
-        )} />
-      </div>
-      <SidebarHeader className="h-16 flex items-center justify-center">
-        <div className="flex items-center justify-between gap-2 w-full px-6">
-          <div className="flex items-center gap-2">
-            <Logo size={32} rounded="rounded-md" bgColor="bg-white" />
-            {open && <h1 className="text-lg">{appName}</h1>}
-          </div>
+        {/* Resize Handle */}
+        <div
+          className={cn(
+            "absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-50 transition-colors hover:bg-blue-500/30 group/sidebar-handle",
+            isResizing ? "bg-blue-500/50 w-1.5" : "",
+          )}
+          onMouseDown={startResizing}
+        >
+          <div
+            className={cn(
+              "absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-12 rounded-l-md bg-blue-500/50 opacity-0 transition-all group-hover/sidebar-handle:opacity-100",
+              isResizing ? "opacity-100 h-24 w-2" : "",
+            )}
+          />
         </div>
-      </SidebarHeader>
+        <SidebarHeader className="h-16 flex items-center justify-center">
+          <div className="flex items-center justify-between gap-2 w-full px-6">
+            <div className="flex items-center gap-2">
+              <Logo size={32} rounded="rounded-md" bgColor="bg-white" />
+              {open && <h1 className="text-lg">{appName}</h1>}
+            </div>
+          </div>
+        </SidebarHeader>
 
-      <SidebarSeparator />
+        <SidebarSeparator />
 
         <SidebarContent className="p-4">
           {/* Main Navigation */}
@@ -321,15 +340,26 @@ export const AppSidebar = () => {
                 {mainMenuItems.map((item) => (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.href}
-                        className={({ isActive }) =>
-                          `flex items-center gap-2 ${isActive ? "bg-hover" : ""}`
-                        }
-                      >
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.label}</span>
-                      </NavLink>
+                      {item.isImplemented !== false ? (
+                        <NavLink
+                          to={item.href}
+                          className={({ isActive }) =>
+                            `flex items-center gap-2 ${isActive ? "bg-hover" : ""}`
+                          }
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </NavLink>
+                      ) : (
+                        <NavLink
+                          to={item.href}
+                          className="flex items-center gap-2 px-2 py-1.5 text-amber-400/80 w-full"
+                          title="Coming Soon"
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </NavLink>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -373,52 +403,52 @@ export const AppSidebar = () => {
             </SidebarGroupContent>
           </SidebarGroup>
 
-        {/* Workspace Selector & Add Menu */}
-        <SidebarGroup>
-          <div className="flex items-center justify-between px-0">
-            <SidebarGroupLabel className="font-bold text-white text-lg">
-              Projects
-            </SidebarGroupLabel>
-            <div className="flex items-center gap-1">
-              <Popover open={addMenuOpen} onOpenChange={setAddMenuOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="default" size="sm" className="h-6 w-6 p-0">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-48 p-2" align="start">
-                  <div className="space-y-1">
-                    <button
-                      onClick={() => {
-                        setAddMenuOpen(false);
-                        setAddBoardOpen(true);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-white transition-colors text-left cursor-pointer text-white"
-                    >
-                      <LayoutDashboard className="h-4 w-4 text-white" />
-                      <span>New Project</span>
-                    </button>
-                    <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-white transition-colors text-left cursor-pointer text-white">
-                      <Copy className="h-4 w-4 text-white" />
-                      <span>Start with template</span>
-                    </button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={() => setBoardSearchOpen(true)}
-              >
-                <Search className="h-4 w-4" />
-              </Button>
+          {/* Workspace Selector & Add Menu */}
+          <SidebarGroup>
+            <div className="flex items-center justify-between px-0">
+              <SidebarGroupLabel className="font-bold text-white text-lg">
+                Projects
+              </SidebarGroupLabel>
+              <div className="flex items-center gap-1">
+                <Popover open={addMenuOpen} onOpenChange={setAddMenuOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="default" size="sm" className="h-6 w-6 p-0">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2" align="start">
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          setAddMenuOpen(false);
+                          setAddBoardOpen(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-white transition-colors text-left cursor-pointer text-white"
+                      >
+                        <LayoutDashboard className="h-4 w-4 text-white" />
+                        <span>New Project</span>
+                      </button>
+                      <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-white transition-colors text-left cursor-pointer text-white">
+                        <Copy className="h-4 w-4 text-white" />
+                        <span>Start with template</span>
+                      </button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => setBoardSearchOpen(true)}
+                >
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
-        </SidebarGroup>
+          </SidebarGroup>
 
-        {/* COMMENTED OUT: Nested popover structure - may be useful in the future */}
-        {/* 
+          {/* COMMENTED OUT: Nested popover structure - may be useful in the future */}
+          {/* 
         <SidebarGroup>
           <div className="flex items-center justify-between px-2">
             <SidebarGroupLabel>
@@ -433,7 +463,7 @@ export const AppSidebar = () => {
               <PopoverContent className="w-56 p-2" align="start">
                 <div className="space-y-1">
                   {/* Board Submenu */}
-        {/* <div
+          {/* <div
                     className="relative"
                     onMouseEnter={() => setHoveredSubmenu("board")}
                     onMouseLeave={() => setHoveredSubmenu(null)}
@@ -466,8 +496,8 @@ export const AppSidebar = () => {
                     )}
                   </div> */}
 
-        {/* Document Submenu */}
-        {/* <div
+          {/* Document Submenu */}
+          {/* <div
                     className="relative"
                     onMouseEnter={() => setHoveredSubmenu("doc")}
                     onMouseLeave={() => setHoveredSubmenu(null)}
@@ -500,134 +530,134 @@ export const AppSidebar = () => {
                     )}
                   </div> */}
 
-        {/* Folder */}
-        {/* <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-hover hover:text-foreground transition-colors text-left">
+          {/* Folder */}
+          {/* <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-hover hover:text-foreground transition-colors text-left">
                     <Folder className="h-4 w-4 text-muted-foreground" />
                     <span>Folder</span>
                   </button> */}
-        {/* </div>
+          {/* </div>
               </PopoverContent>
             </Popover>
           </div>
         </SidebarGroup>
         */}
 
-        {/* Boards & Documents */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              {/* Loading State */}
-              {fetchLoading && (
-                <SidebarMenuItem>
-                  <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Loading boards...</span>
-                  </div>
-                </SidebarMenuItem>
-              )}
-
-              {/* Boards from API */}
-              {!fetchLoading && boards.length > 0 ? (
-                boards.map((board) => (
-                  <SidebarMenuItem key={board.id} className="p-0">
-                    <div
-                      className={`flex items-center gap-1 w-full group px-2 py-1.5 rounded-md ${boardId === board.id ? "bg-accent" : "hover:bg-hover"}`}
-                    >
-                      <button
-                        onClick={() =>
-                          navigate(
-                            `/org/${orgId}/board/${board.id}/view/Main%20Table`,
-                          )
-                        }
-                        className="flex items-center gap-2 flex-1 text-left min-w-0"
-                        title={board.name}
-                      >
-                        <LayoutDashboard className="h-4 w-4 shrink-0" />
-                        <span className="truncate text-sm overflow-hidden text-ellipsis">
-                          {board.name}
-                        </span>
-                      </button>
-
-                      {/* Dropdown Menu */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded-md flex-shrink-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-48">
-                          <DropdownMenuItem
-                            onClick={() => handleOpenBoardInNewTab(board.id)}
-                          >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            <span>Open in new tab</span>
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleRenameBoard(board.id, board.name)
-                            }
-                          >
-                            <Pencil className="h-4 w-4 mr-2" />
-                            <span>Rename</span>
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleDuplicateBoard(board.id, board.name)
-                            }
-                            disabled={isDuplicating}
-                          >
-                            {isDuplicating ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Copy className="h-4 w-4 mr-2" />
-                            )}
-                            <span>Duplicate</span>
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleDeleteBoard(board.id, board.name)
-                            }
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            <span>Delete Project</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+          {/* Boards & Documents */}
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-1">
+                {/* Loading State */}
+                {fetchLoading && (
+                  <SidebarMenuItem>
+                    <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Loading boards...</span>
                     </div>
                   </SidebarMenuItem>
-                ))
-              ) : !fetchLoading && boards.length === 0 ? (
-                <SidebarMenuItem>
-                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                    No boards available
-                  </div>
-                </SidebarMenuItem>
-              ) : null}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+                )}
 
-      {/* Add Board Dialog */}
-      <AddBoardDialog
-        open={addBoardOpen}
-        onOpenChange={(open) => {
-          setAddBoardOpen(open);
-          // if (!open) {
-          //   setSelectedTemplateId(null); // Reset template when dialog closes
-          // }
-        }}
-        onBoardCreated={fetchBoards}
-        // templateId={selectedTemplateId}
-        organizationId={Number(orgId) || -1}
-      />
+                {/* Boards from API */}
+                {!fetchLoading && boards.length > 0 ? (
+                  boards.map((board) => (
+                    <SidebarMenuItem key={board.id} className="p-0">
+                      <div
+                        className={`flex items-center gap-1 w-full group px-2 py-1.5 rounded-md ${boardId === board.id ? "bg-accent" : "hover:bg-hover"}`}
+                      >
+                        <button
+                          onClick={() =>
+                            navigate(
+                              `/org/${orgId}/board/${board.id}/view/Main%20Table`,
+                            )
+                          }
+                          className="flex items-center gap-2 flex-1 text-left min-w-0"
+                          title={board.name}
+                        >
+                          <LayoutDashboard className="h-4 w-4 shrink-0" />
+                          <span className="truncate text-sm overflow-hidden text-ellipsis">
+                            {board.name}
+                          </span>
+                        </button>
 
-      {/* Add Board Dialog */}
-      {/* <Dialog open={addBoardOpen} onOpenChange={setAddBoardOpen}>
+                        {/* Dropdown Menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded-md flex-shrink-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuItem
+                              onClick={() => handleOpenBoardInNewTab(board.id)}
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              <span>Open in new tab</span>
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleRenameBoard(board.id, board.name)
+                              }
+                            >
+                              <Pencil className="h-4 w-4 mr-2" />
+                              <span>Rename</span>
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleDuplicateBoard(board.id, board.name)
+                              }
+                              disabled={isDuplicating}
+                            >
+                              {isDuplicating ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <Copy className="h-4 w-4 mr-2" />
+                              )}
+                              <span>Duplicate</span>
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleDeleteBoard(board.id, board.name)
+                              }
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              <span>Delete Project</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </SidebarMenuItem>
+                  ))
+                ) : !fetchLoading && boards.length === 0 ? (
+                  <SidebarMenuItem>
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No boards available
+                    </div>
+                  </SidebarMenuItem>
+                ) : null}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        {/* Add Board Dialog */}
+        <AddBoardDialog
+          open={addBoardOpen}
+          onOpenChange={(open) => {
+            setAddBoardOpen(open);
+            // if (!open) {
+            //   setSelectedTemplateId(null); // Reset template when dialog closes
+            // }
+          }}
+          onBoardCreated={fetchBoards}
+          // templateId={selectedTemplateId}
+          organizationId={Number(orgId) || -1}
+        />
+
+        {/* Add Board Dialog */}
+        {/* <Dialog open={addBoardOpen} onOpenChange={setAddBoardOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Board</DialogTitle>
@@ -649,169 +679,172 @@ export const AppSidebar = () => {
         </DialogContent>
       </Dialog> */}
 
-      {/* Create Document Dialog */}
-      <Dialog open={createDocOpen} onOpenChange={setCreateDocOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Document</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <Input
-              placeholder="Document name"
-              value={newDocName}
-              onChange={(e) => setNewDocName(e.target.value)}
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCreateDocOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateDoc}>Create</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Board Search Dialog */}
-      <Dialog open={boardSearchOpen} onOpenChange={setBoardSearchOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Search Boards</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+        {/* Create Document Dialog */}
+        <Dialog open={createDocOpen} onOpenChange={setCreateDocOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Document</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
               <Input
-                placeholder="Search boards..."
-                value={boardSearchQuery}
-                onChange={(e) => setBoardSearchQuery(e.target.value)}
-                className="pl-9"
+                placeholder="Document name"
+                value={newDocName}
+                onChange={(e) => setNewDocName(e.target.value)}
                 autoFocus
               />
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setCreateDocOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateDoc}>Create</Button>
+              </div>
             </div>
+          </DialogContent>
+        </Dialog>
 
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {filteredBoards.length > 0 ? (
-                filteredBoards.map((board) => (
-                  <button
-                    key={board.id}
-                    onClick={() => {
-                      navigate(
-                        `/org/${orgId}/board/${board.id}/view/Main%20Table`,
-                      );
-                      setBoardSearchOpen(false);
-                      setBoardSearchQuery("");
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent rounded-lg transition-colors text-left"
-                  >
-                    <div
-                      className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                      style={{ backgroundColor: board.icon_color }}
+        {/* Board Search Dialog */}
+        <Dialog open={boardSearchOpen} onOpenChange={setBoardSearchOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Search Boards</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+                <Input
+                  placeholder="Search boards..."
+                  value={boardSearchQuery}
+                  onChange={(e) => setBoardSearchQuery(e.target.value)}
+                  className="pl-9"
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {filteredBoards.length > 0 ? (
+                  filteredBoards.map((board) => (
+                    <button
+                      key={board.id}
+                      onClick={() => {
+                        navigate(
+                          `/org/${orgId}/board/${board.id}/view/Main%20Table`,
+                        );
+                        setBoardSearchOpen(false);
+                        setBoardSearchQuery("");
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent rounded-lg transition-colors text-left"
                     >
-                      {board.icon_value || board.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium block truncate">
-                        {board.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Workspace {board.workspace_id}
-                      </span>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <p className="text-center text-muted-foreground py-8 text-sm">
-                  {boardSearchQuery
-                    ? "No boards found"
-                    : "Start typing to search boards"}
-                </p>
-              )}
+                      <div
+                        className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                        style={{ backgroundColor: board.icon_color }}
+                      >
+                        {board.icon_value || board.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium block truncate">
+                          {board.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Workspace {board.workspace_id}
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-center text-muted-foreground py-8 text-sm">
+                    {boardSearchQuery
+                      ? "No boards found"
+                      : "Start typing to search boards"}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
 
-      {/* Rename Board Dialog */}
-      <Dialog
-        open={!!renamingBoardId}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRenamingBoardId(null);
-            setRenamingBoardName("");
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rename Board</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <Input
-              placeholder="Board name"
-              value={renamingBoardName}
-              onChange={(e) => setRenamingBoardName(e.target.value)}
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setRenamingBoardId(null);
-                  setRenamingBoardName("");
-                }}
-              >
-                Cancel
-              </Button>
-              <Button onClick={() => handleSaveRename()}>Save</Button>
+        {/* Rename Board Dialog */}
+        <Dialog
+          open={!!renamingBoardId}
+          onOpenChange={(open) => {
+            if (!open) {
+              setRenamingBoardId(null);
+              setRenamingBoardName("");
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rename Board</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Input
+                placeholder="Board name"
+                value={renamingBoardName}
+                onChange={(e) => setRenamingBoardName(e.target.value)}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setRenamingBoardId(null);
+                    setRenamingBoardName("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={() => handleSaveRename()}>Save</Button>
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
 
-      {/* Delete Board Confirmation Dialog */}
-      <Dialog
-        open={!!deletingBoardId}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeletingBoardId(null);
-            setDeletingBoardName("");
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Board</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">
-              Are you sure you want to delete{" "}
-              <strong>{deletingBoardName}</strong>? This action cannot be
-              undone.
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setDeletingBoardId(null);
-                  setDeletingBoardName("");
-                }}
-                disabled={isDeleting}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleConfirmDelete}
-                disabled={isDeleting}
-              >
-                {isDeleting ? "Deleting..." : "Delete"}
-              </Button>
+        {/* Delete Board Confirmation Dialog */}
+        <Dialog
+          open={!!deletingBoardId}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeletingBoardId(null);
+              setDeletingBoardName("");
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Board</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to delete{" "}
+                <strong>{deletingBoardName}</strong>? This action cannot be
+                undone.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDeletingBoardId(null);
+                    setDeletingBoardName("");
+                  }}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </Button>
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </Sidebar>
+          </DialogContent>
+        </Dialog>
+      </Sidebar>
     </>
   );
 };
