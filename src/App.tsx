@@ -102,9 +102,17 @@ const App = () => {
           notification.onclick = (event) => {
             event.preventDefault();
             if (url) {
-              window.open(url, "_blank");
+              const targetUrl = new URL(url, window.location.origin);
+              
+              // If the URL is on the same origin, navigate in current tab
+              if (targetUrl.origin === window.location.origin) {
+                window.location.href = targetUrl.href;
+              } else {
+                window.open(url, "_blank");
+              }
             }
             notification.close();
+            window.focus(); // Bring the current tab to focus
           };
         }
       });
