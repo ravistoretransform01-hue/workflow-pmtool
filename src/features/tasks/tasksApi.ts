@@ -43,6 +43,7 @@ const TASKS_ENDPOINTS = {
   GET_BOARD_SOPS: (boardId: string | number) => `/boards/${boardId}/sops`,
   GET_CLIENT_COMMENTS: (taskId: string | number) =>
     `/tasks/${taskId}/comments/isclient`,
+  ARCHIVE_TASK: (taskId: string | number) => `/tasks/${taskId}/archive`,
 };
 
 export const tasksApi = {
@@ -737,6 +738,26 @@ export const tasksApi = {
       return response.data.data;
     } catch (error) {
       console.error("Failed to update task position:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Archive or unarchive a task
+   */
+  archiveTask: async (
+    taskId: string | number,
+    isArchived: boolean,
+  ): Promise<{ id: number; is_archived: boolean }> => {
+    try {
+      const response = await axios.put<{
+        data: { id: number; is_archived: boolean };
+      }>(TASKS_ENDPOINTS.ARCHIVE_TASK(taskId), {
+        is_archived: isArchived ? 1 : 0,
+      });
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to archive task:", error);
       throw error;
     }
   },

@@ -2973,18 +2973,32 @@ export function WorkloadBoard({
 
     if (checkedTaskIds.length === 0) return;
 
-    // For now, we'll mark this as "Coming Soon" styling if requested, 
-    // but the user asked for the button next to delete.
-    // If there's no archive API yet, we'll show a toast.
-    toast.info("Archive functionality coming soon", {
-      description: `Attempted to archive ${checkedTaskIds.length} task(s).`,
-      style: {
-        border: '1px solid #fbbf24',
+    try {
+      // Archive tasks via API
+      for (const taskId of checkedTaskIds) {
+        await tasksApi.archiveTask(taskId, true);
       }
-    });
-    
-    // Optional: if we want it to actually do something, we could update status to an 'archived' status if known.
-    // But since I don't see an archive property or specific status, I'll stick to the "Coming Soon" pattern used elsewhere.
+
+      // Update local state - remove archived tasks from the current view
+      const updatedGroups = groups.map((group) => ({
+        ...group,
+        tasks: group.tasks
+          .filter((task) => !checkedTaskIds.includes(task.id))
+          .map((task) => ({
+            ...task,
+            subitems: task.subitems?.filter(
+              (subitem) => !checkedTaskIds.includes(subitem.id),
+            ),
+          })),
+      }));
+
+      setGroups(updatedGroups);
+      taskState.clearCheckedTasks();
+      toast.success(`${checkedTaskIds.length} Task(s) Archived Successfully`);
+    } catch (error) {
+      console.error("Failed to archive tasks:", error);
+      toast.error("Failed to Archive Tasks");
+    }
   };
 
   const deleteSingleTask = async (taskId: string) => {
@@ -6123,9 +6137,8 @@ export function WorkloadBoard({
                   </button>
 
                   <button
-                    className="flex flex-col items-center gap-1 text-amber-400 hover:text-amber-500 transition-colors cursor-help"
+                    className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
                     onClick={archiveCheckedTasks}
-                    title="Archive (Coming Soon)"
                   >
                     <Archive className="h-5 w-5" />
                     <span className="text-xs">Archive</span>

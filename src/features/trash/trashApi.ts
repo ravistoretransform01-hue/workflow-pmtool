@@ -86,4 +86,14 @@ export const trashApi = {
       item_type: itemType,
     });
   },
+
+  getArchivedTasks: async (organizationId: number): Promise<TrashTask[]> => {
+    const response = await api.get<{ data: TrashTask[] }>(`/tasks/`, {
+      params: { 
+        organization_id: organizationId,
+        show_archived: 1 
+      },
+    });
+    return response.data.data || [];
+  },
 };

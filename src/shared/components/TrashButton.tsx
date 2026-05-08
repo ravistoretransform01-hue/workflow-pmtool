@@ -43,6 +43,8 @@ import {
 } from "@/features/trash/trashApi";
 import { getOrganizationId, cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAppDispatch } from "@/app/hooks";
+import { triggerRefresh } from "@/features/ui/uiSlice";
 
 export function TrashButton() {
   const [open, setOpen] = useState(false);
@@ -71,6 +73,7 @@ interface TrashDialogProps {
 type TrashItemType = "task" | "board" | "group" | "status" | "priority";
 
 function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
+  const dispatch = useAppDispatch();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>(
     {},
@@ -79,6 +82,9 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
   const [activeType, setActiveType] = useState<TrashItemType>("task");
   const [loading, setLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [archivedTasks, setArchivedTasks] = useState<TrashTask[]>([]);
+  const [archivedLoading, setArchivedLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"trash" | "archive">("trash");
 
   // Helper function to get initials from name
   const getInitials = (name: string) => {
@@ -114,7 +120,23 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
       }
     };
 
+    const loadArchivedData = async () => {
+      setArchivedLoading(true);
+      try {
+        const orgId = getOrganizationId();
+        if (!orgId) return;
+
+        const data = await trashApi.getArchivedTasks(orgId);
+        setArchivedTasks(data);
+      } catch (error) {
+        console.error("Error loading archived tasks:", error);
+      } finally {
+        setArchivedLoading(false);
+      }
+    };
+
     loadTrashData();
+    loadArchivedData();
   }, [open]);
 
   // Map activeType to the key in trashData
@@ -224,6 +246,48 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
     }
   };
 
+  const handleUnarchive = async (taskId: string) => {
+    try {
+      // Use the newly added tasksApi.archiveTask with isArchived = false
+      const { tasksApi } = await import("@/features/tasks/tasksApi");
+      await tasksApi.archiveTask(taskId, false);
+      
+      toast.success("Task Unarchived Successfully");
+      setArchivedTasks(prev => prev.filter(t => t.id !== taskId));
+      
+      // Trigger background refresh to update WorkloadBoard
+      dispatch(triggerRefresh());
+    } catch (error) {
+      console.error("Failed to unarchive task:", error);
+      toast.error("Failed to Unarchive Task");
+    }
+  };
+
+  const handleBulkUnarchive = async () => {
+    const selectedIds = Object.keys(selectedItems).filter(id => selectedItems[id]);
+    if (selectedIds.length === 0) return;
+
+    setIsDeleting(true);
+    try {
+      const { tasksApi } = await import("@/features/tasks/tasksApi");
+      for (const id of selectedIds) {
+        await tasksApi.archiveTask(id, false);
+      }
+      
+      toast.success(`${selectedIds.length} Task(s) Unarchived Successfully`);
+      setArchivedTasks(prev => prev.filter(t => !selectedIds.includes(t.id)));
+      setSelectedItems({});
+      
+      // Trigger background refresh to update WorkloadBoard
+      dispatch(triggerRefresh());
+    } catch (error) {
+      console.error("Failed to bulk unarchive tasks:", error);
+      toast.error("Failed to Unarchive Tasks");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const selectedCount = Object.values(selectedItems).filter(Boolean).length;
 
   return (
@@ -242,7 +306,12 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
         </div>
 
         <Tabs
-          defaultValue="trash"
+          value={activeTab}
+          onValueChange={(v) => {
+            setActiveTab(v as any);
+            setSelectedItems({});
+            setSearchQuery("");
+          }}
           className="flex-1 flex flex-col overflow-hidden min-h-0"
         >
           <div className="px-8 border-b border-border flex-shrink-0">
@@ -487,16 +556,109 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
             value="archive"
             className="flex-1 flex flex-col m-0 p-0 overflow-hidden min-h-0 data-[state=inactive]:hidden"
           >
-            <div className="flex-1 flex items-center justify-center overflow-y-auto">
-              <div className="text-center">
-                <Archive className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-semibold mb-2">
-                  No archived items
-                </h3>
-                <p className="text-muted-foreground">
-                  Archived items will appear here
-                </p>
+            <div className="px-8 py-4 border-border flex-shrink-0">
+              <div className="flex items-center justify-between gap-4">
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+                  <Input
+                    type="search"
+                    placeholder="Search archived tasks..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-muted/50 border-border"
+                  />
+                </div>
               </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {archivedLoading ? (
+                <div className="flex items-center justify-center h-full min-h-[400px]">
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Loading archive...
+                    </span>
+                  </div>
+                </div>
+              ) : archivedTasks.filter(t => !searchQuery || t.name?.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+                <div className="flex items-center justify-center h-full min-h-[400px]">
+                  <div className="text-center">
+                    <Archive className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-xl font-semibold mb-2">
+                      {searchQuery ? "No tasks found" : "No archived tasks"}
+                    </h3>
+                    <p className="text-muted-foreground">
+                      {searchQuery ? `No tasks matching "${searchQuery}"` : "Your archive is empty"}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Header Row */}
+                  <div className="flex items-center px-6 py-3 border-b border-border bg-card sticky top-0 z-10">
+                    <div className="w-10 flex-shrink-0"></div>
+                    <div className="flex-1 min-w-0 px-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Name</span>
+                    </div>
+                    <div className="w-48 flex-shrink-0 px-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Group</span>
+                    </div>
+                    <div className="w-48 flex-shrink-0 px-3">
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Board</span>
+                    </div>
+                    <div className="w-20 flex-shrink-0 px-3 text-right">
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Actions</span>
+                    </div>
+                  </div>
+
+                  {/* List Items */}
+                  <div className="divide-y divide-border">
+                    {archivedTasks
+                      .filter(t => !searchQuery || t.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+                      .map((task) => (
+                        <div key={task.id} className="flex items-center px-6 py-4 hover:bg-hover/50 transition-colors">
+                          <div className="w-10 flex-shrink-0">
+                            <Checkbox
+                              checked={selectedItems[task.id] || false}
+                              onCheckedChange={(checked) =>
+                                setSelectedItems((prev) => ({
+                                  ...prev,
+                                  [task.id]: checked as boolean,
+                                }))
+                              }
+                              className="rounded-md"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0 px-3">
+                            <p className="font-medium truncate">{task.name}</p>
+                          </div>
+                          <div className="w-48 flex-shrink-0 px-3">
+                            <span className="text-sm text-muted-foreground truncate block">{task.group_name}</span>
+                          </div>
+                          <div className="w-48 flex-shrink-0 px-3">
+                            <span className="text-sm text-muted-foreground truncate block">{task.board_name}</span>
+                          </div>
+                          <div className="w-20 flex-shrink-0 px-3 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleUnarchive(task.id)}>
+                                  <RotateCcw className="h-4 w-4 mr-2" />
+                                  <span>Unarchive</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </>
+              )}
             </div>
           </TabsContent>
         </Tabs>
@@ -513,23 +675,36 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
               </div>
 
               <div className="flex items-center gap-4">
-                <button
-                  onClick={() => {}}
-                  disabled
-                  className="flex items-center gap-2 text-white transition-colors disabled:opacity-50"
-                >
-                  <RotateCcw className="h-5 w-5" />
-                  <span>Restore</span>
-                </button>
+                {activeTab === "archive" ? (
+                  <button
+                    onClick={handleBulkUnarchive}
+                    disabled={isDeleting}
+                    className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors disabled:opacity-50"
+                  >
+                    <RotateCcw className="h-5 w-5" />
+                    <span>Unarchive</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {}}
+                      disabled
+                      className="flex items-center gap-2 text-white transition-colors disabled:opacity-50"
+                    >
+                      <RotateCcw className="h-5 w-5" />
+                      <span>Restore</span>
+                    </button>
 
-                <button
-                  onClick={handleDeletePermanently}
-                  disabled={isDeleting}
-                  className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors disabled:opacity-50"
-                >
-                  <Trash2 className="h-5 w-5" />
-                  <span>Delete Permanently</span>
-                </button>
+                    <button
+                      onClick={handleDeletePermanently}
+                      disabled={isDeleting}
+                      className="flex items-center gap-2 text-white hover:text-gray-300 transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                      <span>Delete Permanently</span>
+                    </button>
+                  </>
+                )}
 
                 <button
                   onClick={() => setSelectedItems({})}
