@@ -148,11 +148,12 @@ export function NotificationBell() {
         dispatch(switchOrganization(orgId));
       }
 
-      let url = `/org/${orgId}/board/${boardId}/view/Main%20Table?task=${taskId}`;
+      // Unified URL pattern: Always open the comments panel
+      let url = `/org/${orgId}/board/${boardId}/view/Main%20Table?comments=${taskId}`;
 
-      // If it's a comment type and has a comment_id, use the specific params
+      // If it's a comment and has a specific commentId, append the highlight param
       if (notification.type === "comment" && commentId) {
-        url = `/org/${orgId}/board/${boardId}/view/Main%20Table?comments=${taskId}&comment=${commentId}`;
+        url += `&comment=${commentId}`;
       }
 
       navigate(url);
@@ -232,11 +233,11 @@ export function NotificationBell() {
             )}
           >
             <Avatar className="h-11 w-11 shrink-0">
-              <AvatarFallback 
+              <AvatarFallback
                 className="text-white font-bold text-base"
                 style={{
                   backgroundColor: stringToHslColor(
-                    notification.sender_name || "System"
+                    notification.sender_name || "System",
                   ),
                 }}
               >
