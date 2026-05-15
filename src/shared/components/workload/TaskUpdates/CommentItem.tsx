@@ -30,6 +30,7 @@ import {
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
 import { cn, parseApiDateTime, getCurrentUserId } from "@/lib/utils";
 import type { TaskComment } from "@/features/tasks/types";
+import { CornerUpLeft } from "lucide-react";
 import {
   renderFormattedContent,
   getRelativeTimeString,
@@ -100,18 +101,29 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     comment.content.length > 800 ||
     (comment.content.match(/<br/g) || []).length > 8;
 
+  const scrollToParent = (parentId: string | number) => {
+    const element = document.getElementById(`comment-${parentId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+      element.classList.add("comment-highlight");
+      setTimeout(() => {
+        element.classList.remove("comment-highlight");
+      }, 800);
+    }
+  };
+
   return (
     <div
       key={comment.id}
-      id={`comment-${comment.id}`}
       className={cn(
         "relative transition-all duration-200",
         !isReply
-          ? "p-4 border border-border/60 rounded-2xl  hover:shadow-md hover:border-border/80 space-y-0"
+          ? "p-4 border-2 border-border rounded-2xl hover:shadow-md hover:border-border/80 space-y-0"
           : "space-y-4",
       )}
     >
       <div
+        id={`comment-${comment.id}`}
         className={cn(
           "space-y-4",
           !isReply &&
@@ -158,6 +170,20 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                         })()
                     : ""}
                 </span>
+                {comment.parent_id && (
+                  <div className="flex items-center gap-1.5 ml-1">
+                    <span className="text-[10px] text-muted-foreground/60">•</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-0 text-[10px] text-primary/70 hover:text-primary flex items-center gap-1 transition-colors font-medium bg-transparent hover:bg-transparent"
+                      onClick={() => scrollToParent(comment.parent_id!)}
+                    >
+                      <CornerUpLeft className="h-2.5 w-2.5" />
+                      Jump to parent
+                    </Button>
+                  </div>
+                )}
                 {comment.sop && (
                   <Badge className="bg-slate-700/80 text-white border-none text-[10px] h-5 px-2 rounded-full font-bold uppercase tracking-wider">
                     SOP
