@@ -346,3 +346,23 @@ button:focus-visible {
   color: hsl(var(--muted-foreground));
   margin: 1.5rem 0;
 }
+
+@keyframes highlight-comment {
+  0% {
+    background-color: transparent;
+  }
+  25% {
+    background-color: hsla(var(--primary) / 0.2);
+  }
+  75% {
+    background-color: hsla(var(--primary) / 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.comment-highlight {
+  animation: highlight-comment 0.8s ease-in-out;
+  border-radius: 0.75rem;
+}
