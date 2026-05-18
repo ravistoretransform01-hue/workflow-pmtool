@@ -632,20 +632,6 @@ export function WorkloadBoard({
 
     // Sync Comments Panel State
     if (commentsIdFromUrl) {
-      // Restriction: Don't open comments panel in Kanban view
-      if (activeTab === "Kanban") {
-        setSearchParams(
-          (prev) => {
-            const next = new URLSearchParams(prev);
-            next.delete("comments");
-            // Optionally redirect to task card instead?
-            // next.set("task", commentsIdFromUrl);
-            return next;
-          },
-          { replace: true },
-        );
-        return;
-      }
 
       if (commentsIdFromUrl !== selectedCommentsId) {
         setSelectedCommentsId(commentsIdFromUrl);
@@ -1564,11 +1550,6 @@ export function WorkloadBoard({
 
   const openCommentsPanel = useCallback(
     (task: Task) => {
-      // Restriction: In Kanban, we open the full task card instead of the panel sheet
-      if (activeTab === "Kanban") {
-        openTaskCard(task);
-        return;
-      }
 
       const next = new URLSearchParams(searchParams);
       next.delete("task");
@@ -5853,6 +5834,7 @@ export function WorkloadBoard({
             onStatusesUpdated={handleStatusesUpdated}
             onPrioritiesUpdated={handlePrioritiesUpdated}
             onDeleteTask={deleteSingleTask}
+            onOpenComments={openCommentsPanel}
           />
         )}
 
