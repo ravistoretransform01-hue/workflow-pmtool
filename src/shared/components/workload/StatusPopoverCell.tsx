@@ -434,19 +434,41 @@ export default function StatusPopoverCell({
         {!isEditMode ? (
           <>
             {/* Header */}
-            <div className="flex justify-between mb-2">
+            <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium">Select Status</span>
-              <Button
-                className={showCreateForm ? `bg-primary text-white` : ""}
-                size="sm"
-                variant="ghost"
-                onClick={(e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  setShowCreateForm((v: boolean) => !v);
-                }}
-              >
-                {showCreateForm ? "x" : "+"}
-              </Button>
+              <div className="flex items-center gap-1">
+                {!showCreateForm && (
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs px-2 bg-green-500 hover:bg-green-600 text-white border-0"
+                    onClick={(e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      const doneStatus = statuses.find(
+                        (s) => s.name?.toLowerCase() === "done",
+                      );
+                      if (doneStatus && onStatusChange) {
+                        onStatusChange(task.id, String(doneStatus.id));
+                        setOpenPopoverId?.(null);
+                      } else if (!doneStatus) {
+                        toast.error("Done status not found");
+                      }
+                    }}
+                  >
+                    Mark Done
+                  </Button>
+                )}
+                <Button
+                  className={showCreateForm ? `bg-primary text-white` : ""}
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    setShowCreateForm((v: boolean) => !v);
+                  }}
+                >
+                  {showCreateForm ? "x" : "+"}
+                </Button>
+              </div>
             </div>
 
             {/* Create */}
