@@ -443,7 +443,17 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               <button
                 onClick={() => {
                   setInlineReplyId(comment.id);
-                  setInlineReplyText("");
+                  let mentionHtml = "";
+                  if (!isOwnComment && comment.user?.id && comment.user?.name) {
+                    mentionHtml = `<span data-type="mention" class="mention" data-id="${comment.user.id}" data-label="${comment.user.name}">@${comment.user.name}</span>&nbsp;`;
+                  }
+                  setInlineReplyText(mentionHtml);
+                  setTimeout(() => {
+                    const editorContainer = document.getElementById(`reply-editor-${comment.id}`);
+                    if (editorContainer) {
+                      editorContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                  }, 100);
                 }}
                 className="flex items-center gap-1.5 text-sm   text-white hover:text-primary transition-colors uppercase tracking-wider"
               >
@@ -497,7 +507,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
 
             {/* Inline reply editor for this comment */}
             {isReplyingToThis && (
-              <div className="relative mt-4 bg-background p-4 rounded-xl border border-border/50 shadow-inner animate-in fade-in slide-in-from-top-2 duration-200">
+              <div id={`reply-editor-${comment.id}`} className="relative mt-4 bg-background p-4 rounded-xl border border-border/50 shadow-inner animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-primary/80">
                     Replying to {comment.user?.name || "User"}
@@ -518,6 +528,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                     onChange={setInlineReplyText}
                     boardId={boardId ? Number(boardId) : undefined}
                     key={`reply-${comment.id}`}
+                    autoFocus="end"
                   />
                 </div>
                 <div className="mt-3 flex justify-end gap-2">
