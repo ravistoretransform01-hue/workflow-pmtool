@@ -251,6 +251,11 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                     value={editCommentText}
                     onChange={setEditCommentText}
                     boardId={boardId ? Number(boardId) : undefined}
+                    onSubmit={() => {
+                      if (!isContentEmpty(editCommentText) && !isSaving) {
+                        onUpdateComment(comment.id, editCommentText);
+                      }
+                    }}
                   />
                   <div className="flex justify-end gap-2">
                     <Button
@@ -529,6 +534,11 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                     boardId={boardId ? Number(boardId) : undefined}
                     key={`reply-${comment.id}`}
                     autoFocus="end"
+                    onSubmit={() => {
+                      if (!isContentEmpty(inlineReplyText) && !isSaving) {
+                        onSaveInlineReply(comment.id, inlineReplyText);
+                      }
+                    }}
                   />
                 </div>
                 <div className="mt-3 flex justify-end gap-2">

@@ -49,6 +49,7 @@ interface TiptapEditorProps {
   placeholder?: string;
   boardId?: number;
   autoFocus?: boolean | "start" | "end" | "all";
+  onSubmit?: () => void;
 }
 
 const colors = [
@@ -132,6 +133,7 @@ export function TiptapEditor({
   placeholder,
   boardId,
   autoFocus,
+  onSubmit,
 }: TiptapEditorProps) {
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionItems, setMentionItems] = useState<
@@ -561,6 +563,14 @@ export function TiptapEditor({
     content: value,
     editorProps: {
       handleKeyDown: (_, event) => {
+        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          event.preventDefault();
+          if (onSubmit) {
+            onSubmit();
+          }
+          return true;
+        }
+
         if (
           event.key === "Enter" &&
           !event.shiftKey &&

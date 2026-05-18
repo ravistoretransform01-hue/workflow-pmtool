@@ -102,6 +102,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
   const [replyingTo, setReplyingTo] = useState<TaskComment | null>(null);
 
   const handleSaveMainUpdate = async () => {
+    if (isContentEmpty(updateText) || isSaving) return;
     try {
       await onSaveMainUpdate(updateText);
       if (!externalOnUpdateTextChange) {
@@ -337,6 +338,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
             onChange={onUpdateTextChange}
             boardId={boardId ? Number(boardId) : undefined}
             key="main-update-editor"
+            onSubmit={handleSaveMainUpdate}
           />
         </div>
 
