@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, MoreVertical, Trash2 } from "lucide-react";
+import { GripVertical, MoreVertical, Trash2, MessageCircle, MessageCirclePlus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,7 @@ interface KanbanCardProps {
   priorityColor?: string;
   members: any[];
   onDeleteTask?: (taskId: string) => Promise<void>;
+  onOpenComments?: (task: Task) => void;
 }
 
 export function KanbanCard({
@@ -38,6 +39,7 @@ export function KanbanCard({
   priorityName,
   members,
   onDeleteTask,
+  onOpenComments,
 }: KanbanCardProps) {
   const {
     attributes,
@@ -116,27 +118,47 @@ export function KanbanCard({
           <p className="text-sm font-medium text-foreground line-clamp-2">
             {task.name}
           </p>
-            {onDeleteTask && !overlay && (
-              <div onClick={(e) => e.stopPropagation()} className="absolute top-2.5 right-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-36">
-                    <DropdownMenuItem
-                      className="text-red-600 focus:text-red-600 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteTask(task.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+            {!overlay && (
+              <div onClick={(e) => e.stopPropagation()} className="absolute top-2.5 right-2 flex items-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenComments?.(task);
+                  }}
+                  className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0 opacity-0 group-hover:opacity-100 group/commentbtn"
+                >
+                  {task.comment_count ? (
+                    <div className="relative">
+                      <MessageCircle className="h-4 w-4 text-muted-foreground group-hover/commentbtn:text-foreground transition-colors" />
+                      <span className="absolute -bottom-1 -right-1 bg-muted-foreground text-background text-[9px] font-bold h-3.5 min-w-[14px] px-[2px] flex items-center justify-center rounded-full border border-background">
+                        {task.comment_count}
+                      </span>
+                    </div>
+                  ) : (
+                    <MessageCirclePlus className="h-4 w-4 text-muted-foreground group-hover/commentbtn:text-foreground transition-colors" />
+                  )}
+                </button>
+                {onDeleteTask && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100">
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-36">
+                      <DropdownMenuItem
+                        className="text-red-600 focus:text-red-600 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteTask(task.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             )}
 
