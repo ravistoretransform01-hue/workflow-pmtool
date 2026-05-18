@@ -132,26 +132,35 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         )}
       >
         {/* Main Comment Row */}
-        <div className="flex gap-4 group relative">
-          <Avatar
-            className={cn(
-              "shrink-0 border border-border/50 shadow-sm relative h-10 w-10",
-            )}
-          >
-            <AvatarFallback
-              className={cn("text-primary font-medium bg-primary/10")}
-            >
-              {comment.user?.name?.charAt(0).toUpperCase() || "U"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 space-y-1.5 min-w-0">
-            <div className="flex items-center justify-between">
+        <div className="flex flex-col space-y-2.5 group relative">
+          {/* Header Row: Avatar + Username + Meta (Vertically Centered) */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Avatar
+                className={cn(
+                  "shrink-0 border border-border/50 shadow-sm relative",
+                  isReply ? "h-8 w-8" : "h-10 w-10"
+                )}
+              >
+                <AvatarFallback
+                  className={cn(
+                    "text-primary font-medium bg-primary/10",
+                    isReply ? "text-xs" : "text-sm"
+                  )}
+                >
+                  {comment.user?.name?.charAt(0).toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
+
               <div className="flex items-center gap-2">
-                <span className={cn("font-semibold text-foreground text-sm")}>
+                <span className={cn("font-semibold text-foreground", isReply ? "text-xs" : "text-sm")}>
                   {comment.user?.name || "Unknown User"}
                 </span>
                 <span
-                  className="text-[11px] text-muted-foreground tracking-wider cursor-pointer"
+                  className={cn(
+                    "text-muted-foreground tracking-wider cursor-pointer",
+                    isReply ? "text-[10px]" : "text-[11px]"
+                  )}
                   onClick={() => setShowRelativeTime(!showRelativeTime)}
                   title={
                     showRelativeTime
@@ -197,52 +206,59 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                   </Badge>
                 )}
               </div>
-
-              {isOwnComment && (
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onToggleSOP(comment.id)}>
-                        <FileText className="h-3 w-3 mr-2" />
-                        {comment.sop ? "Remove From SOP" : "Add To SOP"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => onShareComment(comment.id)}
-                      >
-                        <Share2 className="h-3 w-3 mr-2" />
-                        Share Link
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setEditingCommentId(comment.id);
-                          setEditCommentText(comment.content);
-                        }}
-                      >
-                        <Pencil className="h-3 w-3 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => onDeleteComment(comment.id)}
-                      >
-                        <Trash2 className="h-3 w-3 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )}
             </div>
 
+            {isOwnComment && (
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onToggleSOP(comment.id)}>
+                      <FileText className="h-3 w-3 mr-2" />
+                      {comment.sop ? "Remove From SOP" : "Add To SOP"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onShareComment(comment.id)}
+                    >
+                      <Share2 className="h-3 w-3 mr-2" />
+                      Share Link
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setEditingCommentId(comment.id);
+                        setEditCommentText(comment.content);
+                      }}
+                    >
+                      <Pencil className="h-3 w-3 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => onDeleteComment(comment.id)}
+                    >
+                      <Trash2 className="h-3 w-3 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+          </div>
+
+          {/* Indented Content Block */}
+          <div className={cn(isReply ? "pl-11" : "pl-13", "space-y-3 min-w-0")}>
             <div
               className={cn(
-                "relative border border-border/40 rounded-xl px-4 py-3 shadow-sm",
-                editingCommentId === comment.id ? "bg-background" : "bg-card",
+                "relative transition-all duration-200",
+                editingCommentId === comment.id
+                  ? "bg-background border border-border/40 rounded-xl px-4 py-3 shadow-sm"
+                  : isReply
+                    ? "bg-muted/30 border border-border/20 rounded-xl shadow-none px-3.5 py-2.5"
+                    : "bg-transparent border-none shadow-none pt-0 mt-1",
               )}
             >
               {editingCommentId === comment.id ? (
@@ -345,7 +361,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                         e.preventDefault();
                         onFilePreview(
                           anchor.href,
-                          anchor.textContent || "Document",
+                          anchor.textContent || "Document"
                         );
                       }
                     }}
@@ -353,13 +369,16 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                       comment.content,
                     )}
                   />
-
                   {isLongContent && (
                     <div
                       className={cn(
                         "mt-2",
                         !isContentExpanded &&
-                          "absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-card to-transparent flex items-end justify-start pb-1",
+                          "absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t to-transparent flex items-end justify-start pb-1",
+                        !isContentExpanded &&
+                          (isReply
+                            ? "from-muted/40 via-muted/20"
+                            : "from-background via-background/95 via-50%"),
                       )}
                     >
                       <Button
