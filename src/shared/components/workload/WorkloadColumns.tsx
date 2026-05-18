@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   ChevronRight,
+  MessageCircle,
   MessageCirclePlus,
   Pencil,
 } from "lucide-react";
@@ -177,9 +178,18 @@ export const getWorkloadColumns = ({
                     e.stopPropagation();
                     onOpenComments?.(task);
                   }}
-                  className="p-1 rounded"
+                  className="p-1 rounded group/commentbtn"
                 >
-                  <MessageCirclePlus className="h-4 w-4 text-muted-foreground" />
+                  {task.comment_count ? (
+                    <div className="relative">
+                      <MessageCircle className="h-4 w-4 text-muted-foreground group-hover/commentbtn:text-foreground transition-colors" />
+                      <span className="absolute -bottom-1 -right-1 bg-muted-foreground text-background text-[9px] font-bold h-3.5 min-w-[14px] px-[2px] flex items-center justify-center rounded-full border border-background">
+                        {task.comment_count}
+                      </span>
+                    </div>
+                  ) : (
+                    <MessageCirclePlus className="h-4 w-4 text-muted-foreground group-hover/commentbtn:text-foreground transition-colors" />
+                  )}
                 </button>
               </div>
             </div>
@@ -250,16 +260,25 @@ export const getWorkloadColumns = ({
                 }}
                 className="p-1 rounded"
               >
-                <Pencil className="h-4 w-4 text-muted-foreground" />
+                <Pencil className="h-5 w-5 text-muted-foreground" />
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenComments?.(task);
                 }}
-                className="p-1 rounded"
+                className="p-1 rounded group/commentbtn"
               >
-                <MessageCirclePlus className="h-4 w-4 text-muted-foreground" />
+                {task.comment_count ? (
+                  <div className="relative">
+                    <MessageCircle className="h-5 w-5 text-muted-foreground group-hover/commentbtn:text-foreground transition-colors" />
+                    <span className="absolute -bottom-1 -right-1 bg-muted-foreground text-background text-[9px] font-bold h-3.5 min-w-[14px] px-[2px] flex items-center justify-center rounded-full border border-background">
+                      {task.comment_count}
+                    </span>
+                  </div>
+                ) : (
+                  <MessageCirclePlus className="h-5 w-5 text-muted-foreground group-hover/commentbtn:text-foreground transition-colors" />
+                )}
               </button>
             </div>
           </div>

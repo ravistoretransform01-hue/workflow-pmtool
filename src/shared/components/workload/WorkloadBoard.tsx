@@ -142,6 +142,7 @@ export interface Task {
   tracked_time_seconds?: number; // Tracked time in seconds from timer
   rating?: number; // Display rating as average number (1-5)
   ratingCount?: number; // Number of ratings
+  comment_count?: number;
   ratings?: Array<{
     id: string;
     task_id?: string;
@@ -875,6 +876,7 @@ export function WorkloadBoard({
               (task.assigned_to ? [String(task.assigned_to)] : []),
             rating: extractRating(task),
             ratingCount: task.rating_count || 0,
+            comment_count: task.comment_count,
             ratings: task.ratings,
             tags: task.tags || [],
             group_id: String(task.group_id),
@@ -921,6 +923,7 @@ export function WorkloadBoard({
                   (st.assigned_to ? [String(st.assigned_to)] : []),
                 rating: extractRating(st),
                 ratingCount: st.rating_count || 0,
+                comment_count: st.comment_count,
                 ratings: st.ratings,
                 tags: st.tags || [],
                 timeSpent: st.time_spent_hours
@@ -2439,6 +2442,7 @@ export function WorkloadBoard({
                 ...task,
                 rating: ratingValue,
                 ratingCount: updated.rating_count || 0,
+                comment_count: updated.comment_count,
                 ratings: updated.ratings,
               };
             }
@@ -2453,6 +2457,7 @@ export function WorkloadBoard({
                         ...sub,
                         rating: ratingValue,
                         ratingCount: updated.rating_count || 0,
+                        comment_count: updated.comment_count,
                         ratings: updated.ratings,
                       }
                     : sub,

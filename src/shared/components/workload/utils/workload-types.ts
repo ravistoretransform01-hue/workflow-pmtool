@@ -20,6 +20,7 @@ export interface Task {
   tracked_time_seconds?: number; // Tracked time in seconds from timer
   rating?: number; // Display rating as average number (1-5)
   ratingCount?: number; // Number of ratings
+  comment_count?: number;
   ratings?: Array<{
     id: string;
     task_id?: string;
