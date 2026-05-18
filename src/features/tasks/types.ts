@@ -46,6 +46,7 @@ export interface TaskResponse {
   tracked_time_seconds: number;
   tracked_time_hours: number;
   is_overdue: boolean;
+  comment_count?: number;
   // New estimation structure - object instead of string
   estimation: {
     id: string;
