@@ -754,13 +754,13 @@ export function WorkloadBoard({
       // Create a completely new array to ensure React detects the change
       const newGroups = prevGroups.map((group) => {
         const newTasks = group.tasks.map((task) => {
-          if (task.id === taskId) {
+          if (String(task.id) === String(taskId)) {
             return { ...task, ...updates };
           }
           // Check subitems
           if (task.subitems?.length) {
             const updatedSubitems = task.subitems.map((subitem) =>
-              subitem.id === taskId ? { ...subitem, ...updates } : subitem,
+              String(subitem.id) === String(taskId) ? { ...subitem, ...updates } : subitem,
             );
             if (updatedSubitems.some((s, i) => s !== task.subitems![i])) {
               return { ...task, subitems: updatedSubitems };
@@ -1538,11 +1538,11 @@ export function WorkloadBoard({
   const getTaskById = (taskId: string | null): Task | null => {
     if (!taskId) return null;
     for (const group of groups) {
-      const task = group.tasks.find((t) => t.id === taskId);
+      const task = group.tasks.find((t) => String(t.id) === String(taskId));
       if (task) return task;
       const subitem = group.tasks
         .flatMap((t) => t.subitems || [])
-        .find((s) => s.id === taskId);
+        .find((s) => String(s.id) === String(taskId));
       if (subitem) return subitem;
     }
     return null;
@@ -3235,6 +3235,13 @@ export function WorkloadBoard({
       // Update local state
       setComments((prev) => [newComment, ...prev]);
 
+      const taskToUpdate = getTaskById(selectedCommentsId);
+      if (taskToUpdate) {
+        updateTaskInGroups(selectedCommentsId, {
+          comment_count: (taskToUpdate.comment_count || 0) + 1,
+        });
+      }
+
       toast.success(
         replyingTo ? "Reply saved successfully" : "Update saved successfully",
       );
@@ -3278,6 +3285,13 @@ export function WorkloadBoard({
       // Update local state
       setComments((prev) => [...prev, newComment]);
 
+      const taskToUpdate = getTaskById(selectedCommentsId);
+      if (taskToUpdate) {
+        updateTaskInGroups(selectedCommentsId, {
+          comment_count: (taskToUpdate.comment_count || 0) + 1,
+        });
+      }
+
       toast.success("Reply Saved Successfully");
 
       debugLog("Saving inline reply:", payload);
@@ -3299,6 +3313,14 @@ export function WorkloadBoard({
       setComments((prev) =>
         prev.filter((c) => String(c.id) !== String(commentId)),
       );
+
+      const taskToUpdate = getTaskById(selectedCommentsId);
+      if (taskToUpdate) {
+        updateTaskInGroups(selectedCommentsId, {
+          comment_count: Math.max(0, (taskToUpdate.comment_count || 0) - 1),
+        });
+      }
+
       toast.success("Comment Deleted Successfully");
     } catch (error) {
       console.error("Failed to delete comment:", error);
@@ -6184,6 +6206,14 @@ export function WorkloadBoard({
             onInlineEditTaskName={handleInlineEditTaskName}
             tags={tags}
             onTagChange={handleTagChange}
+            onCommentCountChange={(taskId, incrementBy) => {
+              const t = getTaskById(taskId);
+              if (t) {
+                updateTaskInGroups(taskId, {
+                  comment_count: Math.max(0, (t.comment_count || 0) + incrementBy),
+                });
+              }
+            }}
             onTagCreated={(newTag) => {
               setTags((prevTags) => [...prevTags, newTag]);
             }}

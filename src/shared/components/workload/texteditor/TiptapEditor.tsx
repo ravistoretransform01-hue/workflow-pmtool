@@ -48,6 +48,7 @@ interface TiptapEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   boardId?: number;
+  autoFocus?: boolean | "start" | "end" | "all";
 }
 
 const colors = [
@@ -130,6 +131,7 @@ export function TiptapEditor({
   onChange,
   placeholder,
   boardId,
+  autoFocus,
 }: TiptapEditorProps) {
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionItems, setMentionItems] = useState<
@@ -295,6 +297,7 @@ export function TiptapEditor({
   });
 
   const editor = useEditor({
+    autofocus: autoFocus,
     extensions: [
       StarterKit.configure({
         bulletList: {

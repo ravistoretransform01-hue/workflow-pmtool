@@ -93,6 +93,7 @@ interface TaskCardDialogProps {
   ) => void;
   onTimerConflict?: (taskId: string) => void;
   onTimeUpdate?: (taskId: string, seconds: number) => void;
+  onCommentCountChange?: (taskId: string, incrementBy: number) => void;
 }
 
 export function TaskCardDialog({
@@ -127,6 +128,7 @@ export function TaskCardDialog({
   onTimerStart,
   onTimerConflict,
   onTimeUpdate,
+  onCommentCountChange,
 }: TaskCardDialogProps) {
   const [activeTab, setActiveTab] = useState("description");
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
@@ -349,6 +351,7 @@ export function TaskCardDialog({
         is_internal: isInternalParam,
       });
       setComments((prev) => [...prev, createdComment]);
+      onCommentCountChange?.(task.id, 1);
       toast.success(isInternalParam ? "Update added" : "Client update added");
     } catch (error) {
       console.error("Failed to create comment:", error);
@@ -364,6 +367,7 @@ export function TaskCardDialog({
     try {
       await tasksApi.deleteComment(task.id, commentId);
       setComments((prev) => prev.filter((c) => c.id !== commentId));
+      onCommentCountChange?.(task.id, -1);
       toast.success("Comment deleted");
     } catch (error) {
       console.error("Failed to delete comment:", error);
@@ -521,6 +525,7 @@ export function TaskCardDialog({
         is_internal: isInternalParam,
       });
       setComments((prev) => [...prev, createdComment]);
+      onCommentCountChange?.(task.id, 1);
       toast.success("Reply added");
     } catch (error) {
       console.error("Failed to create reply:", error);
