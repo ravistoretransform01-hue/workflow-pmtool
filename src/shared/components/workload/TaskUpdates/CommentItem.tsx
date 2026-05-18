@@ -257,7 +257,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 editingCommentId === comment.id
                   ? "bg-background border border-border/40 rounded-xl px-4 py-3 shadow-sm"
                   : isReply
-                    ? "bg-muted/30 border border-border/20 rounded-xl shadow-none px-3.5 py-2.5"
+                    ? "bg-card border border-border/40 rounded-xl px-4 py-3 shadow-sm"
                     : "bg-transparent border-none shadow-none pt-0 mt-1",
               )}
             >
@@ -377,7 +377,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                           "absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t to-transparent flex items-end justify-start pb-1",
                         !isContentExpanded &&
                           (isReply
-                            ? "from-muted/40 via-muted/20"
+                            ? "from-card via-card/95 via-50%"
                             : "from-background via-background/95 via-50%"),
                       )}
                     >
