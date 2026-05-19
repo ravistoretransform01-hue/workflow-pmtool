@@ -20,6 +20,12 @@ interface TagsColumnCellProps {
   onTagChange?: (taskId: string, tags: any[]) => void;
   onTagCreated?: (newTag: any) => void;
   boardId?: string | number;
+  onTagToggle?: (
+    taskId: string,
+    cmsTag: any,
+    isCurrentlySelected: boolean,
+  ) => Promise<void>;
+  checkedTasks?: Record<string, boolean>;
 }
 
 export function TagsColumnCell({
@@ -30,6 +36,7 @@ export function TagsColumnCell({
   onTagChange,
   onTagCreated,
   boardId,
+  onTagToggle,
 }: TagsColumnCellProps) {
   const taskTags = task.tags || [];
   const popoverId = `tags-${task.id}`;
@@ -40,6 +47,11 @@ export function TagsColumnCell({
   const [newTagName, setNewTagName] = useState("");
   const [isCreatingTag, setIsCreatingTag] = useState(false);
   const [availableTags, setAvailableTags] = useState(tags);
+
+  // Sync selectedTagIds when taskTags prop changes
+  useEffect(() => {
+    setSelectedTagIds(new Set(taskTags.map((t: any) => String(t.tag_id))));
+  }, [taskTags]);
 
   // Update available tags when tags prop changes
   useEffect(() => {
@@ -111,66 +123,70 @@ export function TagsColumnCell({
     // Save to API immediately
     setIsSaving(true);
     try {
-      if (isCurrentlySelected) {
-        // Handle Removal
-        const tagToRemove = task.tags?.find(
-          (t: any) => String(t.tag_id) === tagIdStr,
-        );
-        if (tagToRemove?.task_tag_id) {
-          await tasksApi.removeTaskTag(tagToRemove.task_tag_id);
-        } else {
-          // If we don't have task_tag_id (e.g. just added), we can't remove yet
-          // unless we want to find it from the task object again
-          toast.error("Please wait a moment before removing this tag");
-          // Revert local state
-          const reverted = new Set(selectedTagIds);
-          setSelectedTagIds(reverted);
-          return;
-        }
+      if (onTagToggle) {
+        await onTagToggle(task.id, cmsTag, isCurrentlySelected);
       } else {
-        // Handle Addition
-        const response = await tasksApi.updateTaskTags({
-          id: task.id,
-          tag_id: Number(cmsTag.id),
-        });
-
-        // Find the newly added tag in the response to get its real task_tag_id
-        const addedTag = response.tags?.find(
-          (t: any) => String(t.tag_id) === tagIdStr,
-        );
-
-        if (addedTag) {
-          // Construct the actual tag object for the onTagChange callback
-          const newTags = [
-            ...(task.tags || []),
-            {
-              task_tag_id: addedTag.task_tag_id,
-              tag_id: addedTag.tag_id,
-              tag_name: addedTag.tag_name,
-              tag_slug: addedTag.tag_slug,
-              tag_is_active: addedTag.tag_is_active,
-              tagged_by: addedTag.tagged_by,
-              tagged_by_name: addedTag.tagged_by_name,
-              tagged_at: addedTag.tagged_at,
-            },
-          ];
-          onTagChange?.(task.id, newTags);
-          toast.success("Tag Added");
-          return; // Exit early as we've handled the state update
-        }
-      }
-
-      // Reconstruct the tags array for removal (logic remains similar)
-      const updatedTags = Array.from(newSelected)
-        .map((tagId) => {
-          return task.tags?.find(
-            (t: any) => String(t.tag_id) === String(tagId),
+        if (isCurrentlySelected) {
+          // Handle Removal
+          const tagToRemove = task.tags?.find(
+            (t: any) => String(t.tag_id) === tagIdStr,
           );
-        })
-        .filter(Boolean);
+          if (tagToRemove?.task_tag_id) {
+            await tasksApi.removeTaskTag(tagToRemove.task_tag_id);
+          } else {
+            // If we don't have task_tag_id (e.g. just added), we can't remove yet
+            // unless we want to find it from the task object again
+            toast.error("Please wait a moment before removing this tag");
+            // Revert local state
+            const reverted = new Set(selectedTagIds);
+            setSelectedTagIds(reverted);
+            return;
+          }
+        } else {
+          // Handle Addition
+          const response = await tasksApi.updateTaskTags({
+            id: task.id,
+            tag_id: Number(cmsTag.id),
+          });
 
-      onTagChange?.(task.id, updatedTags);
-      toast.success(isCurrentlySelected ? "Tag Removed" : "Tag Added");
+          // Find the newly added tag in the response to get its real task_tag_id
+          const addedTag = response.tags?.find(
+            (t: any) => String(t.tag_id) === tagIdStr,
+          );
+
+          if (addedTag) {
+            // Construct the actual tag object for the onTagChange callback
+            const newTags = [
+              ...(task.tags || []),
+              {
+                task_tag_id: addedTag.task_tag_id,
+                tag_id: addedTag.tag_id,
+                tag_name: addedTag.tag_name,
+                tag_slug: addedTag.tag_slug,
+                tag_is_active: addedTag.tag_is_active,
+                tagged_by: addedTag.tagged_by,
+                tagged_by_name: addedTag.tagged_by_name,
+                tagged_at: addedTag.tagged_at,
+              },
+            ];
+            onTagChange?.(task.id, newTags);
+            toast.success("Tag Added");
+            return; // Exit early as we've handled the state update
+          }
+        }
+
+        // Reconstruct the tags array for removal (logic remains similar)
+        const updatedTags = Array.from(newSelected)
+          .map((tagId) => {
+            return task.tags?.find(
+              (t: any) => String(t.tag_id) === String(tagId),
+            );
+          })
+          .filter(Boolean);
+
+        onTagChange?.(task.id, updatedTags);
+        toast.success(isCurrentlySelected ? "Tag Removed" : "Tag Added");
+      }
     } catch (error) {
       console.error("Failed to update tag:", error);
       toast.error("Failed to Update Tag");
