@@ -529,6 +529,8 @@ export function WorkloadBoard({
 
   // Initialize hooks for state management
   const taskState = useTaskState();
+  const [hoveredColumnId, setHoveredColumnId] = useState<string | null>(null);
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
   const popoverState = usePopoverState();
   const timerState = useTaskTimer();
   const columnState = useColumnPersistence(boardId);
@@ -566,6 +568,29 @@ export function WorkloadBoard({
     columnState.showColumn("item");
   }, [boardId, columnState.showColumn]);
 
+  // Clear checked tasks when Esc key is pressed
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        const activeEl = document.activeElement;
+        if (
+          activeEl &&
+          (activeEl.tagName === "INPUT" ||
+            activeEl.tagName === "TEXTAREA" ||
+            activeEl.getAttribute("contenteditable") === "true")
+        ) {
+          return;
+        }
+        taskState.clearCheckedTasks();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [taskState.clearCheckedTasks]);
+
   // Local state for board-specific UI
   // const [editingBoardName, setEditingBoardName] = useState(false);
   const [boardNameValue, setBoardNameValue] = useState(boardName);
@@ -595,6 +620,11 @@ export function WorkloadBoard({
   const activeTab = useMemo(() => {
     return TAB_TO_VIEW_KEY[decodedViewName] ? decodedViewName : "Main Table";
   }, [decodedViewName]);
+
+  // Clear checked tasks when activeTab changes
+  useEffect(() => {
+    taskState.clearCheckedTasks();
+  }, [activeTab, taskState.clearCheckedTasks]);
 
   // Sync URL <-> State (Redirects and Task/Comment panel state)
   useEffect(() => {
@@ -2464,62 +2494,140 @@ export function WorkloadBoard({
     try {
       const boardIdNum = Number(boardId);
 
-      // Filter out null/undefined values and convert to numbers
-      const validMemberIds = memberIds
-        .filter((id) => id && id !== "null" && id !== "undefined")
-        .map((id) => Number(id));
+      // Find the reference task to identify which member was added or removed
+      let referenceTask: any = null;
+      for (const group of groups) {
+        const found = group.tasks.find((t) => t.id === taskId);
+        if (found) {
+          referenceTask = found;
+          break;
+        }
+        for (const task of group.tasks) {
+          const foundSub = task.subitems?.find((sub) => sub.id === taskId);
+          if (foundSub) {
+            referenceTask = foundSub;
+            break;
+          }
+        }
+        if (referenceTask) break;
+      }
 
-      // Send the update with assignees array
-      const payload: UpdateTaskRequest = {
-        id: taskId,
-        board_id: boardIdNum,
-        assignees: validMemberIds,
-      };
+      const previousAssigneeIds = referenceTask
+        ? ((referenceTask.assigned_to_ids ||
+            (referenceTask.assigned_to_id ? [String(referenceTask.assigned_to_id)] : [])) as string[])
+        : [];
 
-      const updated = await tasksApi.updateTask(payload);
+      const added = memberIds.filter((id) => !previousAssigneeIds.includes(id));
+      const removed = previousAssigneeIds.filter((id) => !memberIds.includes(id));
+      const isClearAction = memberIds.length === 0;
 
-      // Extract assignee IDs from the response
-      const assigneeIds =
-        updated.assignees?.map((a) => String(a.user_id)) || [];
+      // Check if taskId is one of the checked tasks
+      const checkedTaskIds = Object.entries(taskState.checkedTasks)
+        .filter(([, checked]) => checked)
+        .map(([id]) => id);
+
+      const isCurrentTaskChecked = checkedTaskIds.includes(taskId);
+      const tasksToUpdate = isCurrentTaskChecked ? checkedTaskIds : [taskId];
+
+      // Perform updates in parallel
+      const updatedResults = await Promise.all(
+        tasksToUpdate.map(async (id) => {
+          let targetTask: any = null;
+          for (const group of groups) {
+            const found = group.tasks.find((t) => t.id === id);
+            if (found) {
+              targetTask = found;
+              break;
+            }
+            for (const task of group.tasks) {
+              const foundSub = task.subitems?.find((sub) => sub.id === id);
+              if (foundSub) {
+                targetTask = foundSub;
+                break;
+              }
+            }
+            if (targetTask) break;
+          }
+
+          let finalMemberIds: string[] = [];
+          if (targetTask) {
+            const targetPrevIds = (targetTask.assigned_to_ids ||
+              (targetTask.assigned_to_id ? [String(targetTask.assigned_to_id)] : [])) as string[];
+
+            if (isClearAction) {
+              finalMemberIds = [];
+            } else {
+              let list = [...targetPrevIds];
+              added.forEach((aId) => {
+                if (!list.includes(aId)) {
+                  list.push(aId);
+                }
+              });
+              if (removed.length > 0) {
+                list = list.filter((rId) => !removed.includes(rId));
+              }
+              finalMemberIds = list;
+            }
+          } else {
+            finalMemberIds = id === taskId ? memberIds : [];
+          }
+
+          const validMemberIds = finalMemberIds
+            .filter((id) => id && id !== "null" && id !== "undefined")
+            .map((id) => Number(id));
+
+          const payload: UpdateTaskRequest = {
+            id,
+            board_id: boardIdNum,
+            assignees: validMemberIds,
+          };
+          return tasksApi.updateTask(payload);
+        })
+      );
+
+      // Map task ID to its updated assignee information
+      const updatedMap = new Map(
+        updatedResults.map((t) => [String(t.id), t])
+      );
 
       setGroups((prevGroups) =>
         prevGroups.map((group) => ({
           ...group,
           tasks: group.tasks.map((task) => {
-            // ✅ parent task
-            if (task.id === taskId) {
-              return {
+            let updatedTask = task;
+            const match = updatedMap.get(task.id);
+            if (match) {
+              const assigneeIds = match.assignees?.map((a) => String(a.user_id)) || [];
+              updatedTask = {
                 ...task,
-                person: updated.assignees?.[0]?.name || updated.assignee?.name,
+                person: match.assignees?.[0]?.name || match.assignee?.name,
                 assigned_to_id:
-                  updated.assignees?.[0]?.user_id ||
-                  String(updated.assigned_to),
+                  match.assignees?.[0]?.user_id ||
+                  String(match.assigned_to),
                 assigned_to_ids: assigneeIds,
                 assignee_names:
-                  updated.assignees?.map((a) => a.name || a.username || "") ||
-                  (updated.assignee?.name ? [updated.assignee.name] : []),
+                  match.assignees?.map((a) => a.name || a.username || "") ||
+                  (match.assignee?.name ? [match.assignee.name] : []),
               };
             }
 
-            // ✅ subtask
             if (task.subitems?.length) {
-              return {
-                ...task,
+              updatedTask = {
+                ...updatedTask,
                 subitems: task.subitems.map((sub) => {
-                  if (sub.id === taskId) {
+                  const subMatch = updatedMap.get(sub.id);
+                  if (subMatch) {
+                    const assigneeIds = subMatch.assignees?.map((a) => String(a.user_id)) || [];
                     return {
                       ...sub,
-                      person:
-                        updated.assignees?.[0]?.name || updated.assignee?.name,
+                      person: subMatch.assignees?.[0]?.name || subMatch.assignee?.name,
                       assigned_to_id:
-                        updated.assignees?.[0]?.user_id ||
-                        String(updated.assigned_to),
+                        subMatch.assignees?.[0]?.user_id ||
+                        String(subMatch.assigned_to),
                       assigned_to_ids: assigneeIds,
                       assignee_names:
-                        updated.assignees?.map(
-                          (a) => a.name || a.username || "",
-                        ) ||
-                        (updated.assignee?.name ? [updated.assignee.name] : []),
+                        subMatch.assignees?.map((a) => a.name || a.username || "") ||
+                        (subMatch.assignee?.name ? [subMatch.assignee.name] : []),
                     };
                   }
                   return sub;
@@ -2527,15 +2635,16 @@ export function WorkloadBoard({
               };
             }
 
-            return task;
+            return updatedTask;
           }),
         })),
       );
 
-      // Don't close the popover - let user continue selecting multiple assignees
-      // popoverState.closePopover();
-
-      toast.success("Member Updated.");
+      toast.success(
+        tasksToUpdate.length > 1
+          ? `${tasksToUpdate.length} Tasks Assignees Updated`
+          : "Member Updated."
+      );
     } catch (err) {
       console.error(err);
       toast.error("Failed to Update Member.");
@@ -2665,53 +2774,207 @@ export function WorkloadBoard({
     );
   };
 
+  const handleTagToggle = async (
+    taskId: string,
+    cmsTag: any,
+    isCurrentlySelected: boolean,
+  ) => {
+    try {
+      // Check if taskId is one of the checked tasks
+      const checkedTaskIds = Object.entries(taskState.checkedTasks)
+        .filter(([, checked]) => checked)
+        .map(([id]) => id);
+
+      const isCurrentTaskChecked = checkedTaskIds.includes(taskId);
+      const tasksToUpdate = isCurrentTaskChecked ? checkedTaskIds : [taskId];
+
+      // Perform tag updates in parallel
+      const updatedResults = await Promise.all(
+        tasksToUpdate.map(async (id) => {
+          // Find the target task to check its tags
+          let targetTask: any = null;
+          for (const group of groups) {
+            const found = group.tasks.find((t) => t.id === id);
+            if (found) {
+              targetTask = found;
+              break;
+            }
+            for (const task of group.tasks) {
+              const foundSub = task.subitems?.find((sub) => sub.id === id);
+              if (foundSub) {
+                targetTask = foundSub;
+                break;
+              }
+            }
+            if (targetTask) break;
+          }
+
+          if (!targetTask) return null;
+
+          const tagIdStr = String(cmsTag.id);
+          const hasTag = targetTask.tags?.some(
+            (t: any) => String(t.tag_id) === tagIdStr,
+          );
+
+          if (isCurrentlySelected) {
+            // We want to REMOVE the tag from this task.
+            // Only remove if the task actually has the tag.
+            if (hasTag) {
+              const tagToRemove = targetTask.tags.find(
+                (t: any) => String(t.tag_id) === tagIdStr,
+              );
+              if (tagToRemove?.task_tag_id) {
+                await tasksApi.removeTaskTag(tagToRemove.task_tag_id);
+                // Return updated task tags by filtering out the removed tag
+                const newTags = targetTask.tags.filter(
+                  (t: any) => String(t.tag_id) !== tagIdStr,
+                );
+                return { id, tags: newTags };
+              }
+            }
+          } else {
+            // We want to ADD the tag to this task.
+            // Only add if the task does not already have it.
+            if (!hasTag) {
+              const response = await tasksApi.updateTaskTags({
+                id,
+                tag_id: Number(cmsTag.id),
+              });
+              // Return the updated tags array from response
+              return { id, tags: response.tags || [] };
+            }
+          }
+          // If no action needed, return unchanged tags
+          return { id, tags: targetTask.tags || [] };
+        }),
+      );
+
+      // Filter out null values
+      const validResults = updatedResults.filter(Boolean) as {
+        id: string;
+        tags: any[];
+      }[];
+
+      // Create a map of task ID to its new tags list
+      const updatedMap = new Map(validResults.map((r) => [r.id, r.tags]));
+
+      // Update groups state
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            let updatedTask = task;
+            const newTags = updatedMap.get(task.id);
+            if (newTags) {
+              updatedTask = { ...task, tags: newTags };
+            }
+
+            if (task.subitems?.length) {
+              updatedTask = {
+                ...updatedTask,
+                subitems: task.subitems.map((sub) => {
+                  const subNewTags = updatedMap.get(sub.id);
+                  if (subNewTags) {
+                    return { ...sub, tags: subNewTags };
+                  }
+                  return sub;
+                }),
+              };
+            }
+
+            return updatedTask;
+          }),
+        })),
+      );
+
+      toast.success(
+        tasksToUpdate.length > 1
+          ? `${tasksToUpdate.length} Tasks Tags Updated`
+          : isCurrentlySelected
+            ? "Tag Removed"
+            : "Tag Added",
+      );
+    } catch (error) {
+      console.error("Failed to toggle tag:", error);
+      toast.error("Failed to Toggle Tag");
+      throw error;
+    }
+  };
+
   const handleStatusChange = async (taskId: string, statusId: string) => {
     try {
       const boardIdNum = Number(boardId);
 
-      const payload: UpdateTaskRequest = {
-        id: taskId,
-        board_id: boardIdNum,
-        status_id: Number(statusId),
-      };
+      // Check if taskId is one of the checked tasks
+      const checkedTaskIds = Object.entries(taskState.checkedTasks)
+        .filter(([, checked]) => checked)
+        .map(([id]) => id);
 
-      const updated = await tasksApi.updateTask(payload);
+      const isCurrentTaskChecked = checkedTaskIds.includes(taskId);
+      const tasksToUpdate = isCurrentTaskChecked ? checkedTaskIds : [taskId];
+
+      // Perform status updates in parallel
+      const updatedResults = await Promise.all(
+        tasksToUpdate.map(async (id) => {
+          const payload: UpdateTaskRequest = {
+            id,
+            board_id: boardIdNum,
+            status_id: Number(statusId),
+          };
+          return tasksApi.updateTask(payload);
+        })
+      );
+
+      // Map task ID to its updated status information
+      const updatedMap = new Map(
+        updatedResults.map((t) => [String(t.id), t])
+      );
 
       setGroups((prevGroups) =>
         prevGroups.map((group) => ({
           ...group,
           tasks: group.tasks.map((task) => {
-            // ✅ parent task
-            if (task.id === taskId) {
-              return {
+            let updatedTask = task;
+            const match = updatedMap.get(task.id);
+            if (match) {
+              updatedTask = {
                 ...task,
-                status: updated.status_label,
-                status_id: String(updated.status_id),
+                status: match.status_label,
+                status_id: String(match.status_id),
               };
             }
 
-            // ✅ subtask
             if (task.subitems?.length) {
-              return {
-                ...task,
-                subitems: task.subitems.map((sub) =>
-                  sub.id === taskId
+              updatedTask = {
+                ...updatedTask,
+                subitems: task.subitems.map((sub) => {
+                  const subMatch = updatedMap.get(sub.id);
+                  return subMatch
                     ? {
                         ...sub,
-                        status: updated.status_label,
-                        status_id: String(updated.status_id),
+                        status: subMatch.status_label,
+                        status_id: String(subMatch.status_id),
                       }
-                    : sub,
-                ),
+                    : sub;
+                }),
               };
             }
 
-            return task;
+            return updatedTask;
           }),
         })),
       );
 
-      toast.success("Status Updated Successfully");
+      // If we performed a bulk edit, clear the selection
+      if (isCurrentTaskChecked) {
+        taskState.clearCheckedTasks();
+      }
+
+      toast.success(
+        tasksToUpdate.length > 1
+          ? `${tasksToUpdate.length} Tasks Status Updated Successfully`
+          : "Status Updated Successfully"
+      );
     } catch (err) {
       console.error(err);
       toast.error("Failed to Update Status");
@@ -2790,49 +3053,76 @@ export function WorkloadBoard({
     try {
       const boardIdNum = Number(boardId);
 
-      const payload: UpdateTaskRequest = {
-        id: taskId,
-        board_id: boardIdNum,
-        task_priority_id: Number(priorityId),
-      };
+      // Check if taskId is one of the checked tasks
+      const checkedTaskIds = Object.entries(taskState.checkedTasks)
+        .filter(([, checked]) => checked)
+        .map(([id]) => id);
 
-      const updated = await tasksApi.updateTask(payload);
+      const isCurrentTaskChecked = checkedTaskIds.includes(taskId);
+      const tasksToUpdate = isCurrentTaskChecked ? checkedTaskIds : [taskId];
+
+      // Perform priority updates in parallel
+      const updatedResults = await Promise.all(
+        tasksToUpdate.map(async (id) => {
+          const payload: UpdateTaskRequest = {
+            id,
+            board_id: boardIdNum,
+            task_priority_id: Number(priorityId),
+          };
+          return tasksApi.updateTask(payload);
+        })
+      );
+
+      // Map task ID to its updated priority information
+      const updatedMap = new Map(
+        updatedResults.map((t) => [String(t.id), t])
+      );
 
       setGroups((prevGroups) =>
         prevGroups.map((group) => ({
           ...group,
           tasks: group.tasks.map((task) => {
-            // ✅ parent task
-            if (task.id === taskId) {
-              return {
+            let updatedTask = task;
+            const match = updatedMap.get(task.id);
+            if (match) {
+              updatedTask = {
                 ...task,
-                priority: updated.priority_label,
-                priority_id: String(updated.task_priority_id),
+                priority: match.priority_label,
+                priority_id: String(match.task_priority_id),
               };
             }
 
-            // ✅ subtask
             if (task.subitems?.length) {
-              return {
-                ...task,
-                subitems: task.subitems.map((sub) =>
-                  sub.id === taskId
+              updatedTask = {
+                ...updatedTask,
+                subitems: task.subitems.map((sub) => {
+                  const subMatch = updatedMap.get(sub.id);
+                  return subMatch
                     ? {
                         ...sub,
-                        priority: updated.priority_label,
-                        priority_id: String(updated.task_priority_id),
+                        priority: subMatch.priority_label,
+                        priority_id: String(subMatch.task_priority_id),
                       }
-                    : sub,
-                ),
+                    : sub;
+                }),
               };
             }
 
-            return task;
+            return updatedTask;
           }),
         })),
       );
 
-      toast.success("Priority Updated Successfully");
+      // If we performed a bulk edit, clear the selection
+      if (isCurrentTaskChecked) {
+        taskState.clearCheckedTasks();
+      }
+
+      toast.success(
+        tasksToUpdate.length > 1
+          ? `${tasksToUpdate.length} Tasks Priority Updated Successfully`
+          : "Priority Updated Successfully"
+      );
     } catch (err) {
       console.error(err);
       toast.error("Failed to Update Priority");
@@ -3626,6 +3916,8 @@ export function WorkloadBoard({
         onTimeUpdate: (taskId: string, seconds: number) => {
           updateTaskInGroups(taskId, { tracked_time_seconds: seconds });
         },
+        onTagToggle: handleTagToggle,
+        checkedTasks: taskState.checkedTasks,
       });
 
       // Apply saved column order
@@ -3835,6 +4127,8 @@ export function WorkloadBoard({
       onTimeUpdate: (taskId: string, seconds: number) => {
         updateTaskInGroups(taskId, { tracked_time_seconds: seconds });
       },
+      onTagToggle: handleTagToggle,
+      checkedTasks: taskState.checkedTasks,
     });
 
     // Apply saved column order if available
@@ -3921,6 +4215,8 @@ export function WorkloadBoard({
       onTimeUpdate: (taskId: string, seconds: number) => {
         updateTaskInGroups(taskId, { tracked_time_seconds: seconds });
       },
+      onTagToggle: handleTagToggle,
+      checkedTasks: taskState.checkedTasks,
     });
 
     // Apply saved column order
@@ -3983,6 +4279,7 @@ export function WorkloadBoard({
     openCommentsPanel,
     openTaskCard,
     effectiveExpandedTasks,
+    taskState.checkedTasks,
   ]);
 
   // Track unsaved changes for layout
@@ -5431,34 +5728,54 @@ export function WorkloadBoard({
                                                       </td>
 
                                                       {workloadColumns.map(
-                                                        (col) => (
-                                                          <td
-                                                            key={col.id}
-                                                            className={cn(
-                                                              "p-4 border-r border-b border-border last:border-r-0",
-                                                              col.align ===
-                                                                "center" &&
-                                                                "text-center",
-                                                              col.align ===
-                                                                "left" &&
-                                                                "text-left",
-                                                              col.id ===
-                                                                "item" &&
-                                                                "sticky left-12 z-10 bg-card",
-                                                            )}
-                                                            style={{
-                                                              width: col.width,
-                                                              minWidth:
-                                                                col.minWidth ||
-                                                                col.width,
-                                                              maxWidth:
-                                                                col.maxWidth ||
-                                                                col.width,
-                                                            }}
-                                                            onClick={(e) =>
-                                                              e.stopPropagation()
-                                                            }
-                                                          >
+                                                        (col) => {
+                                                          const isBulkHighlighted =
+                                                            col.id === hoveredColumnId &&
+                                                            hoveredTaskId &&
+                                                            taskState.checkedTasks[task.id] &&
+                                                            taskState.checkedTasks[hoveredTaskId];
+
+                                                          return (
+                                                            <td
+                                                              key={col.id}
+                                                              className={cn(
+                                                                "p-4 border-r border-b border-border last:border-r-0 hover:bg-muted/30 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
+                                                                col.align ===
+                                                                  "center" &&
+                                                                  "text-center",
+                                                                col.align ===
+                                                                  "left" &&
+                                                                  "text-left",
+                                                                col.id ===
+                                                                  "item"
+                                                                  ? "sticky left-12 z-10 bg-card"
+                                                                  : "hover:relative",
+                                                                isBulkHighlighted && cn(
+                                                                  "bg-muted/30 ring-1 ring-inset ring-primary/40 z-20",
+                                                                  col.id !== "item" && "relative"
+                                                                )
+                                                              )}
+                                                              onMouseEnter={() => {
+                                                                setHoveredColumnId(col.id);
+                                                                setHoveredTaskId(task.id);
+                                                              }}
+                                                              onMouseLeave={() => {
+                                                                setHoveredColumnId(null);
+                                                                setHoveredTaskId(null);
+                                                              }}
+                                                              style={{
+                                                                width: col.width,
+                                                                minWidth:
+                                                                  col.minWidth ||
+                                                                  col.width,
+                                                                maxWidth:
+                                                                  col.maxWidth ||
+                                                                  col.width,
+                                                              }}
+                                                              onClick={(e) =>
+                                                                e.stopPropagation()
+                                                              }
+                                                            >
                                                             {col.collapsed ? (
                                                               <div className="flex items-center justify-center">
                                                                 <button
@@ -5483,8 +5800,9 @@ export function WorkloadBoard({
                                                               )
                                                             )}
                                                           </td>
-                                                        ),
-                                                      )}
+                                                        );
+                                                      }
+                                                    )}
                                                       {/* Filler column to absorb extra space and prevent stretching */}
                                                       <td
                                                         className="p-0 border-b border-border"
@@ -5542,11 +5860,18 @@ export function WorkloadBoard({
                                                           </td>
 
                                                           {workloadColumns.map(
-                                                            (col) => (
-                                                              <td
+                                                            (col) => {
+                                                              const isBulkHighlighted =
+                                                                col.id === hoveredColumnId &&
+                                                                hoveredTaskId &&
+                                                                taskState.checkedTasks[subtask.id] &&
+                                                                taskState.checkedTasks[hoveredTaskId];
+
+                                                              return (
+                                                                <td
                                                                 key={col.id}
                                                                 className={cn(
-                                                                  "p-4 border-r border-b border-border last:border-r-0",
+                                                                  "p-4 border-r border-b border-border last:border-r-0 hover:bg-muted/30 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
                                                                   col.align ===
                                                                     "center" &&
                                                                     "text-center",
@@ -5554,9 +5879,22 @@ export function WorkloadBoard({
                                                                     "left" &&
                                                                     "text-left",
                                                                   col.id ===
-                                                                    "item" &&
-                                                                    "sticky left-12 z-10 bg-card",
+                                                                    "item"
+                                                                    ? "sticky left-12 z-10 bg-card"
+                                                                    : "hover:relative",
+                                                                  isBulkHighlighted && cn(
+                                                                    "bg-muted/30 ring-1 ring-inset ring-primary/40 z-20",
+                                                                    col.id !== "item" && "relative"
+                                                                  )
                                                                 )}
+                                                                onMouseEnter={() => {
+                                                                  setHoveredColumnId(col.id);
+                                                                  setHoveredTaskId(subtask.id);
+                                                                }}
+                                                                onMouseLeave={() => {
+                                                                  setHoveredColumnId(null);
+                                                                  setHoveredTaskId(null);
+                                                                }}
                                                                 style={{
                                                                   width:
                                                                     col.width,
@@ -5596,8 +5934,9 @@ export function WorkloadBoard({
                                                                   )
                                                                 )}
                                                               </td>
-                                                            ),
-                                                          )}
+                                                            );
+                                                          }
+                                                        )}
                                                           {/* Filler column to absorb extra space and prevent stretching */}
                                                           <td
                                                             className="p-0 border-b border-border"

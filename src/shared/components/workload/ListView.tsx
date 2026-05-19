@@ -259,7 +259,7 @@ export function ListView(props: ListViewProps) {
                             <td
                               key={col.id}
                               className={cn(
-                                "p-4 border-r border-border",
+                                "p-4 border-r border-border hover:bg-muted/30 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:relative hover:z-20",
                                 col.align === "center" && "text-center",
                               )}
                               style={{
@@ -289,7 +289,7 @@ export function ListView(props: ListViewProps) {
                                   <td
                                     key={col.id}
                                     className={cn(
-                                      "p-4 border-r border-border",
+                                      "p-4 border-r border-border hover:bg-muted/30 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:relative hover:z-20",
                                       col.align === "center" && "text-center",
                                     )}
                                     style={{

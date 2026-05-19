@@ -44,6 +44,12 @@ interface ColumnDefinitionProps {
     hours: string | number | null,
   ) => void;
   onTagChange?: (taskId: string, tags: any[]) => void;
+  onTagToggle?: (
+    taskId: string,
+    cmsTag: any,
+    isCurrentlySelected: boolean,
+  ) => Promise<void>;
+  checkedTasks?: Record<string, boolean>;
   openPopoverId?: string | null;
   setOpenPopoverId?: (id: string | null) => void;
   boardId?: string | number;
@@ -104,6 +110,8 @@ export const getWorkloadColumns = ({
   onTimerStart,
   onTimerConflict,
   onTimeUpdate,
+  onTagToggle,
+  checkedTasks,
 }: ColumnDefinitionProps): Column[] => {
   // Create lookup maps for statuses and priorities
   // Ensure keys are strings to match task.status_id (which is stored as string)
@@ -502,6 +510,8 @@ export const getWorkloadColumns = ({
           onTagChange={onTagChange}
           onTagCreated={onTagCreated}
           boardId={boardId}
+          onTagToggle={onTagToggle}
+          checkedTasks={checkedTasks}
         />
       ),
     },
