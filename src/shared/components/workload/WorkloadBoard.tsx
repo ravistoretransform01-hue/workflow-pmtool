@@ -5739,7 +5739,7 @@ export function WorkloadBoard({
                                                             <td
                                                               key={col.id}
                                                               className={cn(
-                                                                "p-4 border-r border-b border-border last:border-r-0 hover:bg-muted/30 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
+                                                                "p-4 border-r border-b border-border last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
                                                                 col.align ===
                                                                   "center" &&
                                                                   "text-center",
@@ -5748,11 +5748,12 @@ export function WorkloadBoard({
                                                                   "text-left",
                                                                 col.id ===
                                                                   "item"
-                                                                  ? "sticky left-12 z-10 bg-card"
-                                                                  : "hover:relative",
-                                                                isBulkHighlighted && cn(
-                                                                  "bg-muted/30 ring-1 ring-inset ring-primary/40 z-20",
-                                                                  col.id !== "item" && "relative"
+                                                                  ? "sticky left-12 z-10 bg-card hover:bg-secondary"
+                                                                  : "hover:bg-muted/30 hover:relative",
+                                                                isBulkHighlighted && (
+                                                                  col.id === "item"
+                                                                    ? "bg-secondary ring-1 ring-inset ring-primary/40 z-20"
+                                                                    : "bg-muted/30 ring-1 ring-inset ring-primary/40 z-20 relative"
                                                                 )
                                                               )}
                                                               onMouseEnter={() => {
@@ -5871,7 +5872,7 @@ export function WorkloadBoard({
                                                                 <td
                                                                 key={col.id}
                                                                 className={cn(
-                                                                  "p-4 border-r border-b border-border last:border-r-0 hover:bg-muted/30 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
+                                                                  "p-4 border-r border-b border-border last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
                                                                   col.align ===
                                                                     "center" &&
                                                                     "text-center",
@@ -5880,11 +5881,12 @@ export function WorkloadBoard({
                                                                     "text-left",
                                                                   col.id ===
                                                                     "item"
-                                                                    ? "sticky left-12 z-10 bg-card"
-                                                                    : "hover:relative",
-                                                                  isBulkHighlighted && cn(
-                                                                    "bg-muted/30 ring-1 ring-inset ring-primary/40 z-20",
-                                                                    col.id !== "item" && "relative"
+                                                                    ? "sticky left-12 z-10 bg-card hover:bg-secondary"
+                                                                    : "hover:bg-muted/30 hover:relative",
+                                                                  isBulkHighlighted && (
+                                                                    col.id === "item"
+                                                                      ? "bg-secondary ring-1 ring-inset ring-primary/40 z-20"
+                                                                      : "bg-muted/30 ring-1 ring-inset ring-primary/40 z-20 relative"
                                                                   )
                                                                 )}
                                                                 onMouseEnter={() => {
