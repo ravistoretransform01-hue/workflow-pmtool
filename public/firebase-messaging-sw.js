@@ -67,34 +67,37 @@ self.addEventListener("notificationclick", (event) => {
 
   let urlToOpen = "/";
 
-  // ✅ Case 1: Your custom data
+  // Check various places for the URL
   if (event.notification.data?.url) {
     urlToOpen = event.notification.data.url;
-  }
-
-  // ✅ Case 2: FCM wrapped data
-  else if (event.notification.data?.FCM_MSG?.data?.url) {
+  } else if (event.notification.data?.FCM_MSG?.data?.url) {
     urlToOpen = event.notification.data.FCM_MSG.data.url;
+  } else if (event.notification.click_action) {
+    urlToOpen = event.notification.click_action;
   }
 
-  // ✅ Case 3: notification click_action (if used)
-  else if (event.notification.data?.click_action) {
-    urlToOpen = event.notification.data.click_action;
-  }
-
+  // Ensure absolute URL
   const targetUrl = new URL(urlToOpen, self.location.origin).href;
 
   event.waitUntil(
     clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clientsArr) => {
+        // 1. Try to find an existing tab and focus/navigate it
         for (const client of clientsArr) {
-          if (client.url.includes(self.location.origin) && "focus" in client) {
-            client.focus();
-            return client.navigate(targetUrl);
+          if (client.url.startsWith(self.location.origin) && "focus" in client) {
+            return client.focus().then((focusedClient) => {
+              if (focusedClient && "navigate" in focusedClient) {
+                return focusedClient.navigate(targetUrl);
+              }
+            });
           }
         }
-        return clients.openWindow(targetUrl);
+        
+        // 2. If no tab is open, open a new window
+        if (clients.openWindow) {
+          return clients.openWindow(targetUrl);
+        }
       }),
   );
 });

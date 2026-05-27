@@ -26,3 +26,4 @@ dist-ssr
 src-copy 
 .kiro
 READMETEMP.md
+.env
