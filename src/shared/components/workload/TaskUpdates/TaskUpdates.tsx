@@ -34,6 +34,7 @@ interface TaskUpdatesProps {
   isInternal?: number;
   noNesting?: boolean;
   hideEditor?: boolean;
+  isClient?: boolean;
 }
 
 export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
@@ -57,6 +58,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
   isInternal,
   noNesting = false,
   hideEditor = false,
+  isClient = false,
 }) => {
   React.useEffect(() => {
     if (isLoadingComments) return;
@@ -198,6 +200,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
                     onToggleIsClient={onToggleIsClient}
                     onFilePreview={onFilePreview}
                     isSaving={isSaving}
+                    isClient={isClient}
                   />
                 ));
             }
@@ -268,6 +271,7 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
                   onToggleIsClient={onToggleIsClient}
                   onFilePreview={onFilePreview}
                   isSaving={isSaving}
+                  isClient={isClient}
                 />
               );
             });

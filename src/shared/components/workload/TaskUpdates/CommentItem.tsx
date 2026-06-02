@@ -59,6 +59,7 @@ interface CommentItemProps {
   onToggleIsClient: (id: string | number) => void;
   onFilePreview: (src: string, name?: string) => void;
   isSaving?: boolean;
+  isClient?: boolean;
 }
 
 export const CommentItem: React.FC<CommentItemProps> = ({
@@ -83,6 +84,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onToggleIsClient,
   onFilePreview,
   isSaving,
+  isClient = false,
 }) => {
   const isReplyingToThis = String(inlineReplyId) === String(comment.id);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
@@ -217,10 +219,12 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onToggleSOP(comment.id)}>
-                      <FileText className="h-3 w-3 mr-2" />
-                      {comment.sop ? "Remove From SOP" : "Add To SOP"}
-                    </DropdownMenuItem>
+                    {!isClient && (
+                      <DropdownMenuItem onClick={() => onToggleSOP(comment.id)}>
+                        <FileText className="h-3 w-3 mr-2" />
+                        {comment.sop ? "Remove From SOP" : "Add To SOP"}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
                       onClick={() => onShareComment(comment.id)}
                     >
@@ -484,39 +488,41 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 <Reply className="h-4 w-4" />
                 Reply
               </button>
-              <button
-                onClick={() => onToggleIsClient(comment.id)}
-                className={cn(
-                  "flex items-center gap-1.5 text-sm transition-colors uppercase tracking-wider",
-                  comment.isclient === 1 ||
+              {!isClient && (
+                <button
+                  onClick={() => onToggleIsClient(comment.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 text-sm transition-colors uppercase tracking-wider",
+                    comment.isclient === 1 ||
+                      comment.isclient === "1" ||
+                      comment.isclient === true
+                      ? "text-primary font-semibold"
+                      : "text-white hover:text-primary",
+                  )}
+                  title={
+                    comment.isclient === 1 ||
                     comment.isclient === "1" ||
                     comment.isclient === true
-                    ? "text-primary font-semibold"
-                    : "text-white hover:text-primary",
-                )}
-                title={
-                  comment.isclient === 1 ||
+                      ? "Visible to client"
+                      : "Send to client"
+                  }
+                >
+                  <Send
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      (comment.isclient === 1 ||
+                        comment.isclient === "1" ||
+                        comment.isclient === true) &&
+                        "fill-current",
+                    )}
+                  />
+                  {comment.isclient === 1 ||
                   comment.isclient === "1" ||
                   comment.isclient === true
-                    ? "Visible to client"
-                    : "Send to client"
-                }
-              >
-                <Send
-                  className={cn(
-                    "h-3.5 w-3.5",
-                    (comment.isclient === 1 ||
-                      comment.isclient === "1" ||
-                      comment.isclient === true) &&
-                      "fill-current",
-                  )}
-                />
-                {comment.isclient === 1 ||
-                comment.isclient === "1" ||
-                comment.isclient === true
-                  ? "Notified"
-                  : "Notify client"}
-              </button>
+                    ? "Notified"
+                    : "Notify client"}
+                </button>
+              )}
               <button
                 onClick={() => {
                   setEditingCommentId(comment.id);
@@ -618,6 +624,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               onToggleIsClient={onToggleIsClient}
               onFilePreview={onFilePreview}
               isSaving={isSaving}
+              isClient={isClient}
             />
           ))}
 
