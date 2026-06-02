@@ -43,13 +43,41 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
 
     // Store in localStorage with board-specific key
     const cmsData: CMSData = {
-      roles: apiResponse.roles || [],
-      statuses: apiResponse.statuses,
-      priorities: apiResponse.priorities,
-      members: apiResponse.members || [],
+      roles: (apiResponse.roles || []).map((r) => ({
+        id: String(r.id),
+        name: r.name,
+      })),
+      statuses: (apiResponse.statuses || []).map((s) => ({
+        id: String(s.id),
+        name: s.name,
+        color_code: s.color_code,
+        status_order: String(s.status_order),
+        required_rating: s.required_rating,
+      })),
+      priorities: (apiResponse.priorities || []).map((p) => ({
+        id: String(p.id),
+        name: p.name,
+        color_code: p.color_code,
+        priority_order: String(p.priority_order),
+      })),
+      members: (apiResponse.members || []).map((m) => ({
+        user_id: String(m.user_id),
+        name: m.name,
+        email: m.email,
+        username: m.username,
+        role_id: m.role_id ? String(m.role_id) : undefined,
+        board_role_id: m.board_role_id ? Number(m.board_role_id) : undefined,
+        board_role_label: m.board_role_label,
+        board_role_active:
+          m.board_role_active === true ||
+          String(m.board_role_active) === "1" ||
+          Number(m.board_role_active) === 1,
+      })),
       labels: apiResponse.labels || [],
       tags: apiResponse.tags || [],
       timestamp: Date.now(),
+      all_board_groups: apiResponse.all_board_groups || [],
+      groups: apiResponse.groups || [],
     };
 
     saveToLocalStorage(payload.board_id, cmsData);
@@ -120,7 +148,19 @@ export async function getPriorities(payload: CMSRequest): Promise<Priority[]> {
  */
 export async function getMembers(payload: CMSRequest): Promise<Member[]> {
   const cmsData = await getCMSData(payload);
-  return cmsData.members;
+  const groups = cmsData.groups || [];
+  return cmsData.members.map((member) => {
+    const memberGroupIds = groups
+      .filter((g: any) => 
+        g.assigned_users && 
+        g.assigned_users.some((uid: any) => String(uid) === String(member.user_id))
+      )
+      .map((g: any) => String(g.id));
+    return {
+      ...member,
+      group_ids: memberGroupIds,
+    };
+  });
 }
 
 /**
