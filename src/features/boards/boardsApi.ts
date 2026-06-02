@@ -193,18 +193,15 @@ export const boardsApi = {
    */
   assignMembers: async (payload: {
     board_id: number;
-    user_id: number;
-    role_id: number;
     organization_id: number;
+    user_ids: number[];
+    role_id: number;
+    group_ids: number[];
   }): Promise<{
     code: number;
     status: string;
     message: string;
-    data: {
-      user_id: number;
-      role_id: number;
-      board_id: number;
-    };
+    data?: any;
   }> => {
     try {
       const response = await api.post("/boards/assign-members", payload);
@@ -220,17 +217,14 @@ export const boardsApi = {
    */
   removeMembers: async (payload: {
     board_id: number;
-    user_id: number;
+    user_ids: number[];
     role_id: number;
     organization_id: number;
   }): Promise<{
     code: number;
     status: string;
     message: string;
-    data: {
-      user_id: number;
-      board_id: number;
-    };
+    data?: any;
   }> => {
     try {
       const response = await api.delete("/boards/assign-members", {
