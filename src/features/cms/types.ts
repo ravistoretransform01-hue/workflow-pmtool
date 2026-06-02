@@ -23,9 +23,11 @@ export interface Member {
   name: string;
   email?: string;
   username?: string;
+  role_id?: string;
   board_role_id?: number;
   board_role_label?: string;
   board_role_active?: boolean;
+  group_ids?: string[];
 }
 
 export interface Label {
@@ -51,16 +53,61 @@ export interface Tag {
   created_at: string;
 }
 
+export interface BoardGroup {
+  id: string | number;
+  name: string;
+}
+
+export interface Group {
+  id: number | string;
+  name: string;
+  assigned_users: (string | number)[];
+}
+
+// Raw Response interfaces from backend
+export interface RawStatus {
+  id: string | number;
+  name: string;
+  color_code: string;
+  status_order: string | number;
+  required_rating: number | string;
+}
+
+export interface RawPriority {
+  id: string | number;
+  name: string;
+  color_code: string;
+  priority_order: string | number;
+}
+
+export interface RawRole {
+  id: string | number;
+  name: string;
+}
+
+export interface RawMember {
+  user_id: string | number;
+  name: string;
+  email?: string;
+  username?: string;
+  role_id?: string | number;
+  board_role_id?: number | string;
+  board_role_label?: string;
+  board_role_active?: boolean | string | number;
+}
+
 export interface CMSResponse {
   status: boolean;
-  roles: Role[];
-  statuses: Status[];
-  priorities: Priority[];
-  members: Member[];
+  roles: RawRole[];
+  statuses: RawStatus[];
+  priorities: RawPriority[];
+  members: RawMember[];
   labels: Label[];
   tags: Tag[];
   user_columns?: any;
   default_columns?: any;
+  all_board_groups?: BoardGroup[];
+  groups?: Group[];
 }
 
 export interface CMSRequest {
@@ -78,4 +125,6 @@ export interface CMSData {
   labels: Label[];
   tags: Tag[];
   timestamp: number;
+  all_board_groups?: BoardGroup[];
+  groups?: Group[];
 }

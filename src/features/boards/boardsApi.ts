@@ -259,4 +259,32 @@ export const boardsApi = {
       throw error;
     }
   },
+
+  /**
+   * Assign groups to a client user
+   */
+  assignClientGroups: async (payload: {
+    user_id: number;
+    organization_id: number;
+    board_id: number;
+    group_ids: number[];
+  }): Promise<{
+    code: number;
+    status: string;
+    message: string;
+    data: {
+      user_id: number;
+      successfully_added: number[];
+      already_existed: number[];
+      failed: number[];
+    };
+  }> => {
+    try {
+      const response = await api.post("/clients/assign-groups", payload);
+      return response.data;
+    } catch (error) {
+      console.error("Assign client groups API error:", error);
+      throw error;
+    }
+  },
 };

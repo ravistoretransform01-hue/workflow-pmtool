@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { MoreHorizontal, UserPlus, LayoutDashboard, X } from "lucide-react";
+import { MoreHorizontal, UserPlus, LayoutDashboard, X, ChevronDown, Check } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,8 +41,9 @@ import {
 } from "@/shared/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { boardsApi } from "@/features/boards/boardsApi";
+import type { Group } from "@/features/groups/types";
 import { BoardInviteDialog } from "@/shared/components/BoardInviteDialog";
-import { getMembers, getRoles } from "@/features/cms/cmsStorage";
+import { getMembers, getRoles, getCMSData } from "@/features/cms/cmsStorage";
 import { clearCMSCache } from "@/features/cms/cmsStorage";
 import type { Role } from "@/features/cms/types";
 import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
@@ -91,8 +92,13 @@ export default function BoardDashboardPage() {
       role: string;
       role_id?: string;
       avatarColor?: string;
+      group_ids?: string[];
     }>
   >([]);
+
+  // Board Groups state
+  const [boardGroups, setBoardGroups] = useState<Group[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
 
   // CMS Roles state
   const [roles, setRoles] = useState<Role[]>([]);
@@ -107,8 +113,42 @@ export default function BoardDashboardPage() {
       loadBoardData(Number(boardId));
       loadMembers(Number(boardId));
       loadRoles(Number(boardId));
+      loadBoardGroups(Number(boardId));
     }
   }, [boardId]);
+
+  const loadBoardGroups = async (id: number) => {
+    setIsLoadingGroups(true);
+    try {
+      const organizationId = getOrganizationId() || 2;
+      const userId = getCurrentUserId();
+      const cmsData = await getCMSData({
+        organization_id: organizationId,
+        board_id: id,
+        user_id: userId,
+      });
+
+      const sourceGroups =
+        cmsData.all_board_groups && cmsData.all_board_groups.length > 0
+          ? cmsData.all_board_groups
+          : cmsData.groups || [];
+
+      const groups = sourceGroups.map((bg: any) => ({
+        id: bg.id,
+        name: bg.name,
+        color: bg.color || "#3b82f6",
+        board_id: id,
+        workspace_id: 1,
+        organization_id: organizationId,
+      }));
+
+      setBoardGroups(groups);
+    } catch (error) {
+      console.error("Failed to load board groups:", error);
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
 
   const loadBoardData = async (id: number) => {
     try {
@@ -133,6 +173,7 @@ export default function BoardDashboardPage() {
                 email: creator.email,
                 role: "Project Owner",
                 avatarColor: board.icon_color || "hsl(221, 83%, 53%)",
+                group_ids: [],
               },
             ];
           });
@@ -163,7 +204,7 @@ export default function BoardDashboardPage() {
       });
 
       // Transform CMS members to dashboard member format
-      const transformedMembers = cmsMembers.map((member) => ({
+      const transformedMembers = cmsMembers.map((member: any) => ({
         id: member.user_id,
         name: member.name,
         email: member.email || `${member.username || "user"}@example.com`,
@@ -172,6 +213,7 @@ export default function BoardDashboardPage() {
           ? String(member.board_role_id)
           : undefined,
         avatarColor: `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`, // Generate color from user_id
+        group_ids: member.group_ids ? member.group_ids.map(String) : [],
       }));
 
       // Check if current user is in the list, if not add them
@@ -192,6 +234,7 @@ export default function BoardDashboardPage() {
             role: "Project Owner", // Default role for current user
             role_id: undefined,
             avatarColor: `hsl(${(userId * 137) % 360}, 70%, 50%)`,
+            group_ids: [],
           });
         }
       }
@@ -335,6 +378,55 @@ export default function BoardDashboardPage() {
       });
     } finally {
       setRemovingUserId(null);
+    }
+  };
+
+  const [assigningGroupsUserId, setAssigningGroupsUserId] = useState<string | null>(null);
+
+  const handleAssignGroups = async (userId: string, groupIds: string[]) => {
+    if (!boardId) return;
+
+    const organizationId = getOrganizationId() || 2;
+    setAssigningGroupsUserId(userId);
+    try {
+      const response = await boardsApi.assignClientGroups({
+        user_id: Number(userId),
+        organization_id: organizationId,
+        board_id: Number(boardId),
+        group_ids: groupIds.map(id => Number(id)),
+      });
+
+      if (response.status === "success" || response.code === 201) {
+        toast({
+          title: "Success",
+          description: "Groups updated successfully",
+        });
+        clearCMSCache(Number(boardId));
+        setMembers((prevMembers) =>
+          prevMembers.map((member) =>
+            member.id === userId
+              ? {
+                  ...member,
+                  group_ids: groupIds,
+                }
+              : member
+          )
+        );
+      } else {
+        throw new Error(response.message || "Failed to assign groups");
+      }
+    } catch (error: any) {
+      console.error("Error assigning groups:", error);
+      toast({
+        title: "Error",
+        description:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to assign groups",
+        variant: "destructive",
+      });
+    } finally {
+      setAssigningGroupsUserId(null);
     }
   };
 
@@ -561,12 +653,15 @@ export default function BoardDashboardPage() {
 
             {/* Members Table */}
             <div className="border border-border rounded-lg overflow-hidden bg-card">
-              <div className="grid grid-cols-[1fr_2fr_1fr_auto] gap-4 px-6 py-4 bg-muted/30 border-b border-border">
+              <div className="grid grid-cols-[1.2fr_1.8fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 bg-muted/30 border-b border-border">
                 <div className="text-sm font-medium text-muted-foreground">
                   Name
                 </div>
                 <div className="text-sm font-medium text-muted-foreground">
                   Email
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Groups
                 </div>
                 <div className="text-sm font-medium text-muted-foreground">
                   User role
@@ -581,7 +676,7 @@ export default function BoardDashboardPage() {
                   members.map((member) => (
                     <div
                       key={member.id}
-                      className="grid grid-cols-[1fr_2fr_1fr_auto] gap-4 px-6 py-4 items-center hover:bg-muted/10 transition-colors"
+                      className="grid grid-cols-[1.2fr_1.8fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 items-center hover:bg-muted/10 transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <Avatar className="w-8 h-8">
@@ -598,8 +693,87 @@ export default function BoardDashboardPage() {
                         </span>
                       </div>
 
-                      <div className="text-muted-foreground text-sm">
+                      <div className="text-muted-foreground text-sm truncate" title={member.email}>
                         {member.email}
+                      </div>
+
+                      {/* Group Selector Column */}
+                      <div>
+                        {member.role.toLowerCase().includes("client") ? (
+                          <Popover modal={true}>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                disabled={isLoadingGroups || assigningGroupsUserId === member.id}
+                                className="w-full max-w-[180px] flex items-center justify-between bg-background border border-input rounded-md h-8 px-3 text-left text-xs hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <div className="flex items-center gap-1 flex-wrap overflow-hidden max-w-[85%] truncate">
+                                  {(!member.group_ids || member.group_ids.length === 0) ? (
+                                    <span className="text-muted-foreground text-[11px]">Select groups</span>
+                                  ) : (
+                                    member.group_ids.map((groupId) => {
+                                      const group = boardGroups.find((g) => String(g.id) === groupId);
+                                      if (!group) return null;
+                                      return (
+                                        <span
+                                          key={groupId}
+                                          className="flex items-center gap-1 bg-muted text-foreground px-1.5 py-0.5 rounded-sm text-[10px] border border-border shrink-0"
+                                        >
+                                          <span
+                                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                                            style={{ backgroundColor: group.color || '#3b82f6' }}
+                                          />
+                                          <span className="truncate max-w-[50px]">{group.name}</span>
+                                        </span>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                                <ChevronDown className="h-3 text-muted-foreground flex-shrink-0" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[200px] p-2 bg-popover border border-border rounded-md shadow-md text-popover-foreground z-50">
+                              {isLoadingGroups ? (
+                                <p className="text-xs text-muted-foreground p-2">Loading groups...</p>
+                              ) : boardGroups.length === 0 ? (
+                                <p className="text-xs text-muted-foreground p-2">No groups available</p>
+                              ) : (
+                                <div className="space-y-1 max-h-[160px] overflow-y-auto" onWheel={(e) => e.stopPropagation()}>
+                                  {boardGroups.map((group) => {
+                                    const currentGroupIds = member.group_ids || [];
+                                    const isSelected = currentGroupIds.includes(String(group.id));
+                                    return (
+                                      <button
+                                        key={group.id}
+                                        type="button"
+                                        onClick={() => {
+                                          const nextGroupIds = isSelected
+                                            ? currentGroupIds.filter((id) => id !== String(group.id))
+                                            : [...currentGroupIds, String(group.id)];
+                                          handleAssignGroups(member.id, nextGroupIds);
+                                        }}
+                                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-medium transition-all hover:bg-accent hover:text-accent-foreground ${
+                                          isSelected ? "bg-accent text-accent-foreground font-semibold" : "text-foreground"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 truncate">
+                                          <span
+                                            className="w-2 h-2 rounded-full shrink-0"
+                                            style={{ backgroundColor: group.color || '#3b82f6' }}
+                                          />
+                                          <span className="truncate">{group.name}</span>
+                                        </div>
+                                        {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        ) : (
+                          <span className="text-muted-foreground text-sm pl-4">—</span>
+                        )}
                       </div>
 
                       <Select
