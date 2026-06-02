@@ -88,7 +88,6 @@ export function BoardInviteDialog({
   const [organizationMembers, setOrganizationMembers] = useState<
     OrganizationMember[]
   >([]);
-  const [isLoadingOrgMembers, setIsLoadingOrgMembers] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   
   const [internalBoardMembers, setInternalBoardMembers] = useState<
@@ -210,7 +209,6 @@ export function BoardInviteDialog({
   };
 
   const loadOrganizationMembers = async () => {
-    setIsLoadingOrgMembers(true);
     try {
       const organizationId = getOrganizationId() || 2;
       const orgMembers =
@@ -223,8 +221,6 @@ export function BoardInviteDialog({
         description: "Failed to load organization members",
         variant: "destructive",
       });
-    } finally {
-      setIsLoadingOrgMembers(false);
     }
   };
 
