@@ -287,4 +287,34 @@ export const boardsApi = {
       throw error;
     }
   },
+
+  /**
+   * Remove a group from a client user
+   */
+  removeClientGroup: async (payload: {
+    groupId: number | string;
+    userId: number | string;
+    organization_id: number;
+  }): Promise<{
+    code: number;
+    status: string;
+    message: string;
+    data: {
+      group_id: number;
+      user_id: number;
+    };
+  }> => {
+    try {
+      const response = await api.delete(
+        `/groups/${payload.groupId}/clients/${payload.userId}`,
+        {
+          data: { organization_id: payload.organization_id },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Remove client group API error:", error);
+      throw error;
+    }
+  },
 };
