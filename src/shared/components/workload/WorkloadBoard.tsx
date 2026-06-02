@@ -108,6 +108,7 @@ import { ListView } from "./ListView";
 import { isViewLive } from "@/lib/constants";
 import { ComingSoonAnimation } from "../ComingSoonAnimation";
 import { SOPView } from "./SOPView";
+import GanttView from "./GanttView";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -6254,6 +6255,15 @@ export function WorkloadBoard({
               const task = getTaskById(taskId);
               if (task) openTaskCard(task);
             }}
+          />
+        )}
+
+        {/* Gantt VIEW */}
+        {activeTab === "Gantt" && isViewLive.timeline && (
+          <GanttView
+            groups={memoizedFilteredData.groups}
+            onEstimatedDateChange={handleEstimatedDateChange}
+            onTaskClick={openTaskCard}
           />
         )}
 

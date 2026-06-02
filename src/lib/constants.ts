@@ -3,7 +3,7 @@ export const isViewLive = {
   kanban: true,
   list: true,
   calendar: false,
-  timeline: false,
+  timeline: true,
   workload: false,
   time: false,
   recurring: false,
