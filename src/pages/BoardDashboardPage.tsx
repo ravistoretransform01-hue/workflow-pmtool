@@ -383,46 +383,76 @@ export default function BoardDashboardPage() {
 
   const [assigningGroupsUserId, setAssigningGroupsUserId] = useState<string | null>(null);
 
-  const handleAssignGroups = async (userId: string, groupIds: string[]) => {
+  const handleToggleGroup = async (userId: string, groupId: string, isCurrentlySelected: boolean) => {
     if (!boardId) return;
 
-    const organizationId = getOrganizationId() || 2;
     setAssigningGroupsUserId(userId);
+    const organizationId = getOrganizationId() || 2;
     try {
-      const response = await boardsApi.assignClientGroups({
-        user_id: Number(userId),
-        organization_id: organizationId,
-        board_id: Number(boardId),
-        group_ids: groupIds.map(id => Number(id)),
-      });
-
-      if (response.status === "success" || response.code === 201) {
-        toast({
-          title: "Success",
-          description: "Groups updated successfully",
+      if (isCurrentlySelected) {
+        // Remove group
+        const response = await boardsApi.removeClientGroup({
+          groupId: String(groupId),
+          userId: String(userId),
+          organization_id: organizationId,
         });
-        clearCMSCache(Number(boardId));
-        setMembers((prevMembers) =>
-          prevMembers.map((member) =>
-            member.id === userId
-              ? {
-                  ...member,
-                  group_ids: groupIds,
-                }
-              : member
-          )
-        );
+
+        if (response.status === "success" || response.code === 200) {
+          toast({
+            title: "Success",
+            description: "Group removed successfully",
+          });
+          clearCMSCache(Number(boardId));
+          setMembers((prevMembers) =>
+            prevMembers.map((member) =>
+              member.id === userId
+                ? {
+                    ...member,
+                    group_ids: (member.group_ids || []).filter((id) => id !== groupId),
+                  }
+                : member
+            )
+          );
+        } else {
+          throw new Error(response.message || "Failed to remove group");
+        }
       } else {
-        throw new Error(response.message || "Failed to assign groups");
+        // Add group
+        const response = await boardsApi.assignClientGroups({
+          user_id: Number(userId),
+          organization_id: organizationId,
+          board_id: Number(boardId),
+          group_ids: [Number(groupId)],
+        });
+
+        if (response.status === "success" || response.code === 201) {
+          toast({
+            title: "Success",
+            description: "Group assigned successfully",
+          });
+          clearCMSCache(Number(boardId));
+          setMembers((prevMembers) =>
+            prevMembers.map((member) =>
+              member.id === userId
+                ? {
+                    ...member,
+                    group_ids: [...(member.group_ids || []), groupId],
+                  }
+                : member
+            )
+          );
+        } else {
+          throw new Error(response.message || "Failed to assign group");
+        }
       }
     } catch (error: any) {
-      console.error("Error assigning groups:", error);
+      console.error("Error toggling group:", error);
       toast({
         title: "Error",
         description:
           error.response?.data?.message ||
           error.message ||
-          "Failed to assign groups",
+          "Failed to update groups",
         variant: "destructive",
       });
     } finally {
@@ -707,7 +737,7 @@ export default function BoardDashboardPage() {
                                 disabled={isLoadingGroups || assigningGroupsUserId === member.id}
                                 className="w-full max-w-[180px] flex items-center justify-between bg-background border border-input rounded-md h-8 px-3 text-left text-xs hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                <div className="flex items-center gap-1 flex-wrap overflow-hidden max-w-[85%] truncate">
+                                <div className="flex items-center gap-1 overflow-hidden max-w-[85%]">
                                   {(!member.group_ids || member.group_ids.length === 0) ? (
                                     <span className="text-muted-foreground text-[11px]">Select groups</span>
                                   ) : (
@@ -747,10 +777,7 @@ export default function BoardDashboardPage() {
                                         key={group.id}
                                         type="button"
                                         onClick={() => {
-                                          const nextGroupIds = isSelected
-                                            ? currentGroupIds.filter((id) => id !== String(group.id))
-                                            : [...currentGroupIds, String(group.id)];
-                                          handleAssignGroups(member.id, nextGroupIds);
+                                          handleToggleGroup(member.id, String(group.id), isSelected);
                                         }}
                                         className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-medium transition-all hover:bg-accent hover:text-accent-foreground ${
                                           isSelected ? "bg-accent text-accent-foreground font-semibold" : "text-foreground"
