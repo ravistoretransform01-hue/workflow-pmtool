@@ -302,7 +302,7 @@ export default function BoardDashboardPage() {
 
       const response = await boardsApi.removeMembers({
         board_id: parseInt(boardId!),
-        user_id: parseInt(memberUserId),
+        user_ids: [parseInt(memberUserId)],
         role_id: 2, // Default role_id (required by API)
         organization_id: organizationId,
       });

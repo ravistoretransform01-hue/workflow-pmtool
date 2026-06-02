@@ -1,22 +1,37 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
-import { Input } from "@/shared/components/ui/input";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
-import { Plus, UserPlus } from "lucide-react";
+import { Plus, X, Loader2, Mail, Check, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   organizationApi,
   type OrganizationMember,
 } from "@/features/organization/organizationApi";
 import { boardsApi } from "@/features/boards/boardsApi";
-import { clearCMSCache, getMembers } from "@/features/cms/cmsStorage";
+import { groupsApi } from "@/features/groups/groupsApi";
+import type { Group } from "@/features/groups/types";
+import { clearCMSCache, getMembers, getRoles } from "@/features/cms/cmsStorage";
 import { getOrganizationId, getCurrentUserId } from "@/lib/utils";
+import type { Role } from "@/features/cms/types";
 import api from "@/lib/axios";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
+import { Button } from "@/shared/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/shared/components/ui/popover";
 
 interface BoardInviteDialogProps {
   open: boolean;
@@ -32,13 +47,21 @@ interface BoardInviteDialogProps {
   onMembersUpdate?: () => void;
 }
 
+interface SelectedInvitee {
+  id?: string;
+  name?: string;
+  email: string;
+  avatarColor?: string;
+  type: "user" | "email";
+}
+
 // Email validation helper
 const isValidEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
 
-// Generate avatar color based on user name
+// Generate avatar color based on name
 const getAvatarColor = (name: string): string => {
   const colors = [
     "hsl(221, 83%, 53%)",
@@ -67,7 +90,7 @@ export function BoardInviteDialog({
   >([]);
   const [isLoadingOrgMembers, setIsLoadingOrgMembers] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
-  const [addingUserId, setAddingUserId] = useState<string | null>(null);
+  
   const [internalBoardMembers, setInternalBoardMembers] = useState<
     Array<{
       id: string;
@@ -78,7 +101,17 @@ export function BoardInviteDialog({
     }>
   >([]);
   const [isLoadingBoardMembers, setIsLoadingBoardMembers] = useState(false);
+  
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [selectedRoleId, setSelectedRoleId] = useState("2"); // Default to 2 (Member)
+  const [selectedInvitees, setSelectedInvitees] = useState<SelectedInvitee[]>([]);
+  const [boardGroups, setBoardGroups] = useState<Group[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  
   const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Check if search query is a valid email
   const isEmail = useMemo(
@@ -89,15 +122,20 @@ export function BoardInviteDialog({
   useEffect(() => {
     if (open && boardId) {
       loadOrganizationMembers();
+      fetchRoles();
+      loadBoardGroups();
     }
   }, [open, boardId]);
 
   useEffect(() => {
     if (!open) {
       setSearchQuery("");
+      setSelectedInvitees([]);
+      setSelectedGroupIds([]);
     }
   }, [open]);
 
+  // Load board members on mount or opening
   useEffect(() => {
     let isMounted = true;
 
@@ -144,7 +182,6 @@ export function BoardInviteDialog({
   }, [open, boardId, currentMembers?.length]);
 
   const loadBoardMembers = async () => {
-    // This is kept for manual trigger after adding/inviting if needed
     if (!boardId) return;
     setIsLoadingBoardMembers(true);
     try {
@@ -191,14 +228,77 @@ export function BoardInviteDialog({
     }
   };
 
-  // Filter available users (organization members not already in board) based on search
-  const availableUsers = useMemo(() => {
-    // Get current member user IDs to filter them out
-    const currentMemberIds = new Set(
-      (currentMembers || []).map((member) => member.id),
-    );
+  const fetchRoles = async () => {
+    setLoadingRoles(true);
+    try {
+      const organizationId = getOrganizationId() || 2;
+      const userId = getCurrentUserId();
+      const rolesData = await getRoles({
+        organization_id: organizationId,
+        board_id: 0, // Using 0 for organization-level roles
+        user_id: userId,
+      });
+      setRoles(rolesData);
+      if (rolesData.length > 0) {
+        // Default to the member role if found
+        const memberRole = rolesData.find((r) => r.name.toLowerCase().includes("member"));
+        setSelectedRoleId(memberRole ? memberRole.id : rolesData[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to load roles:", error);
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
 
-    // Get current user ID to filter them out from search results
+  const loadBoardGroups = async () => {
+    if (!boardId) return;
+    setIsLoadingGroups(true);
+    try {
+      const groupsData = await groupsApi.getGroupsByBoard(Number(boardId));
+      setBoardGroups(groupsData);
+    } catch (error) {
+      console.error("Failed to load board groups:", error);
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
+
+  // Fallback static roles if API roles fail or are empty
+  const effectiveRoles = useMemo(() => {
+    if (roles && roles.length > 0) return roles;
+    return [
+      { id: "2", name: "Project Member" },
+      { id: "5", name: "Organization Admin" },
+      { id: "3", name: "Project Developer" },
+      { id: "4", name: "Project Client" },
+      { id: "6", name: "Project Viewer" },
+    ];
+  }, [roles]);
+
+  const isSelectedRoleClient = useMemo(() => {
+    const roleObj = effectiveRoles.find((r) => String(r.id) === String(selectedRoleId));
+    return roleObj ? roleObj.name.toLowerCase().includes("client") : false;
+  }, [selectedRoleId, effectiveRoles]);
+
+  // Reset selected groups if the selected role is no longer Client
+  useEffect(() => {
+    if (!isSelectedRoleClient) {
+      setSelectedGroupIds([]);
+    }
+  }, [isSelectedRoleClient]);
+
+  // Current board members list helper
+  const boardMembersList = useMemo(() => {
+    return currentMembers && currentMembers.length > 0
+      ? currentMembers
+      : internalBoardMembers;
+  }, [currentMembers, internalBoardMembers]);
+
+  // Filter organization members for dropdown search (not already on board & not selected)
+  const availableUsers = useMemo(() => {
+    const currentMemberIds = new Set(boardMembersList.map((m) => String(m.id)));
+    const selectedIds = new Set(selectedInvitees.map((item) => String(item.id)));
     const currentUserId = getCurrentUserId();
 
     if (!searchQuery.trim()) {
@@ -206,137 +306,189 @@ export function BoardInviteDialog({
     }
 
     return organizationMembers.filter((orgMember) => {
-      // Filter out members who are already in the board
-      const isAlreadyMember = currentMemberIds.has(orgMember.user_id);
+      const isAlreadyMember = currentMemberIds.has(String(orgMember.user_id));
       if (isAlreadyMember) return false;
 
-      // Filter out current user to prevent self-invitation
-      const isCurrentUser =
-        currentUserId && orgMember.user_id === String(currentUserId);
+      const isAlreadySelected = selectedIds.has(String(orgMember.user_id));
+      if (isAlreadySelected) return false;
+
+      const isCurrentUser = currentUserId && String(orgMember.user_id) === String(currentUserId);
       if (isCurrentUser) return false;
 
-      // Filter by search query
       return (
-        orgMember.display_name
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
+        orgMember.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         orgMember.user_email.toLowerCase().includes(searchQuery.toLowerCase())
       );
     });
-  }, [organizationMembers, currentMembers, searchQuery]);
+  }, [organizationMembers, boardMembersList, selectedInvitees, searchQuery]);
 
-  // Filter current members based on search
-  const filteredMembers = useMemo(() => {
-    // Use prop if available, otherwise use internally fetched members
-    return currentMembers && currentMembers.length > 0
-      ? currentMembers
-      : internalBoardMembers;
-  }, [currentMembers, internalBoardMembers]);
+  // Suggested people row (org members not on board and not in input chips)
+  const suggestedPeople = useMemo(() => {
+    const currentMemberIds = new Set(boardMembersList.map((m) => String(m.id)));
+    const selectedIds = new Set(selectedInvitees.map((item) => String(item.id)));
+    const currentUserId = getCurrentUserId();
 
-  // Check if the typed email already belongs to a member of this board
-  const isAlreadyMemberByEmail = useMemo(() => {
-    if (!isEmail) return false;
-    const searchEmail = searchQuery.trim().toLowerCase();
-    return filteredMembers.some(
-      (m) => m.email?.toLowerCase() === searchEmail,
-    );
-  }, [searchQuery, isEmail, filteredMembers]);
+    return organizationMembers
+      .filter((orgMember) => {
+        const isMember = currentMemberIds.has(String(orgMember.user_id));
+        const isSelected = selectedIds.has(String(orgMember.user_id));
+        const isCurrentUser = currentUserId && String(orgMember.user_id) === String(currentUserId);
+        return !isMember && !isSelected && !isCurrentUser;
+      })
+      .slice(0, 4); // Limit to top 4 recommendations
+  }, [organizationMembers, boardMembersList, selectedInvitees]);
 
-  const handleAddMember = async (userId: string) => {
-    setAddingUserId(userId);
-    try {
-      const organizationId = getOrganizationId() ?? 2;
+  const handleSelectUser = (user: OrganizationMember) => {
+    if (selectedInvitees.some((item) => item.id === user.user_id)) {
+      setSearchQuery("");
+      return;
+    }
 
-      const response = await boardsApi.assignMembers({
-        board_id: parseInt(boardId),
-        user_id: parseInt(userId),
-        role_id: 2, // Default role_id
-        organization_id: organizationId,
-      });
+    setSelectedInvitees((prev) => [
+      ...prev,
+      {
+        id: user.user_id,
+        name: user.display_name,
+        email: user.user_email,
+        type: "user",
+        avatarColor: getAvatarColor(user.display_name),
+      },
+    ]);
+    setSearchQuery("");
+    inputRef.current?.focus();
+  };
 
-      if (response.status === "success") {
-        toast({
-          title: "Member added",
-          description: "Member has been successfully added to the board",
-        });
+  const handleAddSuggested = (user: OrganizationMember) => {
+    setSelectedInvitees((prev) => [
+      ...prev,
+      {
+        id: user.user_id,
+        name: user.display_name,
+        email: user.user_email,
+        type: "user",
+        avatarColor: getAvatarColor(user.display_name),
+      },
+    ]);
+  };
 
-        // Clear CMS cache to ensure fresh data is loaded
-        clearCMSCache(parseInt(boardId));
+  const handleRemoveSelectedInvitee = (index: number) => {
+    setSelectedInvitees((prev) => prev.filter((_, i) => i !== index));
+  };
 
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
+      e.preventDefault();
+      const val = searchQuery.trim();
+      if (!val) return;
+
+      if (isValidEmail(val)) {
+        if (selectedInvitees.some((item) => item.email.toLowerCase() === val.toLowerCase())) {
+          toast({
+            title: "Already added",
+            description: `${val} is already in the list.`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const isMember = boardMembersList.some((m) => m.email?.toLowerCase() === val.toLowerCase());
+        if (isMember) {
+          toast({
+            title: "Already a member",
+            description: `${val} is already a member of this board.`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        setSelectedInvitees((prev) => [
+          ...prev,
+          {
+            email: val,
+            type: "email",
+            avatarColor: getAvatarColor(val),
+          },
+        ]);
         setSearchQuery("");
-
-        // Add a small delay to ensure API operations are complete
-        setTimeout(() => {
-          onMembersUpdate?.();
-          if (!currentMembers || currentMembers.length === 0) {
-            loadBoardMembers();
-          }
-        }, 500);
       } else {
-        throw new Error(response.message || "Failed to add member");
+        if (availableUsers.length > 0) {
+          handleSelectUser(availableUsers[0]);
+        }
       }
-    } catch (error: any) {
-      console.error("Error adding member:", error);
-
-      // Handle specific error cases
-      if (error.response?.data?.error_type === "duplicate_entry") {
-        toast({
-          title: "Already a member",
-          description: "This user is already a member of this board",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description:
-            error.response?.data?.message ||
-            error.message ||
-            "Failed to add member to board",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setAddingUserId(null);
+    } else if (e.key === "Backspace" && !searchQuery) {
+      setSelectedInvitees((prev) => prev.slice(0, -1));
     }
   };
 
-  const handleInviteByEmail = async () => {
-    if (!isEmail || !searchQuery.trim()) return;
+  // Submit all selected invites in batch/bulk
+  const handleInviteSubmit = async () => {
+    if (selectedInvitees.length === 0) return;
 
     setIsInviting(true);
     try {
       const organizationId = getOrganizationId() || 2;
+      const roleId = parseInt(selectedRoleId);
+      const numericGroupIds = selectedGroupIds.map((id) => parseInt(id));
 
-      await api.post("/invite-user", {
-        email: searchQuery.trim(),
-        organization_id: organizationId,
-        board_id: parseInt(boardId),
-        role_id: 2, // Default role_id, you can make this configurable
-      });
+      const existingUserIds = selectedInvitees
+        .filter((invitee) => invitee.type === "user" && invitee.id)
+        .map((invitee) => parseInt(invitee.id!));
+
+      const newEmails = selectedInvitees
+        .filter((invitee) => invitee.type === "email" || !invitee.id)
+        .map((invitee) => invitee.email);
+
+      const promises: Promise<any>[] = [];
+
+      // 1. Bulk assign existing organization users to the board
+      if (existingUserIds.length > 0) {
+        promises.push(
+          boardsApi.assignMembers({
+            board_id: parseInt(boardId),
+            organization_id: organizationId,
+            user_ids: existingUserIds,
+            role_id: roleId,
+            group_ids: numericGroupIds,
+          })
+        );
+      }
+
+      // 2. Bulk invite new emails
+      if (newEmails.length > 0) {
+        promises.push(
+          api.post("/invites/bulk", {
+            emails: newEmails,
+            organization_id: organizationId,
+            board_id: parseInt(boardId),
+            role_id: roleId,
+            group_ids: numericGroupIds,
+          })
+        );
+      }
+
+      await Promise.all(promises);
 
       toast({
-        title: "Invitation sent",
-        description: `Invitation has been sent to ${searchQuery.trim()}`,
+        title: "Success",
+        description: `Successfully added/invited ${selectedInvitees.length} user(s).`,
       });
 
-      // Clear CMS cache to ensure fresh data is loaded
       clearCMSCache(parseInt(boardId));
-
+      setSelectedInvitees([]);
       setSearchQuery("");
+      
+      // Close the modal
+      onOpenChange(false);
 
-      // Add a small delay to ensure API operations are complete
       setTimeout(() => {
         onMembersUpdate?.();
-        if (!currentMembers || currentMembers.length === 0) {
-          loadBoardMembers();
-        }
+        loadBoardMembers();
       }, 500);
     } catch (error: any) {
-      console.error("Error inviting user:", error);
+      console.error("Failed to batch invite users:", error);
       toast({
         title: "Error",
-        description:
-          error.response?.data?.message || "Failed to send invitation",
+        description: error.response?.data?.message || "Failed to add or invite some users.",
         variant: "destructive",
       });
     } finally {
@@ -346,162 +498,314 @@ export function BoardInviteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl bg-[#2d3250] max-h-[80vh] overflow-hidden flex flex-col border-none text-white">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold">
+      <DialogContent className="sm:max-w-[480px] bg-[#1e293b] border border-slate-700/60 text-white rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+        <DialogHeader className="flex flex-row items-center justify-between pb-2 border-b border-slate-800">
+          <DialogTitle className="text-xl font-semibold tracking-tight text-white">
             Invite to this board
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 mt-6 overflow-y-auto flex-1 p-1">
-          <div className="relative">
-            <Input
-              placeholder="Search by name, team, or email address"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && isEmail) {
-                  handleInviteByEmail();
-                }
-              }}
-              className="bg-[#404463] border-2 border-primary/50 text-white placeholder:text-gray-400 h-14 text-base focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary"
-            />
-
-            {/* Invite by email button */}
-            {searchQuery.trim() &&
-              isEmail &&
-              availableUsers.length === 0 &&
-              !isAlreadyMemberByEmail && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-[#404463] border-2 border-primary rounded-lg shadow-lg z-50">
-                <button
-                  onClick={handleInviteByEmail}
-                  disabled={isInviting}
-                  className="w-full flex items-center gap-4 p-4 hover:bg-[#4a4e6b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        <div className="flex-1 overflow-y-auto py-4 space-y-6">
+          {/* Chip Input Box */}
+          <div className="space-y-2 relative">
+            <label className="text-xs font-semibold text-gray-300">
+              Names or emails <span className="text-red-500">*</span>
+            </label>
+            
+            <div 
+              onClick={() => inputRef.current?.focus()}
+              className="min-h-12 w-full bg-[#0f172a] border border-slate-700/80 rounded-xl p-2 flex flex-wrap gap-1.5 items-center cursor-text focus-within:ring-2 focus-within:ring-primary focus-within:border-primary transition-all"
+            >
+              {selectedInvitees.map((invitee, idx) => (
+                <div 
+                  key={idx} 
+                  className="flex items-center gap-1 bg-[#1e293b] text-white pl-1.5 pr-1 py-1 rounded-lg text-xs border border-slate-700/50 select-none animate-in fade-in zoom-in-95 duration-100"
                 >
-                  <UserPlus className="h-5 w-5 text-primary" />
-                  <div className="flex-1 text-left">
-                    <p className="text-base font-medium text-white">
-                      {isInviting
-                        ? "Sending invitation..."
-                        : `Invite ${searchQuery.trim()}`}
-                    </p>
-                    <p className="text-sm text-gray-400">
-                      Send invitation to this email
-                    </p>
-                  </div>
-                  <Plus className="h-5 w-5 text-gray-400" />
-                </button>
-              </div>
-            )}
-
-            {/* Available users dropdown */}
-            {searchQuery.trim() && !isEmail && availableUsers.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-[#404463] border-2 border-primary rounded-lg shadow-lg z-50 max-h-[200px] overflow-y-auto">
-                {availableUsers.map((orgMember) => (
-                  <button
-                    key={orgMember.user_id}
-                    onClick={() => handleAddMember(orgMember.user_id)}
-                    disabled={addingUserId === orgMember.user_id}
-                    className="w-full flex items-center gap-4 p-4 hover:bg-[#4a4e6b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  <Avatar className="w-4 h-4">
+                    <AvatarFallback 
+                      className="text-[8px] text-white" 
+                      style={{ backgroundColor: invitee.avatarColor || '#3b82f6' }}
+                    >
+                      {(invitee.name || invitee.email).charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="max-w-[120px] truncate text-gray-200">
+                    {invitee.name || invitee.email}
+                  </span>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveSelectedInvitee(idx);
+                    }}
+                    className="text-gray-400 hover:text-white rounded-full p-0.5"
                   >
-                    <Avatar className="w-10 h-10">
-                      <AvatarFallback
-                        style={{
-                          backgroundColor: getAvatarColor(
-                            orgMember.display_name,
-                          ),
-                        }}
-                      >
-                        <span className="text-white font-semibold">
-                          {orgMember.display_name.charAt(0).toUpperCase()}
-                        </span>
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              
+              <input
+                ref={inputRef}
+                placeholder={selectedInvitees.length === 0 ? "e.g., Maria, maria@company.com" : "add more..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleInputKeyDown}
+                className="bg-transparent border-none outline-none flex-1 min-w-[120px] text-white placeholder:text-gray-500 text-xs py-1"
+              />
+            </div>
+
+            {/* Drodown: Search Suggestions overlay */}
+            {searchQuery.trim() && !isEmail && availableUsers.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-[#1e293b] border border-slate-700 rounded-lg shadow-xl z-50 max-h-[160px] overflow-y-auto">
+                {availableUsers.map((user) => (
+                  <button
+                    key={user.user_id}
+                    onClick={() => handleSelectUser(user)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#0f172a] text-left transition-colors border-b border-slate-800/80 last:border-none"
+                  >
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback style={{ backgroundColor: getAvatarColor(user.display_name) }}>
+                        {user.display_name.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 text-left">
-                      <p className="text-base font-medium text-white">
-                        {orgMember.display_name}
-                      </p>
-                      <p className="text-sm text-gray-400">
-                        {orgMember.user_email}
-                      </p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-white truncate">{user.display_name}</p>
+                      <p className="text-[10px] text-gray-400 truncate">{user.user_email}</p>
                     </div>
-                    {addingUserId === orgMember.user_id ? (
-                      <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Plus className="h-5 w-5 text-gray-400" />
-                    )}
+                    <Plus className="h-4 w-4 text-gray-400" />
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Loading state for organization members */}
-            {searchQuery.trim() && !isEmail && isLoadingOrgMembers && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-[#404463] border-2 border-primary rounded-lg shadow-lg z-50">
-                <div className="p-4 text-center text-gray-400">
-                  Loading members...
-                </div>
+            {/* Dropdown: Invite Email helper overlay */}
+            {searchQuery.trim() && isEmail && !selectedInvitees.some(item => item.email.toLowerCase() === searchQuery.trim().toLowerCase()) && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-[#1e293b] border border-slate-700 rounded-lg shadow-xl z-50">
+                <button
+                  onClick={() => {
+                    setSelectedInvitees((prev) => [
+                      ...prev,
+                      {
+                        email: searchQuery.trim(),
+                        type: "email",
+                        avatarColor: getAvatarColor(searchQuery.trim()),
+                      },
+                    ]);
+                    setSearchQuery("");
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#0f172a] text-left transition-colors"
+                >
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-white">Invite email</p>
+                    <p className="text-[10px] text-gray-400 truncate">{searchQuery.trim()}</p>
+                  </div>
+                  <Plus className="h-4 w-4 text-gray-400" />
+                </button>
               </div>
             )}
-
-            {/* No results message */}
-            {searchQuery.trim() &&
-              !isEmail &&
-              !isLoadingOrgMembers &&
-              availableUsers.length === 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-[#404463] border-2 border-primary rounded-lg shadow-lg z-50">
-                  <div className="p-4 text-center text-gray-400">
-                    No available members found
-                  </div>
-                </div>
-              )}
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-white">
-              People in this board
-            </h3>
+          {/* Suggested Row (Horizontal Chip List) */}
+          {suggestedPeople.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                {suggestedPeople.map((user) => (
+                  <button
+                    key={user.user_id}
+                    onClick={() => handleAddSuggested(user)}
+                    className="flex items-center gap-1.5 bg-[#0f172a] hover:bg-primary/25 border border-slate-700/60 rounded-full pl-1.5 pr-2.5 py-1 text-xs text-gray-300 font-medium transition-all"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-gray-400" />
+                    <Avatar className="w-4 h-4">
+                      <AvatarFallback className="text-[8px] bg-slate-700 text-white font-semibold">
+                        {user.display_name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>{user.display_name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-            {filteredMembers.length === 0 ? (
-              <p className="text-gray-400 text-center py-8">
-                {isLoadingBoardMembers
-                  ? "Loading members..."
-                  : "No members in this board"}
+          {/* Role selector dropdown */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-gray-300">
+              Role <span className="text-red-500">*</span>
+            </label>
+            <Select 
+              value={selectedRoleId} 
+              onValueChange={setSelectedRoleId}
+              disabled={loadingRoles}
+            >
+              <SelectTrigger className="w-full bg-[#0f172a] border-slate-700 text-white rounded-xl h-10">
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1e293b] border-slate-700 text-white">
+                {effectiveRoles.map((role) => (
+                  <SelectItem key={role.id} value={role.id} className="text-white hover:bg-primary/20">
+                    {role.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Group selector multi-select dropdown */}
+          {isSelectedRoleClient && (
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-gray-300">
+                Groups
+              </label>
+              <Popover modal={true}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={isLoadingGroups}
+                    className="w-full flex items-center justify-between bg-[#0f172a] border border-slate-700 text-white rounded-xl h-10 px-3 text-left text-xs hover:bg-[#1e293b] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center gap-1.5 flex-wrap overflow-hidden max-w-[90%]">
+                      {selectedGroupIds.length === 0 ? (
+                        <span className="text-gray-500">Select groups (optional)</span>
+                      ) : (
+                        selectedGroupIds.map((groupId) => {
+                          const group = boardGroups.find((g) => String(g.id) === groupId);
+                          if (!group) return null;
+                          return (
+                            <span
+                              key={groupId}
+                              className="flex items-center gap-1 bg-[#1e293b] text-white px-2 py-0.5 rounded-md text-[10px] border border-slate-700/50"
+                            >
+                              <span
+                                className="w-1.5 h-1.5 rounded-full"
+                                style={{ backgroundColor: group.color || '#3b82f6' }}
+                              />
+                              {group.name}
+                            </span>
+                          );
+                        })
+                      )}
+                    </div>
+                    <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[432px] p-2 bg-[#1e293b] border border-slate-700/60 rounded-xl shadow-xl text-white">
+                  {isLoadingGroups ? (
+                    <p className="text-xs text-gray-400 p-2">Loading groups...</p>
+                  ) : boardGroups.length === 0 ? (
+                    <p className="text-xs text-gray-400 p-2">No groups available on this board</p>
+                  ) : (
+                    <div className="space-y-1 max-h-[160px] overflow-y-auto" onWheel={(e) => e.stopPropagation()}>
+                      {boardGroups.map((group) => {
+                        const isSelected = selectedGroupIds.includes(String(group.id));
+                        return (
+                          <button
+                            key={group.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedGroupIds((prev) =>
+                                isSelected
+                                  ? prev.filter((id) => id !== String(group.id))
+                                  : [...prev, String(group.id)]
+                              );
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all hover:bg-slate-800 ${
+                              isSelected ? "bg-slate-800 text-white" : "text-gray-300"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full"
+                                style={{ backgroundColor: group.color || '#3b82f6' }}
+                              />
+                              <span>{group.name}</span>
+                            </div>
+                            {isSelected && <Check className="h-3.5 w-3.5 text-blue-500" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
+          {/* Existing Board Members Collapsible / Section */}
+          <div className="space-y-4 pt-4 border-t border-slate-800">
+            <h4 className="text-xs font-semibold text-gray-300 tracking-wide uppercase">
+              People in this board
+            </h4>
+
+            {boardMembersList.length === 0 ? (
+              <p className="text-gray-400 text-center text-xs py-4">
+                {isLoadingBoardMembers ? "Loading members..." : "No members in this board"}
               </p>
             ) : (
-              <div className="space-y-3">
-                {filteredMembers.map((member) => {
-                  return (
-                    <div
-                      key={member.id}
-                      className="flex items-center gap-4 py-2"
-                    >
-                      <Avatar className="w-12 h-12">
-                        <AvatarFallback
-                          style={{
-                            backgroundColor:
-                              member.avatarColor || getAvatarColor(member.name),
-                          }}
-                        >
-                          <span className="text-white font-semibold text-lg">
-                            {member.name.charAt(0).toUpperCase()}
-                          </span>
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="text-lg font-medium text-white">
-                          {member.name}
-                        </p>
-                        <p className="text-sm text-gray-400">{member.email}</p>
-                        <p className="text-xs text-gray-500 capitalize">
-                          {member.role}
-                        </p>
-                      </div>
+              <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
+                {boardMembersList.map((member) => (
+                  <div key={member.id} className="flex items-center gap-3 py-1">
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback
+                        style={{
+                          backgroundColor: member.avatarColor || getAvatarColor(member.name),
+                        }}
+                        className="text-white text-xs font-semibold"
+                      >
+                        {member.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-white truncate">
+                        {member.name}
+                      </p>
+                      <p className="text-[10px] text-gray-400 truncate">{member.email}</p>
                     </div>
-                  );
-                })}
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-gray-500 border border-slate-800 px-2 py-0.5 rounded bg-slate-900/60 font-medium">
+                        {member.role}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="pt-4 border-t border-slate-800 flex items-center justify-end">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              className="text-xs text-gray-300 hover:text-white hover:bg-transparent px-3 py-1.5 h-8 rounded-lg bg-transparent"
+              disabled={isInviting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={handleInviteSubmit}
+              disabled={selectedInvitees.length === 0 || isInviting}
+              className="text-xs text-blue-500 hover:text-blue-400 hover:bg-transparent bg-transparent px-4 py-1.5 h-8 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isInviting ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                  Adding...
+                </>
+              ) : selectedInvitees.length > 1 ? (
+                `Add ${selectedInvitees.length} people`
+              ) : selectedInvitees.length === 1 ? (
+                "Add 1 person"
+              ) : (
+                "Add"
+              )}
+            </Button>
           </div>
         </div>
       </DialogContent>
