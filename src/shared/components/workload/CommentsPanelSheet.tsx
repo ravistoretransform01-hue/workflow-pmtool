@@ -36,6 +36,7 @@ import {
 import type { TaskComment } from "@/features/tasks/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
+import { getMembers } from "@/features/cms/cmsStorage";
 
 interface CommentsPanelSheetProps {
   open: boolean;
@@ -108,6 +109,62 @@ export function CommentsPanelSheet({
   const [activeCommentsTab, setActiveCommentsTab] = useState("updates");
   const [clientComments, setClientComments] = useState<TaskComment[]>([]);
   const [isLoadingClientComments, setIsLoadingClientComments] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [isLoadingRole, setIsLoadingRole] = useState(true);
+
+  useEffect(() => {
+    if (open && boardId) {
+      setIsLoadingRole(true);
+      const loadUserRole = async () => {
+        try {
+          const organizationId = getOrganizationId() || 2;
+          const currentUserId = getCurrentUserId();
+          if (!currentUserId) {
+            setIsLoadingRole(false);
+            return;
+          }
+
+          const cmsMembers = await getMembers({
+            organization_id: organizationId,
+            board_id: Number(boardId),
+            user_id: currentUserId,
+          });
+
+          const currentMember = cmsMembers.find(
+            (m) => String(m.user_id) === String(currentUserId),
+          );
+
+          if (currentMember) {
+            setCurrentUserRole(currentMember.board_role_label || null);
+          }
+        } catch (error) {
+          console.error("Failed to load user role:", error);
+        } finally {
+          setIsLoadingRole(false);
+        }
+      };
+
+      loadUserRole();
+    } else if (!open) {
+      setIsLoadingRole(true);
+      setCurrentUserRole(null);
+    }
+  }, [open, boardId]);
+
+  const isClient = currentUserRole
+    ? currentUserRole.toLowerCase().includes("client")
+    : false;
+
+  useEffect(() => {
+    if (currentUserRole) {
+      const isClientRole = currentUserRole.toLowerCase().includes("client");
+      if (isClientRole) {
+        setActiveCommentsTab("client-updates");
+      } else {
+        setActiveCommentsTab("updates");
+      }
+    }
+  }, [currentUserRole]);
 
   useEffect(() => {
     if (open && activeCommentsTab === "client-updates" && taskId) {
@@ -392,314 +449,348 @@ export function CommentsPanelSheet({
           >
             <div className="px-6 border-b border-border">
               <TabsList className="w-full justify-start h-12 bg-transparent p-0">
-                <TabsTrigger
-                  value="updates"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-                >
-                  <Home className="h-4 w-4 mr-2" />
-                  Update
-                </TabsTrigger>
+                {isLoadingRole ? (
+                  <div className="flex gap-4 items-center h-full">
+                    <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                    <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                  </div>
+                ) : (
+                  <>
+                    {!isClient && (
+                      <TabsTrigger
+                        value="updates"
+                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                      >
+                        <Home className="h-4 w-4 mr-2" />
+                        Update
+                      </TabsTrigger>
+                    )}
 
-                <TabsTrigger
-                  value="client-updates"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-                >
-                  <RefreshCcw className="h-4 w-4 mr-2" />
-                  Client Updates
-                </TabsTrigger>
+                    <TabsTrigger
+                      value="client-updates"
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                    >
+                      <RefreshCcw className="h-4 w-4 mr-2" />
+                      Client Updates
+                    </TabsTrigger>
 
-                <Button
-                  variant="ghost"
-                  className="hidden rounded-none border-b-2 border-transparent hover:bg-transparent h-auto py-3 px-4"
-                  onClick={onTaskButtonClick}
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Task
-                </Button>
+                    {!isClient && (
+                      <Button
+                        variant="ghost"
+                        className="hidden rounded-none border-b-2 border-transparent hover:bg-transparent h-auto py-3 px-4"
+                        onClick={onTaskButtonClick}
+                      >
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Task
+                      </Button>
+                    )}
 
-                <TabsTrigger
-                  value="activity"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-                >
-                  <Activity className="h-4 w-4 mr-2" />
-                  Activity Log
-                </TabsTrigger>
+                    {!isClient && (
+                      <TabsTrigger
+                        value="activity"
+                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                      >
+                        <Activity className="h-4 w-4 mr-2" />
+                        Activity Log
+                      </TabsTrigger>
+                    )}
+                  </>
+                )}
               </TabsList>
             </div>
 
-            {/* comments content */}
-            <TabsContent
-              value="updates"
-              className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
-            >
-              <div className="w-full max-w-[800px] mx-auto flex-1 flex flex-col min-h-0">
-                <TaskUpdates
-                  boardId={boardId}
-                  comments={comments}
-                  isLoadingComments={isLoadingComments}
-                  layout="sidebar"
-                  onDeleteComment={onDeleteComment}
-                  onUpdateComment={onUpdateComment}
-                  onSaveInlineReply={onSaveInlineReply}
-                  onLikeComment={onLikeComment}
-                  onShareComment={onShareComment}
-                  onToggleSOP={onToggleSOP}
-                  onToggleIsClient={onToggleIsClient}
-                  onSaveMainUpdate={onSaveUpdate}
-                  onHighlightComplete={onHighlightComplete}
-                  isSaving={isSaving}
-                  onFilePreview={handleFilePreview}
-                  mainUpdateText={updateText}
-                  onMainUpdateTextChange={onUpdateTextChange}
-                />
+            {isLoadingRole ? (
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm text-muted-foreground animate-pulse">
+                    Loading details...
+                  </p>
+                </div>
               </div>
-            </TabsContent>
+            ) : (
+              <>
+                {/* comments content */}
+                {!isClient && (
+                  <TabsContent
+                    value="updates"
+                    className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
+                  >
+                    <div className="w-full max-w-[800px] mx-auto flex-1 flex flex-col min-h-0">
+                      <TaskUpdates
+                        boardId={boardId}
+                        comments={comments}
+                        isLoadingComments={isLoadingComments}
+                        layout="sidebar"
+                        onDeleteComment={onDeleteComment}
+                        onUpdateComment={onUpdateComment}
+                        onSaveInlineReply={onSaveInlineReply}
+                        onLikeComment={onLikeComment}
+                        onShareComment={onShareComment}
+                        onToggleSOP={onToggleSOP}
+                        onToggleIsClient={onToggleIsClient}
+                        onSaveMainUpdate={onSaveUpdate}
+                        onHighlightComplete={onHighlightComplete}
+                        isSaving={isSaving}
+                        onFilePreview={handleFilePreview}
+                        mainUpdateText={updateText}
+                        onMainUpdateTextChange={onUpdateTextChange}
+                        isClient={isClient}
+                      />
+                    </div>
+                  </TabsContent>
+                )}
 
-            {/* client updates content */}
-            <TabsContent
-              value="client-updates"
-              className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
-            >
-              <div className="w-full max-w-[800px] mx-auto flex-1 flex flex-col min-h-0">
-                <TaskUpdates
-                  boardId={boardId}
-                  comments={clientComments}
-                  isLoadingComments={isLoadingClientComments}
-                  layout="sidebar"
-                  onDeleteComment={async (id) => {
-                    await onDeleteComment(id);
-                    fetchClientComments();
-                  }}
-                  onUpdateComment={async (id, content) => {
-                    await onUpdateComment(id, content);
-                    fetchClientComments();
-                  }}
-                  onSaveInlineReply={async (pid, txt) => {
-                    await onSaveInlineReply(pid, txt);
-                    fetchClientComments();
-                  }}
-                  onLikeComment={async (id) => {
-                    await onLikeComment(id);
-                    fetchClientComments();
-                  }}
-                  onShareComment={onShareComment}
-                  onToggleSOP={async (id) => {
-                    await onToggleSOP(id);
-                    fetchClientComments();
-                  }}
-                  onToggleIsClient={async (id) => {
-                    await onToggleIsClient(id);
-                    fetchClientComments();
-                  }}
-                  onSaveMainUpdate={async (_text) => {
-                    // The parent onSaveUpdate uses the internal updateText state from Board
-                    // but it will be cleared after successful save.
-                    await onSaveUpdate();
-                    fetchClientComments();
-                  }}
-                  onHighlightComplete={onHighlightComplete}
-                  noNesting={true}
-                  hideEditor={true}
-                  isSaving={isSaving}
-                  onFilePreview={handleFilePreview}
-                  mainUpdateText={updateText}
-                  onMainUpdateTextChange={onUpdateTextChange}
-                />
-              </div>
-            </TabsContent>
+                {/* client updates content */}
+                <TabsContent
+                  value="client-updates"
+                  className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
+                >
+                  <div className="w-full max-w-[800px] mx-auto flex-1 flex flex-col min-h-0">
+                    <TaskUpdates
+                      boardId={boardId}
+                      comments={clientComments}
+                      isLoadingComments={isLoadingClientComments}
+                      layout="sidebar"
+                      onDeleteComment={async (id) => {
+                        await onDeleteComment(id);
+                        fetchClientComments();
+                      }}
+                      onUpdateComment={async (id, content) => {
+                        await onUpdateComment(id, content);
+                        fetchClientComments();
+                      }}
+                      onSaveInlineReply={async (pid, txt) => {
+                        await onSaveInlineReply(pid, txt);
+                        fetchClientComments();
+                      }}
+                      onLikeComment={async (id) => {
+                        await onLikeComment(id);
+                        fetchClientComments();
+                      }}
+                      onShareComment={onShareComment}
+                      onToggleSOP={async (id) => {
+                        await onToggleSOP(id);
+                        fetchClientComments();
+                      }}
+                      onToggleIsClient={async (id) => {
+                        await onToggleIsClient(id);
+                        fetchClientComments();
+                      }}
+                      onSaveMainUpdate={async (_text) => {
+                        // The parent onSaveUpdate uses the internal updateText state from Board
+                        // but it will be cleared after successful save.
+                        await onSaveUpdate();
+                        fetchClientComments();
+                      }}
+                      onHighlightComplete={onHighlightComplete}
+                      noNesting={true}
+                      hideEditor={true}
+                      isSaving={isSaving}
+                      onFilePreview={handleFilePreview}
+                      mainUpdateText={updateText}
+                      onMainUpdateTextChange={onUpdateTextChange}
+                      isClient={isClient}
+                    />
+                  </div>
+                </TabsContent>
 
-            {/* activity log content */}
-            <TabsContent
-              value="activity"
-              className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
-            >
-              <div className="w-full max-w-[800px] mx-auto flex-1 flex flex-col min-h-0">
-                <div className="flex-1 overflow-auto px-6 py-4 relative">
-                  {/* Loading overlay for pagination */}
-                  {isLoadingPage && (
-                    <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        Loading page {currentPage}...
+                {/* activity log content */}
+                {!isClient && (
+                  <TabsContent
+                    value="activity"
+                    className="flex-1 mt-0 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden"
+                  >
+                    <div className="w-full max-w-[800px] mx-auto flex-1 flex flex-col min-h-0">
+                      <div className="flex-1 overflow-auto px-6 py-4 relative">
+                        {/* Loading overlay for pagination */}
+                        {isLoadingPage && (
+                          <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                              Loading page {currentPage}...
+                            </div>
+                          </div>
+                        )}
+
+                        {isLoadingActivity ? (
+                          <div className="flex items-center justify-center py-8">
+                            <p className="text-sm text-muted-foreground">
+                              Loading activity...
+                            </p>
+                          </div>
+                        ) : activityData.length === 0 ? (
+                          <div className="text-center py-8">
+                            <p className="text-sm text-muted-foreground">
+                              No activity found for this task.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {activityData.map((activity) => (
+                              <div
+                                key={activity.id}
+                                className="flex gap-4 pb-4 border-b border-border/30 last:border-0 last:pb-0 group cursor-default"
+                                onClick={(e: React.MouseEvent) => {
+                                  const target = e.target as HTMLElement;
+                                  if (target.tagName === "IMG") {
+                                    handleFilePreview(
+                                      (target as HTMLImageElement).src,
+                                    );
+                                    return;
+                                  }
+
+                                  // Handle File/PDF Card Preview button
+                                  const previewBtn =
+                                    target.closest(".file-card-preview-btn") ||
+                                    target.closest(".pdf-card-preview-btn");
+                                  if (previewBtn) {
+                                    const wrapper =
+                                      target.closest("[data-type='file-card']") ||
+                                      target.closest("[data-type='pdf-card']");
+                                    if (wrapper) {
+                                      const href = wrapper.getAttribute("data-href");
+                                      const fileName =
+                                        wrapper.getAttribute("data-filename");
+                                      if (href) {
+                                        handleFilePreview(
+                                          href,
+                                          fileName || "Document",
+                                        );
+                                        return;
+                                      }
+                                    }
+                                  }
+
+                                  const anchor = target.closest("a");
+                                  if (
+                                    anchor &&
+                                    !anchor.classList.contains(
+                                      "file-card-open-btn",
+                                    ) &&
+                                    !anchor.classList.contains("pdf-card-open-btn") &&
+                                    (anchor.href.toLowerCase().endsWith(".pdf") ||
+                                      anchor.href.toLowerCase().endsWith(".docx") ||
+                                      anchor.href.toLowerCase().endsWith(".doc") ||
+                                      anchor.classList.contains("pdf-link") ||
+                                      (anchor.textContent &&
+                                        (anchor.textContent.includes("📄") ||
+                                          anchor.textContent.includes("📝"))))
+                                  ) {
+                                    e.preventDefault();
+                                    handleFilePreview(
+                                      anchor.href,
+                                      anchor.textContent || "Document",
+                                    );
+                                  }
+                                }}
+                              >
+                                <Avatar className="h-8 w-8 shrink-0 border border-border/50 shadow-sm">
+                                  <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
+                                    {activity.user?.name?.charAt(0).toUpperCase() ||
+                                      "U"}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 space-y-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-semibold text-foreground">
+                                      {activity.user?.name || "Unknown User"}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {activity.created_at
+                                        ? format(
+                                            parseApiDateTime(activity.created_at) ||
+                                              new Date(activity.created_at),
+                                            "MMM d, h:mm a",
+                                          )
+                                        : ""}
+                                    </span>
+                                  </div>
+                                  <div className="text-sm text-foreground/90">
+                                    <span className="font-medium text-primary">
+                                      {activity.action_label}
+                                    </span>
+                                  </div>
+                                  {activity.old_value &&
+                                    activity.old_value.trim() && (
+                                      <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-destructive/30">
+                                        <span className="font-medium">Previous:</span>
+                                        <div
+                                          className="mt-1 break-words [&_.pdf-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.pdf-card-content]:bg-card [&_.pdf-card-content]:border-border [&_.pdf-card-content]:shadow-sm [&_.pdf-card-preview-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
+                                          dangerouslySetInnerHTML={renderFormattedContent(
+                                            activity.old_value,
+                                          )}
+                                        />
+                                      </div>
+                                    )}
+                                  {activity.new_value &&
+                                    activity.new_value !== "Task updated" &&
+                                    activity.new_value.trim() && (
+                                      <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30">
+                                        <span className="font-medium">New:</span>
+                                        <div
+                                          className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
+                                          dangerouslySetInnerHTML={renderFormattedContent(
+                                            activity.new_value,
+                                          )}
+                                        />
+                                      </div>
+                                    )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
 
-                  {isLoadingActivity ? (
-                    <div className="flex items-center justify-center py-8">
-                      <p className="text-sm text-muted-foreground">
-                        Loading activity...
-                      </p>
-                    </div>
-                  ) : activityData.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-sm text-muted-foreground">
-                        No activity found for this task.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {activityData.map((activity) => (
-                        <div
-                          key={activity.id}
-                          className="flex gap-4 pb-4 border-b border-border/30 last:border-0 last:pb-0 group cursor-default"
-                          onClick={(e: React.MouseEvent) => {
-                            const target = e.target as HTMLElement;
-                            if (target.tagName === "IMG") {
-                              handleFilePreview(
-                                (target as HTMLImageElement).src,
-                              );
-                              return;
-                            }
-
-                            // Handle File/PDF Card Preview button
-                            const previewBtn =
-                              target.closest(".file-card-preview-btn") ||
-                              target.closest(".pdf-card-preview-btn");
-                            if (previewBtn) {
-                              const wrapper =
-                                target.closest("[data-type='file-card']") ||
-                                target.closest("[data-type='pdf-card']");
-                              if (wrapper) {
-                                const href = wrapper.getAttribute("data-href");
-                                const fileName =
-                                  wrapper.getAttribute("data-filename");
-                                if (href) {
-                                  handleFilePreview(
-                                    href,
-                                    fileName || "Document",
-                                  );
-                                  return;
-                                }
-                              }
-                            }
-
-                            const anchor = target.closest("a");
-                            if (
-                              anchor &&
-                              !anchor.classList.contains(
-                                "file-card-open-btn",
-                              ) &&
-                              !anchor.classList.contains("pdf-card-open-btn") &&
-                              (anchor.href.toLowerCase().endsWith(".pdf") ||
-                                anchor.href.toLowerCase().endsWith(".docx") ||
-                                anchor.href.toLowerCase().endsWith(".doc") ||
-                                anchor.classList.contains("pdf-link") ||
-                                (anchor.textContent &&
-                                  (anchor.textContent.includes("📄") ||
-                                    anchor.textContent.includes("📝"))))
-                            ) {
-                              e.preventDefault();
-                              handleFilePreview(
-                                anchor.href,
-                                anchor.textContent || "Document",
-                              );
-                            }
-                          }}
-                        >
-                          <Avatar className="h-8 w-8 shrink-0 border border-border/50 shadow-sm">
-                            <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
-                              {activity.user?.name?.charAt(0).toUpperCase() ||
-                                "U"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 space-y-1 min-w-0">
+                      {/* Fixed Pagination Controls */}
+                      {activityMeta && activityMeta.total_pages > 1 && (
+                        <div className="border-t border-border bg-background px-6 py-3 flex-shrink-0">
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-muted-foreground">
+                              Showing {activityMeta.count} of {activityMeta.total}{" "}
+                              activities
+                            </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-foreground">
-                                {activity.user?.name || "Unknown User"}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handlePreviousPage}
+                                disabled={currentPage <= 1 || isLoadingPage}
+                                className="h-8 px-2"
+                                title="Previous page (Ctrl+←)"
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                              </Button>
+                              <span className="text-xs text-muted-foreground px-2">
+                                {isLoadingPage ? (
+                                  <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  `${currentPage} of ${activityMeta.total_pages}`
+                                )}
                               </span>
-                              <span className="text-xs text-muted-foreground">
-                                {activity.created_at
-                                  ? format(
-                                      parseApiDateTime(activity.created_at) ||
-                                        new Date(activity.created_at),
-                                      "MMM d, h:mm a",
-                                    )
-                                  : ""}
-                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleNextPage}
+                                disabled={
+                                  currentPage >= activityMeta.total_pages ||
+                                  isLoadingPage
+                                }
+                                className="h-8 px-2"
+                                title="Next page (Ctrl+→)"
+                              >
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
                             </div>
-                            <div className="text-sm text-foreground/90">
-                              <span className="font-medium text-primary">
-                                {activity.action_label}
-                              </span>
-                            </div>
-                            {activity.old_value &&
-                              activity.old_value.trim() && (
-                                <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-destructive/30">
-                                  <span className="font-medium">Previous:</span>
-                                  <div
-                                    className="mt-1 break-words [&_.pdf-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.pdf-card-content]:bg-card [&_.pdf-card-content]:border-border [&_.pdf-card-content]:shadow-sm [&_.pdf-card-preview-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
-                                    dangerouslySetInnerHTML={renderFormattedContent(
-                                      activity.old_value,
-                                    )}
-                                  />
-                                </div>
-                              )}
-                            {activity.new_value &&
-                              activity.new_value !== "Task updated" &&
-                              activity.new_value.trim() && (
-                                <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30">
-                                  <span className="font-medium">New:</span>
-                                  <div
-                                    className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
-                                    dangerouslySetInnerHTML={renderFormattedContent(
-                                      activity.new_value,
-                                    )}
-                                  />
-                                </div>
-                              )}
                           </div>
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                </div>
-
-                {/* Fixed Pagination Controls */}
-                {activityMeta && activityMeta.total_pages > 1 && (
-                  <div className="border-t border-border bg-background px-6 py-3 flex-shrink-0">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs text-muted-foreground">
-                        Showing {activityMeta.count} of {activityMeta.total}{" "}
-                        activities
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handlePreviousPage}
-                          disabled={currentPage <= 1 || isLoadingPage}
-                          className="h-8 px-2"
-                          title="Previous page (Ctrl+←)"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <span className="text-xs text-muted-foreground px-2">
-                          {isLoadingPage ? (
-                            <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            `${currentPage} of ${activityMeta.total_pages}`
-                          )}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleNextPage}
-                          disabled={
-                            currentPage >= activityMeta.total_pages ||
-                            isLoadingPage
-                          }
-                          className="h-8 px-2"
-                          title="Next page (Ctrl+→)"
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  </TabsContent>
                 )}
-              </div>
-            </TabsContent>
+              </>
+            )}
           </Tabs>
           <FilePreviewModal
             src={previewSrc}
