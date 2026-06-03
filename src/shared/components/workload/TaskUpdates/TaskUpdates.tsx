@@ -35,6 +35,8 @@ interface TaskUpdatesProps {
   noNesting?: boolean;
   hideEditor?: boolean;
   isClient?: boolean;
+  isClientUpdatesTab?: boolean;
+  showNotifyClientButton?: boolean;
 }
 
 export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
@@ -59,6 +61,8 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
   noNesting = false,
   hideEditor = false,
   isClient = false,
+  isClientUpdatesTab = false,
+  showNotifyClientButton = false,
 }) => {
   React.useEffect(() => {
     if (isLoadingComments) return;
@@ -201,6 +205,8 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
                     onFilePreview={onFilePreview}
                     isSaving={isSaving}
                     isClient={isClient}
+                    isClientUpdatesTab={isClientUpdatesTab}
+                    showNotifyClientButton={showNotifyClientButton}
                   />
                 ));
             }
@@ -272,6 +278,8 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
                   onFilePreview={onFilePreview}
                   isSaving={isSaving}
                   isClient={isClient}
+                  isClientUpdatesTab={isClientUpdatesTab}
+                  showNotifyClientButton={showNotifyClientButton}
                 />
               );
             });

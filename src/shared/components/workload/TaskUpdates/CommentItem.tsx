@@ -60,6 +60,8 @@ interface CommentItemProps {
   onFilePreview: (src: string, name?: string) => void;
   isSaving?: boolean;
   isClient?: boolean;
+  isClientUpdatesTab?: boolean;
+  showNotifyClientButton?: boolean;
 }
 
 export const CommentItem: React.FC<CommentItemProps> = ({
@@ -85,6 +87,8 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onFilePreview,
   isSaving,
   isClient = false,
+  isClientUpdatesTab = false,
+  showNotifyClientButton = false,
 }) => {
   const isReplyingToThis = String(inlineReplyId) === String(comment.id);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
@@ -181,7 +185,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                         })()
                     : ""}
                 </span>
-                {comment.parent_id && (
+                {comment.parent_id && !isClientUpdatesTab && (
                   <div className="flex items-center gap-1.5 ml-1">
                     <span className="text-[10px] text-muted-foreground/60">•</span>
                     <Button
@@ -202,7 +206,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 )}
                 {(comment.isclient === 1 ||
                   comment.isclient === "1" ||
-                  comment.isclient === true) && (
+                  comment.isclient === true) && !isClientUpdatesTab && (
                   <Badge className="bg-blue-600/80 text-white border-none text-[10px] h-5 px-2 rounded-full font-bold uppercase tracking-wider">
                     Client Notified
                   </Badge>
@@ -488,7 +492,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 <Reply className="h-4 w-4" />
                 Reply
               </button>
-              {!isClient && (
+              {showNotifyClientButton && !isClient && !isClientUpdatesTab && (
                 <button
                   onClick={() => onToggleIsClient(comment.id)}
                   className={cn(
@@ -523,6 +527,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                     : "Notify client"}
                 </button>
               )}
+
               <button
                 onClick={() => {
                   setEditingCommentId(comment.id);
@@ -625,6 +630,8 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               onFilePreview={onFilePreview}
               isSaving={isSaving}
               isClient={isClient}
+              isClientUpdatesTab={isClientUpdatesTab}
+              showNotifyClientButton={showNotifyClientButton}
             />
           ))}
 

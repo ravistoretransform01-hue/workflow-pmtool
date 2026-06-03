@@ -16,7 +16,7 @@ import { boardsApi } from "@/features/boards/boardsApi";
 import { groupsApi } from "@/features/groups/groupsApi";
 import type { Group } from "@/features/groups/types";
 import { clearCMSCache, getMembers, getRoles } from "@/features/cms/cmsStorage";
-import { getOrganizationId, getCurrentUserId } from "@/lib/utils";
+import { getOrganizationId, getCurrentUserId, isClientRole } from "@/lib/utils";
 import type { Role } from "@/features/cms/types";
 import api from "@/lib/axios";
 import {
@@ -274,7 +274,7 @@ export function BoardInviteDialog({
 
   const isSelectedRoleClient = useMemo(() => {
     const roleObj = effectiveRoles.find((r) => String(r.id) === String(selectedRoleId));
-    return roleObj ? roleObj.name.toLowerCase().includes("client") : false;
+    return roleObj ? isClientRole(roleObj.name) : false;
   }, [selectedRoleId, effectiveRoles]);
 
   // Reset selected groups if the selected role is no longer Client

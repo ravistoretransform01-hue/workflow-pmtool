@@ -82,6 +82,10 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     return false;
   }
 }
+export function isClientRole(roleName: string | null | undefined): boolean {
+  if (!roleName) return false;
+  return roleName.toLowerCase().includes("client");
+}
 
 export {
   parseApiDateTime,
