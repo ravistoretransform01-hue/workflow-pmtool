@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import type { TaskComment } from "@/features/tasks/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
-import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
+import { getCurrentUserId, getOrganizationId, isClientRole } from "@/lib/utils";
 import { getMembers } from "@/features/cms/cmsStorage";
 
 interface CommentsPanelSheetProps {
@@ -151,14 +151,11 @@ export function CommentsPanelSheet({
     }
   }, [open, boardId]);
 
-  const isClient = currentUserRole
-    ? currentUserRole.toLowerCase().includes("client")
-    : false;
+  const isClient = isClientRole(currentUserRole);
 
   useEffect(() => {
     if (currentUserRole) {
-      const isClientRole = currentUserRole.toLowerCase().includes("client");
-      if (isClientRole) {
+      if (isClientRole(currentUserRole)) {
         setActiveCommentsTab("client-updates");
       } else {
         setActiveCommentsTab("updates");

@@ -46,7 +46,7 @@ import { BoardInviteDialog } from "@/shared/components/BoardInviteDialog";
 import { getMembers, getCMSData } from "@/features/cms/cmsStorage";
 import { clearCMSCache } from "@/features/cms/cmsStorage";
 import type { Role } from "@/features/cms/types";
-import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
+import { getCurrentUserId, getOrganizationId, isClientRole } from "@/lib/utils";
 import { debugLog } from "@/lib/debugLog";
 
 const colorOptions = [
@@ -767,7 +767,7 @@ export default function BoardDashboardPage() {
 
                       {/* Group Selector Column */}
                       <div>
-                        {member.role.toLowerCase().includes("client") ? (
+                        {isClientRole(member.role) ? (
                           <Popover modal={true}>
                             <PopoverTrigger asChild>
                               <button
