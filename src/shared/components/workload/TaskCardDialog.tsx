@@ -39,11 +39,13 @@ import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TiptapEditor } from "./texteditor/TiptapEditor";
+import { getMembers } from "@/features/cms/cmsStorage";
 import {
   getCurrentUserId,
   getOrganizationId,
   cn,
   copyToClipboard,
+  isClientRole,
 } from "@/lib/utils";
 import { TaskUpdates } from "./TaskUpdates/TaskUpdates";
 import { renderFormattedContent } from "./TaskUpdates/utils";
@@ -133,6 +135,45 @@ export function TaskCardDialog({
   const [activeTab, setActiveTab] = useState("description");
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [expandedTasks] = useState<Record<string, boolean>>({});
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && boardId) {
+      const loadUserRole = async () => {
+        try {
+          const organizationId = getOrganizationId() || 2;
+          const currentUserId = getCurrentUserId();
+          if (!currentUserId) return;
+
+          const cmsMembers = await getMembers({
+            organization_id: organizationId,
+            board_id: Number(boardId),
+            user_id: currentUserId,
+          });
+
+          const currentMember = cmsMembers.find(
+            (m) => String(m.user_id) === String(currentUserId),
+          );
+
+          if (currentMember) {
+            setCurrentUserRole(currentMember.board_role_label || null);
+          }
+        } catch (error) {
+          console.error("Failed to load user role in TaskCardDialog:", error);
+        }
+      };
+
+      loadUserRole();
+    } else if (!open) {
+      setCurrentUserRole(null);
+    }
+  }, [open, boardId]);
+
+  useEffect(() => {
+    if (isClientRole(currentUserRole) && (activeTab === "dev-updates" || activeTab === "activity")) {
+      setActiveTab("description");
+    }
+  }, [currentUserRole, activeTab]);
 
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
@@ -824,13 +865,15 @@ export function TaskCardDialog({
                   <AlignLeft className="h-4 w-4" />
                   Description
                 </TabsTrigger>
-                <TabsTrigger
-                  value="dev-updates"
-                  className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-                >
-                  <Mail className="h-4 w-4" />
-                  Update
-                </TabsTrigger>
+                {!isClientRole(currentUserRole) && (
+                  <TabsTrigger
+                    value="dev-updates"
+                    className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+                  >
+                    <Mail className="h-4 w-4" />
+                    Update
+                  </TabsTrigger>
+                )}
                 {/* <TabsTrigger
                   value="client-updates"
                   className=" flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
@@ -838,13 +881,15 @@ export function TaskCardDialog({
                   <Mail className="h-4 w-4" />
                   Client Updates
                 </TabsTrigger> */}
-                <TabsTrigger
-                  value="activity"
-                  className=" flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-                >
-                  <Activity className="h-4 w-4" />
-                  Activity Log
-                </TabsTrigger>
+                {!isClientRole(currentUserRole) && (
+                  <TabsTrigger
+                    value="activity"
+                    className=" flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+                  >
+                    <Activity className="h-4 w-4" />
+                    Activity Log
+                  </TabsTrigger>
+                )}
                 <Button
                   variant="ghost"
                   value="copy-link"
