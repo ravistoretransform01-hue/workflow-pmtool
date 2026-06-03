@@ -89,11 +89,14 @@ export default function GanttView({
         id: `group-${group.id}`,
         text: group.name,
         type: "summary",
-        open: true,
+        open: group.tasks && group.tasks.length > 0,
+        start: new Date(),
+        duration: 1,
       });
 
       for (const task of group.tasks) {
         const { start: taskStart, duration: taskDuration } = getTaskDates(task);
+        const hasSubitems = task.subitems && task.subitems.length > 0;
 
         // 2. Map the main task row
         list.push({
@@ -103,11 +106,13 @@ export default function GanttView({
           duration: taskDuration,
           parent: `group-${group.id}`,
           progress: 0,
+          type: hasSubitems ? "summary" : undefined,
+          open: hasSubitems ? true : undefined,
         });
 
         // 3. Map subitems if they exist
-        if (task.subitems && task.subitems.length > 0) {
-          for (const sub of task.subitems) {
+        if (hasSubitems) {
+          for (const sub of task.subitems!) {
             const { start: subStart, duration: subDuration } =
               getTaskDates(sub);
 
@@ -167,8 +172,132 @@ export default function GanttView({
     [getTaskById, onEstimatedDateChange, onTaskClick],
   );
 
+  const ganttColumns = useMemo(() => [
+    { id: "text", width: 250, resize: true, header: [{ text: "Task Name" }] },
+    { id: "start", width: 100, resize: true, header: [{ text: "Start Date" }] },
+    { id: "duration", width: 80, resize: true, header: [{ text: "Duration" }] },
+  ], []);
+
+  const ganttTimeRange = useMemo(() => {
+    let minDate = new Date();
+    let maxDate = addDays(new Date(), 30);
+
+    let hasTasks = false;
+    for (const group of groups) {
+      for (const task of group.tasks) {
+        const { start, duration } = getTaskDates(task);
+        const taskEnd = addDays(start, duration);
+        if (!hasTasks) {
+          minDate = start;
+          maxDate = taskEnd;
+          hasTasks = true;
+        } else {
+          if (start < minDate) minDate = start;
+          if (taskEnd > maxDate) maxDate = taskEnd;
+        }
+      }
+    }
+
+    const start = addDays(minDate, -3);
+    const end = addDays(start, Math.max(30, differenceInDays(maxDate, start) + 7));
+
+    return { start, end };
+  }, [groups]);
+
   return (
-    <div className="flex-1 w-full h-[calc(100vh-220px)] min-h-[500px] flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden mt-4">
+    <div className="flex-1 w-full h-[calc(100vh-220px)] min-h-[500px] flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden mt-4 pm-gantt-wrapper">
+      <style>{`
+        /* Custom styles to match the PM tool aesthetic */
+        .pm-gantt-wrapper .wx-gantt {
+          --wx-gantt-border-color: hsl(215, 28%, 20%);
+          --wx-gantt-border: 1px solid hsl(215, 28%, 20%);
+          
+          --wx-background: hsl(222, 47%, 11%);
+          --wx-background-alt: hsl(215, 28%, 17%);
+          
+          --wx-color-font: hsl(210, 40%, 98%);
+          --wx-color-primary: hsl(217, 91%, 60%);
+          
+          --wx-gantt-icon-color: hsl(217, 10%, 65%);
+          --wx-gantt-select-color: hsla(217, 91%, 60%, 0.15);
+          
+          /* Grid header */
+          --wx-grid-header-font: 500 13px 'Poppins', sans-serif;
+          --wx-grid-header-font-color: hsl(217, 10%, 65%);
+          --wx-grid-header-shadow: none;
+          
+          /* Grid body */
+          --wx-grid-body-font: 400 13px 'Poppins', sans-serif;
+          --wx-grid-body-font-color: hsl(210, 40%, 98%);
+          --wx-grid-body-row-border: 1px solid hsl(215, 28%, 20%);
+          
+          /* Timescale */
+          --wx-timescale-font: 500 12px 'Poppins', sans-serif;
+          --wx-timescale-font-color: hsl(217, 10%, 65%);
+          --wx-timescale-border: 1px solid hsl(215, 28%, 20%);
+          --wx-timescale-shadow: none;
+          
+          /* Task bar styling */
+          --wx-gantt-task-color: hsl(217, 91%, 60%);
+          --wx-gantt-task-fill-color: hsl(217, 91%, 50%);
+          --wx-gantt-task-border-color: transparent;
+          --wx-gantt-task-font-color: #ffffff;
+          --wx-gantt-bar-border-radius: 6px;
+          
+          /* Summary task bar styling */
+          --wx-gantt-summary-color: hsl(142, 71%, 45%);
+          --wx-gantt-summary-fill-color: hsl(142, 71%, 40%);
+          --wx-gantt-summary-border-color: transparent;
+          --wx-gantt-summary-font-color: #ffffff;
+          
+          /* Weekends */
+          --wx-gantt-holiday-background: hsla(215, 28%, 17%, 0.3);
+          --wx-gantt-holiday-color: hsl(217, 10%, 50%);
+        }
+
+        /* Adjust row headers and cell borders */
+        .pm-gantt-wrapper .wx-table-container {
+          background-color: hsl(222, 47%, 11%) !important;
+          border-right: 1px solid hsl(215, 28%, 20%) !important;
+        }
+
+        .pm-gantt-wrapper .wx-scale {
+          background-color: hsl(222, 47%, 11%) !important;
+          border-bottom: 1px solid hsl(215, 28%, 20%) !important;
+        }
+
+        .pm-gantt-wrapper .wx-cell {
+          border-right: 1px solid hsl(215, 28%, 20%) !important;
+        }
+
+        .pm-gantt-wrapper .wx-row {
+          border-bottom: 1px solid hsl(215, 28%, 20%) !important;
+        }
+
+        .pm-gantt-wrapper .wx-body .wx-row:hover {
+          background-color: hsla(217, 91%, 60%, 0.05) !important;
+        }
+
+        .pm-gantt-wrapper .wx-layout {
+          background-color: hsl(222, 47%, 11%) !important;
+        }
+        
+        /* Make scrollbars thin and match theme */
+        .pm-gantt-wrapper ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .pm-gantt-wrapper ::-webkit-scrollbar-track {
+          background: hsl(222, 47%, 11%);
+        }
+        .pm-gantt-wrapper ::-webkit-scrollbar-thumb {
+          background: hsl(215, 28%, 20%);
+          border-radius: 4px;
+        }
+        .pm-gantt-wrapper ::-webkit-scrollbar-thumb:hover {
+          background: hsl(217, 91%, 60%);
+        }
+      `}</style>
       {mappedTasks.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
           <p className="text-lg">
@@ -180,7 +309,17 @@ export default function GanttView({
         </div>
       ) : (
         <WillowDark>
-          <Gantt init={handleInit} tasks={mappedTasks} links={[]} />
+          <Gantt
+            init={handleInit}
+            tasks={mappedTasks}
+            links={[]}
+            columns={ganttColumns}
+            zoom={true}
+            start={ganttTimeRange.start}
+            end={ganttTimeRange.end}
+            cellWidth={60}
+            autoScale={true}
+          />
         </WillowDark>
       )}
     </div>
