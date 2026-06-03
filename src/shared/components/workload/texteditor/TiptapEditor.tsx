@@ -35,7 +35,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { attachmentsApi } from "@/features/tasks/attachmentsApi";
-import { cn } from "@/lib/utils";
+import { cn, isClientRole } from "@/lib/utils";
 import { FilePreviewModal } from "./FilePreviewModal";
 import {
   Popover,
@@ -103,7 +103,7 @@ function getStorageKey(boardId: number): string {
 
 function getMembersFromLocalStorage(
   boardId?: number,
-): Array<{ id: string; name: string; email: string }> {
+): Array<{ id: string; name: string; email: string; role?: string }> {
   if (!boardId) return [];
 
   try {
@@ -117,6 +117,7 @@ function getMembersFromLocalStorage(
           id: member.user_id || member.id,
           name: member.name || member.user_name || "Unknown",
           email: member.email || "Unknown",
+          role: member.board_role_label || member.role || "",
         }));
       }
     }
@@ -137,7 +138,7 @@ export function TiptapEditor({
 }: TiptapEditorProps) {
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionItems, setMentionItems] = useState<
-    Array<{ id: string; name: string }>
+    Array<{ id: string; name: string; email?: string; role?: string }>
   >([]);
   const [mentionPosition, setMentionPosition] = useState<{
     top: number;
@@ -148,7 +149,7 @@ export function TiptapEditor({
     useState<HTMLElement | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const selectedIndexRef = useRef(0);
-  const mentionItemsRef = useRef<Array<{ id: string; name: string }>>([]);
+  const mentionItemsRef = useRef<Array<{ id: string; name: string; email?: string; role?: string }>>([]);
   const [mentionCommand, setMentionCommand] = useState<
     ((item: any) => void) | null
   >(null);
@@ -162,7 +163,7 @@ export function TiptapEditor({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const mentionRef = useRef<HTMLDivElement | null>(null);
   const mentionScrollRef = useRef<HTMLDivElement | null>(null);
-  const membersRef = useRef<Array<{ id: string; name: string }>>([]);
+  const membersRef = useRef<Array<{ id: string; name: string; email?: string; role?: string }>>([]);
   const mentionCommandRef = useRef<((item: any) => void) | null>(null);
 
   const [linkUrl, setLinkUrl] = useState("");
@@ -1522,6 +1523,11 @@ export function TiptapEditor({
                       <span className="truncate flex-1 min-w-0">
                         {user.name}
                       </span>
+                      {isClientRole(user.role) && (
+                        <span className="text-[8px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1 py-[1px] rounded-sm select-none shrink-0 font-medium leading-none">
+                          Client
+                        </span>
+                      )}
                     </button>
                   ))
                 ) : (
