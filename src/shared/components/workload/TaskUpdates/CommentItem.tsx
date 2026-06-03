@@ -61,6 +61,7 @@ interface CommentItemProps {
   isSaving?: boolean;
   isClient?: boolean;
   isClientUpdatesTab?: boolean;
+  showNotifyClientButton?: boolean;
 }
 
 export const CommentItem: React.FC<CommentItemProps> = ({
@@ -87,6 +88,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   isSaving,
   isClient = false,
   isClientUpdatesTab = false,
+  showNotifyClientButton = false,
 }) => {
   const isReplyingToThis = String(inlineReplyId) === String(comment.id);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
@@ -490,7 +492,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 <Reply className="h-4 w-4" />
                 Reply
               </button>
-              {!isClient && !isClientUpdatesTab && (
+              {showNotifyClientButton && !isClient && !isClientUpdatesTab && (
                 <button
                   onClick={() => onToggleIsClient(comment.id)}
                   className={cn(
@@ -525,6 +527,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                     : "Notify client"}
                 </button>
               )}
+
               <button
                 onClick={() => {
                   setEditingCommentId(comment.id);
@@ -628,6 +631,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               isSaving={isSaving}
               isClient={isClient}
               isClientUpdatesTab={isClientUpdatesTab}
+              showNotifyClientButton={showNotifyClientButton}
             />
           ))}
 
