@@ -43,7 +43,7 @@ import { useToast } from "@/hooks/use-toast";
 import { boardsApi } from "@/features/boards/boardsApi";
 import type { Group } from "@/features/groups/types";
 import { BoardInviteDialog } from "@/shared/components/BoardInviteDialog";
-import { getMembers, getRoles, getCMSData } from "@/features/cms/cmsStorage";
+import { getMembers, getCMSData } from "@/features/cms/cmsStorage";
 import { clearCMSCache } from "@/features/cms/cmsStorage";
 import type { Role } from "@/features/cms/types";
 import { getCurrentUserId, getOrganizationId } from "@/lib/utils";
@@ -108,26 +108,22 @@ export default function BoardDashboardPage() {
   );
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (boardId) {
-      loadBoardData(Number(boardId));
-      loadMembers(Number(boardId));
-      loadRoles(Number(boardId));
-      loadBoardGroups(Number(boardId));
-    }
-  }, [boardId]);
-
-  const loadBoardGroups = async (id: number) => {
+  const loadAllDashboardData = async (id: number, forceRefresh = true) => {
     setIsLoadingGroups(true);
+    setLoadingRoles(true);
     try {
       const organizationId = getOrganizationId() || 2;
-      const userId = getCurrentUserId();
+      const userId = getCurrentUserId() || 1;
+
+      // Fetch all CMS data in a single API call
       const cmsData = await getCMSData({
         organization_id: organizationId,
         board_id: id,
         user_id: userId,
+        forceRefresh,
       });
 
+      // 1. Process and set Groups
       const sourceGroups =
         cmsData.all_board_groups && cmsData.all_board_groups.length > 0
           ? cmsData.all_board_groups
@@ -141,14 +137,77 @@ export default function BoardDashboardPage() {
         workspace_id: 1,
         organization_id: organizationId,
       }));
-
       setBoardGroups(groups);
+
+      // 2. Process and set Roles
+      setRoles(cmsData.roles || []);
+
+      // 3. Process and set Members
+      const groupsList = cmsData.groups || [];
+      const cmsMembers = (cmsData.members || []).map((member) => {
+        const memberGroupIds = groupsList
+          .filter((g: any) => 
+            g.assigned_users && 
+            g.assigned_users.some((uid: any) => String(uid) === String(member.user_id))
+          )
+          .map((g: any) => String(g.id));
+        return {
+          ...member,
+          group_ids: memberGroupIds,
+        };
+      });
+
+      const transformedMembers = cmsMembers.map((member: any) => ({
+        id: member.user_id,
+        name: member.name,
+        email: member.email || `${member.username || "user"}@example.com`,
+        role: member.board_role_label || "Project Member",
+        role_id: member.board_role_id
+          ? String(member.board_role_id)
+          : undefined,
+        avatarColor: `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`, // Generate color from user_id
+        group_ids: member.group_ids || [],
+      }));
+
+      // Check if current user is in the list, if not add them
+      const currentUserExists = transformedMembers.some(
+        (member) => member.id === String(userId),
+      );
+
+      if (!currentUserExists) {
+        // Get current user data from localStorage
+        const userData = localStorage.getItem("user_data");
+        if (userData) {
+          const currentUser = JSON.parse(userData);
+          transformedMembers.unshift({
+            id: String(userId),
+            name:
+              currentUser.display_name || currentUser.name || "Current User",
+            email: currentUser.email || "current@user.com",
+            role: "Project Owner", // Default role for current user
+            role_id: undefined,
+            avatarColor: `hsl(${(userId * 137) % 360}, 70%, 50%)`,
+            group_ids: [],
+          });
+        }
+      }
+
+      setMembers(transformedMembers);
     } catch (error) {
-      console.error("Failed to load board groups:", error);
+      console.error("Failed to load dashboard data:", error);
     } finally {
       setIsLoadingGroups(false);
+      setLoadingRoles(false);
     }
   };
+
+  useEffect(() => {
+    if (boardId) {
+      loadBoardData(Number(boardId));
+      loadAllDashboardData(Number(boardId), true);
+    }
+  }, [boardId]);
+
 
   const loadBoardData = async (id: number) => {
     try {
@@ -190,7 +249,7 @@ export default function BoardDashboardPage() {
     }
   };
 
-  const loadMembers = async (id: number) => {
+  const loadMembers = async (id: number, forceRefresh = true) => {
     try {
       // Get organization_id and user_id using utility functions
       const organizationId = getOrganizationId() || 2;
@@ -201,6 +260,7 @@ export default function BoardDashboardPage() {
         organization_id: organizationId,
         board_id: id,
         user_id: userId,
+        forceRefresh,
       });
 
       // Transform CMS members to dashboard member format
@@ -246,31 +306,6 @@ export default function BoardDashboardPage() {
     }
   };
 
-  const loadRoles = async (id: number) => {
-    try {
-      setLoadingRoles(true);
-      const organizationId = getOrganizationId() || 2;
-      const userId = getCurrentUserId();
-
-      const rolesData = await getRoles({
-        organization_id: organizationId,
-        board_id: id,
-        user_id: userId,
-      });
-
-      setRoles(rolesData);
-    } catch (error) {
-      console.error("Failed to fetch roles:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load roles",
-        variant: "destructive",
-        duration: 3000,
-      });
-    } finally {
-      setLoadingRoles(false);
-    }
-  };
 
   const handleRoleChange = async (userId: string, newRoleId: string) => {
     if (!boardId) return;
@@ -313,6 +348,9 @@ export default function BoardDashboardPage() {
             : member,
         ),
       );
+
+      // Clear CMS cache to ensure local storage remains in sync as source of truth
+      clearCMSCache(Number(boardId));
 
       toast({
         title: "Success",
