@@ -1080,6 +1080,7 @@ export function TaskCardDialog({
                   onFilePreview={handleFilePreview}
                   layout="dialog"
                   isInternal={0}
+                  isClientUpdatesTab={true}
                 />
               </TabsContent>
 

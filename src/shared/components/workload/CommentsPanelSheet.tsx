@@ -582,12 +582,13 @@ export function CommentsPanelSheet({
                       }}
                       onHighlightComplete={onHighlightComplete}
                       noNesting={true}
-                      hideEditor={true}
+                      hideEditor={false}
                       isSaving={isSaving}
                       onFilePreview={handleFilePreview}
                       mainUpdateText={updateText}
                       onMainUpdateTextChange={onUpdateTextChange}
                       isClient={isClient}
+                      isClientUpdatesTab={true}
                     />
                   </div>
                 </TabsContent>
