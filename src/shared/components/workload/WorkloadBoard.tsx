@@ -179,6 +179,7 @@ export interface Task {
   position?: string;
   assignee_names?: string[];
   recurrence?: any;
+  estimation?: any;
 }
 
 // All available columns (for the dropdown menu)
@@ -921,6 +922,7 @@ export function WorkloadBoard({
               task.estimation?.estimated_date_from ||
               task.due_date ||
               undefined,
+            estimation: task.estimation,
             estimatedHours: task.estimation?.approved_hours || "-",
             person: task.assignee?.name,
             assigned_to_id: task.assigned_to,
@@ -968,6 +970,7 @@ export function WorkloadBoard({
                   st.estimation?.estimated_date_from ||
                   st.due_date ||
                   undefined,
+                estimation: st.estimation,
                 estimatedHours: st.estimation?.approved_hours || "-",
                 person: st.assignee?.name,
                 assigned_to_id: st.assigned_to,
