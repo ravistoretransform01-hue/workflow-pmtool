@@ -87,40 +87,29 @@ export default function GanttView({
     return !!rawFrom;
   }, []);
 
-  // Map our groups and tasks to SVAR's expected format (reactive to groups prop changes)
+  // Map our tasks to SVAR's expected format (reactive to groups prop changes)
   const mappedTasks = useMemo(() => {
     const list = [];
 
     for (const group of groups) {
-      // 1. Map the group header row (Summary Task)
-      list.push({
-        id: `group-${group.id}`,
-        text: group.name,
-        type: "summary",
-        open: group.tasks && group.tasks.length > 0,
-        start: new Date(),
-        duration: 1,
-      });
-
       for (const task of group.tasks) {
         const { start: taskStart, duration: taskDuration } = getTaskDates(task);
         const hasSubitems = task.subitems && task.subitems.length > 0;
         const isScheduled = hasEstimation(task);
 
-        // 2. Map the main task row
+        // 1. Map the main task row as top-level (no parent)
         list.push({
           id: task.id,
           text: task.name || "Untitled Task",
           start: taskStart,
           duration: taskDuration,
-          parent: `group-${group.id}`,
           progress: 0,
           type: hasSubitems ? "summary" : undefined,
           open: hasSubitems ? true : undefined,
           unscheduled: hasSubitems ? false : !isScheduled,
         });
 
-        // 3. Map subitems if they exist
+        // 2. Map subitems if they exist under the main task parent
         if (hasSubitems) {
           for (const sub of task.subitems!) {
             const { start: subStart, duration: subDuration } =
