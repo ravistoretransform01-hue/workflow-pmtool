@@ -749,6 +749,8 @@ export function WorkloadBoard({
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [replyingTo, setReplyingTo] = useState<TaskComment | null>(null);
+  const [activeCommentsTab, setActiveCommentsTab] = useState("updates");
+  const [loadedCommentsTaskId, setLoadedCommentsTaskId] = useState<string | null>(null);
 
   // Timer conflict dialog state
   const [timerConflictDialogOpen, setTimerConflictDialogOpen] = useState(false);
@@ -1115,7 +1117,7 @@ export function WorkloadBoard({
   }, [boardId, refreshCounter]);
 
   // Fetch comments when task is selected or comments panel is opened
-  // Auto-refresh comments every 5-7 seconds while the panel is open
+  // Auto-refresh comments every 5 seconds while the panel is open and updates tab is active
   useEffect(() => {
     const fetchComments = async (taskId: string) => {
       try {
@@ -1126,32 +1128,46 @@ export function WorkloadBoard({
       }
     };
 
-    if (commentsPanelOpen && selectedCommentsId) {
-      const isInitialFetch = comments.length === 0;
+    if (!commentsPanelOpen || !selectedCommentsId) {
+      setComments([]);
+      setLoadedCommentsTaskId(null);
+      setIsLoadingComments(false);
+      return;
+    }
 
-      const fetchWithLoading = async (id: string) => {
-        if (isInitialFetch) setIsLoadingComments(true);
-        try {
-          await fetchComments(id);
-        } finally {
+    if (activeCommentsTab !== "updates") {
+      // Do not fetch or poll, but do not clear comments either to prevent visual flashing when switching tabs
+      return;
+    }
+
+    const taskChanged = selectedCommentsId !== loadedCommentsTaskId;
+    const isInitialFetch = taskChanged || comments.length === 0;
+
+    const fetchWithLoading = async (id: string) => {
+      if (isInitialFetch) {
+        setIsLoadingComments(true);
+        setComments([]);
+      }
+      try {
+        await fetchComments(id);
+        setLoadedCommentsTaskId(id);
+      } finally {
+        if (isInitialFetch) {
           setIsLoadingComments(false);
         }
-      };
+      }
+    };
 
-      fetchWithLoading(selectedCommentsId);
+    fetchWithLoading(selectedCommentsId);
 
-      // Set up interval to auto-refresh comments every 6 seconds
-      const refreshInterval = setInterval(() => {
-        fetchComments(selectedCommentsId);
-      }, 5000); // 5 seconds
+    // Set up interval to auto-refresh comments every 5 seconds
+    const refreshInterval = setInterval(() => {
+      fetchComments(selectedCommentsId);
+    }, 5000); // 5 seconds
 
-      // Cleanup interval when panel closes or task changes
-      return () => clearInterval(refreshInterval);
-    } else {
-      setComments([]);
-      setIsLoadingComments(false);
-    }
-  }, [commentsPanelOpen, selectedCommentsId]);
+    // Cleanup interval when panel closes, task changes, or tab changes
+    return () => clearInterval(refreshInterval);
+  }, [commentsPanelOpen, selectedCommentsId, activeCommentsTab]);
 
   // Sync boardName prop with local state when it changes
   useEffect(() => {
@@ -6457,6 +6473,8 @@ export function WorkloadBoard({
             });
           }}
           boardId={boardId}
+          activeCommentsTab={activeCommentsTab}
+          onActiveCommentsTabChange={setActiveCommentsTab}
         />
 
         {/* Bulk Actions Toolbar */}
