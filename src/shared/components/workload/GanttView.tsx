@@ -1,8 +1,9 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Gantt, WillowDark } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
 import { format, addDays, parseISO, differenceInDays } from "date-fns";
 import type { TaskGroup, Task } from "./utils/workload-types";
+import { cn } from "@/lib/utils";
 
 interface GanttViewProps {
   groups: TaskGroup[];
@@ -19,6 +20,64 @@ export default function GanttView({
   onEstimatedDateChange,
   onTaskClick,
 }: GanttViewProps) {
+  const [scaleMode, setScaleMode] = useState<"hour" | "day" | "week">("day");
+
+  const timescaleConfig = useMemo(() => {
+    switch (scaleMode) {
+      case "hour":
+        return {
+          scales: [
+            {
+              unit: "day",
+              step: 1,
+              format: (date: Date) => format(date, "EEE, MMM d"),
+            },
+            {
+              unit: "hour",
+              step: 2,
+              format: (date: Date) => format(date, "HH:mm"),
+            },
+          ],
+          cellWidth: 60,
+        };
+      case "week":
+        return {
+          scales: [
+            {
+              unit: "month",
+              step: 1,
+              format: (date: Date) => format(date, "MMMM yyyy"),
+            },
+            {
+              unit: "week",
+              step: 1,
+              format: (date: Date) => `Wk ${format(date, "w")}`,
+            },
+          ],
+          cellWidth: 80,
+        };
+      case "day":
+      default:
+        return {
+          scales: [
+            {
+              unit: "month",
+              step: 1,
+              format: (date: Date) => format(date, "MMMM yyyy"),
+            },
+            { unit: "day", step: 1, format: (date: Date) => format(date, "d") },
+          ],
+          cellWidth: 50,
+        };
+    }
+  }, [scaleMode]);
+
+  const ganttTaskTypes = useMemo(() => [
+    { id: "task", label: "Task" },
+    { id: "summary", label: "Summary" },
+    { id: "milestone", label: "Milestone" },
+    { id: "hidden", label: "Hidden" },
+  ], []);
   // Helper to find a task by ID inside our groups/tasks hierarchy
   const getTaskById = useCallback(
     (id: string): Task | null => {
@@ -56,10 +115,8 @@ export default function GanttView({
     let duration = 1;
 
     const taskAny = task as any;
-    const rawFrom =
-      taskAny.estimatedDateRaw || taskAny.estimation?.estimated_date_from;
-    const rawTo =
-      taskAny.estimatedDateEnd || taskAny.estimation?.estimated_date_to;
+    const rawFrom = taskAny.estimation?.estimated_date_from;
+    const rawTo = taskAny.estimation?.estimated_date_to;
 
     if (rawFrom) {
       try {
@@ -82,9 +139,9 @@ export default function GanttView({
   // Helper to check if a task has estimated dates defined
   const hasEstimation = useCallback((task: Task): boolean => {
     const taskAny = task as any;
-    const rawFrom =
-      taskAny.estimatedDateRaw || taskAny.estimation?.estimated_date_from;
-    return !!rawFrom;
+    const rawFrom = taskAny.estimation?.estimated_date_from;
+    const rawTo = taskAny.estimation?.estimated_date_to;
+    return !!rawFrom && !!rawTo;
   }, []);
 
   // Map our tasks to SVAR's expected format (reactive to groups prop changes)
@@ -96,15 +153,17 @@ export default function GanttView({
         const { start: taskStart, duration: taskDuration } = getTaskDates(task);
         const hasSubitems = task.subitems && task.subitems.length > 0;
         const isScheduled = hasEstimation(task);
+        const hasScheduledSubitems = task.subitems && task.subitems.some(sub => hasEstimation(sub));
+        const shouldShowBar = isScheduled || hasScheduledSubitems;
 
         // 1. Map the main task row as top-level (no parent)
         list.push({
           id: task.id,
           text: task.name || "Untitled Task",
-          start: taskStart,
-          duration: taskDuration,
+          start: isScheduled ? taskStart : undefined,
+          duration: isScheduled ? taskDuration : undefined,
           progress: 0,
-          type: hasSubitems ? "summary" : undefined,
+          type: shouldShowBar ? (hasSubitems ? "summary" : undefined) : "hidden",
           open: hasSubitems ? true : undefined,
           unscheduled: hasSubitems ? false : !isScheduled,
         });
@@ -119,10 +178,11 @@ export default function GanttView({
             list.push({
               id: sub.id,
               text: sub.name || "Untitled Subitem",
-              start: subStart,
-              duration: subDuration,
+              start: isSubScheduled ? subStart : undefined,
+              duration: isSubScheduled ? subDuration : undefined,
               parent: task.id,
               progress: 0,
+              type: isSubScheduled ? undefined : "hidden",
               unscheduled: !isSubScheduled,
             });
           }
@@ -156,10 +216,7 @@ export default function GanttView({
 
         if (start && duration) {
           const fromDateStr = format(start, "yyyy-MM-dd");
-          const toDateStr = format(
-            addDays(start, duration - 1),
-            "yyyy-MM-dd",
-          );
+          const toDateStr = format(addDays(start, duration - 1), "yyyy-MM-dd");
 
           onEstimatedDateChange(id, fromDateStr, toDateStr);
         }
@@ -169,11 +226,24 @@ export default function GanttView({
     [getTaskById, onEstimatedDateChange, onTaskClick],
   );
 
-  const ganttColumns = useMemo(() => [
-    { id: "text", width: 250, resize: true, header: [{ text: "Task Name" }] },
-    { id: "start", width: 100, resize: true, header: [{ text: "Start Date" }] },
-    { id: "duration", width: 80, resize: true, header: [{ text: "Duration" }] },
-  ], []);
+  const ganttColumns = useMemo(
+    () => [
+      { id: "text", width: 250, resize: true, header: [{ text: "Task Name" }] },
+      {
+        id: "start",
+        width: 100,
+        resize: true,
+        header: [{ text: "Start Date" }],
+      },
+      {
+        id: "duration",
+        width: 80,
+        resize: true,
+        header: [{ text: "Duration" }],
+      },
+    ],
+    [],
+  );
 
   const ganttTimeRange = useMemo(() => {
     let minDate = new Date();
@@ -196,143 +266,180 @@ export default function GanttView({
     }
 
     const start = addDays(minDate, -3);
-    const end = addDays(start, Math.max(30, differenceInDays(maxDate, start) + 7));
+    const end = addDays(
+      start,
+      Math.max(30, differenceInDays(maxDate, start) + 7),
+    );
 
     return { start, end };
   }, [groups]);
 
   return (
-    <div className="flex-1 w-[calc(100%-1.5rem)] h-[calc(100vh-220px)] min-h-[500px] flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden mt-4 ml-6 pm-gantt-wrapper">
-      <style>{`
-        /* Custom styles to match the PM tool aesthetic */
-        .pm-gantt-wrapper > div,
-        .pm-gantt-wrapper .wx-gantt-theme-willow-dark,
-        .pm-gantt-wrapper .wx-willow-dark-theme {
-          height: 100%;
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          flex: 1;
-        }
-
-        .pm-gantt-wrapper .wx-gantt {
-          height: 100% !important;
-          overflow: auto !important;
-
-          --wx-gantt-border-color: hsl(215, 28%, 20%);
-          --wx-gantt-border: 1px solid hsl(215, 28%, 20%);
-          
-          --wx-background: hsl(222, 47%, 11%);
-          --wx-background-alt: hsl(215, 28%, 17%);
-          
-          --wx-color-font: hsl(210, 40%, 98%);
-          --wx-color-primary: hsl(217, 91%, 60%);
-          
-          --wx-gantt-icon-color: hsl(217, 10%, 65%);
-          --wx-gantt-select-color: hsla(217, 91%, 60%, 0.15);
-          
-          /* Grid header */
-          --wx-grid-header-font: 500 13px 'Poppins', sans-serif;
-          --wx-grid-header-font-color: hsl(217, 10%, 65%);
-          --wx-grid-header-shadow: none;
-          
-          /* Grid body */
-          --wx-grid-body-font: 400 13px 'Poppins', sans-serif;
-          --wx-grid-body-font-color: hsl(210, 40%, 98%);
-          --wx-grid-body-row-border: 1px solid hsl(215, 28%, 20%);
-          
-          /* Timescale */
-          --wx-timescale-font: 500 12px 'Poppins', sans-serif;
-          --wx-timescale-font-color: hsl(217, 10%, 65%);
-          --wx-timescale-border: 1px solid hsl(215, 28%, 20%);
-          --wx-timescale-shadow: none;
-          
-          /* Task bar styling */
-          --wx-gantt-task-color: hsl(217, 91%, 60%);
-          --wx-gantt-task-fill-color: hsl(217, 91%, 50%);
-          --wx-gantt-task-border-color: transparent;
-          --wx-gantt-task-font-color: #ffffff;
-          --wx-gantt-bar-border-radius: 6px;
-          
-          /* Summary task bar styling */
-          --wx-gantt-summary-color: hsl(142, 71%, 45%);
-          --wx-gantt-summary-fill-color: hsl(142, 71%, 40%);
-          --wx-gantt-summary-border-color: transparent;
-          --wx-gantt-summary-font-color: #ffffff;
-          
-          /* Weekends */
-          --wx-gantt-holiday-background: hsla(215, 28%, 17%, 0.3);
-          --wx-gantt-holiday-color: hsl(217, 10%, 50%);
-        }
-
-        /* Adjust row headers and cell borders */
-        .pm-gantt-wrapper .wx-table-container {
-          background-color: hsl(222, 47%, 11%) !important;
-          border-right: 1px solid hsl(215, 28%, 20%) !important;
-        }
-
-        .pm-gantt-wrapper .wx-scale {
-          background-color: hsl(222, 47%, 11%) !important;
-          border-bottom: 1px solid hsl(215, 28%, 20%) !important;
-        }
-
-        .pm-gantt-wrapper .wx-cell {
-          border-right: 1px solid hsl(215, 28%, 20%) !important;
-        }
-
-        .pm-gantt-wrapper .wx-row {
-          border-bottom: 1px solid hsl(215, 28%, 20%) !important;
-        }
-
-        .pm-gantt-wrapper .wx-body .wx-row:hover {
-          background-color: hsla(217, 91%, 60%, 0.05) !important;
-        }
-
-        .pm-gantt-wrapper .wx-layout {
-          background-color: hsl(222, 47%, 11%) !important;
-        }
-        
-        /* Make scrollbars thin and match theme */
-        .pm-gantt-wrapper ::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        .pm-gantt-wrapper ::-webkit-scrollbar-track {
-          background: hsl(222, 47%, 11%);
-        }
-        .pm-gantt-wrapper ::-webkit-scrollbar-thumb {
-          background: hsl(215, 28%, 20%);
-          border-radius: 4px;
-        }
-        .pm-gantt-wrapper ::-webkit-scrollbar-thumb:hover {
-          background: hsl(217, 91%, 60%);
-        }
-      `}</style>
-      {mappedTasks.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
-          <p className="text-lg">
-            No tasks found matching the current filters.
-          </p>
-          <p className="text-sm">
-            Try clearing some filters to see tasks in the timeline.
-          </p>
+    <div className="flex-1 w-[calc(100%-1.5rem)] h-[calc(100vh-220px)] min-h-[500px] flex flex-col mt-4 ml-6">
+      {/* Customized View / Horizontal Toolbar for Scale Control and Future Filters */}
+      <div className="flex items-center justify-end mb-4 pr-6 select-none">
+        <div className="flex items-center bg-muted/40 p-1 rounded-md border border-border/40 gap-1">
+          {(["hour", "day", "week"] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setScaleMode(mode)}
+              className={cn(
+                "px-3 py-1.5 rounded-sm text-xs font-medium transition-all capitalize",
+                scaleMode === mode
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+              )}
+            >
+              {mode === "hour"
+                ? "Hours"
+                : mode === "day"
+                  ? "Days"
+                  : "Weeks"}
+            </button>
+          ))}
         </div>
-      ) : (
-        <WillowDark>
-          <Gantt
-            init={handleInit}
-            tasks={mappedTasks}
-            links={[]}
-            columns={ganttColumns}
-            zoom={true}
-            start={ganttTimeRange.start}
-            end={ganttTimeRange.end}
-            cellWidth={60}
-            autoScale={true}
-            unscheduledTasks={true}
-          />
-        </WillowDark>
-      )}
+      </div>
+
+      {/* Gantt Wrapper */}
+      <div className="flex-1 min-h-0 flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden pm-gantt-wrapper">
+        <style>{`
+          /* Custom styles to match the PM tool aesthetic */
+          .pm-gantt-wrapper > div,
+          .pm-gantt-wrapper .wx-gantt-theme-willow-dark,
+          .pm-gantt-wrapper .wx-willow-dark-theme {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+          }
+
+          .pm-gantt-wrapper .wx-gantt {
+            height: 100% !important;
+            overflow: auto !important;
+
+            --wx-gantt-border-color: hsl(215, 28%, 20%);
+            --wx-gantt-border: 1px solid hsl(215, 28%, 20%);
+            
+            --wx-background: hsl(222, 47%, 11%);
+            --wx-background-alt: hsl(215, 28%, 17%);
+            
+            --wx-color-font: hsl(210, 40%, 98%);
+            --wx-color-primary: hsl(217, 91%, 60%);
+            
+            --wx-gantt-icon-color: hsl(217, 10%, 65%);
+            --wx-gantt-select-color: hsla(217, 91%, 60%, 0.15);
+            
+            /* Grid header */
+            --wx-grid-header-font: 500 13px 'Poppins', sans-serif;
+            --wx-grid-header-font-color: hsl(217, 10%, 65%);
+            --wx-grid-header-shadow: none;
+            
+            /* Grid body */
+            --wx-grid-body-font: 400 13px 'Poppins', sans-serif;
+            --wx-grid-body-font-color: hsl(210, 40%, 98%);
+            --wx-grid-body-row-border: 1px solid hsl(215, 28%, 20%);
+            
+            /* Timescale */
+            --wx-timescale-font: 500 12px 'Poppins', sans-serif;
+            --wx-timescale-font-color: hsl(217, 10%, 65%);
+            --wx-timescale-border: 1px solid hsl(215, 28%, 20%);
+            --wx-timescale-shadow: none;
+            
+            /* Task bar styling */
+            --wx-gantt-task-color: hsl(217, 91%, 60%);
+            --wx-gantt-task-fill-color: hsl(217, 91%, 50%);
+            --wx-gantt-task-border-color: transparent;
+            --wx-gantt-task-font-color: #ffffff;
+            --wx-gantt-bar-border-radius: 6px;
+            
+            /* Summary task bar styling */
+            --wx-gantt-summary-color: hsl(142, 71%, 45%);
+            --wx-gantt-summary-fill-color: hsl(142, 71%, 40%);
+            --wx-gantt-summary-border-color: transparent;
+            --wx-gantt-summary-font-color: #ffffff;
+            
+            /* Weekends */
+            --wx-gantt-holiday-background: hsla(215, 28%, 17%, 0.3);
+            --wx-gantt-holiday-color: hsl(217, 10%, 50%);
+          }
+
+          /* Adjust row headers and cell borders */
+          .pm-gantt-wrapper .wx-table-container {
+            background-color: hsl(222, 47%, 11%) !important;
+            border-right: 1px solid hsl(215, 28%, 20%) !important;
+          }
+
+          .pm-gantt-wrapper .wx-scale {
+            background-color: hsl(222, 47%, 11%) !important;
+            border-bottom: 1px solid hsl(215, 28%, 20%) !important;
+          }
+
+          .pm-gantt-wrapper .wx-cell {
+            border-right: 1px solid hsl(215, 28%, 20%) !important;
+          }
+
+          .pm-gantt-wrapper .wx-row {
+            border-bottom: 1px solid hsl(215, 28%, 20%) !important;
+          }
+
+          .pm-gantt-wrapper .wx-body .wx-row:hover {
+            background-color: hsla(217, 91%, 60%, 0.05) !important;
+          }
+
+          .pm-gantt-wrapper .wx-layout {
+            background-color: hsl(222, 47%, 11%) !important;
+          }
+
+          /* Hide unscheduled task bars in timeline */
+          .pm-gantt-wrapper .wx-bar.wx-hidden {
+            display: none !important;
+          }
+          
+          /* Make scrollbars thin and match theme */
+          .pm-gantt-wrapper ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+          }
+          .pm-gantt-wrapper ::-webkit-scrollbar-track {
+            background: hsl(222, 47%, 11%);
+          }
+          .pm-gantt-wrapper ::-webkit-scrollbar-thumb {
+            background: hsl(215, 28%, 20%);
+            border-radius: 4px;
+          }
+          .pm-gantt-wrapper ::-webkit-scrollbar-thumb:hover {
+            background: hsl(217, 91%, 60%);
+          }
+        `}</style>
+        {mappedTasks.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
+            <p className="text-lg">
+              No tasks found matching the current filters.
+            </p>
+            <p className="text-sm">
+              Try clearing some filters to see tasks in the timeline.
+            </p>
+          </div>
+        ) : (
+          <WillowDark>
+            <Gantt
+              init={handleInit}
+              tasks={mappedTasks}
+              links={[]}
+              columns={ganttColumns}
+              zoom={true}
+              start={ganttTimeRange.start}
+              end={ganttTimeRange.end}
+              cellWidth={timescaleConfig.cellWidth}
+              scales={timescaleConfig.scales}
+              autoScale={false}
+              unscheduledTasks={false}
+              taskTypes={ganttTaskTypes}
+            />
+          </WillowDark>
+        )}
+      </div>
     </div>
   );
 }
