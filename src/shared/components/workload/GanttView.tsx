@@ -79,6 +79,14 @@ export default function GanttView({
     return { start, duration };
   };
 
+  // Helper to check if a task has estimated dates defined
+  const hasEstimation = useCallback((task: Task): boolean => {
+    const taskAny = task as any;
+    const rawFrom =
+      taskAny.estimatedDateRaw || taskAny.estimation?.estimated_date_from;
+    return !!rawFrom;
+  }, []);
+
   // Map our groups and tasks to SVAR's expected format (reactive to groups prop changes)
   const mappedTasks = useMemo(() => {
     const list = [];
@@ -97,6 +105,7 @@ export default function GanttView({
       for (const task of group.tasks) {
         const { start: taskStart, duration: taskDuration } = getTaskDates(task);
         const hasSubitems = task.subitems && task.subitems.length > 0;
+        const isScheduled = hasEstimation(task);
 
         // 2. Map the main task row
         list.push({
@@ -108,6 +117,7 @@ export default function GanttView({
           progress: 0,
           type: hasSubitems ? "summary" : undefined,
           open: hasSubitems ? true : undefined,
+          unscheduled: hasSubitems ? false : !isScheduled,
         });
 
         // 3. Map subitems if they exist
@@ -115,6 +125,7 @@ export default function GanttView({
           for (const sub of task.subitems!) {
             const { start: subStart, duration: subDuration } =
               getTaskDates(sub);
+            const isSubScheduled = hasEstimation(sub);
 
             list.push({
               id: sub.id,
@@ -123,13 +134,14 @@ export default function GanttView({
               duration: subDuration,
               parent: task.id,
               progress: 0,
+              unscheduled: !isSubScheduled,
             });
           }
         }
       }
     }
     return list;
-  }, [groups]);
+  }, [groups, hasEstimation]);
 
   // Handle SVAR Gantt actions and events
   const handleInit = useCallback(
@@ -146,27 +158,23 @@ export default function GanttView({
       });
 
       // 2. Intercept update actions (dragging or resizing task bars on the timeline)
-      api.setNext({
-        send: (action: string, payload: any) => {
-          if (action === "update-task") {
-            const { id, task } = payload;
-            if (id.startsWith("group-")) return true; // Groups can't be dragged directly to update dates
+      api.intercept("update-task", (payload: any) => {
+        const { id, task } = payload;
+        if (id.startsWith("group-")) return true; // Groups can't be dragged directly to update dates
 
-            const start = task.start;
-            const duration = task.duration;
+        const start = task.start;
+        const duration = task.duration;
 
-            if (start && duration) {
-              const fromDateStr = format(start, "yyyy-MM-dd");
-              const toDateStr = format(
-                addDays(start, duration - 1),
-                "yyyy-MM-dd",
-              );
+        if (start && duration) {
+          const fromDateStr = format(start, "yyyy-MM-dd");
+          const toDateStr = format(
+            addDays(start, duration - 1),
+            "yyyy-MM-dd",
+          );
 
-              onEstimatedDateChange(id, fromDateStr, toDateStr);
-            }
-          }
-          return true; // Keep visual update in Gantt UI synchronous
-        },
+          onEstimatedDateChange(id, fromDateStr, toDateStr);
+        }
+        return true;
       });
     },
     [getTaskById, onEstimatedDateChange, onTaskClick],
@@ -205,10 +213,23 @@ export default function GanttView({
   }, [groups]);
 
   return (
-    <div className="flex-1 w-full h-[calc(100vh-220px)] min-h-[500px] flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden mt-4 pm-gantt-wrapper">
+    <div className="flex-1 w-[calc(100%-1.5rem)] h-[calc(100vh-220px)] min-h-[500px] flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden mt-4 ml-6 pm-gantt-wrapper">
       <style>{`
         /* Custom styles to match the PM tool aesthetic */
+        .pm-gantt-wrapper > div,
+        .pm-gantt-wrapper .wx-gantt-theme-willow-dark,
+        .pm-gantt-wrapper .wx-willow-dark-theme {
+          height: 100%;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+        }
+
         .pm-gantt-wrapper .wx-gantt {
+          height: 100% !important;
+          overflow: auto !important;
+
           --wx-gantt-border-color: hsl(215, 28%, 20%);
           --wx-gantt-border: 1px solid hsl(215, 28%, 20%);
           
@@ -319,6 +340,7 @@ export default function GanttView({
             end={ganttTimeRange.end}
             cellWidth={60}
             autoScale={true}
+            unscheduledTasks={true}
           />
         </WillowDark>
       )}
