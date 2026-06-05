@@ -70,6 +70,8 @@ interface CommentsPanelSheetProps {
   onHighlightComplete?: () => void;
   isSaving?: boolean;
   boardId?: string;
+  activeCommentsTab?: string;
+  onActiveCommentsTabChange?: (tab: string) => void;
 }
 
 /**
@@ -100,13 +102,17 @@ export function CommentsPanelSheet({
   onHighlightComplete,
   isSaving,
   boardId,
+  activeCommentsTab: propActiveCommentsTab,
+  onActiveCommentsTabChange,
 }: CommentsPanelSheetProps) {
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [previewFileName, setPreviewFileName] = useState<string | undefined>(
     undefined,
   );
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [activeCommentsTab, setActiveCommentsTab] = useState("updates");
+  const [localActiveTab, setLocalActiveTab] = useState("updates");
+  const activeCommentsTab = propActiveCommentsTab ?? localActiveTab;
+  const setActiveCommentsTab = onActiveCommentsTabChange ?? setLocalActiveTab;
   const [clientComments, setClientComments] = useState<TaskComment[]>([]);
   const [isLoadingClientComments, setIsLoadingClientComments] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
@@ -163,9 +169,29 @@ export function CommentsPanelSheet({
     }
   }, [currentUserRole]);
 
+  const fetchClientComments = async (silent = false) => {
+    if (!taskId) return;
+    if (!silent) setIsLoadingClientComments(true);
+    try {
+      const fetched = await tasksApi.getClientComments(taskId);
+      setClientComments(fetched);
+    } catch (error) {
+      console.error("Failed to fetch client comments:", error);
+    } finally {
+      if (!silent) setIsLoadingClientComments(false);
+    }
+  };
+
   useEffect(() => {
     if (open && activeCommentsTab === "client-updates" && taskId) {
       fetchClientComments();
+
+      // Poll client comments every 5 seconds when active
+      const refreshInterval = setInterval(() => {
+        fetchClientComments(true);
+      }, 5000);
+
+      return () => clearInterval(refreshInterval);
     }
   }, [open, activeCommentsTab, taskId]);
 
@@ -174,19 +200,6 @@ export function CommentsPanelSheet({
     // to ensure they stay somewhat in sync or at least don't show stale data
     setClientComments([]);
   }, [taskId, open]);
-
-  const fetchClientComments = async () => {
-    if (!taskId) return;
-    setIsLoadingClientComments(true);
-    try {
-      const fetched = await tasksApi.getClientComments(taskId);
-      setClientComments(fetched);
-    } catch (error) {
-      console.error("Failed to fetch client comments:", error);
-    } finally {
-      setIsLoadingClientComments(false);
-    }
-  };
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
