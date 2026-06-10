@@ -468,6 +468,8 @@ interface SortableTaskRowProps {
   id: string;
   className?: string;
   onClick?: () => void;
+  onClickCapture?: () => void;
+  "data-task-row"?: boolean;
   children: (dragListeners: any, dragAttributes: any) => React.ReactNode;
 }
 
@@ -475,6 +477,8 @@ const SortableTaskRow = ({
   id,
   className,
   onClick,
+  onClickCapture,
+  "data-task-row": dataTaskRow,
   children,
 }: SortableTaskRowProps) => {
   const {
@@ -500,6 +504,8 @@ const SortableTaskRow = ({
       style={style}
       className={className}
       onClick={onClick}
+      onClickCapture={onClickCapture}
+      data-task-row={dataTaskRow}
       {...attributes}
       {...listeners}
     >
@@ -608,6 +614,34 @@ export function WorkloadBoard({
   const [selectedCommentsId, setSelectedCommentsId] = useState<string | null>(
     null,
   );
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+
+      // Check if target is inside a task row, radix popper/portal, dialog, menu, listbox, or a virtual list
+      if (
+        target.closest("[data-task-row]") ||
+        target.closest("[role='dialog']") ||
+        target.closest("[role='region']") ||
+        target.closest("[role='menu']") ||
+        target.closest("[role='listbox']") ||
+        target.closest("[data-radix-popper-content-wrapper]") ||
+        target.closest(".rc-virtual-list")
+      ) {
+        return;
+      }
+
+      setFocusedTaskId(null);
+    };
+
+    document.addEventListener("mousedown", handleDocumentClick);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
+    };
+  }, []);
   const [taskCardInitialEditDescription, setTaskCardInitialEditDescription] =
     useState(false);
 
@@ -5745,13 +5779,16 @@ export function WorkloadBoard({
                                                 popoverState.openPopoverId.endsWith("-" + task.id)) ||
                                               taskState.inlineEditingTaskId === task.id ||
                                               taskState.checkedTasks[task.id] ||
-                                              (commentsPanelOpen && selectedCommentsId === task.id);
+                                              (commentsPanelOpen && selectedCommentsId === task.id) ||
+                                              focusedTaskId === task.id;
 
                                             return (
                                               <React.Fragment key={task.id}>
                                                 {/* ================= TASK ROW ================= */}
                                                 <SortableTaskRow
                                                   id={task.id}
+                                                  data-task-row={true}
+                                                  onClickCapture={() => setFocusedTaskId(task.id)}
                                                   className={cn(
                                                     "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors",
                                                     isRowActive && "bg-primary/10"
@@ -5764,9 +5801,13 @@ export function WorkloadBoard({
                                                     <>
                                                       <td
                                                         className={cn(
-                                                          "p-4 text-center border-b border-border border-r sticky left-0 z-30",
-                                                          isRowActive ? "bg-primary/10" : "bg-card"
+                                                          "p-4 text-center border-b border-border border-r sticky left-0 z-30"
                                                         )}
+                                                        style={{
+                                                          backgroundColor: isRowActive
+                                                            ? "color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--card)))"
+                                                            : "hsl(var(--card))",
+                                                        }}
                                                         onClick={(e) =>
                                                           e.stopPropagation()
                                                         }
@@ -5809,10 +5850,7 @@ export function WorkloadBoard({
                                                                   "text-left",
                                                                 col.id ===
                                                                   "item"
-                                                                  ? cn(
-                                                                      "sticky left-12 z-30 hover:bg-secondary",
-                                                                      isRowActive ? "bg-primary/10" : "bg-card"
-                                                                    )
+                                                                  ? "sticky left-12 z-30 hover:bg-secondary"
                                                                   : "hover:bg-muted/30 hover:relative",
                                                                 isBulkHighlighted && (
                                                                   col.id === "item"
@@ -5836,6 +5874,12 @@ export function WorkloadBoard({
                                                                 maxWidth:
                                                                   col.maxWidth ||
                                                                   col.width,
+                                                                backgroundColor:
+                                                                  col.id === "item"
+                                                                    ? isRowActive
+                                                                      ? "color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--card)))"
+                                                                      : "hsl(var(--card))"
+                                                                    : undefined,
                                                               }}
                                                               onClick={(e) =>
                                                                 e.stopPropagation()
@@ -5900,11 +5944,14 @@ export function WorkloadBoard({
                                                           popoverState.openPopoverId.endsWith("-" + subtask.id)) ||
                                                         taskState.inlineEditingTaskId === subtask.id ||
                                                         taskState.checkedTasks[subtask.id] ||
-                                                        (commentsPanelOpen && selectedCommentsId === subtask.id);
+                                                        (commentsPanelOpen && selectedCommentsId === subtask.id) ||
+                                                        focusedTaskId === subtask.id;
 
                                                       return (
                                                         <tr
                                                           key={subtask.id}
+                                                          data-task-row={true}
+                                                          onClickCapture={() => setFocusedTaskId(subtask.id)}
                                                           className={cn(
                                                             "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors",
                                                             isSubtaskActive && "bg-primary/10"
@@ -5912,9 +5959,13 @@ export function WorkloadBoard({
                                                         >
                                                           <td
                                                             className={cn(
-                                                              "p-4 text-center border-b border-r border-border sticky left-0 z-30",
-                                                              isSubtaskActive ? "bg-primary/10" : "bg-card"
+                                                              "p-4 text-center border-b border-r border-border sticky left-0 z-30"
                                                             )}
+                                                            style={{
+                                                              backgroundColor: isSubtaskActive
+                                                                ? "color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--card)))"
+                                                                : "hsl(var(--card))",
+                                                            }}
                                                             onClick={(e) =>
                                                               e.stopPropagation()
                                                             }
@@ -5958,10 +6009,7 @@ export function WorkloadBoard({
                                                                     "text-left",
                                                                   col.id ===
                                                                     "item"
-                                                                    ? cn(
-                                                                        "sticky left-12 z-30 hover:bg-secondary",
-                                                                        isSubtaskActive ? "bg-primary/10" : "bg-card"
-                                                                      )
+                                                                    ? "sticky left-12 z-30 hover:bg-secondary"
                                                                     : "hover:bg-muted/30 hover:relative",
                                                                   isBulkHighlighted && (
                                                                     col.id === "item"
@@ -5986,6 +6034,12 @@ export function WorkloadBoard({
                                                                   maxWidth:
                                                                     col.maxWidth ||
                                                                     col.width,
+                                                                  backgroundColor:
+                                                                    col.id === "item"
+                                                                      ? isSubtaskActive
+                                                                        ? "color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--card)))"
+                                                                        : "hsl(var(--card))"
+                                                                      : undefined,
                                                                 }}
                                                                 onClick={(e) =>
                                                                   e.stopPropagation()
