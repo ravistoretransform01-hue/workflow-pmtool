@@ -3410,6 +3410,11 @@ export function WorkloadBoard({
             const matchesSearchQuery = (item: any) => {
               if (!query) return true;
 
+              // Check if query matches the group name itself
+              if (group.name && group.name.toLowerCase().includes(query)) {
+                return true;
+              }
+
               // Resolve readable names dynamically for better search accuracy
               const statusName = statusNameMap.get(item.status_id || "") || "";
               const priorityName =
@@ -3485,8 +3490,26 @@ export function WorkloadBoard({
           filterState.taskFilters.groups.size > 0 ||
           filterState.showDoneItemsOnly;
 
-        // If filtering, only show groups with matching tasks
+        // If filtering, only show groups with matching tasks or if the group name matches the query
         if (hasActiveFilters) {
+          const groupNameMatches =
+            query.length > 0 &&
+            group.name &&
+            group.name.toLowerCase().includes(query);
+
+          if (groupNameMatches) {
+            // Check if there are other task-restricting filters active
+            const hasOtherTaskRestrictingFilters =
+              filterState.taskFilters.persons.size > 0 ||
+              filterState.taskFilters.statuses.size > 0 ||
+              filterState.taskFilters.priorities.size > 0 ||
+              filterState.showDoneItemsOnly;
+
+            // If no other filters are active, show the group (even if empty)
+            if (!hasOtherTaskRestrictingFilters) {
+              return true;
+            }
+          }
           return group.tasks.length > 0;
         }
         // Default state (no filters): show all groups
