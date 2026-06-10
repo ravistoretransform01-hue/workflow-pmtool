@@ -108,6 +108,53 @@ export default function BoardDashboardPage() {
   );
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
+  // Find current user's role in this board
+  const getCurrentUserBoardRole = (): string | null => {
+    const userId = getCurrentUserId();
+    if (!userId) return null;
+
+    // 1. Try to find in loaded members state first
+    const memberInState = members.find((m) => String(m.id) === String(userId));
+    if (memberInState) {
+      return memberInState.role;
+    }
+
+    // 2. Fallback to localStorage cached board cms data
+    if (boardId) {
+      try {
+        const cachedDataRaw = localStorage.getItem(`cms_data_board_${boardId}`);
+        if (cachedDataRaw) {
+          const cachedData = JSON.parse(cachedDataRaw);
+          const cachedMembers = cachedData?.members || [];
+          const matchedMember = cachedMembers.find(
+            (m: any) => String(m.user_id) === String(userId)
+          );
+          if (matchedMember) {
+            return matchedMember.board_role_label || null;
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing cached board role", e);
+      }
+    }
+
+    // 3. Global role fallback if not loaded/cached for board yet
+    try {
+      const globalUserDataRaw = localStorage.getItem("user_data");
+      if (globalUserDataRaw) {
+        const globalUserData = JSON.parse(globalUserDataRaw);
+        return globalUserData.role_label || null;
+      }
+    } catch (e) {
+      console.error("Error parsing global user role", e);
+    }
+
+    return null;
+  };
+
+  const currentUserRole = getCurrentUserBoardRole();
+  const isCurrentUserClient = isClientRole(currentUserRole);
+
   const loadAllDashboardData = async (id: number, forceRefresh = true) => {
     setIsLoadingGroups(true);
     setLoadingRoles(true);
@@ -555,10 +602,20 @@ export default function BoardDashboardPage() {
         </Button>
 
         <div className="flex items-center gap-6">
-          <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
+          <Popover
+            open={!isCurrentUserClient && colorPickerOpen}
+            onOpenChange={(open) => {
+              if (!isCurrentUserClient) setColorPickerOpen(open);
+            }}
+          >
             <PopoverTrigger asChild>
               <button
-                className="w-32 h-32 rounded-2xl flex items-center justify-center transition-transform hover:scale-105 cursor-pointer shadow-sm"
+                disabled={isCurrentUserClient}
+                className={`w-32 h-32 rounded-2xl flex items-center justify-center shadow-sm ${
+                  isCurrentUserClient
+                    ? "cursor-default"
+                    : "transition-transform hover:scale-105 cursor-pointer"
+                }`}
                 style={{ backgroundColor: iconColor }}
               >
                 <span className="text-6xl font-bold text-white">
@@ -611,8 +668,16 @@ export default function BoardDashboardPage() {
               ) : (
                 <div className="flex items-center gap-3 mb-2">
                   <h1
-                    className="text-4xl font-semibold text-foreground cursor-pointer hover:text-primary transition-colors"
-                    onClick={() => setIsEditingName(true)}
+                    className={`text-4xl font-semibold text-foreground transition-colors ${
+                      isCurrentUserClient
+                        ? ""
+                        : "cursor-pointer hover:text-primary"
+                    }`}
+                    onClick={() => {
+                      if (!isCurrentUserClient) {
+                        setIsEditingName(true);
+                      }
+                    }}
                   >
                     {currentName}
                   </h1>
@@ -645,32 +710,34 @@ export default function BoardDashboardPage() {
                 </div>
               )}
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="p-2 rounded-lg hover:bg-muted transition-colors mb-2">
-                    <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuItem
-                    onClick={() =>
-                      navigate(`/org/${getOrganizationId()}/board/${boardId}/view/Main%20Table`)
-                    }
-                  >
-                    <LayoutDashboard className="h-4 w-4 mr-2" />
-                    Go to Board
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setIsEditingName(true)}>
-                    Rename project
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setDeleteDialogOpen(true)}
-                    className="text-destructive"
-                  >
-                    Delete project
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {!isCurrentUserClient && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-2 rounded-lg hover:bg-muted transition-colors mb-2">
+                      <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuItem
+                      onClick={() =>
+                        navigate(`/org/${getOrganizationId()}/board/${boardId}/view/Main%20Table`)
+                      }
+                    >
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Go to Board
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsEditingName(true)}>
+                      Rename project
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setDeleteDialogOpen(true)}
+                      className="text-destructive"
+                    >
+                      Delete project
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
             {isEditingDescription ? (
               <Textarea
@@ -683,8 +750,16 @@ export default function BoardDashboardPage() {
               />
             ) : (
               <p
-                className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-                onClick={() => setIsEditingDescription(true)}
+                className={`text-muted-foreground transition-colors ${
+                  isCurrentUserClient
+                    ? ""
+                    : "cursor-pointer hover:text-foreground"
+                }`}
+                onClick={() => {
+                  if (!isCurrentUserClient) {
+                    setIsEditingDescription(true);
+                  }
+                }}
               >
                 {currentDescription || "Add board description"}
               </p>
@@ -709,14 +784,16 @@ export default function BoardDashboardPage() {
                 Showing: {members.length} result
                 {members.length !== 1 ? "s" : ""}
               </p>
-              <Button
-                size="lg"
-                className="gap-2"
-                onClick={() => setInviteDialogOpen(true)}
-              >
-                <UserPlus className="h-5 w-5" />
-                Invite
-              </Button>
+              {!isCurrentUserClient && (
+                <Button
+                  size="lg"
+                  className="gap-2"
+                  onClick={() => setInviteDialogOpen(true)}
+                >
+                  <UserPlus className="h-5 w-5" />
+                  Invite
+                </Button>
+              )}
             </div>
 
             {/* Members Table */}
@@ -772,7 +849,7 @@ export default function BoardDashboardPage() {
                             <PopoverTrigger asChild>
                               <button
                                 type="button"
-                                disabled={isLoadingGroups || assigningGroupsUserId === member.id}
+                                disabled={isCurrentUserClient || isLoadingGroups || assigningGroupsUserId === member.id}
                                 className="w-full max-w-[180px] flex items-center justify-between bg-background border border-input rounded-md h-8 px-3 text-left text-xs hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <div className="flex items-center gap-1 overflow-hidden max-w-[85%]">
@@ -847,6 +924,7 @@ export default function BoardDashboardPage() {
                           handleRoleChange(member.id, value)
                         }
                         disabled={
+                          isCurrentUserClient ||
                           loadingRoles ||
                           roles.length === 0 ||
                           roleChangingUserId === member.id
@@ -875,8 +953,8 @@ export default function BoardDashboardPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRemoveMember(member.id)}
-                          disabled={removingUserId === member.id}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          disabled={isCurrentUserClient || removingUserId === member.id}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {removingUserId === member.id ? (
                             <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
@@ -896,9 +974,11 @@ export default function BoardDashboardPage() {
             </div>
 
             <div className="mt-4">
-              <Button variant="outline" size="sm">
-                See and edit all project permissions
-              </Button>
+              {!isCurrentUserClient && (
+                <Button variant="outline" size="sm">
+                  See and edit all project permissions
+                </Button>
+              )}
             </div>
           </TabsContent>
 
