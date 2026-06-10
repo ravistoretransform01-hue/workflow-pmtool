@@ -12,7 +12,7 @@ interface GanttViewProps {
     fromDate: string | null,
     toDate?: string | null,
   ) => void;
-  onTaskClick: (task: Task) => void;
+  onTaskClick?: (task: Task) => void;
 }
 
 export default function GanttView({
@@ -72,21 +72,25 @@ export default function GanttView({
     }
   }, [scaleMode]);
 
-  const ganttTaskTypes = useMemo(() => [
-    { id: "task", label: "Task" },
-    { id: "summary", label: "Summary" },
-    { id: "milestone", label: "Milestone" },
-    { id: "hidden", label: "Hidden" },
-  ], []);
-  // Helper to find a task by ID inside our groups/tasks hierarchy
+  const ganttTaskTypes = useMemo(
+    () => [
+      { id: "task", label: "Task" },
+      { id: "summary", label: "Summary" },
+      { id: "milestone", label: "Milestone" },
+      { id: "parent-task", label: "Parent Task" },
+      { id: "hidden", label: "Hidden" },
+    ],
+    [],
+  );
+  // Helper to find a task by ID inside our groups/tasks hierarchy (robust type casting)
   const getTaskById = useCallback(
     (id: string): Task | null => {
       for (const group of groups) {
         for (const task of group.tasks) {
-          if (task.id === id) return task;
+          if (String(task.id) === String(id)) return task;
           if (task.subitems) {
             for (const sub of task.subitems) {
-              if (sub.id === id) return sub;
+              if (String(sub.id) === String(id)) return sub;
             }
           }
         }
@@ -97,7 +101,7 @@ export default function GanttView({
   );
 
   // Helper to calculate duration in days between two ISO date strings (inclusive)
-  const calculateDuration = (fromStr?: string, toStr?: string): number => {
+  const calculateDuration = useCallback((fromStr?: string, toStr?: string): number => {
     if (!fromStr || !toStr) return 1;
     try {
       const from = parseISO(fromStr);
@@ -107,16 +111,45 @@ export default function GanttView({
     } catch {
       return 1;
     }
-  };
+  }, []);
 
-  // Helper to resolve start date and duration for a task dynamically
-  const getTaskDates = (task: Task): { start: Date; duration: number } => {
+  // Helper to resolve start date and duration for a task dynamically, including subitems
+  const getTaskDates = useCallback((task: Task): { start: Date; duration: number } => {
     let start = new Date();
     let duration = 1;
 
     const taskAny = task as any;
     const rawFrom = taskAny.estimation?.estimated_date_from;
     const rawTo = taskAny.estimation?.estimated_date_to;
+
+    // Fallback: If no direct estimation, try to derive from scheduled subitems
+    if (!rawFrom && !rawTo && task.subitems && task.subitems.length > 0) {
+      let minStart: Date | null = null;
+      let maxEnd: Date | null = null;
+
+      for (const sub of task.subitems) {
+        const subAny = sub as any;
+        const subFrom = subAny.estimation?.estimated_date_from;
+        const subTo = subAny.estimation?.estimated_date_to;
+        if (subFrom && subTo) {
+          try {
+            const s = parseISO(subFrom);
+            const e = parseISO(subTo);
+            if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+              if (!minStart || s < minStart) minStart = s;
+              if (!maxEnd || e > maxEnd) maxEnd = e;
+            }
+          } catch {}
+        }
+      }
+
+      if (minStart && maxEnd) {
+        return {
+          start: minStart,
+          duration: Math.max(1, differenceInDays(maxEnd, minStart) + 1),
+        };
+      }
+    }
 
     if (rawFrom) {
       try {
@@ -134,14 +167,41 @@ export default function GanttView({
     }
 
     return { start, duration };
-  };
+  }, [calculateDuration]);
 
-  // Helper to check if a task has estimated dates defined
+  // Helper to check if a task has estimated dates defined or has scheduled subitems
   const hasEstimation = useCallback((task: Task): boolean => {
     const taskAny = task as any;
     const rawFrom = taskAny.estimation?.estimated_date_from;
     const rawTo = taskAny.estimation?.estimated_date_to;
-    return !!rawFrom && !!rawTo;
+    if (rawFrom && rawTo) {
+      try {
+        const from = parseISO(rawFrom);
+        const to = parseISO(rawTo);
+        return !isNaN(from.getTime()) && !isNaN(to.getTime());
+      } catch {
+        return false;
+      }
+    }
+
+    // Also consider parent task scheduled if any subitem has estimation
+    if (task.subitems && task.subitems.length > 0) {
+      return task.subitems.some((sub) => {
+        const subAny = sub as any;
+        const subFrom = subAny.estimation?.estimated_date_from;
+        const subTo = subAny.estimation?.estimated_date_to;
+        if (!subFrom || !subTo) return false;
+        try {
+          const from = parseISO(subFrom);
+          const to = parseISO(subTo);
+          return !isNaN(from.getTime()) && !isNaN(to.getTime());
+        } catch {
+          return false;
+        }
+      });
+    }
+
+    return false;
   }, []);
 
   // Map our tasks to SVAR's expected format (reactive to groups prop changes)
@@ -153,8 +213,6 @@ export default function GanttView({
         const { start: taskStart, duration: taskDuration } = getTaskDates(task);
         const hasSubitems = task.subitems && task.subitems.length > 0;
         const isScheduled = hasEstimation(task);
-        const hasScheduledSubitems = task.subitems && task.subitems.some(sub => hasEstimation(sub));
-        const shouldShowBar = isScheduled || hasScheduledSubitems;
 
         // 1. Map the main task row as top-level (no parent)
         list.push({
@@ -163,9 +221,13 @@ export default function GanttView({
           start: isScheduled ? taskStart : undefined,
           duration: isScheduled ? taskDuration : undefined,
           progress: 0,
-          type: shouldShowBar ? (hasSubitems ? "summary" : undefined) : "hidden",
+          type: isScheduled
+            ? hasSubitems
+              ? "parent-task"
+              : undefined
+            : "hidden",
           open: hasSubitems ? true : undefined,
-          unscheduled: hasSubitems ? false : !isScheduled,
+          unscheduled: !isScheduled,
         });
 
         // 2. Map subitems if they exist under the main task parent
@@ -190,40 +252,66 @@ export default function GanttView({
       }
     }
     return list;
-  }, [groups, hasEstimation]);
+  }, [groups, hasEstimation, getTaskDates]);
 
   // Handle SVAR Gantt actions and events
   const handleInit = useCallback(
     (api: any) => {
-      // 1. Task Selection listener (clicking a task row/bar)
-      api.on("select-task", (id: string) => {
-        if (!id) return;
-        if (id.startsWith("group-")) return; // Don't trigger for group summary rows
-
-        const task = getTaskById(id);
-        if (task) {
-          onTaskClick(task);
-        }
+      // 1. Intercept select-task to open the custom task dialog/card, returning false to prevent persistent selection background
+      api.intercept("select-task", () => {
+        return false;
       });
 
-      // 2. Intercept update actions (dragging or resizing task bars on the timeline)
+      // 2. Intercept show-editor to prevent default SVAR Gantt editor from opening
+      api.intercept("show-editor", () => {
+        return false;
+      });
+
+      // 3. Intercept update actions (dragging or resizing task bars on the timeline)
       api.intercept("update-task", (payload: any) => {
-        const { id, task } = payload;
-        if (id.startsWith("group-")) return true; // Groups can't be dragged directly to update dates
+        const { id, task, inProgress } = payload;
+        const idStr = String(id);
+        if (idStr.startsWith("group-")) return true;
 
-        const start = task.start;
-        const duration = task.duration;
+        const originalTask = getTaskById(id);
+        if (!originalTask) return true;
 
-        if (start && duration) {
+        // If the task has subitems, we treat it as a summary/parent task.
+        // Its dates are computed from subitems, so direct resizing/dragging should be ignored/prevented.
+        if (originalTask.subitems && originalTask.subitems.length > 0) {
+          return false;
+        }
+
+        const originalDates = getTaskDates(originalTask);
+        const start = task.start || originalDates.start;
+        const duration =
+          task.duration !== undefined ? task.duration : originalDates.duration;
+
+        // Only trigger state update to the backend/parent when user is done dragging/resizing
+        if (!inProgress && start && duration) {
           const fromDateStr = format(start, "yyyy-MM-dd");
-          const toDateStr = format(addDays(start, duration - 1), "yyyy-MM-dd");
+          // Calculate the inclusive end date for the database
+          const toDate = addDays(start, duration - 1);
+          const toDateStr = format(toDate, "yyyy-MM-dd");
+
+          console.log("[GanttView] Triggering date change:", {
+            id,
+            fromDateStr,
+            toDateStr,
+          });
 
           onEstimatedDateChange(id, fromDateStr, toDateStr);
         }
+
         return true;
       });
+
+      // 4. Prevent creation of dependency links
+      api.intercept("add-link", () => {
+        return false;
+      });
     },
-    [getTaskById, onEstimatedDateChange, onTaskClick],
+    [getTaskById, onEstimatedDateChange, onTaskClick, getTaskDates],
   );
 
   const ganttColumns = useMemo(
@@ -246,33 +334,44 @@ export default function GanttView({
   );
 
   const ganttTimeRange = useMemo(() => {
-    let minDate = new Date();
-    let maxDate = addDays(new Date(), 30);
+    let minDate: Date | null = null;
+    let maxDate: Date | null = null;
 
-    let hasTasks = false;
     for (const group of groups) {
       for (const task of group.tasks) {
-        const { start, duration } = getTaskDates(task);
-        const taskEnd = addDays(start, duration);
-        if (!hasTasks) {
-          minDate = start;
-          maxDate = taskEnd;
-          hasTasks = true;
-        } else {
-          if (start < minDate) minDate = start;
-          if (taskEnd > maxDate) maxDate = taskEnd;
+        // Evaluate main task dates
+        if (hasEstimation(task)) {
+          const { start: tStart, duration: tDuration } = getTaskDates(task);
+          const tEnd = addDays(tStart, tDuration);
+          if (!minDate || tStart < minDate) minDate = tStart;
+          if (!maxDate || tEnd > maxDate) maxDate = tEnd;
+        }
+
+        // Evaluate subitem dates
+        if (task.subitems) {
+          for (const sub of task.subitems) {
+            if (hasEstimation(sub)) {
+              const { start: sStart, duration: sDuration } = getTaskDates(sub);
+              const sEnd = addDays(sStart, sDuration);
+              if (!minDate || sStart < minDate) minDate = sStart;
+              if (!maxDate || sEnd > maxDate) maxDate = sEnd;
+            }
+          }
         }
       }
     }
 
-    const start = addDays(minDate, -3);
+    const finalMin = minDate || new Date();
+    const finalMax = maxDate || addDays(new Date(), 30);
+
+    const start = addDays(finalMin, -3);
     const end = addDays(
       start,
-      Math.max(30, differenceInDays(maxDate, start) + 7),
+      Math.max(30, differenceInDays(finalMax, start) + 7),
     );
 
     return { start, end };
-  }, [groups]);
+  }, [groups, hasEstimation, getTaskDates]);
 
   return (
     <div className="flex-1 w-[calc(100%-1.5rem)] h-[calc(100vh-220px)] min-h-[500px] flex flex-col mt-4 ml-6">
@@ -290,11 +389,7 @@ export default function GanttView({
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
               )}
             >
-              {mode === "hour"
-                ? "Hours"
-                : mode === "day"
-                  ? "Days"
-                  : "Weeks"}
+              {mode === "hour" ? "Hours" : mode === "day" ? "Days" : "Weeks"}
             </button>
           ))}
         </div>
@@ -358,6 +453,12 @@ export default function GanttView({
             --wx-gantt-summary-fill-color: hsl(142, 71%, 40%);
             --wx-gantt-summary-border-color: transparent;
             --wx-gantt-summary-font-color: #ffffff;
+
+            /* Parent task bar styling (custom type) */
+            --wx-gantt-parent-task-color: hsl(142, 71%, 45%);
+            --wx-gantt-parent-task-fill-color: hsl(142, 71%, 40%);
+            --wx-gantt-parent-task-border-color: transparent;
+            --wx-gantt-parent-task-font-color: #ffffff;
             
             /* Weekends */
             --wx-gantt-holiday-background: hsla(215, 28%, 17%, 0.3);
@@ -394,6 +495,24 @@ export default function GanttView({
           /* Hide unscheduled task bars in timeline */
           .pm-gantt-wrapper .wx-bar.wx-hidden {
             display: none !important;
+          }
+
+          /* Hide the link handles and interactive areas for linking */
+          .pm-gantt-wrapper .wx-link,
+          .pm-gantt-wrapper .wx-link-handle,
+          .pm-gantt-wrapper .wx-link-control,
+          .pm-gantt-wrapper .wx-gantt-link-control,
+          .pm-gantt-wrapper [data-bind-property="link"] {
+            display: none !important;
+          }
+
+          /* Custom parent task styles if the library doesn't automatically map the CSS vars */
+          .pm-gantt-wrapper .wx-bar.wx-parent-task,
+          .pm-gantt-wrapper .wx-bar.parent-task {
+            background-color: hsl(142, 71%, 40%) !important;
+            border-color: transparent !important;
+            color: #ffffff !important;
+            border-radius: 6px !important;
           }
           
           /* Make scrollbars thin and match theme */

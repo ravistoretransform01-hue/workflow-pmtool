@@ -2716,6 +2716,7 @@ export function WorkloadBoard({
       dateDisplay = formatDateRange(fromDate, toDate || undefined);
     }
 
+    // 1. Optimistically update local state first
     setGroups((prevGroups) =>
       prevGroups.map((group) => ({
         ...group,
@@ -2726,6 +2727,14 @@ export function WorkloadBoard({
               ...task,
               estimatedDate: dateDisplay,
               estimatedDateEnd: toDate || null,
+              estimatedDateRaw: fromDate || undefined,
+              estimation: fromDate
+                ? {
+                    ...(task.estimation || {}),
+                    estimated_date_from: fromDate,
+                    estimated_date_to: toDate || fromDate,
+                  }
+                : null,
             };
           }
 
@@ -2739,6 +2748,14 @@ export function WorkloadBoard({
                       ...sub,
                       estimatedDate: dateDisplay,
                       estimatedDateEnd: toDate || null,
+                      estimatedDateRaw: fromDate || undefined,
+                      estimation: fromDate
+                        ? {
+                            ...(sub.estimation || {}),
+                            estimated_date_from: fromDate,
+                            estimated_date_to: toDate || fromDate,
+                          }
+                        : null,
                     }
                   : sub,
               ),
@@ -2749,6 +2766,35 @@ export function WorkloadBoard({
         }),
       })),
     );
+
+    // 2. Update estimated date on backend
+    try {
+      if (fromDate) {
+        const task = getTaskById(taskId);
+        const hasEstimation = task?.estimation && task.estimation.estimated_date_from;
+
+        if (hasEstimation) {
+          await tasksApi.updateEstimatedDate({
+            task_id: taskId,
+            estimated_date_from: fromDate,
+            estimated_date_to: toDate || fromDate,
+          });
+        } else {
+          await tasksApi.createEstimatedDate({
+            task_id: taskId,
+            estimated_date_from: fromDate,
+            estimated_date_to: toDate || fromDate,
+          });
+        }
+        toast.success("Estimated Date Updated Successfully");
+      } else {
+        await tasksApi.deleteEstimatedDate({ task_id: taskId });
+        toast.success("Estimated Date Cleared Successfully");
+      }
+    } catch (error) {
+      console.error("Failed to update estimated date on backend:", error);
+      toast.error("Failed to Update Estimated Date");
+    }
 
     // Close popover after update
     popoverState.closePopover();
@@ -6400,7 +6446,6 @@ export function WorkloadBoard({
           <GanttView
             groups={memoizedFilteredData.groups}
             onEstimatedDateChange={handleEstimatedDateChange}
-            onTaskClick={openTaskCard}
           />
         )}
 
