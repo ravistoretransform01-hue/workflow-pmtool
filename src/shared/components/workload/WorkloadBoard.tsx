@@ -4447,6 +4447,11 @@ export function WorkloadBoard({
     setProfileDialogOpen(true);
   };
 
+  const totalTableWidth = workloadColumns.reduce((sum, col) => {
+    const w = parseInt(String(col.width).replace("px", ""), 10) || 150;
+    return sum + w;
+  }, 48); // 48px for checkbox column
+
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
       {/* Image resize styles */}
@@ -5617,8 +5622,12 @@ export function WorkloadBoard({
                                     }
                                   >
                                     <table
-                                      className="w-full border-separate border-spacing-0"
-                                      style={{ tableLayout: "fixed" }}
+                                      className="border-separate border-spacing-0"
+                                      style={{
+                                        tableLayout: "fixed",
+                                        width: `${totalTableWidth}px`,
+                                        minWidth: "100%",
+                                      }}
                                     >
                                       <DndContext
                                         sensors={sensors}
@@ -5635,7 +5644,7 @@ export function WorkloadBoard({
                                         >
                                           <thead className="bg-muted/30 top-0 z-30">
                                             <tr className="text-sm text-muted-foreground group">
-                                              <th className="p-4 w-12 border-b border-r border-border text-center sticky left-0 z-10 bg-card">
+                                              <th className="p-4 w-12 border-b border-r border-border text-center sticky left-0 z-30 bg-card">
                                                 <input
                                                   type="checkbox"
                                                   checked={
@@ -5724,19 +5733,29 @@ export function WorkloadBoard({
                                           {group.tasks.map((task) => {
                                             const taskWithProps = {
                                               ...task,
-                                              boardId: boardId,
+                                            boardId: boardId,
                                               activeTimerId:
                                                 timerState.activeTimerId,
                                               onTimerStart: handleTimerStart,
                                               onTimerConflict:
                                                 handleTimerConflict,
                                             };
+                                            const isRowActive =
+                                              (popoverState.openPopoverId &&
+                                                popoverState.openPopoverId.endsWith("-" + task.id)) ||
+                                              taskState.inlineEditingTaskId === task.id ||
+                                              taskState.checkedTasks[task.id] ||
+                                              (commentsPanelOpen && selectedCommentsId === task.id);
+
                                             return (
                                               <React.Fragment key={task.id}>
                                                 {/* ================= TASK ROW ================= */}
                                                 <SortableTaskRow
                                                   id={task.id}
-                                                  className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors"
+                                                  className={cn(
+                                                    "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors",
+                                                    isRowActive && "bg-primary/10"
+                                                  )}
                                                   onClick={() => {
                                                     openTaskCard(task);
                                                   }}
@@ -5744,7 +5763,10 @@ export function WorkloadBoard({
                                                   {() => (
                                                     <>
                                                       <td
-                                                        className="p-4 text-center border-b border-border border-r sticky left-0 z-10 bg-card"
+                                                        className={cn(
+                                                          "p-4 text-center border-b border-border border-r sticky left-0 z-30",
+                                                          isRowActive ? "bg-primary/10" : "bg-card"
+                                                        )}
                                                         onClick={(e) =>
                                                           e.stopPropagation()
                                                         }
@@ -5787,7 +5809,10 @@ export function WorkloadBoard({
                                                                   "text-left",
                                                                 col.id ===
                                                                   "item"
-                                                                  ? "sticky left-12 z-10 bg-card hover:bg-secondary"
+                                                                  ? cn(
+                                                                      "sticky left-12 z-30 hover:bg-secondary",
+                                                                      isRowActive ? "bg-primary/10" : "bg-card"
+                                                                    )
                                                                   : "hover:bg-muted/30 hover:relative",
                                                                 isBulkHighlighted && (
                                                                   col.id === "item"
@@ -5870,13 +5895,26 @@ export function WorkloadBoard({
                                                         onTimerConflict:
                                                           handleTimerConflict,
                                                       };
+                                                      const isSubtaskActive =
+                                                        (popoverState.openPopoverId &&
+                                                          popoverState.openPopoverId.endsWith("-" + subtask.id)) ||
+                                                        taskState.inlineEditingTaskId === subtask.id ||
+                                                        taskState.checkedTasks[subtask.id] ||
+                                                        (commentsPanelOpen && selectedCommentsId === subtask.id);
+
                                                       return (
                                                         <tr
                                                           key={subtask.id}
-                                                          className="hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors"
+                                                          className={cn(
+                                                            "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors",
+                                                            isSubtaskActive && "bg-primary/10"
+                                                          )}
                                                         >
                                                           <td
-                                                            className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card"
+                                                            className={cn(
+                                                              "p-4 text-center border-b border-r border-border sticky left-0 z-30",
+                                                              isSubtaskActive ? "bg-primary/10" : "bg-card"
+                                                            )}
                                                             onClick={(e) =>
                                                               e.stopPropagation()
                                                             }
@@ -5920,7 +5958,10 @@ export function WorkloadBoard({
                                                                     "text-left",
                                                                   col.id ===
                                                                     "item"
-                                                                    ? "sticky left-12 z-10 bg-card hover:bg-secondary"
+                                                                    ? cn(
+                                                                        "sticky left-12 z-30 hover:bg-secondary",
+                                                                        isSubtaskActive ? "bg-primary/10" : "bg-card"
+                                                                      )
                                                                     : "hover:bg-muted/30 hover:relative",
                                                                   isBulkHighlighted && (
                                                                     col.id === "item"
@@ -5995,12 +6036,12 @@ export function WorkloadBoard({
                                                   task.id
                                                 ] && (
                                                   <tr>
-                                                    <td className="p-4 text-center border-b border-r border-border sticky left-0 z-10 bg-card">
+                                                    <td className="p-4 text-center border-b border-r border-border sticky left-0 z-30 bg-card">
                                                       {/* Empty Cell */}
                                                     </td>
                                                     <td
                                                       colSpan={2}
-                                                      className="p-4 border-t border-border sticky left-12 z-10 bg-card"
+                                                      className="p-4 border-t border-border sticky left-12 z-30 bg-card"
                                                     >
                                                       {addingSubitemToTask ===
                                                       task.id ? (
@@ -6090,12 +6131,12 @@ export function WorkloadBoard({
 
                                         {/* ================= ADD ITEM ROW ================= */}
                                         <tr>
-                                          <td className="p-4 text-center border-r border-border sticky left-0 z-10 bg-card">
+                                          <td className="p-4 text-center border-r border-border sticky left-0 z-30 bg-card">
                                             {/* Empty Cell */}
                                           </td>
                                           <td
                                             colSpan={2}
-                                            className="p-4 border-t border-border sticky left-12 z-10 bg-card"
+                                            className="p-4 border-t border-border sticky left-12 z-30 bg-card"
                                           >
                                             {addingItemToGroup === group.id ? (
                                               <Input
