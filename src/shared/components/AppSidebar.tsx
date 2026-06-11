@@ -36,7 +36,7 @@ import { AddBoardDialog } from "@/shared/components/AddBoardDialog";
 import {
   Home,
   FolderKanban,
-  Briefcase,
+  // Briefcase,
   Plus,
   Search,
   LayoutDashboard,
@@ -150,12 +150,7 @@ export const AppSidebar = () => {
       href: `/org/${orgId}/all-items`,
       isImplemented: false,
     },
-    {
-      icon: Briefcase,
-      label: "My Habits",
-      href: `/org/${orgId}/my-habits`,
-      isImplemented: false,
-    },
+    // { icon: Briefcase, label: "My Habits", href: `/org/${orgId}/my-habits`, isImplemented: false },
     // { icon: User, label: "Profile", href: `/org/${orgId}/profile` },
   ];
 
