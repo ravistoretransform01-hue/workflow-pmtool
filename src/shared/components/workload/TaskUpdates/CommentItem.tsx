@@ -113,6 +113,20 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     prevRepliesLength.current = replies.length;
   }, [replies.length, comment.id]);
 
+  // Auto-expand replies if one of them matches the targeted comment ID in URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const commentIdFromUrl = searchParams.get("comment");
+    if (commentIdFromUrl && replies && replies.length > 0) {
+      const hasTargetReply = replies.some(
+        (reply) => String(reply.id) === String(commentIdFromUrl)
+      );
+      if (hasTargetReply) {
+        setShowAllReplies(true);
+      }
+    }
+  }, [replies, comment.id]);
+
   // Only allow editing/deleting the current user's own comments
   const currentUserId = getCurrentUserId();
   const isOwnComment =
