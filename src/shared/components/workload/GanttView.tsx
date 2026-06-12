@@ -276,12 +276,6 @@ export default function GanttView({
         const originalTask = getTaskById(id);
         if (!originalTask) return true;
 
-        // If the task has subitems, we treat it as a summary/parent task.
-        // Its dates are computed from subitems, so direct resizing/dragging should be ignored/prevented.
-        if (originalTask.subitems && originalTask.subitems.length > 0) {
-          return false;
-        }
-
         const originalDates = getTaskDates(originalTask);
         const start = task.start || originalDates.start;
         const duration =
