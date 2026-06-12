@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Button } from "@/shared/components/ui/button";
@@ -94,6 +94,24 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [showRelativeTime, setShowRelativeTime] = useState(false);
   const [showAllReplies, setShowAllReplies] = useState(false);
+
+  const prevRepliesLength = useRef(replies.length);
+
+  useEffect(() => {
+    if (replies.length > prevRepliesLength.current) {
+      setShowAllReplies(true);
+      setTimeout(() => {
+        const repliesContainer = document.getElementById(`replies-container-${comment.id}`);
+        if (repliesContainer) {
+          const lastChild = repliesContainer.lastElementChild;
+          if (lastChild) {
+            lastChild.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
+        }
+      }, 100);
+    }
+    prevRepliesLength.current = replies.length;
+  }, [replies.length, comment.id]);
 
   // Only allow editing/deleting the current user's own comments
   const currentUserId = getCurrentUserId();
@@ -601,10 +619,28 @@ export const CommentItem: React.FC<CommentItemProps> = ({
       {/* close wrapper (98) */}
       {/* Rendering flat threaded replies (only for Root comments) */}
       {!isReply && replies.length > 0 && (
-        <div className="pt-4 space-y-6 relative">
+        <div 
+          id={`replies-container-${comment.id}`}
+          className="pt-4 space-y-6 relative"
+        >
+          {replies.length > 5 && (
+            <div className="flex justify-start">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-[11px] font-bold text-primary hover:bg-primary/5 uppercase tracking-widest"
+                onClick={() => setShowAllReplies(!showAllReplies)}
+              >
+                {showAllReplies
+                  ? `Collapse ${replies.length - 4} replies`
+                  : `Previous ${replies.length - 4} replies`}
+              </Button>
+            </div>
+          )}
+
           {(showAllReplies || replies.length <= 5
             ? replies
-            : replies.slice(0, 4)
+            : replies.slice(replies.length - 4)
           ).map((reply) => (
             <CommentItem
               key={reply.id}
@@ -634,21 +670,6 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               showNotifyClientButton={showNotifyClientButton}
             />
           ))}
-
-          {replies.length > 5 && (
-            <div className="flex justify-start">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 text-[11px] font-bold text-primary hover:bg-primary/5 uppercase tracking-widest"
-                onClick={() => setShowAllReplies(!showAllReplies)}
-              >
-                {showAllReplies
-                  ? "See less"
-                  : `See ${replies.length - 4} more replies`}
-              </Button>
-            </div>
-          )}
         </div>
       )}
     </div>
