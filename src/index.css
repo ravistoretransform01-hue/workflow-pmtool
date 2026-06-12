@@ -134,6 +134,21 @@ All colors MUST be HSL.
   }
 }
 
+.ProseMirror {
+  color: white;
+}
+ 
+/* Override pasted black text */
+.ProseMirror span[style*="color: rgb(0, 0, 0)"] {
+  color: white !important;
+}
+ 
+/* Keep links as-is */
+.ProseMirror a,
+.ProseMirror a * {
+  color: inherit;
+}
+
 /* :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

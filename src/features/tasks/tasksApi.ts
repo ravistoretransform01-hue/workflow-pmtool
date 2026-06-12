@@ -630,7 +630,7 @@ export const tasksApi = {
     try {
       const queryParams = new URLSearchParams({
         organization_id: params.organization_id.toString(),
-        user_id: params.user_id?.toString() ?? "",
+        // user_id: params.user_id?.toString() ?? "",
         task_id: params.task_id.toString(),
         page: (params.page || 1).toString(),
         per_page: (params.per_page || 50).toString(),
