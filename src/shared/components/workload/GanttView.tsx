@@ -3,6 +3,7 @@ import { Gantt, WillowDark, Tooltip } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
 import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endOfMonth } from "date-fns";
 import type { TaskGroup, Task } from "./utils/workload-types";
+import type { Status } from "@/features/cms/types";
 import { cn } from "@/lib/utils";
 import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
@@ -73,7 +74,14 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
         {data.status && (
           <div className="flex items-center justify-between gap-4">
             <span>Status:</span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase tracking-wider">
+            <span 
+              className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border"
+              style={{
+                backgroundColor: data.status_color ? `${data.status_color}20` : "rgba(59, 130, 246, 0.2)",
+                color: data.status_color || "rgb(96, 165, 250)",
+                borderColor: data.status_color ? `${data.status_color}30` : "rgba(59, 130, 246, 0.3)"
+              }}
+            >
               {data.status}
             </span>
           </div>
@@ -128,6 +136,7 @@ const EndDateCell = ({ row }: { row: any }) => {
 
 interface GanttViewProps {
   groups: TaskGroup[];
+  statuses: Status[];
   onEstimatedDateChange: (
     taskId: string,
     fromDate: string | null,
@@ -145,6 +154,7 @@ interface GanttViewProps {
 
 export default function GanttView({
   groups,
+  statuses,
   onEstimatedDateChange,
   onTaskClick,
   onAddTask,
@@ -159,6 +169,34 @@ export default function GanttView({
   const [startDateStr, setStartDateStr] = useState("");
   const [endDateStr, setEndDateStr] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const statusColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (statuses) {
+      statuses.forEach((s) => {
+        if (s.id && s.color_code) {
+          map.set(String(s.id), s.color_code);
+          map.set(s.name.toLowerCase(), s.color_code);
+        }
+      });
+    }
+    return map;
+  }, [statuses]);
+
+  const getTaskStatusColor = useCallback(
+    (taskStatusId?: string, taskStatusName?: string): string | null => {
+      if (taskStatusId) {
+        const color = statusColorMap.get(String(taskStatusId));
+        if (color) return color;
+      }
+      if (taskStatusName) {
+        const color = statusColorMap.get(taskStatusName.toLowerCase());
+        if (color) return color;
+      }
+      return null;
+    },
+    [statusColorMap]
+  );
 
   // Set default group when modal opens or groups change
   useEffect(() => {
@@ -409,6 +447,8 @@ export default function GanttView({
           assignees: task.assignee_names,
           priority: task.priority,
           status: task.status,
+          status_id: task.status_id,
+          status_color: getTaskStatusColor(task.status_id, task.status) || undefined,
           estimatedHours: task.estimatedHours,
         });
 
@@ -431,6 +471,8 @@ export default function GanttView({
               assignees: sub.assignee_names,
               priority: sub.priority,
               status: sub.status,
+              status_id: sub.status_id,
+              status_color: getTaskStatusColor(sub.status_id, sub.status) || undefined,
               estimatedHours: sub.estimatedHours,
             });
           }
@@ -438,7 +480,7 @@ export default function GanttView({
       }
     }
     return list;
-  }, [groups, hasEstimation, getTaskDates]);
+  }, [groups, hasEstimation, getTaskDates, getTaskStatusColor]);
 
   // Handle SVAR Gantt actions and events
   const handleInit = useCallback(
@@ -585,6 +627,35 @@ export default function GanttView({
       return () => clearTimeout(timer);
     }
   }, [scaleMode, ganttApi, scrollToCurrentMonth]);
+
+  const dynamicStyles = useMemo(() => {
+    let stylesStr = "";
+    mappedTasks.forEach((t) => {
+      if (t.status_color) {
+        stylesStr += `
+          .pm-gantt-wrapper .wx-bar[data-id="${t.id}"],
+          .pm-gantt-wrapper .wx-bar[data-id=":${t.id}"] {
+            background-color: ${t.status_color} !important;
+            --wx-gantt-task-color: ${t.status_color} !important;
+            --wx-gantt-task-fill-color: ${t.status_color} !important;
+            border-color: transparent !important;
+          }
+          .pm-gantt-wrapper .wx-bar[data-id="${t.id}"] .wx-progress-percent,
+          .pm-gantt-wrapper .wx-bar[data-id=":${t.id}"] .wx-progress-percent {
+            background-color: rgba(0, 0, 0, 0.2) !important;
+          }
+          .pm-gantt-wrapper .wx-bar.wx-parent-task[data-id="${t.id}"],
+          .pm-gantt-wrapper .wx-bar.parent-task[data-id="${t.id}"],
+          .pm-gantt-wrapper .wx-bar.wx-parent-task[data-id=":${t.id}"],
+          .pm-gantt-wrapper .wx-bar.parent-task[data-id=":${t.id}"] {
+            background-color: ${t.status_color} !important;
+            border-color: transparent !important;
+          }
+        `;
+      }
+    });
+    return stylesStr;
+  }, [mappedTasks]);
 
   return (
     <div className="flex-1 w-[calc(100%-1.5rem)] h-[calc(100vh-220px)] min-h-[500px] flex flex-col mt-4 ml-6">
@@ -880,6 +951,8 @@ export default function GanttView({
             box-shadow: none !important;
             padding: 0 !important;
           }
+
+          ${dynamicStyles}
           `}</style>
         {mappedTasks.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">

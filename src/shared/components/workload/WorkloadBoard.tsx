@@ -6425,6 +6425,7 @@ export function WorkloadBoard({
         {activeTab === "Gantt" && isViewLive.timeline && (
           <GanttView
             groups={memoizedFilteredData.groups}
+            statuses={statuses}
             onEstimatedDateChange={handleEstimatedDateChange}
             onTaskClick={openCommentsPanel}
             onAddTask={handleGanttAddTask}
