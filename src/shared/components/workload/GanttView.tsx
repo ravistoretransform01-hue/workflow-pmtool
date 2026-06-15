@@ -4,6 +4,19 @@ import "@svar-ui/react-gantt/all.css";
 import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endOfMonth } from "date-fns";
 import type { TaskGroup, Task } from "./utils/workload-types";
 import { cn } from "@/lib/utils";
+import { Plus, Loader2 } from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
+
 
 // Robust helper to parse dates from various formats (Date, timestamp, or ISO string)
 const parseDate = (val: any): Date | null => {
@@ -121,15 +134,78 @@ interface GanttViewProps {
     toDate?: string | null,
   ) => void;
   onTaskClick?: (task: Task) => void;
+  onAddTask?: (
+    name: string,
+    groupId: string,
+    fromDate?: string,
+    toDate?: string,
+    parentId?: string,
+  ) => Promise<void>;
 }
 
 export default function GanttView({
   groups,
   onEstimatedDateChange,
   onTaskClick,
+  onAddTask,
 }: GanttViewProps) {
   const [scaleMode, setScaleMode] = useState<"day" | "week">("day");
   const [ganttApi, setGanttApi] = useState<any>(null);
+
+  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
+  const [newTaskName, setNewTaskName] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [parentTaskId, setParentTaskId] = useState("none");
+  const [startDateStr, setStartDateStr] = useState("");
+  const [endDateStr, setEndDateStr] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Set default group when modal opens or groups change
+  useEffect(() => {
+    if (groups && groups.length > 0 && !selectedGroupId) {
+      setSelectedGroupId(String(groups[0].id));
+    }
+  }, [groups, selectedGroupId]);
+
+  const parentTaskOptions = useMemo(() => {
+    if (!selectedGroupId) return [];
+    const group = groups.find((g) => String(g.id) === String(selectedGroupId));
+    if (!group) return [];
+    return group.tasks || [];
+  }, [groups, selectedGroupId]);
+
+  // Reset parent task selection when group changes
+  useEffect(() => {
+    setParentTaskId("none");
+  }, [selectedGroupId]);
+
+  const handleCreateTask = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskName.trim() || !selectedGroupId) return;
+
+    setIsSubmitting(true);
+    try {
+      if (onAddTask) {
+        await onAddTask(
+          newTaskName.trim(),
+          selectedGroupId,
+          startDateStr || undefined,
+          endDateStr || undefined,
+          parentTaskId !== "none" ? parentTaskId : undefined
+        );
+      }
+      // Reset form
+      setNewTaskName("");
+      setStartDateStr("");
+      setEndDateStr("");
+      setParentTaskId("none");
+      setIsAddPopoverOpen(false);
+    } catch (err) {
+      console.error("Failed to add task:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [newTaskName, selectedGroupId, startDateStr, endDateStr, parentTaskId, onAddTask]);
 
   const latestRef = useRef<any>(null);
 
@@ -514,6 +590,136 @@ export default function GanttView({
     <div className="flex-1 w-[calc(100%-1.5rem)] h-[calc(100vh-220px)] min-h-[500px] flex flex-col mt-4 ml-6">
       {/* Customized View / Horizontal Toolbar for Scale Control and Future Filters */}
       <div className="flex items-center justify-end mb-4 pr-6 select-none">
+        {onAddTask && (
+          <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                className="mr-3 h-9 px-4 text-xs font-semibold rounded-md shadow-sm gap-1.5 flex items-center bg-primary hover:bg-primary/95 text-primary-foreground"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Task
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-[350px] p-4 bg-slate-900 border-slate-800 text-slate-100 shadow-2xl rounded-lg z-[9999] max-h-[90vh] overflow-y-auto"
+              onInteractOutside={(e) => {
+                const target = e.target as HTMLElement;
+                if (
+                  target.closest('[role="listbox"]') ||
+                  target.closest('[data-radix-select-viewport]') ||
+                  target.closest('.SelectContent') ||
+                  target.closest('[data-radix-portal]')
+                ) {
+                  e.preventDefault();
+                }
+              }}
+            >
+              <div className="space-y-1 mb-3">
+                <h3 className="font-semibold text-sm text-white leading-none">Create New Task</h3>
+                <p className="text-xs text-muted-foreground">Add a new task or subtask to the board</p>
+              </div>
+              <form onSubmit={handleCreateTask} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="taskName" className="text-slate-300">Task Name</Label>
+                  <Input
+                    id="taskName"
+                    value={newTaskName}
+                    onChange={(e) => setNewTaskName(e.target.value)}
+                    placeholder="Enter task name"
+                    required
+                    className="bg-slate-950 border-slate-800 focus-visible:ring-primary text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="taskGroup" className="text-slate-300">Group</Label>
+                  <Select
+                    value={selectedGroupId}
+                    onValueChange={setSelectedGroupId}
+                  >
+                    <SelectTrigger id="taskGroup" className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary">
+                      <SelectValue placeholder="Select a group" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000]">
+                      {groups.map((group) => (
+                        <SelectItem key={group.id} value={String(group.id)} className="text-white focus:bg-[#334155] focus:text-white">
+                          {group.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="parentTask" className="text-slate-300">Parent Task (Optional)</Label>
+                  <Select
+                    value={parentTaskId}
+                    onValueChange={setParentTaskId}
+                  >
+                    <SelectTrigger id="parentTask" className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary">
+                      <SelectValue placeholder="Select a parent task (optional)" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000]">
+                      <SelectItem value="none" className="text-white focus:bg-[#334155] focus:text-white">
+                        None (Create as Main Task)
+                      </SelectItem>
+                      {parentTaskOptions.map((task) => (
+                        <SelectItem key={task.id} value={String(task.id)} className="text-white focus:bg-[#334155] focus:text-white">
+                          {task.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="startDate" className="text-slate-300 text-xs">Start Date (Opt)</Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      value={startDateStr}
+                      onChange={(e) => setStartDateStr(e.target.value)}
+                      className="bg-slate-950 border-slate-800 focus-visible:ring-primary text-white scheme-dark text-xs h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="endDate" className="text-slate-300 text-xs">End Date (Opt)</Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      value={endDateStr}
+                      onChange={(e) => setEndDateStr(e.target.value)}
+                      className="bg-slate-950 border-slate-800 focus-visible:ring-primary text-white scheme-dark text-xs h-9"
+                    />
+                  </div>
+                </div>
+                <div className="pt-3 border-t border-slate-800/60 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsAddPopoverOpen(false)}
+                    className="border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white h-8 px-3 text-xs"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || !newTaskName.trim()}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-8 px-3 text-xs"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Create"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </PopoverContent>
+          </Popover>
+        )}
         <div className="flex items-center bg-muted/40 p-1 rounded-md border border-border/40 gap-1">
           {(["day", "week"] as const).map((mode) => (
             <button
@@ -705,6 +911,8 @@ export default function GanttView({
           </WillowDark>
         )}
       </div>
+
+
     </div>
   );
 }
