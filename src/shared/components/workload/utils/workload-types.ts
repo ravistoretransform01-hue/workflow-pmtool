@@ -56,6 +56,7 @@ export interface Task {
   position?: string;
   estimation?: any;
   estimatedDateRaw?: string;
+  assignee_names?: string[];
 }
 
 /**

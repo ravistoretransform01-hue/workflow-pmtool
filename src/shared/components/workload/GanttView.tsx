@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, useRef } from "react";
-import { Gantt, WillowDark } from "@svar-ui/react-gantt";
+import { Gantt, WillowDark, Tooltip } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
 import { format, addDays, parseISO, differenceInCalendarDays } from "date-fns";
 import type { TaskGroup, Task } from "./utils/workload-types";
@@ -15,6 +15,77 @@ const parseDate = (val: any): Date | null => {
     return isNaN(parsed.getTime()) ? new Date(val) : parsed;
   }
   return null;
+};
+
+// Custom template component for Gantt hover tooltips
+const CustomTooltipContent = ({ data }: { data: any }) => {
+  if (!data) return null;
+  const startStr = data.start ? format(new Date(data.start), "MMM d, yyyy") : "";
+  const endStr = (data.start && data.duration) ? format(addDays(new Date(data.start), data.duration - 1), "MMM d, yyyy") : "";
+
+  return (
+    <div className="p-3 bg-slate-950/90 border border-slate-800 text-slate-100 rounded-lg shadow-xl backdrop-blur-md max-w-xs flex flex-col gap-2 pointer-events-none select-none font-sans text-xs">
+      <div className="font-semibold text-sm text-white border-b border-slate-800/80 pb-1.5 leading-snug">
+        {data.text}
+      </div>
+      
+      <div className="flex flex-col gap-1.5 text-slate-400">
+        <div className="flex items-center justify-between gap-4">
+          <span>Schedule:</span>
+          <span className="text-slate-200 font-medium">{startStr && endStr ? `${startStr} – ${endStr}` : "Unscheduled"}</span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span>Duration:</span>
+          <span className="text-slate-200 font-medium">{data.duration ? `${data.duration} day${data.duration > 1 ? 's' : ''}` : "-"}</span>
+        </div>
+        {data.estimatedHours && data.estimatedHours !== "-" && (
+          <div className="flex items-center justify-between gap-4">
+            <span>Est. Hours:</span>
+            <span className="text-slate-200 font-medium">{data.estimatedHours}</span>
+          </div>
+        )}
+        {data.priority && (
+          <div className="flex items-center justify-between gap-4 mt-0.5">
+            <span>Priority:</span>
+            <span className={cn(
+              "px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider",
+              data.priority.toLowerCase() === "high" ? "bg-red-500/20 text-red-400 border border-red-500/30" :
+              data.priority.toLowerCase() === "medium" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
+              "bg-slate-500/20 text-slate-400 border border-slate-500/30"
+            )}>
+              {data.priority}
+            </span>
+          </div>
+        )}
+        {data.status && (
+          <div className="flex items-center justify-between gap-4">
+            <span>Status:</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase tracking-wider">
+              {data.status}
+            </span>
+          </div>
+        )}
+        {data.assignees && data.assignees.length > 0 && (
+          <div className="flex flex-col gap-1 mt-1 border-t border-slate-800/85 pt-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Assignees</span>
+            <div className="flex flex-wrap gap-1.5 mt-0.5">
+              {data.assignees.map((name: string, i: number) => {
+                const initials = name.trim().charAt(0).toUpperCase();
+                return (
+                  <div key={i} className="flex items-center gap-1 bg-slate-900 border border-slate-850 px-1.5 py-0.5 rounded text-[11px] text-slate-300">
+                    <div className="w-3.5 h-3.5 rounded-full bg-primary/20 text-primary-foreground font-semibold flex items-center justify-center text-[9px]">
+                      {initials}
+                    </div>
+                    <span>{name}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 interface GanttViewProps {
@@ -33,6 +104,7 @@ export default function GanttView({
   onTaskClick,
 }: GanttViewProps) {
   const [scaleMode, setScaleMode] = useState<"hour" | "day" | "week">("day");
+  const [ganttApi, setGanttApi] = useState<any>(null);
 
   const latestRef = useRef<any>(null);
 
@@ -248,6 +320,10 @@ export default function GanttView({
             : "hidden",
           open: hasSubitems ? true : undefined,
           unscheduled: !isScheduled,
+          assignees: task.assignee_names,
+          priority: task.priority,
+          status: task.status,
+          estimatedHours: task.estimatedHours,
         });
 
         // 2. Map subitems if they exist under the main task parent
@@ -266,6 +342,10 @@ export default function GanttView({
               progress: 0,
               type: isSubScheduled ? undefined : "hidden",
               unscheduled: !isSubScheduled,
+              assignees: sub.assignee_names,
+              priority: sub.priority,
+              status: sub.status,
+              estimatedHours: sub.estimatedHours,
             });
           }
         }
@@ -277,6 +357,7 @@ export default function GanttView({
   // Handle SVAR Gantt actions and events
   const handleInit = useCallback(
     (api: any) => {
+      setGanttApi(api);
       // 1. Intercept select-task to open the custom task dialog/card, returning false to prevent persistent selection background
       api.intercept("select-task", () => {
         return false;
@@ -321,7 +402,7 @@ export default function GanttView({
         return false;
       });
     },
-    [getTaskById, onEstimatedDateChange, onTaskClick, getTaskDates],
+    [getTaskById, onEstimatedDateChange, onTaskClick, getTaskDates, setGanttApi],
   );
 
   const ganttColumns = useMemo(
@@ -540,7 +621,14 @@ export default function GanttView({
           .pm-gantt-wrapper ::-webkit-scrollbar-thumb:hover {
             background: hsl(217, 91%, 60%);
           }
-        `}</style>
+          /* Override SVAR Gantt default tooltip wrapper styles */
+          .wx-tooltip {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+          }
+          `}</style>
         {mappedTasks.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
             <p className="text-lg">
@@ -552,20 +640,22 @@ export default function GanttView({
           </div>
         ) : (
           <WillowDark>
-            <Gantt
-              init={handleInit}
-              tasks={mappedTasks}
-              links={[]}
-              columns={ganttColumns}
-              zoom={true}
-              start={ganttTimeRange.start}
-              end={ganttTimeRange.end}
-              cellWidth={timescaleConfig.cellWidth}
-              scales={timescaleConfig.scales}
-              autoScale={false}
-              unscheduledTasks={false}
-              taskTypes={ganttTaskTypes}
-            />
+            <Tooltip api={ganttApi} content={CustomTooltipContent}>
+              <Gantt
+                init={handleInit}
+                tasks={mappedTasks}
+                links={[]}
+                columns={ganttColumns}
+                zoom={true}
+                start={ganttTimeRange.start}
+                end={ganttTimeRange.end}
+                cellWidth={timescaleConfig.cellWidth}
+                scales={timescaleConfig.scales}
+                autoScale={false}
+                unscheduledTasks={false}
+                taskTypes={ganttTaskTypes}
+              />
+            </Tooltip>
           </WillowDark>
         )}
       </div>
