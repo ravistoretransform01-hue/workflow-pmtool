@@ -86,6 +86,31 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
       </div>
     </div>
   );
+};// Custom cell renderers for grid columns to provide premium and consistent date formatting
+const StartDateCell = ({ row }: { row: any }) => {
+  if (!row || !row.start || row.unscheduled) {
+    return <span className="text-muted-foreground/60">-</span>;
+  }
+  try {
+    const d = new Date(row.start);
+    if (isNaN(d.getTime())) return <span className="text-muted-foreground/60">-</span>;
+    return <span>{format(d, "MMM d, yyyy")}</span>;
+  } catch {
+    return <span className="text-muted-foreground/60">-</span>;
+  }
+};
+
+const EndDateCell = ({ row }: { row: any }) => {
+  if (!row || !row.start || !row.duration || row.unscheduled) {
+    return <span className="text-muted-foreground/60">-</span>;
+  }
+  try {
+    const start = new Date(row.start);
+    const end = addDays(start, row.duration - 1);
+    return <span>{format(end, "MMM d, yyyy")}</span>;
+  } catch {
+    return <span className="text-muted-foreground/60">-</span>;
+  }
 };
 
 interface GanttViewProps {
@@ -407,15 +432,17 @@ export default function GanttView({
       { id: "text", width: 250, resize: true, header: [{ text: "Task Name" }] },
       {
         id: "start",
-        width: 100,
+        width: 110,
         resize: true,
         header: [{ text: "Start Date" }],
+        cell: StartDateCell,
       },
       {
-        id: "duration",
-        width: 80,
+        id: "end",
+        width: 110,
         resize: true,
-        header: [{ text: "Duration" }],
+        header: [{ text: "End Date" }],
+        cell: EndDateCell,
       },
     ],
     [],
