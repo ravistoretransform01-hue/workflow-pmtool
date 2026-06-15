@@ -1715,7 +1715,7 @@ export function WorkloadBoard({
           ...group,
           tasks: group.tasks.map((task) => {
             // ✅ Update parent task if it matches
-            if (task.id === taskId) {
+            if (String(task.id) === String(taskId)) {
               return { ...task, name: newName.trim() };
             }
 
@@ -1724,7 +1724,7 @@ export function WorkloadBoard({
               return {
                 ...task,
                 subitems: task.subitems.map((subitem) =>
-                  subitem.id === taskId
+                  String(subitem.id) === String(taskId)
                     ? { ...subitem, name: newName.trim() }
                     : subitem,
                 ),
@@ -2395,7 +2395,7 @@ export function WorkloadBoard({
           return {
             ...group,
             tasks: group.tasks.map((task) => {
-              if (task.id === taskId) {
+              if (String(task.id) === String(taskId)) {
                 return {
                   ...task,
                   subitems: [...(task.subitems || []), newSubitem],
@@ -2461,7 +2461,7 @@ export function WorkloadBoard({
       // Get the currently assigned member ID (first assignee)
       let assigneeId = 0;
       for (const group of groups) {
-        const task = group.tasks.find((t) => t.id === taskId);
+        const task = group.tasks.find((t) => String(t.id) === String(taskId));
         if (task) {
           assigneeId = task.assigned_to_ids?.[0]
             ? Number(task.assigned_to_ids[0])
@@ -2470,7 +2470,7 @@ export function WorkloadBoard({
         }
         const subitem = group.tasks
           .flatMap((t) => t.subitems || [])
-          .find((s) => s.id === taskId);
+          .find((s) => String(s.id) === String(taskId));
         if (subitem) {
           assigneeId = subitem.assigned_to_ids?.[0]
             ? Number(subitem.assigned_to_ids[0])
@@ -2502,7 +2502,7 @@ export function WorkloadBoard({
           ...group,
           tasks: group.tasks.map((task) => {
             // ✅ parent task
-            if (task.id === taskId) {
+            if (String(task.id) === String(taskId)) {
               return {
                 ...task,
                 rating: ratingValue,
@@ -2517,7 +2517,7 @@ export function WorkloadBoard({
               return {
                 ...task,
                 subitems: task.subitems.map((sub) =>
-                  sub.id === taskId
+                  String(sub.id) === String(taskId)
                     ? {
                         ...sub,
                         rating: ratingValue,
@@ -2722,7 +2722,7 @@ export function WorkloadBoard({
         ...group,
         tasks: group.tasks.map((task) => {
           // ✅ parent task
-          if (task.id === taskId) {
+          if (String(task.id) === String(taskId)) {
             return {
               ...task,
               estimatedDate: dateDisplay,
@@ -2743,7 +2743,7 @@ export function WorkloadBoard({
             return {
               ...task,
               subitems: task.subitems.map((sub) =>
-                sub.id === taskId
+                String(sub.id) === String(taskId)
                   ? {
                       ...sub,
                       estimatedDate: dateDisplay,
@@ -2809,7 +2809,7 @@ export function WorkloadBoard({
         ...group,
         tasks: group.tasks.map((task) => {
           // ✅ parent task
-          if (task.id === taskId) {
+          if (String(task.id) === String(taskId)) {
             return {
               ...task,
               estimatedHours: hours || "-",
@@ -2821,7 +2821,7 @@ export function WorkloadBoard({
             return {
               ...task,
               subitems: task.subitems.map((sub) =>
-                sub.id === taskId
+                String(sub.id) === String(taskId)
                   ? {
                       ...sub,
                       estimatedHours: hours || "-",
@@ -2846,7 +2846,7 @@ export function WorkloadBoard({
         ...group,
         tasks: group.tasks.map((task) => {
           // ✅ parent task
-          if (task.id === taskId) {
+          if (String(task.id) === String(taskId)) {
             return {
               ...task,
               tags,
@@ -2858,7 +2858,7 @@ export function WorkloadBoard({
             return {
               ...task,
               subitems: task.subitems.map((sub) =>
-                sub.id === taskId
+                String(sub.id) === String(taskId)
                   ? {
                       ...sub,
                       tags,

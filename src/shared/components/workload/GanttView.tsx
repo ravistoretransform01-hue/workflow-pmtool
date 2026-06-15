@@ -1,9 +1,21 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useRef } from "react";
 import { Gantt, WillowDark } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
-import { format, addDays, parseISO, differenceInDays } from "date-fns";
+import { format, addDays, parseISO, differenceInCalendarDays } from "date-fns";
 import type { TaskGroup, Task } from "./utils/workload-types";
 import { cn } from "@/lib/utils";
+
+// Robust helper to parse dates from various formats (Date, timestamp, or ISO string)
+const parseDate = (val: any): Date | null => {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val === "number") return new Date(val);
+  if (typeof val === "string") {
+    const parsed = parseISO(val);
+    return isNaN(parsed.getTime()) ? new Date(val) : parsed;
+  }
+  return null;
+};
 
 interface GanttViewProps {
   groups: TaskGroup[];
@@ -21,6 +33,8 @@ export default function GanttView({
   onTaskClick,
 }: GanttViewProps) {
   const [scaleMode, setScaleMode] = useState<"hour" | "day" | "week">("day");
+
+  const latestRef = useRef<any>(null);
 
   const timescaleConfig = useMemo(() => {
     switch (scaleMode) {
@@ -107,7 +121,7 @@ export default function GanttView({
       const from = parseISO(fromStr);
       const to = parseISO(toStr);
       if (isNaN(from.getTime()) || isNaN(to.getTime())) return 1;
-      return Math.max(1, differenceInDays(to, from) + 1);
+      return Math.max(1, differenceInCalendarDays(to, from) + 1);
     } catch {
       return 1;
     }
@@ -146,7 +160,7 @@ export default function GanttView({
       if (minStart && maxEnd) {
         return {
           start: minStart,
-          duration: Math.max(1, differenceInDays(maxEnd, minStart) + 1),
+          duration: Math.max(1, differenceInCalendarDays(maxEnd, minStart) + 1),
         };
       }
     }
@@ -203,6 +217,12 @@ export default function GanttView({
 
     return false;
   }, []);
+
+  latestRef.current = {
+    getTaskById,
+    getTaskDates,
+    onEstimatedDateChange,
+  };
 
   // Map our tasks to SVAR's expected format (reactive to groups prop changes)
   const mappedTasks = useMemo(() => {
@@ -267,37 +287,33 @@ export default function GanttView({
         return false;
       });
 
-      // 3. Intercept update actions (dragging or resizing task bars on the timeline)
-      api.intercept("update-task", (payload: any) => {
-        const { id, task, inProgress } = payload;
+      // 3. Listen to task updates after they are completed in the Gantt store
+      api.on("update-task", (payload: any) => {
+        const { id, inProgress } = payload;
         const idStr = String(id);
-        if (idStr.startsWith("group-")) return true;
+        if (idStr.startsWith("group-")) return;
 
-        const originalTask = getTaskById(id);
-        if (!originalTask) return true;
+        // If inProgress is true, the drag/resize is still active, so we don't save to parent yet
+        if (inProgress) return;
 
-        const originalDates = getTaskDates(originalTask);
-        const start = task.start || originalDates.start;
-        const duration =
-          task.duration !== undefined ? task.duration : originalDates.duration;
+        // Retrieve the fully updated task directly from the SVAR Gantt store
+        const updatedTask = api.getTask(id);
+        if (!updatedTask) {
+          console.warn("[GanttView] Could not retrieve updated task from store:", idStr);
+          return;
+        }
 
-        // Only trigger state update to the backend/parent when user is done dragging/resizing
-        if (!inProgress && start && duration) {
+        const start = parseDate(updatedTask.start);
+        const duration = updatedTask.duration;
+
+        if (start && duration) {
           const fromDateStr = format(start, "yyyy-MM-dd");
           // Calculate the inclusive end date for the database
           const toDate = addDays(start, duration - 1);
           const toDateStr = format(toDate, "yyyy-MM-dd");
 
-          console.log("[GanttView] Triggering date change:", {
-            id,
-            fromDateStr,
-            toDateStr,
-          });
-
-          onEstimatedDateChange(id, fromDateStr, toDateStr);
+          latestRef.current.onEstimatedDateChange(idStr, fromDateStr, toDateStr);
         }
-
-        return true;
       });
 
       // 4. Prevent creation of dependency links
@@ -361,7 +377,7 @@ export default function GanttView({
     const start = addDays(finalMin, -3);
     const end = addDays(
       start,
-      Math.max(30, differenceInDays(finalMax, start) + 7),
+      Math.max(30, differenceInCalendarDays(finalMax, start) + 7),
     );
 
     return { start, end };
