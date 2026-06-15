@@ -2310,6 +2310,120 @@ export function WorkloadBoard({
     }
   };
 
+  const handleGanttAddTask = async (
+    name: string,
+    groupId: string,
+    fromDate?: string,
+    toDate?: string,
+    parentId?: string,
+  ) => {
+    try {
+      const boardIdNum = parseInt(boardId, 10);
+      const organizationIdNum = getOrganizationId();
+
+      if (organizationIdNum === null) {
+        toast.error("Organization not found");
+        return;
+      }
+
+      // Call API to create task
+      const payload: CreateTaskRequest = {
+        group_id: parseInt(groupId, 10),
+        organization_id: organizationIdNum,
+        name: name.trim(),
+        board_id: boardIdNum,
+        parent_id: parentId ? parseInt(parentId, 10) : null,
+        status_id: statuses.length > 0 ? parseInt(statuses[0].id, 10) : undefined,
+        task_priority_id: priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
+      };
+
+      if (fromDate) {
+        payload.estimated_date_from = fromDate;
+      }
+      if (toDate) {
+        payload.estimated_date_to = toDate;
+      }
+
+      const newTaskResponse = await tasksApi.createTask(payload);
+
+      // Transform API response to Task format
+      const newTask: Task = {
+        id: String(newTaskResponse.id),
+        name: newTaskResponse.name,
+        description: newTaskResponse.description,
+        status: newTaskResponse.status_label,
+        status_id: String(newTaskResponse.status_id),
+        priority: newTaskResponse.priority_label,
+        priority_id: String(newTaskResponse.task_priority_id),
+        estimatedDate: newTaskResponse.due_date || "-",
+        person:
+          newTaskResponse.assignee?.name ||
+          (newTaskResponse.assignees && newTaskResponse.assignees.length > 0
+            ? newTaskResponse.assignees[0].name
+            : undefined),
+        assigned_to_id:
+          newTaskResponse.assignee?.id ||
+          (newTaskResponse.assignees && newTaskResponse.assignees.length > 0
+            ? String(newTaskResponse.assignees[0].user_id)
+            : undefined),
+        assigned_to_ids: newTaskResponse.assignees?.map((a) =>
+          String(a.user_id),
+        ),
+        timeSpent: `${newTaskResponse.time_spent_hours}h`,
+        group_id: String(newTaskResponse.group_id),
+        subitems: [],
+        assignee_names:
+          newTaskResponse.assignees?.map((a) => a.name || a.username || "") ||
+          (newTaskResponse.assignee?.name
+            ? [newTaskResponse.assignee.name]
+            : []),
+        label_id: groupLabels[String(newTaskResponse.group_id)],
+      };
+
+      if (newTaskResponse.estimation) {
+        (newTask as any).estimation = {
+          estimated_date_from: newTaskResponse.estimation.estimated_date_from,
+          estimated_date_to: newTaskResponse.estimation.estimated_date_to,
+        };
+      }
+
+      // Update groups with new task
+      const updatedGroups = groups.map((group) => {
+        if (String(group.id) === String(groupId)) {
+          if (parentId) {
+            // Add as subtask
+            return {
+              ...group,
+              tasks: group.tasks.map((task) => {
+                if (String(task.id) === String(parentId)) {
+                  return {
+                    ...task,
+                    subitems: [...(task.subitems || []), newTask],
+                  };
+                }
+                return task;
+              }),
+            };
+          } else {
+            // Add as main task
+            return {
+              ...group,
+              tasks: [...group.tasks, newTask],
+            };
+          }
+        }
+        return group;
+      });
+
+      setGroups(updatedGroups);
+      toast.success("Task Added Successfully");
+    } catch (error) {
+      console.error("Failed to add task from Gantt:", error);
+      toast.error("Failed to add task");
+      throw error;
+    }
+  };
+
   // const handleNewItemKeyDown = (
   //   e: React.KeyboardEvent<HTMLInputElement>,
   //   groupId: string
@@ -6447,6 +6561,7 @@ export function WorkloadBoard({
             groups={memoizedFilteredData.groups}
             onEstimatedDateChange={handleEstimatedDateChange}
             onTaskClick={openCommentsPanel}
+            onAddTask={handleGanttAddTask}
           />
         )}
 
