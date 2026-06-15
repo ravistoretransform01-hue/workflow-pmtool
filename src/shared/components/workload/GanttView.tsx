@@ -103,29 +103,13 @@ export default function GanttView({
   onEstimatedDateChange,
   onTaskClick,
 }: GanttViewProps) {
-  const [scaleMode, setScaleMode] = useState<"hour" | "day" | "week">("day");
+  const [scaleMode, setScaleMode] = useState<"day" | "week">("day");
   const [ganttApi, setGanttApi] = useState<any>(null);
 
   const latestRef = useRef<any>(null);
 
   const timescaleConfig = useMemo(() => {
     switch (scaleMode) {
-      case "hour":
-        return {
-          scales: [
-            {
-              unit: "day",
-              step: 1,
-              format: (date: Date) => format(date, "EEE, MMM d"),
-            },
-            {
-              unit: "hour",
-              step: 2,
-              format: (date: Date) => format(date, "HH:mm"),
-            },
-          ],
-          cellWidth: 60,
-        };
       case "week":
         return {
           scales: [
@@ -469,7 +453,7 @@ export default function GanttView({
       {/* Customized View / Horizontal Toolbar for Scale Control and Future Filters */}
       <div className="flex items-center justify-end mb-4 pr-6 select-none">
         <div className="flex items-center bg-muted/40 p-1 rounded-md border border-border/40 gap-1">
-          {(["hour", "day", "week"] as const).map((mode) => (
+          {(["day", "week"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setScaleMode(mode)}
@@ -480,7 +464,7 @@ export default function GanttView({
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
               )}
             >
-              {mode === "hour" ? "Hours" : mode === "day" ? "Days" : "Weeks"}
+              {mode === "day" ? "Days" : "Weeks"}
             </button>
           ))}
         </div>
