@@ -278,6 +278,7 @@ export default function GanttView({
     getTaskById,
     getTaskDates,
     onEstimatedDateChange,
+    onTaskClick,
   };
 
   // Map our tasks to SVAR's expected format (reactive to groups prop changes)
@@ -343,7 +344,19 @@ export default function GanttView({
     (api: any) => {
       setGanttApi(api);
       // 1. Intercept select-task to open the custom task dialog/card, returning false to prevent persistent selection background
-      api.intercept("select-task", () => {
+      api.intercept("select-task", (payload: any) => {
+        if (payload) {
+          const rawId = typeof payload === "object" ? payload.id : payload;
+          if (rawId) {
+            const stringId = String(rawId);
+            if (!stringId.startsWith("group-")) {
+              const task = latestRef.current.getTaskById(stringId);
+              if (task && latestRef.current.onTaskClick) {
+                latestRef.current.onTaskClick(task);
+              }
+            }
+          }
+        }
         return false;
       });
 

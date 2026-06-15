@@ -6312,6 +6312,7 @@ export function WorkloadBoard({
           <GanttView
             groups={memoizedFilteredData.groups}
             onEstimatedDateChange={handleEstimatedDateChange}
+            onTaskClick={openCommentsPanel}
           />
         )}
 
