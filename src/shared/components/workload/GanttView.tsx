@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState, useRef } from "react";
+import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { Gantt, WillowDark, Tooltip } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
-import { format, addDays, parseISO, differenceInCalendarDays } from "date-fns";
+import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endOfMonth } from "date-fns";
 import type { TaskGroup, Task } from "./utils/workload-types";
 import { cn } from "@/lib/utils";
 
@@ -422,8 +422,10 @@ export default function GanttView({
   );
 
   const ganttTimeRange = useMemo(() => {
-    let minDate: Date | null = null;
-    let maxDate: Date | null = null;
+    const now = new Date();
+    // Default range is 6 months before and 6 months after the current month
+    let minDate = addDays(startOfMonth(now), -180);
+    let maxDate = addDays(endOfMonth(now), 180);
 
     for (const group of groups) {
       for (const task of group.tasks) {
@@ -431,8 +433,8 @@ export default function GanttView({
         if (hasEstimation(task)) {
           const { start: tStart, duration: tDuration } = getTaskDates(task);
           const tEnd = addDays(tStart, tDuration);
-          if (!minDate || tStart < minDate) minDate = tStart;
-          if (!maxDate || tEnd > maxDate) maxDate = tEnd;
+          if (tStart < minDate) minDate = tStart;
+          if (tEnd > maxDate) maxDate = tEnd;
         }
 
         // Evaluate subitem dates
@@ -441,25 +443,45 @@ export default function GanttView({
             if (hasEstimation(sub)) {
               const { start: sStart, duration: sDuration } = getTaskDates(sub);
               const sEnd = addDays(sStart, sDuration);
-              if (!minDate || sStart < minDate) minDate = sStart;
-              if (!maxDate || sEnd > maxDate) maxDate = sEnd;
+              if (sStart < minDate) minDate = sStart;
+              if (sEnd > maxDate) maxDate = sEnd;
             }
           }
         }
       }
     }
 
-    const finalMin = minDate || new Date();
-    const finalMax = maxDate || addDays(new Date(), 30);
-
-    const start = addDays(finalMin, -3);
-    const end = addDays(
-      start,
-      Math.max(30, differenceInCalendarDays(finalMax, start) + 7),
-    );
+    // Pad start and end to start/end of the month and add some buffer
+    const start = addDays(startOfMonth(minDate), -7);
+    const end = addDays(endOfMonth(maxDate), 7);
 
     return { start, end };
   }, [groups, hasEstimation, getTaskDates]);
+
+  const scrollToCurrentMonth = useCallback((apiInstance: any) => {
+    if (!apiInstance) return;
+    const now = new Date();
+    const currentMonthStart = startOfMonth(now);
+    const daysDiff = differenceInCalendarDays(currentMonthStart, ganttTimeRange.start);
+    
+    let leftOffset = 0;
+    if (scaleMode === "day") {
+      leftOffset = daysDiff * 50; // cellWidth is 50
+    } else {
+      leftOffset = (daysDiff / 7) * 80; // cellWidth is 80
+    }
+    
+    apiInstance.exec("scroll-chart", { left: Math.max(0, leftOffset) });
+  }, [ganttTimeRange.start, scaleMode]);
+
+  useEffect(() => {
+    if (ganttApi) {
+      const timer = setTimeout(() => {
+        scrollToCurrentMonth(ganttApi);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [scaleMode, ganttApi, scrollToCurrentMonth]);
 
   return (
     <div className="flex-1 w-[calc(100%-1.5rem)] h-[calc(100vh-220px)] min-h-[500px] flex flex-col mt-4 ml-6">
