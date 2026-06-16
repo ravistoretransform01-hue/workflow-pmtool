@@ -20,7 +20,6 @@ import {
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { stringToHslColor } from "./utils";
 import { Calendar } from "@/shared/components/ui/calendar";
-import { EstimatedDatePicker } from "./cells";
 import { toast } from "sonner";
 
 
@@ -151,37 +150,30 @@ const PriorityCell = ({ row }: { row: any }) => {
 
 const GanttEstimatedDateCell = ({
   row,
-  onEstimatedDateChange,
+  onOpenTaskCard,
 }: {
   row: any;
-  onEstimatedDateChange: any;
+  onOpenTaskCard?: (task: Task) => void;
 }) => {
   const task = row.originalTask;
   const estimatedDate = task?.estimatedDate ?? "-";
-  const popoverId = `estimatedDate-gantt-${row.id}`;
-  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <div className="flex items-center justify-center w-full h-full px-1">
       {task ? (
-        <EstimatedDatePicker
-          task={task}
-          estimatedDate={estimatedDate}
-          estimatedDateEnd={null}
-          popoverId={popoverId}
-          openPopoverId={isOpen ? popoverId : null}
-          setOpenPopoverId={(id) => setIsOpen(id !== null)}
-          onEstimatedDateChange={onEstimatedDateChange}
-          customTrigger={
-            <Button
-              type="button"
-              variant="outline"
-              className="estimated-date-trigger w-full bg-[#1e293b] text-slate-200 border-[#334155] hover:bg-[#334155] hover:text-white h-7 px-2 text-xs truncate font-normal"
-            >
-              {estimatedDate === "-" ? "Set Date" : estimatedDate}
-            </Button>
-          }
-        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onOpenTaskCard) {
+              onOpenTaskCard(task);
+            }
+          }}
+          className="estimated-date-trigger w-full bg-[#1e293b] text-slate-200 border-[#334155] hover:bg-[#334155] hover:text-white h-7 px-2 text-xs truncate font-normal"
+        >
+          {estimatedDate === "-" ? "Set Date" : estimatedDate}
+        </Button>
       ) : (
         <span className="text-muted-foreground/60">-</span>
       )}
@@ -200,6 +192,7 @@ interface GanttViewProps {
     toDate?: string | null,
   ) => void;
   onTaskClick?: (task: Task) => void;
+  onOpenTaskCard?: (task: Task) => void;
   onAddTask?: (
     name: string,
     groupId: string,
@@ -237,6 +230,7 @@ export default function GanttView({
   members,
   onEstimatedDateChange,
   onTaskClick,
+  onOpenTaskCard,
   onAddTask,
 }: GanttViewProps) {
   const [scaleMode, setScaleMode] = useState<"day" | "week">("day");
@@ -735,7 +729,7 @@ export default function GanttView({
         cell: (props: any) => (
           <GanttEstimatedDateCell
             {...props}
-            onEstimatedDateChange={onEstimatedDateChange}
+            onOpenTaskCard={onOpenTaskCard}
           />
         ),
       },
@@ -754,7 +748,7 @@ export default function GanttView({
         cell: PriorityCell,
       },
     ],
-    [onEstimatedDateChange],
+    [onOpenTaskCard],
   );
 
   const ganttTimeRange = useMemo(() => {

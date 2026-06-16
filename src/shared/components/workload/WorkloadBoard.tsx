@@ -6585,6 +6585,7 @@ export function WorkloadBoard({
             members={members}
             onEstimatedDateChange={handleEstimatedDateChange}
             onTaskClick={openCommentsPanel}
+            onOpenTaskCard={openTaskCard}
             onAddTask={handleGanttAddTask}
           />
         )}
