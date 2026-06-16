@@ -432,7 +432,7 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     },
   });
 
-  const implementedTabs = ["Main Table", "List", "Kanban", "SOP"];
+  const implementedTabs = ["Main Table", "List", "Kanban", "SOP", "Gantt"];
   const isImplemented = implementedTabs.includes(tab);
 
   // Restrict transform to horizontal only (remove Y axis)
