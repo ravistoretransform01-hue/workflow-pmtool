@@ -5,7 +5,7 @@ import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endO
 import type { TaskGroup, Task } from "./utils/workload-types";
 import type { Status, Priority } from "@/features/cms/types";
 import { cn } from "@/lib/utils";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Settings, Check } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
@@ -165,6 +165,7 @@ export default function GanttView({
 }: GanttViewProps) {
   const [scaleMode, setScaleMode] = useState<"day" | "week">("day");
   const [ganttApi, setGanttApi] = useState<any>(null);
+  const [colorBy, setColorBy] = useState<"status" | "priority">("status");
 
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
@@ -695,13 +696,14 @@ export default function GanttView({
   const dynamicStyles = useMemo(() => {
     let stylesStr = "";
     mappedTasks.forEach((t) => {
-      if (t.status_color) {
+      const activeColor = colorBy === "priority" ? t.priority_color : t.status_color;
+      if (activeColor) {
         stylesStr += `
           .pm-gantt-wrapper .wx-bar[data-id="${t.id}"],
           .pm-gantt-wrapper .wx-bar[data-id=":${t.id}"] {
-            background-color: ${t.status_color} !important;
-            --wx-gantt-task-color: ${t.status_color} !important;
-            --wx-gantt-task-fill-color: ${t.status_color} !important;
+            background-color: ${activeColor} !important;
+            --wx-gantt-task-color: ${activeColor} !important;
+            --wx-gantt-task-fill-color: ${activeColor} !important;
             border-color: transparent !important;
           }
           .pm-gantt-wrapper .wx-bar[data-id="${t.id}"] .wx-progress-percent,
@@ -712,14 +714,14 @@ export default function GanttView({
           .pm-gantt-wrapper .wx-bar.parent-task[data-id="${t.id}"],
           .pm-gantt-wrapper .wx-bar.wx-parent-task[data-id=":${t.id}"],
           .pm-gantt-wrapper .wx-bar.parent-task[data-id=":${t.id}"] {
-            background-color: ${t.status_color} !important;
+            background-color: ${activeColor} !important;
             border-color: transparent !important;
           }
         `;
       }
     });
     return stylesStr;
-  }, [mappedTasks]);
+  }, [mappedTasks, colorBy]);
 
   return (
     <div className="flex-1 w-[calc(100%-1.5rem)] h-[calc(100vh-220px)] min-h-[500px] flex flex-col mt-4 ml-6">
@@ -871,6 +873,43 @@ export default function GanttView({
             </button>
           ))}
         </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="ml-2 h-9 w-9 bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850 hover:text-white"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            className="w-48 p-2 bg-slate-900 border-slate-800 text-slate-100 shadow-2xl rounded-lg z-[9999]"
+          >
+            <div className="px-2 py-1.5 border-b border-slate-800/80 mb-1 select-none">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Color Bars By</span>
+            </div>
+            <div className="space-y-1">
+              {(["status", "priority"] as const).map((option) => (
+                <button
+                  key={option}
+                  onClick={() => setColorBy(option)}
+                  type="button"
+                  className={cn(
+                    "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-all capitalize",
+                    colorBy === option
+                      ? "bg-primary/20 text-white font-semibold"
+                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                  )}
+                >
+                  <span>{option}</span>
+                  {colorBy === option && <Check className="w-3.5 h-3.5 text-primary" />}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Gantt Wrapper */}
