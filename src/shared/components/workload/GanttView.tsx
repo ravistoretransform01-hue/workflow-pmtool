@@ -19,6 +19,7 @@ import {
 } from "@/shared/components/ui/select";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { stringToHslColor } from "./utils";
+import { EstimatedDatePicker } from "./cells";
 
 
 // Robust helper to parse dates from various formats (Date, timestamp, or ISO string)
@@ -112,30 +113,78 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
     </div>
   );
 };// Custom cell renderers for grid columns to provide premium and consistent date formatting
-const StartDateCell = ({ row }: { row: any }) => {
-  if (!row || !row.start || row.unscheduled) {
+const StatusCell = ({ row }: { row: any }) => {
+  if (!row || !row.status) {
     return <span className="text-muted-foreground/60">-</span>;
   }
-  try {
-    const d = new Date(row.start);
-    if (isNaN(d.getTime())) return <span className="text-muted-foreground/60">-</span>;
-    return <span>{format(d, "MMM d, yyyy")}</span>;
-  } catch {
-    return <span className="text-muted-foreground/60">-</span>;
-  }
+  const color = row.status_color || "#334155";
+  return (
+    <div className="flex items-center justify-center w-full h-full px-1">
+      <span
+        className="px-2 py-0.5 rounded text-[11px] font-medium text-white truncate max-w-full block"
+        style={{ backgroundColor: color }}
+      >
+        {row.status}
+      </span>
+    </div>
+  );
 };
 
-const EndDateCell = ({ row }: { row: any }) => {
-  if (!row || !row.start || !row.duration || row.unscheduled) {
+const PriorityCell = ({ row }: { row: any }) => {
+  if (!row || !row.priority) {
     return <span className="text-muted-foreground/60">-</span>;
   }
-  try {
-    const start = new Date(row.start);
-    const end = addDays(start, row.duration - 1);
-    return <span>{format(end, "MMM d, yyyy")}</span>;
-  } catch {
-    return <span className="text-muted-foreground/60">-</span>;
-  }
+  const color = row.priority_color || "#334155";
+  return (
+    <div className="flex items-center justify-center w-full h-full px-1">
+      <span
+        className="px-2 py-0.5 rounded text-[11px] font-medium text-white truncate max-w-full block"
+        style={{ backgroundColor: color }}
+      >
+        {row.priority}
+      </span>
+    </div>
+  );
+};
+
+const GanttEstimatedDateCell = ({
+  row,
+  onEstimatedDateChange,
+}: {
+  row: any;
+  onEstimatedDateChange: any;
+}) => {
+  const task = row.originalTask;
+  const estimatedDate = task?.estimatedDate ?? "-";
+  const popoverId = `estimatedDate-gantt-${row.id}`;
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="flex items-center justify-center w-full h-full px-1">
+      {task ? (
+        <EstimatedDatePicker
+          task={task}
+          estimatedDate={estimatedDate}
+          estimatedDateEnd={null}
+          popoverId={popoverId}
+          openPopoverId={isOpen ? popoverId : null}
+          setOpenPopoverId={(id) => setIsOpen(id !== null)}
+          onEstimatedDateChange={onEstimatedDateChange}
+          customTrigger={
+            <Button
+              type="button"
+              variant="outline"
+              className="estimated-date-trigger w-full bg-[#1e293b] text-slate-200 border-[#334155] hover:bg-[#334155] hover:text-white h-7 px-2 text-xs truncate font-normal"
+            >
+              {estimatedDate === "-" ? "Set Date" : estimatedDate}
+            </Button>
+          }
+        />
+      ) : (
+        <span className="text-muted-foreground/60">-</span>
+      )}
+    </div>
+  );
 };
 
 interface GanttViewProps {
@@ -158,6 +207,26 @@ interface GanttViewProps {
     assigneeIds?: number[],
   ) => Promise<void>;
 }
+const MONTHS = [
+  { value: "0", label: "January" },
+  { value: "1", label: "February" },
+  { value: "2", label: "March" },
+  { value: "3", label: "April" },
+  { value: "4", label: "May" },
+  { value: "5", label: "June" },
+  { value: "6", label: "July" },
+  { value: "7", label: "August" },
+  { value: "8", label: "September" },
+  { value: "9", label: "October" },
+  { value: "10", label: "November" },
+  { value: "11", label: "December" },
+];
+
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: 11 }, (_, i) => {
+  const y = currentYear - 5 + i;
+  return { value: String(y), label: String(y) };
+});
 
 export default function GanttView({
   groups,
@@ -183,6 +252,9 @@ export default function GanttView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [customJumpDate, setCustomJumpDate] = useState<Date | null>(null);
   const [scrollTargetDate, setScrollTargetDate] = useState<Date | null>(null);
+  const [jumpMonth, setJumpMonth] = useState<number>(new Date().getMonth());
+  const [jumpYear, setJumpYear] = useState<number>(new Date().getFullYear());
+  const [isJumpPopoverOpen, setIsJumpPopoverOpen] = useState(false);
 
   const statusColorMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -523,6 +595,7 @@ export default function GanttView({
           status_id: task.status_id,
           status_color: getTaskStatusColor(task.status_id, resolvedStatus) || undefined,
           estimatedHours: task.estimatedHours,
+          originalTask: task,
         });
 
         // 2. Map subitems if they exist under the main task parent
@@ -551,6 +624,7 @@ export default function GanttView({
               status_id: sub.status_id,
               status_color: getTaskStatusColor(sub.status_id, resolvedSubStatus) || undefined,
               estimatedHours: sub.estimatedHours,
+              originalTask: sub,
             });
           }
         }
@@ -565,6 +639,23 @@ export default function GanttView({
       setGanttApi(api);
       // 1. Intercept select-task to open the custom task dialog/card, returning false to prevent persistent selection background
       api.intercept("select-task", (payload: any) => {
+        // If the user is clicking on an estimated date trigger button or its active popover/portaled content,
+        // intercept and ignore the selection event. This prevents parent re-renders and stops the popover from blinking.
+        const event = window.event as any;
+        if (event) {
+          const target = event.target as HTMLElement;
+          if (
+            target &&
+            (target.closest(".estimated-date-trigger") ||
+              target.closest("[data-radix-portal]") ||
+              target.closest(".SelectContent") ||
+              target.closest(".PopoverContent") ||
+              target.closest('[role="dialog"]'))
+          ) {
+            return false;
+          }
+        }
+
         if (payload) {
           const rawId = typeof payload === "object" ? payload.id : payload;
           if (rawId) {
@@ -624,23 +715,35 @@ export default function GanttView({
 
   const ganttColumns = useMemo(
     () => [
-      { id: "text", width: 250, resize: true, header: [{ text: "Task Name" }] },
+      { id: "text", width: 220, resize: true, header: [{ text: "Task Name" }] },
       {
-        id: "start",
-        width: 110,
+        id: "estimatedDate",
+        width: 140,
         resize: true,
-        header: [{ text: "Start Date" }],
-        cell: StartDateCell,
+        header: [{ text: "Est. Date" }],
+        cell: (props: any) => (
+          <GanttEstimatedDateCell
+            {...props}
+            onEstimatedDateChange={onEstimatedDateChange}
+          />
+        ),
       },
       {
-        id: "end",
+        id: "status",
         width: 110,
         resize: true,
-        header: [{ text: "End Date" }],
-        cell: EndDateCell,
+        header: [{ text: "Status" }],
+        cell: StatusCell,
+      },
+      {
+        id: "priority",
+        width: 110,
+        resize: true,
+        header: [{ text: "Priority" }],
+        cell: PriorityCell,
       },
     ],
-    [],
+    [onEstimatedDateChange],
   );
 
   const ganttTimeRange = useMemo(() => {
@@ -737,6 +840,14 @@ export default function GanttView({
       ganttApi.exec("scroll-chart", { left: Math.max(0, leftOffset) });
     }
   }, [ganttApi, ganttTimeRange.start, ganttTimeRange.end, scaleMode]);
+
+  const handleGoToToday = useCallback(() => {
+    const today = new Date();
+    setJumpMonth(today.getMonth());
+    setJumpYear(today.getFullYear());
+    scrollToDate(today);
+    setIsJumpPopoverOpen(false);
+  }, [scrollToDate]);
 
   useEffect(() => {
     if (ganttApi && scrollTargetDate) {
@@ -1060,7 +1171,7 @@ export default function GanttView({
             </button>
           ))}
         </div>
-        <Popover>
+        <Popover open={isJumpPopoverOpen} onOpenChange={setIsJumpPopoverOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
@@ -1073,35 +1184,69 @@ export default function GanttView({
           </PopoverTrigger>
           <PopoverContent
             align="end"
-            className="w-64 p-3 bg-slate-900 border-slate-800 text-slate-100 shadow-2xl rounded-lg z-[9999]"
+            className="w-72 p-3 bg-slate-900 border-slate-800 text-slate-100 shadow-2xl rounded-lg z-[9999]"
           >
             <div className="space-y-3">
               <div className="border-b border-slate-800/80 pb-1.5 select-none">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Jump to Date</span>
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="jumpDate" className="text-slate-400 text-[10px] uppercase font-semibold">Select Date</Label>
-                <Input
-                  id="jumpDate"
-                  type="date"
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      const parsed = parseISO(e.target.value);
-                      if (!isNaN(parsed.getTime())) {
-                        const year = parsed.getFullYear();
-                        if (year >= 2000 && year <= 2100) {
-                          scrollToDate(parsed);
-                        }
-                      }
-                    }
-                  }}
-                  className="bg-slate-950 border-slate-800 focus-visible:ring-primary text-white scheme-dark text-xs h-9 w-full"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-slate-400 text-[10px] uppercase font-semibold">Month</Label>
+                  <Select
+                    value={String(jumpMonth)}
+                    onValueChange={(val) => {
+                      setJumpMonth(parseInt(val));
+                    }}
+                  >
+                    <SelectTrigger className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary h-9 text-xs">
+                      <SelectValue placeholder="Month" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000] max-h-48 overflow-y-auto">
+                      {MONTHS.map((m) => (
+                        <SelectItem key={m.value} value={m.value} className="text-white focus:bg-[#334155] focus:text-white text-xs">
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-slate-400 text-[10px] uppercase font-semibold">Year</Label>
+                  <Select
+                    value={String(jumpYear)}
+                    onValueChange={(val) => {
+                      setJumpYear(parseInt(val));
+                    }}
+                  >
+                    <SelectTrigger className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary h-9 text-xs">
+                      <SelectValue placeholder="Year" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000] max-h-48 overflow-y-auto">
+                      {YEARS.map((y) => (
+                        <SelectItem key={y.value} value={y.value} className="text-white focus:bg-[#334155] focus:text-white text-xs">
+                          {y.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="border-t border-slate-850 pt-2 flex flex-col gap-1">
+              <div className="border-t border-slate-850 pt-2 flex flex-col gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    scrollToDate(new Date(jumpYear, jumpMonth, 1));
+                    setIsJumpPopoverOpen(false);
+                  }}
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-8 text-xs"
+                >
+                  Jump
+                </Button>
                 <button
                   type="button"
-                  onClick={() => scrollToDate(new Date())}
+                  onClick={handleGoToToday}
                   className="w-full text-left px-2 py-1.5 rounded text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-between"
                 >
                   <span>Go to Today</span>

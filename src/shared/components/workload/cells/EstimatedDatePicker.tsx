@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO, parse } from "date-fns";
@@ -24,6 +24,7 @@ interface EstimatedDatePickerProps {
     fromDate: string | null,
     toDate?: string | null,
   ) => void;
+  customTrigger?: React.ReactNode;
 }
 
 export function EstimatedDatePicker({
@@ -33,6 +34,7 @@ export function EstimatedDatePicker({
   openPopoverId,
   setOpenPopoverId,
   onEstimatedDateChange,
+  customTrigger,
 }: EstimatedDatePickerProps) {
   const getInitialDateRange = (): { from?: Date; to?: Date } | undefined => {
     try {
@@ -216,6 +218,72 @@ export function EstimatedDatePicker({
     }
   }, [openPopoverId, popoverId, task.estimation, estimatedDate]);
 
+  const preventPropagationRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = preventPropagationRef.current;
+    if (!el) return;
+
+    const stopAndToggle = (e: Event) => {
+      e.stopPropagation();
+      if (e.type === "click") {
+        const isCurrentOpen = openPopoverId === popoverId;
+        setOpenPopoverId?.(isCurrentOpen ? null : popoverId);
+      }
+    };
+
+    const events = [
+      "click",
+      "mousedown",
+      "mouseup",
+      "pointerdown",
+      "pointerup",
+      "touchstart",
+      "touchend",
+    ];
+
+    events.forEach((val) => {
+      el.addEventListener(val, stopAndToggle, { capture: true });
+    });
+
+    return () => {
+      events.forEach((val) => {
+        el.removeEventListener(val, stopAndToggle, { capture: true });
+      });
+    };
+  }, [openPopoverId, popoverId, setOpenPopoverId]);
+
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const stop = (e: Event) => {
+      e.stopPropagation();
+    };
+
+    const events = [
+      "click",
+      "mousedown",
+      "mouseup",
+      "pointerdown",
+      "pointerup",
+      "touchstart",
+      "touchend",
+    ];
+
+    events.forEach((val) => {
+      el.addEventListener(val, stop, { capture: true });
+    });
+
+    return () => {
+      events.forEach((val) => {
+        el.removeEventListener(val, stop, { capture: true });
+      });
+    };
+  }, [openPopoverId]);
+
   const handleDateRangeChange = (
     range: { from?: Date; to?: Date } | undefined,
   ) => {
@@ -246,17 +314,24 @@ export function EstimatedDatePicker({
       onOpenChange={(open) => setOpenPopoverId?.(open ? popoverId : null)}
     >
       <PopoverTrigger asChild>
-        <div className="w-full" onClick={(e) => e.stopPropagation()}>
-          <button className="w-full bg-muted text-white px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
-            {formatDateDisplay()}
-          </button>
+        <div
+          ref={preventPropagationRef}
+          className="w-full"
+        >
+          {customTrigger ? (
+            customTrigger
+          ) : (
+            <button className="w-full bg-muted text-white px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
+              {formatDateDisplay()}
+            </button>
+          )}
         </div>
       </PopoverTrigger>
       <PopoverContent
         className="w-auto p-4 bg-card border border-border shadow-lg rounded-lg"
         align="center"
       >
-        <div className="space-y-4">
+        <div ref={contentRef} className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-sm">Select Date Range</h3>
             <button
