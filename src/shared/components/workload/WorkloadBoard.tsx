@@ -2288,11 +2288,6 @@ export function WorkloadBoard({
         task_priority_id: priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
       };
 
-      if (assigneeIds && assigneeIds.length > 0) {
-        payload.assignees = assigneeIds;
-        payload.assigned_to = assigneeIds[0];
-      }
-
       if (fromDate) {
         payload.estimated_date_from = fromDate;
       }
@@ -2300,7 +2295,21 @@ export function WorkloadBoard({
         payload.estimated_date_to = toDate;
       }
 
-      const newTaskResponse = await tasksApi.createTask(payload);
+      let newTaskResponse = await tasksApi.createTask(payload);
+
+      // Perform second API call for assignees if provided, since task creation API is not supposed to add assignee/members
+      if (assigneeIds && assigneeIds.length > 0) {
+        try {
+          newTaskResponse = await tasksApi.updateTask({
+            id: String(newTaskResponse.id),
+            board_id: boardIdNum,
+            assignees: assigneeIds,
+          });
+        } catch (assigneeError) {
+          console.error("Failed to set assignee for new task:", assigneeError);
+          toast.error("Task created, but failed to assign members");
+        }
+      }
 
       // Transform API response to Task format
       const newTask: Task = {
