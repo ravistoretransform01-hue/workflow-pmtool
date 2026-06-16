@@ -6426,6 +6426,7 @@ export function WorkloadBoard({
           <GanttView
             groups={memoizedFilteredData.groups}
             statuses={statuses}
+            priorities={priorities}
             onEstimatedDateChange={handleEstimatedDateChange}
             onTaskClick={openCommentsPanel}
             onAddTask={handleGanttAddTask}

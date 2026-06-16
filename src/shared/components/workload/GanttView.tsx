@@ -3,7 +3,7 @@ import { Gantt, WillowDark, Tooltip } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
 import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endOfMonth } from "date-fns";
 import type { TaskGroup, Task } from "./utils/workload-types";
-import type { Status } from "@/features/cms/types";
+import type { Status, Priority } from "@/features/cms/types";
 import { cn } from "@/lib/utils";
 import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
@@ -46,7 +46,7 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
       <div className="flex flex-col gap-1.5 text-slate-400">
         <div className="flex items-center justify-between gap-4">
           <span>Schedule:</span>
-          <span className="text-slate-200 font-medium">{startStr && endStr ? `${startStr} – ${endStr}` : "Unscheduled"}</span>
+          <span className="text-slate-200 font-medium">{startStr && endStr ? `${startStr} - ${endStr}` : "Unscheduled"}</span>
         </div>
         <div className="flex items-center justify-between gap-4">
           <span>Duration:</span>
@@ -61,12 +61,14 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
         {data.priority && (
           <div className="flex items-center justify-between gap-4 mt-0.5">
             <span>Priority:</span>
-            <span className={cn(
-              "px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider",
-              data.priority.toLowerCase() === "high" ? "bg-red-500/20 text-red-400 border border-red-500/30" :
-              data.priority.toLowerCase() === "medium" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
-              "bg-slate-500/20 text-slate-400 border border-slate-500/30"
-            )}>
+            <span 
+              className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border"
+              style={{
+                backgroundColor: data.priority_color ? `${data.priority_color}20` : "rgba(255, 255, 255, 0.05)",
+                color: data.priority_color || "rgb(148, 163, 184)",
+                borderColor: data.priority_color ? `${data.priority_color}30` : "rgba(255, 255, 255, 0.1)"
+              }}
+            >
               {data.priority}
             </span>
           </div>
@@ -137,6 +139,7 @@ const EndDateCell = ({ row }: { row: any }) => {
 interface GanttViewProps {
   groups: TaskGroup[];
   statuses: Status[];
+  priorities: Priority[];
   onEstimatedDateChange: (
     taskId: string,
     fromDate: string | null,
@@ -155,6 +158,7 @@ interface GanttViewProps {
 export default function GanttView({
   groups,
   statuses,
+  priorities,
   onEstimatedDateChange,
   onTaskClick,
   onAddTask,
@@ -183,6 +187,43 @@ export default function GanttView({
     return map;
   }, [statuses]);
 
+  const statusNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (statuses) {
+      statuses.forEach((s) => {
+        if (s.id && s.name) {
+          map.set(String(s.id), s.name);
+        }
+      });
+    }
+    return map;
+  }, [statuses]);
+
+  const priorityNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (priorities) {
+      priorities.forEach((p) => {
+        if (p.id && p.name) {
+          map.set(String(p.id), p.name);
+        }
+      });
+    }
+    return map;
+  }, [priorities]);
+
+  const priorityColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (priorities) {
+      priorities.forEach((p) => {
+        if (p.id && p.color_code) {
+          map.set(String(p.id), p.color_code);
+          map.set(p.name.toLowerCase(), p.color_code);
+        }
+      });
+    }
+    return map;
+  }, [priorities]);
+
   const getTaskStatusColor = useCallback(
     (taskStatusId?: string, taskStatusName?: string): string | null => {
       if (taskStatusId) {
@@ -196,6 +237,21 @@ export default function GanttView({
       return null;
     },
     [statusColorMap]
+  );
+
+  const getTaskPriorityColor = useCallback(
+    (taskPriorityId?: string, taskPriorityName?: string): string | null => {
+      if (taskPriorityId) {
+        const color = priorityColorMap.get(String(taskPriorityId));
+        if (color) return color;
+      }
+      if (taskPriorityName) {
+        const color = priorityColorMap.get(taskPriorityName.toLowerCase());
+        if (color) return color;
+      }
+      return null;
+    },
+    [priorityColorMap]
   );
 
   // Set default group when modal opens or groups change
@@ -430,6 +486,9 @@ export default function GanttView({
         const hasSubitems = task.subitems && task.subitems.length > 0;
         const isScheduled = hasEstimation(task);
 
+        const resolvedStatus = task.status_id ? (statusNameMap.get(task.status_id) || task.status) : task.status;
+        const resolvedPriority = task.priority_id ? (priorityNameMap.get(task.priority_id) || task.priority) : task.priority;
+
         // 1. Map the main task row as top-level (no parent)
         list.push({
           id: task.id,
@@ -445,10 +504,11 @@ export default function GanttView({
           open: hasSubitems ? true : undefined,
           unscheduled: !isScheduled,
           assignees: task.assignee_names,
-          priority: task.priority,
-          status: task.status,
+          priority: resolvedPriority,
+          priority_color: getTaskPriorityColor(task.priority_id, resolvedPriority) || undefined,
+          status: resolvedStatus,
           status_id: task.status_id,
-          status_color: getTaskStatusColor(task.status_id, task.status) || undefined,
+          status_color: getTaskStatusColor(task.status_id, resolvedStatus) || undefined,
           estimatedHours: task.estimatedHours,
         });
 
@@ -458,6 +518,9 @@ export default function GanttView({
             const { start: subStart, duration: subDuration } =
               getTaskDates(sub);
             const isSubScheduled = hasEstimation(sub);
+
+            const resolvedSubStatus = sub.status_id ? (statusNameMap.get(sub.status_id) || sub.status) : sub.status;
+            const resolvedSubPriority = sub.priority_id ? (priorityNameMap.get(sub.priority_id) || sub.priority) : sub.priority;
 
             list.push({
               id: sub.id,
@@ -469,10 +532,11 @@ export default function GanttView({
               type: isSubScheduled ? undefined : "hidden",
               unscheduled: !isSubScheduled,
               assignees: sub.assignee_names,
-              priority: sub.priority,
-              status: sub.status,
+              priority: resolvedSubPriority,
+              priority_color: getTaskPriorityColor(sub.priority_id, resolvedSubPriority) || undefined,
+              status: resolvedSubStatus,
               status_id: sub.status_id,
-              status_color: getTaskStatusColor(sub.status_id, sub.status) || undefined,
+              status_color: getTaskStatusColor(sub.status_id, resolvedSubStatus) || undefined,
               estimatedHours: sub.estimatedHours,
             });
           }
@@ -480,7 +544,7 @@ export default function GanttView({
       }
     }
     return list;
-  }, [groups, hasEstimation, getTaskDates, getTaskStatusColor]);
+  }, [groups, hasEstimation, getTaskDates, getTaskStatusColor, getTaskPriorityColor, statusNameMap, priorityNameMap]);
 
   // Handle SVAR Gantt actions and events
   const handleInit = useCallback(
