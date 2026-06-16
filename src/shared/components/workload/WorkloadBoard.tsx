@@ -108,6 +108,7 @@ import { ListView } from "./ListView";
 import { isViewLive } from "@/lib/constants";
 import { ComingSoonAnimation } from "../ComingSoonAnimation";
 import { SOPView } from "./SOPView";
+import GanttView from "./GanttView";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -178,6 +179,7 @@ export interface Task {
   position?: string;
   assignee_names?: string[];
   recurrence?: any;
+  estimation?: any;
 }
 
 // All available columns (for the dropdown menu)
@@ -430,7 +432,7 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     },
   });
 
-  const implementedTabs = ["Main Table", "List", "Kanban", "SOP"];
+  const implementedTabs = ["Main Table", "List", "Kanban", "SOP", "Gantt"];
   const isImplemented = implementedTabs.includes(tab);
 
   // Restrict transform to horizontal only (remove Y axis)
@@ -920,6 +922,7 @@ export function WorkloadBoard({
               task.estimation?.estimated_date_from ||
               task.due_date ||
               undefined,
+            estimation: task.estimation,
             estimatedHours: task.estimation?.approved_hours || "-",
             person: task.assignee?.name,
             assigned_to_id: task.assigned_to,
@@ -967,6 +970,7 @@ export function WorkloadBoard({
                   st.estimation?.estimated_date_from ||
                   st.due_date ||
                   undefined,
+                estimation: st.estimation,
                 estimatedHours: st.estimation?.approved_hours || "-",
                 person: st.assignee?.name,
                 assigned_to_id: st.assigned_to,
@@ -1711,7 +1715,7 @@ export function WorkloadBoard({
           ...group,
           tasks: group.tasks.map((task) => {
             // ✅ Update parent task if it matches
-            if (task.id === taskId) {
+            if (String(task.id) === String(taskId)) {
               return { ...task, name: newName.trim() };
             }
 
@@ -1720,7 +1724,7 @@ export function WorkloadBoard({
               return {
                 ...task,
                 subitems: task.subitems.map((subitem) =>
-                  subitem.id === taskId
+                  String(subitem.id) === String(taskId)
                     ? { ...subitem, name: newName.trim() }
                     : subitem,
                 ),
@@ -2306,6 +2310,135 @@ export function WorkloadBoard({
     }
   };
 
+  const handleGanttAddTask = async (
+    name: string,
+    groupId: string,
+    fromDate?: string,
+    toDate?: string,
+    parentId?: string,
+    assigneeIds?: number[],
+  ) => {
+    try {
+      const boardIdNum = parseInt(boardId, 10);
+      const organizationIdNum = getOrganizationId();
+
+      if (organizationIdNum === null) {
+        toast.error("Organization not found");
+        return;
+      }
+
+      // Call API to create task
+      const payload: CreateTaskRequest = {
+        group_id: parseInt(groupId, 10),
+        organization_id: organizationIdNum,
+        name: name.trim(),
+        board_id: boardIdNum,
+        parent_id: parentId ? parseInt(parentId, 10) : null,
+        status_id: statuses.length > 0 ? parseInt(statuses[0].id, 10) : undefined,
+        task_priority_id: priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
+      };
+
+      if (fromDate) {
+        payload.estimated_date_from = fromDate;
+      }
+      if (toDate) {
+        payload.estimated_date_to = toDate;
+      }
+
+      let newTaskResponse = await tasksApi.createTask(payload);
+
+      // Perform second API call for assignees if provided, since task creation API is not supposed to add assignee/members
+      if (assigneeIds && assigneeIds.length > 0) {
+        try {
+          newTaskResponse = await tasksApi.updateTask({
+            id: String(newTaskResponse.id),
+            board_id: boardIdNum,
+            assignees: assigneeIds,
+          });
+        } catch (assigneeError) {
+          console.error("Failed to set assignee for new task:", assigneeError);
+          toast.error("Task created, but failed to assign members");
+        }
+      }
+
+      // Transform API response to Task format
+      const newTask: Task = {
+        id: String(newTaskResponse.id),
+        name: newTaskResponse.name,
+        description: newTaskResponse.description,
+        status: newTaskResponse.status_label,
+        status_id: String(newTaskResponse.status_id),
+        priority: newTaskResponse.priority_label,
+        priority_id: String(newTaskResponse.task_priority_id),
+        estimatedDate: newTaskResponse.due_date || "-",
+        person:
+          newTaskResponse.assignee?.name ||
+          (newTaskResponse.assignees && newTaskResponse.assignees.length > 0
+            ? newTaskResponse.assignees[0].name
+            : undefined),
+        assigned_to_id:
+          newTaskResponse.assignee?.id ||
+          (newTaskResponse.assignees && newTaskResponse.assignees.length > 0
+            ? String(newTaskResponse.assignees[0].user_id)
+            : undefined),
+        assigned_to_ids: newTaskResponse.assignees?.map((a) =>
+          String(a.user_id),
+        ),
+        timeSpent: `${newTaskResponse.time_spent_hours}h`,
+        group_id: String(newTaskResponse.group_id),
+        subitems: [],
+        assignee_names:
+          newTaskResponse.assignees?.map((a) => a.name || a.username || "") ||
+          (newTaskResponse.assignee?.name
+            ? [newTaskResponse.assignee.name]
+            : []),
+        label_id: groupLabels[String(newTaskResponse.group_id)],
+      };
+
+      if (newTaskResponse.estimation) {
+        (newTask as any).estimation = {
+          estimated_date_from: newTaskResponse.estimation.estimated_date_from,
+          estimated_date_to: newTaskResponse.estimation.estimated_date_to,
+        };
+      }
+
+      // Update groups with new task
+      const updatedGroups = groups.map((group) => {
+        if (String(group.id) === String(groupId)) {
+          if (parentId) {
+            // Add as subtask
+            return {
+              ...group,
+              tasks: group.tasks.map((task) => {
+                if (String(task.id) === String(parentId)) {
+                  return {
+                    ...task,
+                    subitems: [...(task.subitems || []), newTask],
+                  };
+                }
+                return task;
+              }),
+            };
+          } else {
+            // Add as main task
+            return {
+              ...group,
+              tasks: [...group.tasks, newTask],
+            };
+          }
+        }
+        return group;
+      });
+
+      setGroups(updatedGroups);
+      toast.success("Task Added Successfully");
+    } catch (error) {
+      console.error("Failed to add task from Gantt:", error);
+      toast.error("Failed to add task");
+      throw error;
+    }
+  };
+
   // const handleNewItemKeyDown = (
   //   e: React.KeyboardEvent<HTMLInputElement>,
   //   groupId: string
@@ -2391,7 +2524,7 @@ export function WorkloadBoard({
           return {
             ...group,
             tasks: group.tasks.map((task) => {
-              if (task.id === taskId) {
+              if (String(task.id) === String(taskId)) {
                 return {
                   ...task,
                   subitems: [...(task.subitems || []), newSubitem],
@@ -2457,7 +2590,7 @@ export function WorkloadBoard({
       // Get the currently assigned member ID (first assignee)
       let assigneeId = 0;
       for (const group of groups) {
-        const task = group.tasks.find((t) => t.id === taskId);
+        const task = group.tasks.find((t) => String(t.id) === String(taskId));
         if (task) {
           assigneeId = task.assigned_to_ids?.[0]
             ? Number(task.assigned_to_ids[0])
@@ -2466,7 +2599,7 @@ export function WorkloadBoard({
         }
         const subitem = group.tasks
           .flatMap((t) => t.subitems || [])
-          .find((s) => s.id === taskId);
+          .find((s) => String(s.id) === String(taskId));
         if (subitem) {
           assigneeId = subitem.assigned_to_ids?.[0]
             ? Number(subitem.assigned_to_ids[0])
@@ -2498,7 +2631,7 @@ export function WorkloadBoard({
           ...group,
           tasks: group.tasks.map((task) => {
             // ✅ parent task
-            if (task.id === taskId) {
+            if (String(task.id) === String(taskId)) {
               return {
                 ...task,
                 rating: ratingValue,
@@ -2513,7 +2646,7 @@ export function WorkloadBoard({
               return {
                 ...task,
                 subitems: task.subitems.map((sub) =>
-                  sub.id === taskId
+                  String(sub.id) === String(taskId)
                     ? {
                         ...sub,
                         rating: ratingValue,
@@ -2712,16 +2845,25 @@ export function WorkloadBoard({
       dateDisplay = formatDateRange(fromDate, toDate || undefined);
     }
 
+    // 1. Optimistically update local state first
     setGroups((prevGroups) =>
       prevGroups.map((group) => ({
         ...group,
         tasks: group.tasks.map((task) => {
           // ✅ parent task
-          if (task.id === taskId) {
+          if (String(task.id) === String(taskId)) {
             return {
               ...task,
               estimatedDate: dateDisplay,
               estimatedDateEnd: toDate || null,
+              estimatedDateRaw: fromDate || undefined,
+              estimation: fromDate
+                ? {
+                    ...(task.estimation || {}),
+                    estimated_date_from: fromDate,
+                    estimated_date_to: toDate || fromDate,
+                  }
+                : null,
             };
           }
 
@@ -2730,11 +2872,19 @@ export function WorkloadBoard({
             return {
               ...task,
               subitems: task.subitems.map((sub) =>
-                sub.id === taskId
+                String(sub.id) === String(taskId)
                   ? {
                       ...sub,
                       estimatedDate: dateDisplay,
                       estimatedDateEnd: toDate || null,
+                      estimatedDateRaw: fromDate || undefined,
+                      estimation: fromDate
+                        ? {
+                            ...(sub.estimation || {}),
+                            estimated_date_from: fromDate,
+                            estimated_date_to: toDate || fromDate,
+                          }
+                        : null,
                     }
                   : sub,
               ),
@@ -2745,6 +2895,35 @@ export function WorkloadBoard({
         }),
       })),
     );
+
+    // 2. Update estimated date on backend
+    try {
+      if (fromDate) {
+        const task = getTaskById(taskId);
+        const hasEstimation = task?.estimation && task.estimation.estimated_date_from;
+
+        if (hasEstimation) {
+          await tasksApi.updateEstimatedDate({
+            task_id: taskId,
+            estimated_date_from: fromDate,
+            estimated_date_to: toDate || fromDate,
+          });
+        } else {
+          await tasksApi.createEstimatedDate({
+            task_id: taskId,
+            estimated_date_from: fromDate,
+            estimated_date_to: toDate || fromDate,
+          });
+        }
+        toast.success("Estimated Date Updated Successfully");
+      } else {
+        await tasksApi.deleteEstimatedDate({ task_id: taskId });
+        toast.success("Estimated Date Cleared Successfully");
+      }
+    } catch (error) {
+      console.error("Failed to update estimated date on backend:", error);
+      toast.error("Failed to Update Estimated Date");
+    }
 
     // Close popover after update
     popoverState.closePopover();
@@ -2759,7 +2938,7 @@ export function WorkloadBoard({
         ...group,
         tasks: group.tasks.map((task) => {
           // ✅ parent task
-          if (task.id === taskId) {
+          if (String(task.id) === String(taskId)) {
             return {
               ...task,
               estimatedHours: hours || "-",
@@ -2771,7 +2950,7 @@ export function WorkloadBoard({
             return {
               ...task,
               subitems: task.subitems.map((sub) =>
-                sub.id === taskId
+                String(sub.id) === String(taskId)
                   ? {
                       ...sub,
                       estimatedHours: hours || "-",
@@ -2796,7 +2975,7 @@ export function WorkloadBoard({
         ...group,
         tasks: group.tasks.map((task) => {
           // ✅ parent task
-          if (task.id === taskId) {
+          if (String(task.id) === String(taskId)) {
             return {
               ...task,
               tags,
@@ -2808,7 +2987,7 @@ export function WorkloadBoard({
             return {
               ...task,
               subitems: task.subitems.map((sub) =>
-                sub.id === taskId
+                String(sub.id) === String(taskId)
                   ? {
                       ...sub,
                       tags,
@@ -6388,6 +6567,19 @@ export function WorkloadBoard({
               const task = getTaskById(taskId);
               if (task) openTaskCard(task);
             }}
+          />
+        )}
+
+        {/* Gantt VIEW */}
+        {activeTab === "Gantt" && isViewLive.timeline && (
+          <GanttView
+            groups={memoizedFilteredData.groups}
+            statuses={statuses}
+            priorities={priorities}
+            members={members}
+            onEstimatedDateChange={handleEstimatedDateChange}
+            onTaskClick={openCommentsPanel}
+            onAddTask={handleGanttAddTask}
           />
         )}
 

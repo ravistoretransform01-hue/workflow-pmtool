@@ -54,6 +54,9 @@ export interface Task {
   }>;
   subitems?: Task[];
   position?: string;
+  estimation?: any;
+  estimatedDateRaw?: string;
+  assignee_names?: string[];
 }
 
 /**
