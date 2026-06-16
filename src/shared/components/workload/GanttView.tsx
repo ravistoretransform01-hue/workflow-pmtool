@@ -19,6 +19,7 @@ import {
 } from "@/shared/components/ui/select";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { stringToHslColor } from "./utils";
+import { EstimatedDatePicker } from "./cells";
 
 
 // Robust helper to parse dates from various formats (Date, timestamp, or ISO string)
@@ -112,30 +113,78 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
     </div>
   );
 };// Custom cell renderers for grid columns to provide premium and consistent date formatting
-const StartDateCell = ({ row }: { row: any }) => {
-  if (!row || !row.start || row.unscheduled) {
+const StatusCell = ({ row }: { row: any }) => {
+  if (!row || !row.status) {
     return <span className="text-muted-foreground/60">-</span>;
   }
-  try {
-    const d = new Date(row.start);
-    if (isNaN(d.getTime())) return <span className="text-muted-foreground/60">-</span>;
-    return <span>{format(d, "MMM d, yyyy")}</span>;
-  } catch {
-    return <span className="text-muted-foreground/60">-</span>;
-  }
+  const color = row.status_color || "#334155";
+  return (
+    <div className="flex items-center justify-center w-full h-full px-1">
+      <span
+        className="px-2 py-0.5 rounded text-[11px] font-medium text-white truncate max-w-full block"
+        style={{ backgroundColor: color }}
+      >
+        {row.status}
+      </span>
+    </div>
+  );
 };
 
-const EndDateCell = ({ row }: { row: any }) => {
-  if (!row || !row.start || !row.duration || row.unscheduled) {
+const PriorityCell = ({ row }: { row: any }) => {
+  if (!row || !row.priority) {
     return <span className="text-muted-foreground/60">-</span>;
   }
-  try {
-    const start = new Date(row.start);
-    const end = addDays(start, row.duration - 1);
-    return <span>{format(end, "MMM d, yyyy")}</span>;
-  } catch {
-    return <span className="text-muted-foreground/60">-</span>;
-  }
+  const color = row.priority_color || "#334155";
+  return (
+    <div className="flex items-center justify-center w-full h-full px-1">
+      <span
+        className="px-2 py-0.5 rounded text-[11px] font-medium text-white truncate max-w-full block"
+        style={{ backgroundColor: color }}
+      >
+        {row.priority}
+      </span>
+    </div>
+  );
+};
+
+const GanttEstimatedDateCell = ({
+  row,
+  onEstimatedDateChange,
+}: {
+  row: any;
+  onEstimatedDateChange: any;
+}) => {
+  const task = row.originalTask;
+  const estimatedDate = task?.estimatedDate ?? "-";
+  const popoverId = `estimatedDate-gantt-${row.id}`;
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="flex items-center justify-center w-full h-full px-1">
+      {task ? (
+        <EstimatedDatePicker
+          task={task}
+          estimatedDate={estimatedDate}
+          estimatedDateEnd={null}
+          popoverId={popoverId}
+          openPopoverId={isOpen ? popoverId : null}
+          setOpenPopoverId={(id) => setIsOpen(id !== null)}
+          onEstimatedDateChange={onEstimatedDateChange}
+          customTrigger={
+            <Button
+              type="button"
+              variant="outline"
+              className="estimated-date-trigger w-full bg-[#1e293b] text-slate-200 border-[#334155] hover:bg-[#334155] hover:text-white h-7 px-2 text-xs truncate font-normal"
+            >
+              {estimatedDate === "-" ? "Set Date" : estimatedDate}
+            </Button>
+          }
+        />
+      ) : (
+        <span className="text-muted-foreground/60">-</span>
+      )}
+    </div>
+  );
 };
 
 interface GanttViewProps {
@@ -523,6 +572,7 @@ export default function GanttView({
           status_id: task.status_id,
           status_color: getTaskStatusColor(task.status_id, resolvedStatus) || undefined,
           estimatedHours: task.estimatedHours,
+          originalTask: task,
         });
 
         // 2. Map subitems if they exist under the main task parent
@@ -551,6 +601,7 @@ export default function GanttView({
               status_id: sub.status_id,
               status_color: getTaskStatusColor(sub.status_id, resolvedSubStatus) || undefined,
               estimatedHours: sub.estimatedHours,
+              originalTask: sub,
             });
           }
         }
@@ -565,6 +616,23 @@ export default function GanttView({
       setGanttApi(api);
       // 1. Intercept select-task to open the custom task dialog/card, returning false to prevent persistent selection background
       api.intercept("select-task", (payload: any) => {
+        // If the user is clicking on an estimated date trigger button or its active popover/portaled content,
+        // intercept and ignore the selection event. This prevents parent re-renders and stops the popover from blinking.
+        const event = window.event as any;
+        if (event) {
+          const target = event.target as HTMLElement;
+          if (
+            target &&
+            (target.closest(".estimated-date-trigger") ||
+              target.closest("[data-radix-portal]") ||
+              target.closest(".SelectContent") ||
+              target.closest(".PopoverContent") ||
+              target.closest('[role="dialog"]'))
+          ) {
+            return false;
+          }
+        }
+
         if (payload) {
           const rawId = typeof payload === "object" ? payload.id : payload;
           if (rawId) {
@@ -624,23 +692,35 @@ export default function GanttView({
 
   const ganttColumns = useMemo(
     () => [
-      { id: "text", width: 250, resize: true, header: [{ text: "Task Name" }] },
+      { id: "text", width: 220, resize: true, header: [{ text: "Task Name" }] },
       {
-        id: "start",
-        width: 110,
+        id: "estimatedDate",
+        width: 140,
         resize: true,
-        header: [{ text: "Start Date" }],
-        cell: StartDateCell,
+        header: [{ text: "Est. Date" }],
+        cell: (props: any) => (
+          <GanttEstimatedDateCell
+            {...props}
+            onEstimatedDateChange={onEstimatedDateChange}
+          />
+        ),
       },
       {
-        id: "end",
+        id: "status",
         width: 110,
         resize: true,
-        header: [{ text: "End Date" }],
-        cell: EndDateCell,
+        header: [{ text: "Status" }],
+        cell: StatusCell,
+      },
+      {
+        id: "priority",
+        width: 110,
+        resize: true,
+        header: [{ text: "Priority" }],
+        cell: PriorityCell,
       },
     ],
-    [],
+    [onEstimatedDateChange],
   );
 
   const ganttTimeRange = useMemo(() => {
