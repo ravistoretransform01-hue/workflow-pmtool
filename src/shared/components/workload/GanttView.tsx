@@ -818,6 +818,59 @@ export default function GanttView({
     }
   }, [scaleMode, ganttApi, scrollToCurrentMonth]);
 
+  useEffect(() => {
+    const wrapper = document.querySelector(".pm-gantt-wrapper");
+    if (!wrapper) return;
+
+    const hideTooltips = () => {
+      const tooltips = document.querySelectorAll(".wx-tooltip");
+      tooltips.forEach((el) => {
+        (el as HTMLElement).style.display = "none";
+      });
+    };
+
+    const handleMouseMove = (e: Event) => {
+      const mouseEvent = e as MouseEvent;
+      const target = mouseEvent.target as HTMLElement;
+      if (!target) return;
+
+      const isOverInteractive = 
+        target.closest(".wx-bar") || 
+        target.closest(".wx-tooltip");
+
+      if (!isOverInteractive) {
+        hideTooltips();
+      }
+    };
+
+    const handleMouseLeave = () => {
+      hideTooltips();
+    };
+
+    const handleMouseUp = (e: Event) => {
+      const mouseEvent = e as MouseEvent;
+      const target = mouseEvent.target as HTMLElement;
+      if (target && target.closest(".wx-bar")) {
+        setTimeout(() => {
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+          hideTooltips();
+        }, 50);
+      }
+    };
+
+    wrapper.addEventListener("mousemove", handleMouseMove);
+    wrapper.addEventListener("mouseleave", handleMouseLeave);
+    wrapper.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      wrapper.removeEventListener("mousemove", handleMouseMove);
+      wrapper.removeEventListener("mouseleave", handleMouseLeave);
+      wrapper.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
   const scrollToDate = useCallback((targetDate: Date) => {
     if (!ganttApi) return;
     
@@ -1544,6 +1597,17 @@ export default function GanttView({
             display: none !important;
           }
 
+          /* Hide progress bars, percent labels, and drag controllers/markers */
+          .pm-gantt-wrapper .wx-progress-wrapper,
+          .pm-gantt-wrapper .wx-progress-percent,
+          .pm-gantt-wrapper .wx-progress-marker,
+          .pm-gantt-wrapper .wx-progress-handle,
+          .pm-gantt-wrapper .wx-progress,
+          .pm-gantt-wrapper .wx-bar-progress,
+          .pm-gantt-wrapper .wx-gantt-progress {
+            display: none !important;
+          }
+
           /* Hide the link handles and interactive areas for linking */
           .pm-gantt-wrapper .wx-link,
           .pm-gantt-wrapper .wx-link-handle,
@@ -1583,6 +1647,16 @@ export default function GanttView({
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
+          }
+
+          /* Prevent Gantt tooltips from displaying when a Radix portal/popover/select/dialog is active */
+          body:has([data-radix-portal]) .wx-tooltip,
+          body:has(.PopoverContent) .wx-tooltip,
+          body:has([role="dialog"]) .wx-tooltip {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
           }
 
           ${dynamicStyles}
