@@ -5,7 +5,7 @@ import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endO
 import type { TaskGroup, Task } from "./utils/workload-types";
 import type { Status, Priority } from "@/features/cms/types";
 import { cn } from "@/lib/utils";
-import { Plus, Loader2, Settings, Check, CalendarDays } from "lucide-react";
+import { Plus, Loader2, Settings, Check, CalendarDays, ChevronDown } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
@@ -17,6 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
+import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
+import { stringToHslColor } from "./utils";
 
 
 // Robust helper to parse dates from various formats (Date, timestamp, or ISO string)
@@ -140,6 +142,7 @@ interface GanttViewProps {
   groups: TaskGroup[];
   statuses: Status[];
   priorities: Priority[];
+  members: any[];
   onEstimatedDateChange: (
     taskId: string,
     fromDate: string | null,
@@ -152,6 +155,7 @@ interface GanttViewProps {
     fromDate?: string,
     toDate?: string,
     parentId?: string,
+    assigneeIds?: number[],
   ) => Promise<void>;
 }
 
@@ -159,6 +163,7 @@ export default function GanttView({
   groups,
   statuses,
   priorities,
+  members,
   onEstimatedDateChange,
   onTaskClick,
   onAddTask,
@@ -171,6 +176,8 @@ export default function GanttView({
   const [newTaskName, setNewTaskName] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [parentTaskId, setParentTaskId] = useState("none");
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<number[]>([]);
+  const [assigneeSearchQuery, setAssigneeSearchQuery] = useState("");
   const [startDateStr, setStartDateStr] = useState("");
   const [endDateStr, setEndDateStr] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -288,7 +295,8 @@ export default function GanttView({
           selectedGroupId,
           startDateStr || undefined,
           endDateStr || undefined,
-          parentTaskId !== "none" ? parentTaskId : undefined
+          parentTaskId !== "none" ? parentTaskId : undefined,
+          selectedAssigneeIds.length > 0 ? selectedAssigneeIds : undefined
         );
       }
       // Reset form
@@ -296,13 +304,15 @@ export default function GanttView({
       setStartDateStr("");
       setEndDateStr("");
       setParentTaskId("none");
+      setSelectedAssigneeIds([]);
+      setAssigneeSearchQuery("");
       setIsAddPopoverOpen(false);
     } catch (err) {
       console.error("Failed to add task:", err);
     } finally {
       setIsSubmitting(false);
     }
-  }, [newTaskName, selectedGroupId, startDateStr, endDateStr, parentTaskId, onAddTask]);
+  }, [newTaskName, selectedGroupId, startDateStr, endDateStr, parentTaskId, selectedAssigneeIds, onAddTask]);
 
   const latestRef = useRef<any>(null);
 
@@ -858,6 +868,131 @@ export default function GanttView({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-300">Assignees (Optional)</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary hover:bg-[#2e3e56] hover:text-white h-9 px-3 flex items-center justify-between font-normal text-xs"
+                      >
+                        {selectedAssigneeIds.length === 0 ? (
+                          <span className="text-slate-400">Select assignees (optional)</span>
+                        ) : (
+                          <div className="flex items-center gap-1.5 overflow-hidden">
+                            <div className="flex -space-x-1.5 overflow-hidden">
+                              {selectedAssigneeIds.slice(0, 3).map((id) => {
+                                const member = members.find((m) => Number(m.user_id) === id);
+                                if (!member) return null;
+                                const initials = (member.name || "")
+                                  .split(/\s+/)
+                                  .map((n: string) => n[0])
+                                  .filter(Boolean)
+                                  .slice(0, 2)
+                                  .join("")
+                                  .toUpperCase();
+                                const bgColor = stringToHslColor(member.name || String(id));
+                                return (
+                                  <Avatar key={id} className="h-5 w-5 border border-slate-900 shrink-0">
+                                    <AvatarFallback
+                                      style={{ background: bgColor, color: "white" }}
+                                      className="text-[8px] font-semibold flex items-center justify-center"
+                                    >
+                                      {initials || "U"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                );
+                              })}
+                            </div>
+                            <span className="truncate text-xs">
+                              {selectedAssigneeIds.length === 1
+                                ? members.find((m) => Number(m.user_id) === selectedAssigneeIds[0])?.name
+                                : `${selectedAssigneeIds.length} assignees selected`}
+                            </span>
+                          </div>
+                        )}
+                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      className="w-[318px] p-2 bg-[#1e293b] border-[#334155] text-slate-100 shadow-xl rounded-md z-[10000] flex flex-col"
+                    >
+                      <div className="p-1 shrink-0">
+                        <Input
+                          placeholder="Search members..."
+                          value={assigneeSearchQuery}
+                          onChange={(e) => setAssigneeSearchQuery(e.target.value)}
+                          className="h-8 bg-slate-950 border-slate-800 text-xs text-white focus-visible:ring-primary mb-2"
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+                        {members
+                          .filter((m) =>
+                            (m.name || "").toLowerCase().includes(assigneeSearchQuery.toLowerCase())
+                          )
+                          .map((member) => {
+                            const memberIdNum = Number(member.user_id);
+                            const isSelected = selectedAssigneeIds.includes(memberIdNum);
+                            const initials = (member.name || "")
+                              .split(/\s+/)
+                              .map((n: string) => n[0])
+                              .filter(Boolean)
+                              .slice(0, 2)
+                              .join("")
+                              .toUpperCase();
+                            const bgColor = stringToHslColor(member.name || String(member.user_id));
+                            return (
+                              <button
+                                key={member.user_id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAssigneeIds((prev) =>
+                                    isSelected
+                                      ? prev.filter((id) => id !== memberIdNum)
+                                      : [...prev, memberIdNum]
+                                  );
+                                }}
+                                className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-slate-800 text-xs text-left cursor-pointer transition-colors"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Avatar className="h-6 w-6 shrink-0">
+                                    <AvatarFallback
+                                      style={{ background: bgColor, color: "white" }}
+                                      className="text-[10px] font-semibold flex items-center justify-center"
+                                    >
+                                      {initials || "U"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="truncate">{member.name}</span>
+                                </div>
+                                {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        {members.filter((m) =>
+                          (m.name || "").toLowerCase().includes(assigneeSearchQuery.toLowerCase())
+                        ).length === 0 && (
+                          <div className="text-center py-2 text-xs text-slate-400">
+                            No members found
+                          </div>
+                        )}
+                      </div>
+                      {selectedAssigneeIds.length > 0 && (
+                        <div className="pt-2 mt-1 border-t border-slate-800 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedAssigneeIds([])}
+                            className="w-full text-center py-1 rounded-md text-[11px] font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                          >
+                            Clear Selection
+                          </button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">

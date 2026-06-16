@@ -2266,6 +2266,7 @@ export function WorkloadBoard({
     fromDate?: string,
     toDate?: string,
     parentId?: string,
+    assigneeIds?: number[],
   ) => {
     try {
       const boardIdNum = parseInt(boardId, 10);
@@ -2286,6 +2287,11 @@ export function WorkloadBoard({
         status_id: statuses.length > 0 ? parseInt(statuses[0].id, 10) : undefined,
         task_priority_id: priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
       };
+
+      if (assigneeIds && assigneeIds.length > 0) {
+        payload.assignees = assigneeIds;
+        payload.assigned_to = assigneeIds[0];
+      }
 
       if (fromDate) {
         payload.estimated_date_from = fromDate;
@@ -6427,6 +6433,7 @@ export function WorkloadBoard({
             groups={memoizedFilteredData.groups}
             statuses={statuses}
             priorities={priorities}
+            members={members}
             onEstimatedDateChange={handleEstimatedDateChange}
             onTaskClick={openCommentsPanel}
             onAddTask={handleGanttAddTask}
