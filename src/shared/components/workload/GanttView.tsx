@@ -818,6 +818,62 @@ export default function GanttView({
     }
   }, [scaleMode, ganttApi, scrollToCurrentMonth]);
 
+  useEffect(() => {
+    const wrapper = document.querySelector(".pm-gantt-wrapper");
+    if (!wrapper) return;
+
+    const hideTooltips = () => {
+      const tooltips = document.querySelectorAll(".wx-tooltip");
+      tooltips.forEach((el) => {
+        (el as HTMLElement).style.display = "none";
+      });
+    };
+
+    const handleMouseMove = (e: Event) => {
+      const mouseEvent = e as MouseEvent;
+      const target = mouseEvent.target as HTMLElement;
+      if (!target) return;
+
+      const isOverInteractive = 
+        target.closest(".wx-bar") || 
+        target.closest(".wx-tooltip") || 
+        target.closest("[data-radix-portal]") ||
+        target.closest(".PopoverContent") ||
+        target.closest(".SelectContent");
+
+      if (!isOverInteractive) {
+        hideTooltips();
+      }
+    };
+
+    const handleMouseLeave = () => {
+      hideTooltips();
+    };
+
+    const handleMouseUp = (e: Event) => {
+      const mouseEvent = e as MouseEvent;
+      const target = mouseEvent.target as HTMLElement;
+      if (target && target.closest(".wx-bar")) {
+        setTimeout(() => {
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+          hideTooltips();
+        }, 50);
+      }
+    };
+
+    wrapper.addEventListener("mousemove", handleMouseMove);
+    wrapper.addEventListener("mouseleave", handleMouseLeave);
+    wrapper.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      wrapper.removeEventListener("mousemove", handleMouseMove);
+      wrapper.removeEventListener("mouseleave", handleMouseLeave);
+      wrapper.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
   const scrollToDate = useCallback((targetDate: Date) => {
     if (!ganttApi) return;
     
