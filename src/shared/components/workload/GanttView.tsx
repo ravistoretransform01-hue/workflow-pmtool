@@ -5,7 +5,7 @@ import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endO
 import type { TaskGroup, Task } from "./utils/workload-types";
 import type { Status, Priority } from "@/features/cms/types";
 import { cn } from "@/lib/utils";
-import { Plus, Loader2, Settings, Check, CalendarDays, ChevronDown } from "lucide-react";
+import { Plus, Loader2, Settings, Check, CalendarDays, ChevronDown, X } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
@@ -19,7 +19,9 @@ import {
 } from "@/shared/components/ui/select";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { stringToHslColor } from "./utils";
+import { Calendar } from "@/shared/components/ui/calendar";
 import { EstimatedDatePicker } from "./cells";
+import { toast } from "sonner";
 
 
 // Robust helper to parse dates from various formats (Date, timestamp, or ISO string)
@@ -255,6 +257,10 @@ export default function GanttView({
   const [jumpMonth, setJumpMonth] = useState<number>(new Date().getMonth());
   const [jumpYear, setJumpYear] = useState<number>(new Date().getFullYear());
   const [isJumpPopoverOpen, setIsJumpPopoverOpen] = useState(false);
+  const [tempStartDate, setTempStartDate] = useState<Date | undefined>(undefined);
+  const [tempEndDate, setTempEndDate] = useState<Date | undefined>(undefined);
+  const [isStartPopoverOpen, setIsStartPopoverOpen] = useState(false);
+  const [isEndPopoverOpen, setIsEndPopoverOpen] = useState(false);
 
   const statusColorMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -358,6 +364,11 @@ export default function GanttView({
   const handleCreateTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskName.trim() || !selectedGroupId) return;
+
+    if (startDateStr && endDateStr && new Date(endDateStr) < new Date(startDateStr)) {
+      toast.error("End date must be on or after start date");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -1106,25 +1117,167 @@ export default function GanttView({
                   </Popover>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 flex flex-col">
                     <Label htmlFor="startDate" className="text-slate-300 text-xs">Start Date (Opt)</Label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={startDateStr}
-                      onChange={(e) => setStartDateStr(e.target.value)}
-                      className="bg-slate-950 border-slate-800 focus-visible:ring-primary text-white scheme-dark text-xs h-9"
-                    />
+                    <Popover
+                      open={isStartPopoverOpen}
+                      onOpenChange={(open) => {
+                        setIsStartPopoverOpen(open);
+                        if (open) {
+                          setTempStartDate(startDateStr ? new Date(startDateStr) : undefined);
+                        }
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="startDate"
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal bg-slate-950 border-slate-800 hover:bg-slate-900 hover:text-white h-9 px-3 text-xs text-white relative pr-8",
+                            !startDateStr && "text-slate-400"
+                          )}
+                        >
+                          <CalendarDays className="mr-2 h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">
+                            {startDateStr ? format(new Date(startDateStr), "MMM d, yyyy") : "Pick start date"}
+                          </span>
+                          {startDateStr && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setStartDateStr("");
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded-full hover:bg-slate-800"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-3 bg-slate-900 border-slate-800 z-[10000] flex flex-col gap-3" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={tempStartDate}
+                          onSelect={setTempStartDate}
+                          disabled={(date) => {
+                            const refDate = tempEndDate || (endDateStr ? parseISO(endDateStr) : null);
+                            if (!refDate) return false;
+                            const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                            const r = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate());
+                            return d > r;
+                          }}
+                          initialFocus
+                        />
+                        <div className="flex justify-end gap-2 border-t border-slate-850 pt-2 shrink-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsStartPopoverOpen(false)}
+                            className="border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white h-7 px-2.5 text-xs font-medium"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                              if (tempStartDate) {
+                                setStartDateStr(format(tempStartDate, "yyyy-MM-dd"));
+                              } else {
+                                setStartDateStr("");
+                              }
+                              setIsStartPopoverOpen(false);
+                            }}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground h-7 px-2.5 text-xs font-medium"
+                          >
+                            Done
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 flex flex-col">
                     <Label htmlFor="endDate" className="text-slate-300 text-xs">End Date (Opt)</Label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={endDateStr}
-                      onChange={(e) => setEndDateStr(e.target.value)}
-                      className="bg-slate-950 border-slate-800 focus-visible:ring-primary text-white scheme-dark text-xs h-9"
-                    />
+                    <Popover
+                      open={isEndPopoverOpen}
+                      onOpenChange={(open) => {
+                        setIsEndPopoverOpen(open);
+                        if (open) {
+                          setTempEndDate(endDateStr ? new Date(endDateStr) : undefined);
+                        }
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="endDate"
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal bg-slate-950 border-slate-800 hover:bg-slate-900 hover:text-white h-9 px-3 text-xs text-white relative pr-8",
+                            !endDateStr && "text-slate-400"
+                          )}
+                        >
+                          <CalendarDays className="mr-2 h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">
+                            {endDateStr ? format(new Date(endDateStr), "MMM d, yyyy") : "Pick end date"}
+                          </span>
+                          {endDateStr && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEndDateStr("");
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded-full hover:bg-slate-800"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-3 bg-slate-900 border-slate-800 z-[10000] flex flex-col gap-3" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={tempEndDate}
+                          onSelect={setTempEndDate}
+                          disabled={(date) => {
+                            const refDate = tempStartDate || (startDateStr ? parseISO(startDateStr) : null);
+                            if (!refDate) return false;
+                            const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                            const r = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate());
+                            return d < r;
+                          }}
+                          initialFocus
+                        />
+                        <div className="flex justify-end gap-2 border-t border-slate-850 pt-2 shrink-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsEndPopoverOpen(false)}
+                            className="border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white h-7 px-2.5 text-xs font-medium"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                              if (tempEndDate) {
+                                setEndDateStr(format(tempEndDate, "yyyy-MM-dd"));
+                              } else {
+                                setEndDateStr("");
+                              }
+                              setIsEndPopoverOpen(false);
+                            }}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground h-7 px-2.5 text-xs font-medium"
+                          >
+                            Done
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 <div className="pt-3 border-t border-slate-800/60 flex justify-end gap-2">
