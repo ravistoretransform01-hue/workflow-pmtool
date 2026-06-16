@@ -134,6 +134,7 @@ export interface Task {
   priority?: string;
   priority_id?: string;
   estimatedDate?: string;
+  estimatedDateEnd?: string | null;
   estimatedDateRaw?: string; // Raw ISO date for sorting/categorization
   estimatedHours?: string | number; // Approved hours from estimation
   person?: string;
@@ -2362,6 +2363,9 @@ export function WorkloadBoard({
       }
 
       // Transform API response to Task format
+      const resFromDate = newTaskResponse.estimation?.estimated_date_from || fromDate;
+      const resToDate = newTaskResponse.estimation?.estimated_date_to || toDate;
+
       const newTask: Task = {
         id: String(newTaskResponse.id),
         name: newTaskResponse.name,
@@ -2370,7 +2374,9 @@ export function WorkloadBoard({
         status_id: String(newTaskResponse.status_id),
         priority: newTaskResponse.priority_label,
         priority_id: String(newTaskResponse.task_priority_id),
-        estimatedDate: newTaskResponse.due_date || "-",
+        estimatedDate: resFromDate ? formatDateRange(resFromDate, resToDate || undefined) : "-",
+        estimatedDateEnd: resToDate || null,
+        estimatedDateRaw: resFromDate || undefined,
         person:
           newTaskResponse.assignee?.name ||
           (newTaskResponse.assignees && newTaskResponse.assignees.length > 0
@@ -2395,10 +2401,10 @@ export function WorkloadBoard({
         label_id: groupLabels[String(newTaskResponse.group_id)],
       };
 
-      if (newTaskResponse.estimation) {
+      if (resFromDate) {
         (newTask as any).estimation = {
-          estimated_date_from: newTaskResponse.estimation.estimated_date_from,
-          estimated_date_to: newTaskResponse.estimation.estimated_date_to,
+          estimated_date_from: resFromDate,
+          estimated_date_to: resToDate || resFromDate,
         };
       }
 

@@ -12,6 +12,7 @@ export interface Task {
   priority?: string;
   priority_id?: string;
   estimatedDate?: string;
+  estimatedDateEnd?: string | null;
   estimatedHours?: string | number; // Approved hours from estimation
   person?: string;
   assigned_to_id?: string | number;
