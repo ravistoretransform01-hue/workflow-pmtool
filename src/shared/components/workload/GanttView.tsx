@@ -1600,6 +1600,17 @@ export default function GanttView({
             display: none !important;
           }
 
+          /* Hide progress bars, percent labels, and drag controllers/markers */
+          .pm-gantt-wrapper .wx-progress-wrapper,
+          .pm-gantt-wrapper .wx-progress-percent,
+          .pm-gantt-wrapper .wx-progress-marker,
+          .pm-gantt-wrapper .wx-progress-handle,
+          .pm-gantt-wrapper .wx-progress,
+          .pm-gantt-wrapper .wx-bar-progress,
+          .pm-gantt-wrapper .wx-gantt-progress {
+            display: none !important;
+          }
+
           /* Hide the link handles and interactive areas for linking */
           .pm-gantt-wrapper .wx-link,
           .pm-gantt-wrapper .wx-link-handle,
