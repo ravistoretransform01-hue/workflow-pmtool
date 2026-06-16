@@ -115,6 +115,7 @@ export interface CreateTaskRequest {
   estimated_date_from?: string;
   estimated_date_to?: string;
   assigned_to?: number;
+  assignees?: number[];
   is_private?: number;
 }
 
