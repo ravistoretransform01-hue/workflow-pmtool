@@ -5,7 +5,7 @@ import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endO
 import type { TaskGroup, Task } from "./utils/workload-types";
 import type { Status, Priority } from "@/features/cms/types";
 import { cn } from "@/lib/utils";
-import { Plus, Loader2, Settings, Check } from "lucide-react";
+import { Plus, Loader2, Settings, Check, CalendarDays } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
@@ -174,6 +174,8 @@ export default function GanttView({
   const [startDateStr, setStartDateStr] = useState("");
   const [endDateStr, setEndDateStr] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customJumpDate, setCustomJumpDate] = useState<Date | null>(null);
+  const [scrollTargetDate, setScrollTargetDate] = useState<Date | null>(null);
 
   const statusColorMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -637,6 +639,11 @@ export default function GanttView({
     let minDate = addDays(startOfMonth(now), -180);
     let maxDate = addDays(endOfMonth(now), 180);
 
+    if (customJumpDate) {
+      if (customJumpDate < minDate) minDate = customJumpDate;
+      if (customJumpDate > maxDate) maxDate = customJumpDate;
+    }
+
     for (const group of groups) {
       for (const task of group.tasks) {
         // Evaluate main task dates
@@ -666,7 +673,7 @@ export default function GanttView({
     const end = addDays(endOfMonth(maxDate), 7);
 
     return { start, end };
-  }, [groups, hasEstimation, getTaskDates]);
+  }, [groups, hasEstimation, getTaskDates, customJumpDate]);
 
   const scrollToCurrentMonth = useCallback((apiInstance: any) => {
     if (!apiInstance) return;
@@ -692,6 +699,51 @@ export default function GanttView({
       return () => clearTimeout(timer);
     }
   }, [scaleMode, ganttApi, scrollToCurrentMonth]);
+
+  const scrollToDate = useCallback((targetDate: Date) => {
+    if (!ganttApi) return;
+    
+    // Sanitize year to prevent browser-hanging ranges (e.g. year 0132 or 9999)
+    const year = targetDate.getFullYear();
+    if (year < 2000 || year > 2100) return;
+    
+    // If target date is outside current range, update customJumpDate state
+    let needsRangeUpdate = false;
+    if (ganttTimeRange.start && targetDate < ganttTimeRange.start) needsRangeUpdate = true;
+    if (ganttTimeRange.end && targetDate > ganttTimeRange.end) needsRangeUpdate = true;
+    
+    if (needsRangeUpdate) {
+      setCustomJumpDate(targetDate);
+      // Let the useEffect scroll to it after rendering
+      setScrollTargetDate(targetDate);
+    } else {
+      const daysDiff = differenceInCalendarDays(targetDate, ganttTimeRange.start);
+      let leftOffset = 0;
+      if (scaleMode === "day") {
+        leftOffset = daysDiff * 50;
+      } else {
+        leftOffset = (daysDiff / 7) * 80;
+      }
+      ganttApi.exec("scroll-chart", { left: Math.max(0, leftOffset) });
+    }
+  }, [ganttApi, ganttTimeRange.start, ganttTimeRange.end, scaleMode]);
+
+  useEffect(() => {
+    if (ganttApi && scrollTargetDate) {
+      const timer = setTimeout(() => {
+        const daysDiff = differenceInCalendarDays(scrollTargetDate, ganttTimeRange.start);
+        let leftOffset = 0;
+        if (scaleMode === "day") {
+          leftOffset = daysDiff * 50;
+        } else {
+          leftOffset = (daysDiff / 7) * 80;
+        }
+        ganttApi.exec("scroll-chart", { left: Math.max(0, leftOffset) });
+        setScrollTargetDate(null);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [scrollTargetDate, ganttApi, ganttTimeRange.start, scaleMode]);
 
   const dynamicStyles = useMemo(() => {
     let stylesStr = "";
@@ -873,6 +925,57 @@ export default function GanttView({
             </button>
           ))}
         </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-2 h-9 gap-1.5 bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850 hover:text-white"
+            >
+              <CalendarDays className="w-4 h-4 text-slate-400" />
+              <span>Jump to...</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            className="w-64 p-3 bg-slate-900 border-slate-800 text-slate-100 shadow-2xl rounded-lg z-[9999]"
+          >
+            <div className="space-y-3">
+              <div className="border-b border-slate-800/80 pb-1.5 select-none">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Jump to Date</span>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="jumpDate" className="text-slate-400 text-[10px] uppercase font-semibold">Select Date</Label>
+                <Input
+                  id="jumpDate"
+                  type="date"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const parsed = parseISO(e.target.value);
+                      if (!isNaN(parsed.getTime())) {
+                        const year = parsed.getFullYear();
+                        if (year >= 2000 && year <= 2100) {
+                          scrollToDate(parsed);
+                        }
+                      }
+                    }
+                  }}
+                  className="bg-slate-950 border-slate-800 focus-visible:ring-primary text-white scheme-dark text-xs h-9 w-full"
+                />
+              </div>
+              <div className="border-t border-slate-850 pt-2 flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => scrollToDate(new Date())}
+                  className="w-full text-left px-2 py-1.5 rounded text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-between"
+                >
+                  <span>Go to Today</span>
+                  <span className="text-[10px] text-slate-500 font-mono">Today</span>
+                </button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
         <Popover>
           <PopoverTrigger asChild>
             <Button
