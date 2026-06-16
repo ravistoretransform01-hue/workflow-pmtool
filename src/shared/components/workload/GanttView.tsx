@@ -836,10 +836,7 @@ export default function GanttView({
 
       const isOverInteractive = 
         target.closest(".wx-bar") || 
-        target.closest(".wx-tooltip") || 
-        target.closest("[data-radix-portal]") ||
-        target.closest(".PopoverContent") ||
-        target.closest(".SelectContent");
+        target.closest(".wx-tooltip");
 
       if (!isOverInteractive) {
         hideTooltips();
@@ -1650,6 +1647,16 @@ export default function GanttView({
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
+          }
+
+          /* Prevent Gantt tooltips from displaying when a Radix portal/popover/select/dialog is active */
+          body:has([data-radix-portal]) .wx-tooltip,
+          body:has(.PopoverContent) .wx-tooltip,
+          body:has([role="dialog"]) .wx-tooltip {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
           }
 
           ${dynamicStyles}
