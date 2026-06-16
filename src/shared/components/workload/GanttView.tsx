@@ -20,7 +20,6 @@ import {
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { stringToHslColor } from "./utils";
 import { Calendar } from "@/shared/components/ui/calendar";
-import { EstimatedDatePicker } from "./cells";
 import { toast } from "sonner";
 
 
