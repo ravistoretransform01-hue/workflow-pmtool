@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
-import { Mail, MessageSquare, X } from "lucide-react";
+import { Mail, MessageSquare, X, Loader2 } from "lucide-react";
 import { CommentItem } from "./CommentItem";
 import { cn } from "@/lib/utils";
 import type { TaskComment } from "@/features/tasks/types";
@@ -37,6 +37,9 @@ interface TaskUpdatesProps {
   isClient?: boolean;
   isClientUpdatesTab?: boolean;
   showNotifyClientButton?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
 }
 
 export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
@@ -63,6 +66,9 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
   isClient = false,
   isClientUpdatesTab = false,
   showNotifyClientButton = false,
+  hasMore = false,
+  onLoadMore,
+  isLoadingMore = false,
 }) => {
   React.useEffect(() => {
     if (isLoadingComments) return;
@@ -252,7 +258,10 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
                 );
               };
 
-              const threadReplies = getThreadComments(comment.id);
+              const threadReplies =
+                comment.children && comment.children.length > 0
+                  ? comment.children
+                  : getThreadComments(comment.id);
 
               return (
                 <CommentItem
@@ -284,6 +293,27 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
               );
             });
           })()}
+
+          {hasMore && (
+            <div className="flex justify-center pt-2 pb-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+                className="text-xs"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  "Load more updates"
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

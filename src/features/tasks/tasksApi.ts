@@ -46,6 +46,36 @@ const TASKS_ENDPOINTS = {
   ARCHIVE_TASK: (taskId: string | number) => `/tasks/${taskId}/archive`,
 };
 
+const checkIfCurrentUserIsClient = (): boolean => {
+  try {
+    const match = window.location.pathname.match(/\/board\/(\d+)/);
+    const boardId = match ? match[1] : null;
+    if (!boardId) return false;
+
+    const userDataRaw = localStorage.getItem("user_data");
+    if (!userDataRaw) return false;
+    const userData = JSON.parse(userDataRaw);
+    const currentUserId = userData?.user_id;
+    if (!currentUserId) return false;
+
+    const cached = localStorage.getItem(`cms_data_board_${boardId}`);
+    if (!cached) return false;
+
+    const cmsData = JSON.parse(cached);
+    const members = cmsData?.members;
+    if (!Array.isArray(members)) return false;
+
+    const currentMember = members.find(
+      (m: any) => String(m.user_id) === String(currentUserId)
+    );
+    const roleLabel = currentMember?.board_role_label;
+    return !!(roleLabel && roleLabel.toLowerCase().includes("client"));
+  } catch (error) {
+    console.error("Error checking client role:", error);
+    return false;
+  }
+};
+
 export const tasksApi = {
   /**
    * Get all tasks for a board or group
@@ -327,21 +357,38 @@ export const tasksApi = {
     }
   },
 
-  /**
-   * Get all client comments for a task
-   */
-  getClientComments: async (taskId: string | number): Promise<TaskComment[]> => {
+  getClientComments: async (
+    taskId: string | number,
+    params?: {
+      mode?: "flat" | "threaded";
+      page?: number;
+      per_page?: number;
+    },
+  ): Promise<any> => {
     try {
-      const { data } = await axios.get<{ data: TaskComment[] }>(
+      const { data } = await axios.get<any>(
         TASKS_ENDPOINTS.GET_CLIENT_COMMENTS(taskId),
+        { params },
       );
 
       // Handle the API response format
       if (data && data.data && Array.isArray(data.data)) {
-        return data.data.map((comment: any) => ({
-          ...comment,
-          sop: comment.sop === "1" || comment.sop === 1,
-        }));
+        const mappedData = data.data.map((comment: any) => {
+          const mapComment = (c: any): any => ({
+            ...c,
+            sop: c.sop === "1" || c.sop === 1,
+            children: Array.isArray(c.children) ? c.children.map(mapComment) : [],
+          });
+          return mapComment(comment);
+        });
+
+        if (params?.mode === "threaded") {
+          return {
+            data: mappedData,
+            meta: data.meta,
+          };
+        }
+        return mappedData;
       }
 
       // Fallback if response is array directly
@@ -349,6 +396,7 @@ export const tasksApi = {
         return data.map((comment: any) => ({
           ...comment,
           sop: comment.sop === "1" || comment.sop === 1,
+          children: [],
         }));
       }
 
@@ -367,9 +415,14 @@ export const tasksApi = {
     payload: CreateCommentRequest,
   ): Promise<TaskComment> => {
     try {
+      const isClient = checkIfCurrentUserIsClient();
+      const finalPayload = isClient
+        ? { ...payload, isclient: 1 }
+        : payload;
+
       const response = await axios.post<{ data: TaskComment }>(
         TASKS_ENDPOINTS.CREATE_COMMENT(taskId),
-        payload,
+        finalPayload,
       );
       const comment = response.data.data as any;
       return {
@@ -391,9 +444,14 @@ export const tasksApi = {
     payload: UpdateCommentRequest,
   ): Promise<TaskComment> => {
     try {
+      const isClient = checkIfCurrentUserIsClient();
+      const finalPayload = isClient
+        ? { ...payload, isclient: 1 }
+        : payload;
+
       const response = await axios.put<{ data: TaskComment }>(
         TASKS_ENDPOINTS.UPDATE_COMMENT(taskId, commentId),
-        payload,
+        finalPayload,
       );
       const comment = response.data.data as any;
       return {

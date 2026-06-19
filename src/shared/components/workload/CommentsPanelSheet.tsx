@@ -169,12 +169,44 @@ export function CommentsPanelSheet({
     }
   }, [currentUserRole]);
 
-  const fetchClientComments = async (silent = false) => {
+  const COMMENTS_PER_PAGE = 10;
+  const [clientCommentsPage, setClientCommentsPage] = useState(1);
+  const [hasMoreClientComments, setHasMoreClientComments] = useState(false);
+  const [isLoadingMoreClientComments, setIsLoadingMoreClientComments] = useState(false);
+
+  const fetchClientComments = async (silent = false, resetToPage1 = false) => {
     if (!taskId) return;
-    if (!silent) setIsLoadingClientComments(true);
+    if (!silent && !isLoadingMoreClientComments) setIsLoadingClientComments(true);
     try {
-      const fetched = await tasksApi.getClientComments(taskId);
-      setClientComments(fetched);
+      const pageToFetch = 1;
+      const perPageToFetch = resetToPage1
+        ? COMMENTS_PER_PAGE
+        : clientCommentsPage * COMMENTS_PER_PAGE;
+
+      const response = await tasksApi.getClientComments(taskId, {
+        mode: "threaded",
+        page: pageToFetch,
+        per_page: perPageToFetch,
+      });
+
+      if (response && response.data) {
+        setClientComments(response.data);
+        if (response.meta) {
+          setHasMoreClientComments(response.meta.has_more);
+        } else {
+          setHasMoreClientComments(false);
+        }
+      } else if (Array.isArray(response)) {
+        setClientComments(response);
+        setHasMoreClientComments(false);
+      } else {
+        setClientComments([]);
+        setHasMoreClientComments(false);
+      }
+
+      if (resetToPage1) {
+        setClientCommentsPage(1);
+      }
     } catch (error) {
       console.error("Failed to fetch client comments:", error);
     } finally {
@@ -182,13 +214,44 @@ export function CommentsPanelSheet({
     }
   };
 
+  const loadMoreClientComments = async () => {
+    if (!taskId || isLoadingMoreClientComments || !hasMoreClientComments) return;
+    setIsLoadingMoreClientComments(true);
+    try {
+      const nextPage = clientCommentsPage + 1;
+      const response = await tasksApi.getClientComments(taskId, {
+        mode: "threaded",
+        page: nextPage,
+        per_page: COMMENTS_PER_PAGE,
+      });
+
+      if (response && response.data) {
+        setClientComments((prev) => {
+          const existingIds = new Set(prev.map((c) => c.id));
+          const newComments = response.data.filter((c: TaskComment) => !existingIds.has(c.id));
+          return [...prev, ...newComments];
+        });
+        setClientCommentsPage(nextPage);
+        if (response.meta) {
+          setHasMoreClientComments(response.meta.has_more);
+        } else {
+          setHasMoreClientComments(false);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load more client comments:", error);
+    } finally {
+      setIsLoadingMoreClientComments(false);
+    }
+  };
+
   useEffect(() => {
     if (open && activeCommentsTab === "client-updates" && taskId) {
-      fetchClientComments();
+      fetchClientComments(false, true);
 
       // Poll client comments every 5 seconds when active
       const refreshInterval = setInterval(() => {
-        fetchClientComments(true);
+        fetchClientComments(true, false);
       }, 5000);
 
       return () => clearInterval(refreshInterval);
@@ -199,6 +262,8 @@ export function CommentsPanelSheet({
     // Clear client comments when task changes or panel closes or standard comments change
     // to ensure they stay somewhat in sync or at least don't show stale data
     setClientComments([]);
+    setClientCommentsPage(1);
+    setHasMoreClientComments(false);
   }, [taskId, open]);
 
   const [isEditingName, setIsEditingName] = useState(false);
@@ -564,37 +629,37 @@ export function CommentsPanelSheet({
                       layout="sidebar"
                       onDeleteComment={async (id) => {
                         await onDeleteComment(id);
-                        fetchClientComments();
+                        fetchClientComments(true, false);
                       }}
                       onUpdateComment={async (id, content) => {
                         await onUpdateComment(id, content);
-                        fetchClientComments();
+                        fetchClientComments(true, false);
                       }}
                       onSaveInlineReply={async (pid, txt) => {
                         await onSaveInlineReply(pid, txt);
-                        fetchClientComments();
+                        fetchClientComments(true, false);
                       }}
                       onLikeComment={async (id) => {
                         await onLikeComment(id);
-                        fetchClientComments();
+                        fetchClientComments(true, false);
                       }}
                       onShareComment={onShareComment}
                       onToggleSOP={async (id) => {
                         await onToggleSOP(id);
-                        fetchClientComments();
+                        fetchClientComments(true, false);
                       }}
                       onToggleIsClient={async (id) => {
                         await onToggleIsClient(id);
-                        fetchClientComments();
+                        fetchClientComments(true, false);
                       }}
                       onSaveMainUpdate={async (_text) => {
                         // The parent onSaveUpdate uses the internal updateText state from Board
                         // but it will be cleared after successful save.
                         await onSaveUpdate();
-                        fetchClientComments();
+                        fetchClientComments(false, true);
                       }}
                       onHighlightComplete={onHighlightComplete}
-                      noNesting={true}
+                      noNesting={false}
                       hideEditor={false}
                       isSaving={isSaving}
                       onFilePreview={handleFilePreview}
@@ -602,6 +667,9 @@ export function CommentsPanelSheet({
                       onMainUpdateTextChange={onUpdateTextChange}
                       isClient={isClient}
                       isClientUpdatesTab={true}
+                      hasMore={hasMoreClientComments}
+                      onLoadMore={loadMoreClientComments}
+                      isLoadingMore={isLoadingMoreClientComments}
                     />
                   </div>
                 </TabsContent>

@@ -177,6 +177,7 @@ export interface TaskComment {
     avatar_url?: string;
   };
   sop?: boolean;
+  children?: TaskComment[];
 }
 
 export interface TaskCommentResponse {
