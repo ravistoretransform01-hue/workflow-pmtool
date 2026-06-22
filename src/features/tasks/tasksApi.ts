@@ -416,7 +416,7 @@ export const tasksApi = {
   ): Promise<TaskComment> => {
     try {
       const isClient = checkIfCurrentUserIsClient();
-      const finalPayload = isClient
+      const finalPayload = (isClient || payload.isclient === 1 || payload.isclient === true)
         ? { ...payload, isclient: 1 }
         : payload;
 
@@ -445,7 +445,7 @@ export const tasksApi = {
   ): Promise<TaskComment> => {
     try {
       const isClient = checkIfCurrentUserIsClient();
-      const finalPayload = isClient
+      const finalPayload = (isClient || payload.isclient === 1 || payload.isclient === true)
         ? { ...payload, isclient: 1 }
         : payload;
 

@@ -190,6 +190,7 @@ export interface CreateCommentRequest {
   content: string;
   parent_id: number | null;
   is_internal: number;
+  isclient?: number | boolean;
 }
 
 export interface UpdateCommentRequest {
