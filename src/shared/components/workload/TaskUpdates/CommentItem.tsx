@@ -312,6 +312,8 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                         onUpdateComment(comment.id, editCommentText);
                       }
                     }}
+                    isClient={isClient}
+                    isClientUpdatesTab={isClientUpdatesTab}
                   />
                   <div className="flex justify-end gap-2">
                     <Button
@@ -601,6 +603,8 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                         onSaveInlineReply(comment.id, inlineReplyText);
                       }
                     }}
+                    isClient={isClient}
+                    isClientUpdatesTab={isClientUpdatesTab}
                   />
                 </div>
                 <div className="mt-3 flex justify-end gap-2">
