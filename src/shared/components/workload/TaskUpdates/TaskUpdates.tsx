@@ -381,6 +381,8 @@ export const TaskUpdates: React.FC<TaskUpdatesProps> = ({
             boardId={boardId ? Number(boardId) : undefined}
             key="main-update-editor"
             onSubmit={handleSaveMainUpdate}
+            isClient={isClient}
+            isClientUpdatesTab={isClientUpdatesTab}
           />
         </div>
 

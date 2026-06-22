@@ -50,6 +50,8 @@ interface TiptapEditorProps {
   boardId?: number;
   autoFocus?: boolean | "start" | "end" | "all";
   onSubmit?: () => void;
+  isClient?: boolean;
+  isClientUpdatesTab?: boolean;
 }
 
 const colors = [
@@ -128,6 +130,24 @@ function getMembersFromLocalStorage(
   return [];
 }
 
+const filterMembersByRoleRules = (
+  members: Array<{ id: string; name: string; email?: string; role?: string }>,
+  isCurrentUserClient: boolean,
+  isClientUpdatesTabActive: boolean,
+) => {
+  if (isCurrentUserClient) {
+    return members;
+  }
+  const isMemberClient = (member: { role?: string }) => {
+    return !!(member.role && member.role.toLowerCase().includes("client"));
+  };
+  if (isClientUpdatesTabActive) {
+    return members.filter((m) => isMemberClient(m));
+  } else {
+    return members.filter((m) => !isMemberClient(m));
+  }
+};
+
 export function TiptapEditor({
   value,
   onChange,
@@ -135,7 +155,43 @@ export function TiptapEditor({
   boardId,
   autoFocus,
   onSubmit,
+  isClient,
+  isClientUpdatesTab,
 }: TiptapEditorProps) {
+  const [isClientUser, setIsClientUser] = useState(false);
+
+  useEffect(() => {
+    if (boardId) {
+      const checkClient = () => {
+        try {
+          const userDataRaw = localStorage.getItem("user_data");
+          if (!userDataRaw) return false;
+          const userData = JSON.parse(userDataRaw);
+          const currentUserId = userData?.user_id;
+          if (!currentUserId) return false;
+
+          const cached = localStorage.getItem(`cms_data_board_${boardId}`);
+          if (!cached) return false;
+
+          const cmsData = JSON.parse(cached);
+          const members = cmsData?.members;
+          if (!Array.isArray(members)) return false;
+
+          const currentMember = members.find(
+            (m: any) => String(m.user_id) === String(currentUserId)
+          );
+          const roleLabel = currentMember?.board_role_label;
+          return !!(roleLabel && roleLabel.toLowerCase().includes("client"));
+        } catch (error) {
+          console.error("Error checking client role:", error);
+          return false;
+        }
+      };
+      setIsClientUser(checkClient());
+    }
+  }, [boardId]);
+
+  const effectiveIsClient = isClient ?? isClientUser;
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionItems, setMentionItems] = useState<
     Array<{ id: string; name: string; email?: string; role?: string }>
@@ -373,6 +429,9 @@ export function TiptapEditor({
               user.name.toLowerCase().includes(query.toLowerCase()),
             );
 
+            // Filter by role/tab rules
+            filtered = filterMembersByRoleRules(filtered, effectiveIsClient, !!isClientUpdatesTab);
+
             setMentionItems(filtered);
             mentionItemsRef.current = filtered;
             return filtered;
@@ -470,6 +529,9 @@ export function TiptapEditor({
                 filtered = filtered.filter((user) =>
                   user.name.toLowerCase().includes(props.query.toLowerCase()),
                 );
+
+                // Filter by role/tab rules
+                filtered = filterMembersByRoleRules(filtered, effectiveIsClient, !!isClientUpdatesTab);
 
                 setMentionItems(filtered);
                 mentionItemsRef.current = filtered;
