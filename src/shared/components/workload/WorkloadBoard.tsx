@@ -89,7 +89,7 @@ import { getOrganizationId } from "@/lib/utils";
 import { getWorkloadColumns } from "./WorkloadColumns";
 import { TaskCardDialog } from "./TaskCardDialog";
 import { CommentsPanelSheet } from "./CommentsPanelSheet";
-import type { TaskResponse, TaskComment } from "@/features/tasks/types";
+import type { TaskResponse, TaskComment, UpdateCommentRequest } from "@/features/tasks/types";
 import { ProfileDialog } from "../ProfileDialog";
 import {
   useTaskState,
@@ -3759,7 +3759,7 @@ export function WorkloadBoard({
     return { ...taskState.expandedTasks, ...additions };
   }, [taskState.expandedTasks, memoizedFilteredData.autoExpandedTaskIds]);
 
-  const saveUpdate = async () => {
+  const saveUpdate = async (isClientOnly?: boolean | number) => {
     if (!updateText.trim() || !selectedCommentsId || isSaving) {
       return;
     }
@@ -3773,6 +3773,7 @@ export function WorkloadBoard({
         content: finalHtml,
         parent_id: replyingTo ? Number(replyingTo.id) : null,
         is_internal: 0,
+        isclient: isClientOnly ? 1 : 0,
       };
 
       const newComment = await tasksApi.createComment(
@@ -3809,6 +3810,7 @@ export function WorkloadBoard({
   const saveInlineReply = async (
     parentId: string | number,
     replyText: string,
+    isClientOnly?: boolean | number,
   ) => {
     if (!replyText.trim() || !selectedCommentsId || isSaving) {
       return;
@@ -3823,6 +3825,7 @@ export function WorkloadBoard({
         content: finalHtml,
         parent_id: Number(parentId),
         is_internal: 0,
+        isclient: isClientOnly ? 1 : 0,
       };
 
       const newComment = await tasksApi.createComment(
@@ -3993,6 +3996,7 @@ export function WorkloadBoard({
   const updateTaskComment = async (
     commentId: string | number,
     content: string,
+    isClientOnly?: boolean | number,
   ) => {
     if (!selectedCommentsId || isSaving) return;
     setIsSaving(true);
@@ -4000,10 +4004,15 @@ export function WorkloadBoard({
       // Process deferred uploads (if any)
       const finalHtml = await attachmentsApi.uploadAndReplace(content);
 
+      const payload: UpdateCommentRequest = { content: finalHtml };
+      if (isClientOnly !== undefined) {
+        payload.isclient = isClientOnly ? 1 : 0;
+      }
+
       const updatedComment = await tasksApi.updateComment(
         selectedCommentsId,
         commentId,
-        { content: finalHtml }, // Send the HTML content after processing deferred uploads
+        payload,
       );
 
       // Update local state with the updated comment

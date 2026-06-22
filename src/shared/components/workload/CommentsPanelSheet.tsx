@@ -51,15 +51,17 @@ interface CommentsPanelSheetProps {
   onUpdateFilesChange: (
     files: Array<{ name: string; size: number; type: string; url: string }>,
   ) => void;
-  onSaveUpdate: () => void;
+  onSaveUpdate: (isClientOnly?: boolean) => void | Promise<void>;
   onDeleteComment: (commentId: string | number) => void | Promise<void>;
   onUpdateComment: (
     commentId: string | number,
     content: string,
+    isClientOnly?: boolean,
   ) => void | Promise<void>;
   onSaveInlineReply: (
     parentId: string | number,
     replyText: string,
+    isClientOnly?: boolean,
   ) => void | Promise<void>;
   onLikeComment: (commentId: string | number) => void | Promise<void>;
   onShareComment: (commentId: string | number) => void | Promise<void>;
@@ -604,7 +606,7 @@ export function CommentsPanelSheet({
                         onShareComment={onShareComment}
                         onToggleSOP={onToggleSOP}
                         onToggleIsClient={onToggleIsClient}
-                        onSaveMainUpdate={onSaveUpdate}
+                        onSaveMainUpdate={() => onSaveUpdate(false)}
                         onHighlightComplete={onHighlightComplete}
                         isSaving={isSaving}
                         onFilePreview={handleFilePreview}
@@ -632,11 +634,11 @@ export function CommentsPanelSheet({
                         fetchClientComments(true, false);
                       }}
                       onUpdateComment={async (id, content) => {
-                        await onUpdateComment(id, content);
+                        await onUpdateComment(id, content, true);
                         fetchClientComments(true, false);
                       }}
                       onSaveInlineReply={async (pid, txt) => {
-                        await onSaveInlineReply(pid, txt);
+                        await onSaveInlineReply(pid, txt, true);
                         fetchClientComments(true, false);
                       }}
                       onLikeComment={async (id) => {
@@ -655,7 +657,7 @@ export function CommentsPanelSheet({
                       onSaveMainUpdate={async (_text) => {
                         // The parent onSaveUpdate uses the internal updateText state from Board
                         // but it will be cleared after successful save.
-                        await onSaveUpdate();
+                        await onSaveUpdate(true);
                         fetchClientComments(false, true);
                       }}
                       onHighlightComplete={onHighlightComplete}
