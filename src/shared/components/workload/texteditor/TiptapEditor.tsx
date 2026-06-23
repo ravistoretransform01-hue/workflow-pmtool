@@ -634,28 +634,6 @@ export function TiptapEditor({
           return true;
         }
 
-        if (
-          event.key === "Enter" &&
-          !event.shiftKey &&
-          !event.ctrlKey &&
-          !event.metaKey
-        ) {
-          // If mention dropdown is open, let it handle Enter for selection
-          if (mentionOpen) return false;
-
-          // If we're inside a list, let the default behavior (new list item) happen
-          if (
-            editor?.isActive("bulletList") ||
-            editor?.isActive("orderedList") ||
-            editor?.isActive("taskList")
-          ) {
-            return false;
-          }
-
-          // Otherwise, insert a hard break (<br>) instead of a new paragraph
-          editor?.commands.setHardBreak();
-          return true;
-        }
         return false;
       },
       handlePaste: (view, event) => {
@@ -1033,6 +1011,48 @@ export function TiptapEditor({
     setMentionOpen(false);
   };
 
+  const toggleListSplittingHardBreaks = (listType: "bulletList" | "orderedList") => {
+    if (!editor) return;
+
+    editor.chain().focus().run();
+
+    const { state } = editor;
+    const { selection, doc } = state;
+    const { from, to } = selection;
+
+    // Find all hardBreak nodes in the selection
+    const positions: number[] = [];
+    doc.nodesBetween(from, to, (node, pos) => {
+      if (node.type.name === "hardBreak") {
+        positions.push(pos);
+      }
+    });
+
+    if (positions.length > 0) {
+      const tr = state.tr;
+      // Delete hardBreak and split in reverse order
+      for (let i = positions.length - 1; i >= 0; i--) {
+        const pos = positions[i];
+        tr.delete(pos, pos + 1);
+        tr.split(pos);
+      }
+      editor.view.dispatch(tr);
+
+      // Select the new range so that the list toggle command applies to all split paragraphs
+      editor.commands.setTextSelection({
+        from: from,
+        to: to + positions.length,
+      });
+    }
+
+    // After splitting, toggle the list
+    if (listType === "bulletList") {
+      editor.chain().focus().toggleBulletList().run();
+    } else {
+      editor.chain().focus().toggleOrderedList().run();
+    }
+  };
+
   return (
     <div
       className="relative z-10 h-full flex flex-col"
@@ -1267,7 +1287,7 @@ export function TiptapEditor({
                 ? "bg-blue-500 text-white hover:bg-blue-600"
                 : "text-foreground hover:bg-muted",
             )}
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            onClick={() => toggleListSplittingHardBreaks("bulletList")}
           >
             <List className="h-4 w-4" />
           </Button>
@@ -1281,7 +1301,7 @@ export function TiptapEditor({
                 ? "bg-blue-500 text-white hover:bg-blue-600"
                 : "text-foreground hover:bg-muted",
             )}
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            onClick={() => toggleListSplittingHardBreaks("orderedList")}
           >
             <ListOrdered className="h-4 w-4" />
           </Button>
@@ -1615,11 +1635,11 @@ export function TiptapEditor({
               "[&_img[style*='text-align: center']]:mx-auto [&_img[style*='text-align: center']]:block",
               "[&_img[style*='text-align: right']]:ml-auto [&_img[style*='text-align: right']]:block",
               "[&_img[style*='text-align: left']]:mr-auto [&_img[style*='text-align: left']]:block",
-              "[&_ul]:list-disc [&_ul]:ml-6 [&_ul]:my-2",
-              "[&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:my-2",
+              "[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2",
+              "[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2",
               "[&_li]:my-1",
-              "[&_ul_ul]:list-circle [&_ul_ul]:ml-6",
-              "[&_ol_ol]:ml-6",
+              "[&_ul_ul]:list-circle [&_ul_ul]:pl-5",
+              "[&_ol_ol]:pl-5",
               "[&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-muted-foreground",
               "[&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:font-mono [&_pre]:text-sm [&_pre]:my-2 [&_pre]:overflow-x-auto",
               "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-2",
