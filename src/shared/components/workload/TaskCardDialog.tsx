@@ -276,8 +276,16 @@ export function TaskCardDialog({
         const pollInterval = setInterval(async () => {
           if (!task?.id) return;
           try {
-            const fetched = await tasksApi.getComments(task.id);
-            setComments(fetched);
+            const response = await tasksApi.getComments(task.id, {
+              mode: "threaded",
+              page: 1,
+              per_page: 150,
+            });
+            if (response && response.data) {
+              setComments(response.data);
+            } else if (Array.isArray(response)) {
+              setComments(response);
+            }
           } catch {
             // Silently ignore poll errors
           }
@@ -325,8 +333,18 @@ export function TaskCardDialog({
 
     setIsLoadingComments(true);
     try {
-      const fetchedComments = await tasksApi.getComments(task.id);
-      setComments(fetchedComments);
+      const response = await tasksApi.getComments(task.id, {
+        mode: "threaded",
+        page: 1,
+        per_page: 150,
+      });
+      if (response && response.data) {
+        setComments(response.data);
+      } else if (Array.isArray(response)) {
+        setComments(response);
+      } else {
+        setComments([]);
+      }
     } catch (error) {
       console.error("Failed to fetch comments:", error);
       toast.error("Failed to load comments");
