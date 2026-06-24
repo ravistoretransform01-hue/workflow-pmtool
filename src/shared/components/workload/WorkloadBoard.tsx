@@ -1836,6 +1836,7 @@ export function WorkloadBoard({
         id: String(newGroup.id),
         name: newGroup.name,
         color: newGroup.color || newGroupColorInput,
+        label_id: newGroup.label ? String(newGroup.label) : undefined,
         tasks: (newGroup.tasks || []).map((task: any) => ({
           id: String(task.id),
           name: task.name,
@@ -1965,6 +1966,7 @@ export function WorkloadBoard({
             name: res.name,
             color: res.color,
             label: res.label,
+            label_id: res.label ? String(res.label) : undefined,
             label_color: res.label_color,
           };
         }
@@ -3571,10 +3573,21 @@ export function WorkloadBoard({
             .filter((l) => filterState.taskFilters.labels.has(String(l.id)))
             .map((l) => l.label_name);
 
-          // Also allow matching by ID just in case
+          // Use the live group label from groupLabels state if present, otherwise fallback to group.label_id
+          const activeLabel =
+            groupLabels[group.id] !== undefined
+              ? groupLabels[group.id]
+              : (group.label_id || "");
+
+          // Match by name or ID
           const hasMatch =
-            filterState.taskFilters.labels.has(group.label_id || "") ||
-            selectedLabelNames.includes(group.label_id || "");
+            filterState.taskFilters.labels.has(activeLabel) ||
+            selectedLabelNames.includes(activeLabel) ||
+            labels.some(
+              (l) =>
+                l.label_name === activeLabel &&
+                filterState.taskFilters.labels.has(String(l.id)),
+            );
 
           if (!hasMatch) return false;
         }
@@ -3746,6 +3759,7 @@ export function WorkloadBoard({
     filterState.showDoneItemsOnly,
     statuses,
     labels,
+    groupLabels,
   ]);
 
   // Compatibility function to return groups (maintains existing usage)
