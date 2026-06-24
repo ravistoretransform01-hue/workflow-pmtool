@@ -314,10 +314,18 @@ export const tasksApi = {
   /**
    * Get all comments for a task
    */
-  getComments: async (taskId: string | number): Promise<TaskComment[]> => {
+  getComments: async (
+    taskId: string | number,
+    params?: {
+      mode?: "flat" | "threaded";
+      page?: number;
+      per_page?: number;
+    },
+  ): Promise<any> => {
     try {
       const response = await axios.get<any>(
         TASKS_ENDPOINTS.GET_COMMENTS(taskId),
+        { params },
       );
 
       let data = response.data;
@@ -336,10 +344,45 @@ export const tasksApi = {
 
       // Handle the API response format
       if (data && data.data && Array.isArray(data.data)) {
-        return data.data.map((comment: any) => ({
-          ...comment,
-          sop: comment.sop === "1" || comment.sop === 1,
-        }));
+        const mappedData = data.data.map((comment: any) => {
+          const descendants: any[] = [];
+          const collectDescendants = (c: any) => {
+            if (Array.isArray(c.children)) {
+              c.children.forEach((child: any) => {
+                const mappedChild = {
+                  ...child,
+                  sop: child.sop === "1" || child.sop === 1,
+                  children: [],
+                };
+                descendants.push(mappedChild);
+                collectDescendants(child);
+              });
+            }
+          };
+
+          collectDescendants(comment);
+
+          // Sort descendants by created_at ascending (oldest first)
+          descendants.sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime(),
+          );
+
+          return {
+            ...comment,
+            sop: comment.sop === "1" || comment.sop === 1,
+            children: descendants,
+          };
+        });
+
+        if (params?.mode === "threaded") {
+          return {
+            data: mappedData,
+            meta: data.meta,
+          };
+        }
+        return mappedData;
       }
 
       // Fallback if response is array directly
@@ -347,6 +390,7 @@ export const tasksApi = {
         return data.map((comment: any) => ({
           ...comment,
           sop: comment.sop === "1" || comment.sop === 1,
+          children: [],
         }));
       }
 
@@ -374,12 +418,35 @@ export const tasksApi = {
       // Handle the API response format
       if (data && data.data && Array.isArray(data.data)) {
         const mappedData = data.data.map((comment: any) => {
-          const mapComment = (c: any): any => ({
-            ...c,
-            sop: c.sop === "1" || c.sop === 1,
-            children: Array.isArray(c.children) ? c.children.map(mapComment) : [],
-          });
-          return mapComment(comment);
+          const descendants: any[] = [];
+          const collectDescendants = (c: any) => {
+            if (Array.isArray(c.children)) {
+              c.children.forEach((child: any) => {
+                const mappedChild = {
+                  ...child,
+                  sop: child.sop === "1" || child.sop === 1,
+                  children: [],
+                };
+                descendants.push(mappedChild);
+                collectDescendants(child);
+              });
+            }
+          };
+
+          collectDescendants(comment);
+
+          // Sort descendants by created_at ascending (oldest first)
+          descendants.sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime(),
+          );
+
+          return {
+            ...comment,
+            sop: comment.sop === "1" || comment.sop === 1,
+            children: descendants,
+          };
         });
 
         if (params?.mode === "threaded") {

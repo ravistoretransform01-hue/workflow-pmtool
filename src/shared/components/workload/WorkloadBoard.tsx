@@ -1160,8 +1160,18 @@ export function WorkloadBoard({
   useEffect(() => {
     const fetchComments = async (taskId: string) => {
       try {
-        const data = await tasksApi.getComments(taskId);
-        setComments(data);
+        const response = await tasksApi.getComments(taskId, {
+          mode: "threaded",
+          page: 1,
+          per_page: 150,
+        });
+        if (response && response.data) {
+          setComments(response.data);
+        } else if (Array.isArray(response)) {
+          setComments(response);
+        } else {
+          setComments([]);
+        }
       } catch (error) {
         console.error("Failed to fetch comments:", error);
       }
