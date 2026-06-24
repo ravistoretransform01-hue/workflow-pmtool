@@ -9,7 +9,10 @@ export const renderFormattedContent = (content: string) => {
 
   // Check if content is already HTML (from Tiptap)
   if (content.includes("<") && content.includes(">")) {
-    return { __html: content };
+    const fixed = content.replace(/src=\\?["'](image\/[a-zA-Z0-9.-]+;base64,)/gi, (match, group) => {
+      return match.replace(group, "data:" + group);
+    });
+    return { __html: fixed };
   }
 
   // Otherwise, treat as markdown-ish content and convert
