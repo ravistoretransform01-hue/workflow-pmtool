@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import {
   Search,
   Trash2,
@@ -74,6 +75,7 @@ type TrashItemType = "task" | "board" | "group" | "status" | "priority";
 
 function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
   const dispatch = useAppDispatch();
+  const { boardId } = useParams<{ boardId: string }>();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>(
     {},
@@ -126,7 +128,7 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
         const orgId = getOrganizationId();
         if (!orgId) return;
 
-        const data = await trashApi.getArchivedTasks(orgId);
+        const data = await trashApi.getArchivedTasks(orgId, boardId);
         setArchivedTasks(data);
       } catch (error) {
         console.error("Error loading archived tasks:", error);
@@ -137,7 +139,7 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
 
     loadTrashData();
     loadArchivedData();
-  }, [open]);
+  }, [open, boardId]);
 
   // Map activeType to the key in trashData
   const getItemsByType = (

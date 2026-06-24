@@ -87,11 +87,15 @@ export const trashApi = {
     });
   },
 
-  getArchivedTasks: async (organizationId: number): Promise<TrashTask[]> => {
+  getArchivedTasks: async (
+    organizationId: number,
+    boardId?: number | string,
+  ): Promise<TrashTask[]> => {
     const response = await api.get<{ data: TrashTask[] }>(`/tasks/`, {
       params: { 
         organization_id: organizationId,
-        show_archived: 1 
+        show_archived: 1,
+        board_id: boardId,
       },
     });
     return response.data.data || [];
