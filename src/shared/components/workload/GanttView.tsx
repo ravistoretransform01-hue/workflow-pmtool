@@ -36,14 +36,25 @@ const parseDate = (val: any): Date | null => {
 };
 
 // Custom template component for Gantt hover tooltips
+const getAvatarColors = (name: string) => {
+  const code = name.charCodeAt(0) % 5;
+  switch (code) {
+    case 0: return { bg: "bg-blue-500/15", text: "text-blue-400 border border-blue-500/20" };
+    case 1: return { bg: "bg-emerald-500/15", text: "text-emerald-400 border border-emerald-500/20" };
+    case 2: return { bg: "bg-violet-500/15", text: "text-violet-400 border border-violet-500/20" };
+    case 3: return { bg: "bg-amber-500/15", text: "text-amber-400 border border-amber-500/20" };
+    default: return { bg: "bg-pink-500/15", text: "text-pink-400 border border-pink-500/20" };
+  }
+};
+
 const CustomTooltipContent = ({ data }: { data: any }) => {
   if (!data) return null;
   const startStr = data.start ? format(new Date(data.start), "MMM d, yyyy") : "";
   const endStr = (data.start && data.duration) ? format(addDays(new Date(data.start), data.duration - 1), "MMM d, yyyy") : "";
 
   return (
-    <div className="p-3 bg-slate-950/90 border border-slate-800 text-slate-100 rounded-lg shadow-xl backdrop-blur-md max-w-xs flex flex-col gap-2 pointer-events-none select-none font-sans text-xs">
-      <div className="font-semibold text-sm text-white border-b border-slate-800/80 pb-1.5 leading-snug">
+    <div className="p-4 bg-slate-950/95 border border-slate-800 text-slate-100 rounded-xl shadow-2xl backdrop-blur-md w-[340px] flex flex-col gap-2.5 pointer-events-none select-none font-sans text-xs">
+      <div className="font-semibold text-sm text-white border-b border-slate-800/80 pb-2 leading-snug">
         {data.text}
       </div>
       
@@ -93,17 +104,18 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
           </div>
         )}
         {data.assignees && data.assignees.length > 0 && (
-          <div className="flex flex-col gap-1 mt-1 border-t border-slate-800/85 pt-1.5">
-            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Assignees</span>
-            <div className="flex flex-wrap gap-1.5 mt-0.5">
+          <div className="flex flex-col gap-1.5 mt-1 border-t border-slate-800/80 pt-2.5">
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-0.5">Assignees</span>
+            <div className="flex flex-wrap gap-1.5">
               {data.assignees.map((name: string, i: number) => {
                 const initials = name.trim().charAt(0).toUpperCase();
+                const colors = getAvatarColors(name);
                 return (
-                  <div key={i} className="flex items-center gap-1 bg-slate-900 border border-slate-850 px-1.5 py-0.5 rounded text-[11px] text-slate-300">
-                    <div className="w-3.5 h-3.5 rounded-full bg-primary/20 text-primary-foreground font-semibold flex items-center justify-center text-[9px]">
+                  <div key={i} className="flex items-center gap-1.5 bg-slate-900/60 border border-slate-800/80 px-2 py-0.5 rounded text-[11px] text-slate-300 font-medium">
+                    <div className={cn("w-4 h-4 rounded-full font-bold flex items-center justify-center text-[9px] shrink-0", colors.bg, colors.text)}>
                       {initials}
                     </div>
-                    <span>{name}</span>
+                    <span className="truncate max-w-[120px]">{name}</span>
                   </div>
                 );
               })}
@@ -1496,7 +1508,7 @@ export default function GanttView({
       </div>
 
       {/* Gantt Wrapper */}
-      <div className="flex-1 min-h-0 flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden pm-gantt-wrapper">
+      <div className="flex-1 min-h-0 flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden pm-gantt-wrapper relative">
         <style>{`
           /* Custom styles to match the PM tool aesthetic */
           .pm-gantt-wrapper > div,
@@ -1647,6 +1659,8 @@ export default function GanttView({
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
+            pointer-events: none !important;
+            z-index: 9999 !important;
           }
 
           /* Prevent Gantt tooltips from displaying when a Radix portal/popover/select/dialog is active */
