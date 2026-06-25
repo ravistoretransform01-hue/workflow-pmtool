@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useRef, useEffect } from "react";
+import { useCallback, useMemo, useState, useRef, useEffect, createContext, useContext } from "react";
 import { Gantt, WillowDark, Tooltip } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
 import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endOfMonth } from "date-fns";
@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { stringToHslColor } from "./utils";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { toast } from "sonner";
-
+import { EstimatedDatePicker } from "./cells/EstimatedDatePicker";
 
 // Robust helper to parse dates from various formats (Date, timestamp, or ISO string)
 const parseDate = (val: any): Date | null => {
@@ -36,41 +36,89 @@ const parseDate = (val: any): Date | null => {
 };
 
 // Custom template component for Gantt hover tooltips
+const getAvatarColors = (name: string) => {
+  const code = name.charCodeAt(0) % 5;
+  switch (code) {
+    case 0:
+      return {
+        bg: "bg-blue-500/15",
+        text: "text-blue-400 border border-blue-500/20",
+      };
+    case 1:
+      return {
+        bg: "bg-emerald-500/15",
+        text: "text-emerald-400 border border-emerald-500/20",
+      };
+    case 2:
+      return {
+        bg: "bg-violet-500/15",
+        text: "text-violet-400 border border-violet-500/20",
+      };
+    case 3:
+      return {
+        bg: "bg-amber-500/15",
+        text: "text-amber-400 border border-amber-500/20",
+      };
+    default:
+      return {
+        bg: "bg-pink-500/15",
+        text: "text-pink-400 border border-pink-500/20",
+      };
+  }
+};
+
 const CustomTooltipContent = ({ data }: { data: any }) => {
   if (!data) return null;
-  const startStr = data.start ? format(new Date(data.start), "MMM d, yyyy") : "";
-  const endStr = (data.start && data.duration) ? format(addDays(new Date(data.start), data.duration - 1), "MMM d, yyyy") : "";
+  const startStr = data.start
+    ? format(new Date(data.start), "MMM d, yyyy")
+    : "";
+  const endStr =
+    data.start && data.duration
+      ? format(addDays(new Date(data.start), data.duration - 1), "MMM d, yyyy")
+      : "";
 
   return (
-    <div className="p-3 bg-slate-950/90 border border-slate-800 text-slate-100 rounded-lg shadow-xl backdrop-blur-md max-w-xs flex flex-col gap-2 pointer-events-none select-none font-sans text-xs">
-      <div className="font-semibold text-sm text-white border-b border-slate-800/80 pb-1.5 leading-snug">
+    <div className="p-4 bg-slate-950/95 border border-slate-800 text-slate-100 rounded-xl shadow-2xl backdrop-blur-md w-[340px] flex flex-col gap-2.5 pointer-events-none select-none font-sans text-xs">
+      <div className="font-semibold text-sm text-white border-b border-slate-800/80 pb-2 leading-snug">
         {data.text}
       </div>
-      
+
       <div className="flex flex-col gap-1.5 text-slate-400">
         <div className="flex items-center justify-between gap-4">
           <span>Schedule:</span>
-          <span className="text-slate-200 font-medium">{startStr && endStr ? `${startStr} - ${endStr}` : "Unscheduled"}</span>
+          <span className="text-slate-200 font-medium">
+            {startStr && endStr ? `${startStr} - ${endStr}` : "Unscheduled"}
+          </span>
         </div>
         <div className="flex items-center justify-between gap-4">
           <span>Duration:</span>
-          <span className="text-slate-200 font-medium">{data.duration ? `${data.duration} day${data.duration > 1 ? 's' : ''}` : "-"}</span>
+          <span className="text-slate-200 font-medium">
+            {data.duration
+              ? `${data.duration} day${data.duration > 1 ? "s" : ""}`
+              : "-"}
+          </span>
         </div>
         {data.estimatedHours && data.estimatedHours !== "-" && (
           <div className="flex items-center justify-between gap-4">
             <span>Est. Hours:</span>
-            <span className="text-slate-200 font-medium">{data.estimatedHours}</span>
+            <span className="text-slate-200 font-medium">
+              {data.estimatedHours}
+            </span>
           </div>
         )}
         {data.priority && (
           <div className="flex items-center justify-between gap-4 mt-0.5">
             <span>Priority:</span>
-            <span 
+            <span
               className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border"
               style={{
-                backgroundColor: data.priority_color ? `${data.priority_color}20` : "rgba(255, 255, 255, 0.05)",
+                backgroundColor: data.priority_color
+                  ? `${data.priority_color}20`
+                  : "rgba(255, 255, 255, 0.05)",
                 color: data.priority_color || "rgb(148, 163, 184)",
-                borderColor: data.priority_color ? `${data.priority_color}30` : "rgba(255, 255, 255, 0.1)"
+                borderColor: data.priority_color
+                  ? `${data.priority_color}30`
+                  : "rgba(255, 255, 255, 0.1)",
               }}
             >
               {data.priority}
@@ -80,12 +128,16 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
         {data.status && (
           <div className="flex items-center justify-between gap-4">
             <span>Status:</span>
-            <span 
+            <span
               className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border"
               style={{
-                backgroundColor: data.status_color ? `${data.status_color}20` : "rgba(59, 130, 246, 0.2)",
+                backgroundColor: data.status_color
+                  ? `${data.status_color}20`
+                  : "rgba(59, 130, 246, 0.2)",
                 color: data.status_color || "rgb(96, 165, 250)",
-                borderColor: data.status_color ? `${data.status_color}30` : "rgba(59, 130, 246, 0.3)"
+                borderColor: data.status_color
+                  ? `${data.status_color}30`
+                  : "rgba(59, 130, 246, 0.3)",
               }}
             >
               {data.status}
@@ -93,17 +145,29 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
           </div>
         )}
         {data.assignees && data.assignees.length > 0 && (
-          <div className="flex flex-col gap-1 mt-1 border-t border-slate-800/85 pt-1.5">
-            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Assignees</span>
-            <div className="flex flex-wrap gap-1.5 mt-0.5">
+          <div className="flex flex-col gap-1.5 mt-1 border-t border-slate-800/80 pt-2.5">
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-0.5">
+              Assignees
+            </span>
+            <div className="flex flex-wrap gap-1.5">
               {data.assignees.map((name: string, i: number) => {
                 const initials = name.trim().charAt(0).toUpperCase();
+                const colors = getAvatarColors(name);
                 return (
-                  <div key={i} className="flex items-center gap-1 bg-slate-900 border border-slate-850 px-1.5 py-0.5 rounded text-[11px] text-slate-300">
-                    <div className="w-3.5 h-3.5 rounded-full bg-primary/20 text-primary-foreground font-semibold flex items-center justify-center text-[9px]">
+                  <div
+                    key={i}
+                    className="flex items-center gap-1.5 bg-slate-900/60 border border-slate-800/80 px-2 py-0.5 rounded text-[11px] text-slate-300 font-medium"
+                  >
+                    <div
+                      className={cn(
+                        "w-4 h-4 rounded-full font-bold flex items-center justify-center text-[9px] shrink-0",
+                        colors.bg,
+                        colors.text,
+                      )}
+                    >
                       {initials}
                     </div>
-                    <span>{name}</span>
+                    <span className="truncate max-w-[120px]">{name}</span>
                   </div>
                 );
               })}
@@ -113,7 +177,7 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
       </div>
     </div>
   );
-};// Custom cell renderers for grid columns to provide premium and consistent date formatting
+}; // Custom cell renderers for grid columns to provide premium and consistent date formatting
 const StatusCell = ({ row }: { row: any }) => {
   if (!row || !row.status) {
     return <span className="text-muted-foreground/60">-</span>;
@@ -148,35 +212,51 @@ const PriorityCell = ({ row }: { row: any }) => {
   );
 };
 
-const GanttEstimatedDateCell = ({
-  row,
-  onOpenTaskCard,
-}: {
-  row: any;
-  onOpenTaskCard?: (task: Task) => void;
-}) => {
+interface GanttCellContextType {
+  openPopoverId: string | null;
+  setOpenPopoverId: (id: string | null) => void;
+  onEstimatedDateChange?: (
+    taskId: string,
+    fromDate: string | null,
+    toDate?: string | null,
+  ) => void;
+}
+
+const GanttCellContext = createContext<GanttCellContextType | null>(null);
+
+const GanttEstimatedDateCell = ({ row }: { row: any }) => {
+  const context = useContext(GanttCellContext);
   const task = row.originalTask;
-  const estimatedDate = task?.estimatedDate ?? "-";
+  if (!task) return <span className="text-muted-foreground/60">-</span>;
+
+  const estimatedDate = task.estimatedDate ?? "-";
+  const estimatedDateEnd = task.estimatedDateEnd ?? null;
+  const popoverId = `gantt-est-date-${task.id}`;
+
+  const openPopoverId = context?.openPopoverId ?? null;
+  const setOpenPopoverId = context?.setOpenPopoverId ?? (() => {});
+  const onEstimatedDateChange = context?.onEstimatedDateChange;
 
   return (
     <div className="flex items-center justify-center w-full h-full px-1">
-      {task ? (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onOpenTaskCard) {
-              onOpenTaskCard(task);
-            }
-          }}
-          className="estimated-date-trigger w-full bg-[#1e293b] text-slate-200 border-[#334155] hover:bg-[#334155] hover:text-white h-7 px-2 text-xs truncate font-normal"
-        >
-          {estimatedDate === "-" ? "Set Date" : estimatedDate}
-        </Button>
-      ) : (
-        <span className="text-muted-foreground/60">-</span>
-      )}
+      <EstimatedDatePicker
+        task={task}
+        estimatedDate={estimatedDate}
+        estimatedDateEnd={estimatedDateEnd}
+        popoverId={popoverId}
+        openPopoverId={openPopoverId}
+        setOpenPopoverId={setOpenPopoverId}
+        onEstimatedDateChange={onEstimatedDateChange}
+        customTrigger={ 
+          <Button
+            type="button"
+            variant="outline"
+            className="estimated-date-trigger w-full bg-[#1e293b] text-slate-200 border-[#334155] hover:bg-[#334155] hover:text-white h-7 px-2 text-xs truncate font-normal"
+          >
+            {estimatedDate === "-" ? "Set Date" : estimatedDate}
+          </Button>
+        }
+      />
     </div>
   );
 };
@@ -230,12 +310,13 @@ export default function GanttView({
   members,
   onEstimatedDateChange,
   onTaskClick,
-  onOpenTaskCard,
+  onOpenTaskCard: _onOpenTaskCard,
   onAddTask,
 }: GanttViewProps) {
   const [scaleMode, setScaleMode] = useState<"day" | "week">("day");
   const [ganttApi, setGanttApi] = useState<any>(null);
   const [colorBy, setColorBy] = useState<"status" | "priority">("status");
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
 
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
@@ -251,7 +332,9 @@ export default function GanttView({
   const [jumpMonth, setJumpMonth] = useState<number>(new Date().getMonth());
   const [jumpYear, setJumpYear] = useState<number>(new Date().getFullYear());
   const [isJumpPopoverOpen, setIsJumpPopoverOpen] = useState(false);
-  const [tempStartDate, setTempStartDate] = useState<Date | undefined>(undefined);
+  const [tempStartDate, setTempStartDate] = useState<Date | undefined>(
+    undefined,
+  );
   const [tempEndDate, setTempEndDate] = useState<Date | undefined>(undefined);
   const [isStartPopoverOpen, setIsStartPopoverOpen] = useState(false);
   const [isEndPopoverOpen, setIsEndPopoverOpen] = useState(false);
@@ -318,7 +401,7 @@ export default function GanttView({
       }
       return null;
     },
-    [statusColorMap]
+    [statusColorMap],
   );
 
   const getTaskPriorityColor = useCallback(
@@ -333,7 +416,7 @@ export default function GanttView({
       }
       return null;
     },
-    [priorityColorMap]
+    [priorityColorMap],
   );
 
   // Set default group when modal opens or groups change
@@ -355,41 +438,56 @@ export default function GanttView({
     setParentTaskId("none");
   }, [selectedGroupId]);
 
-  const handleCreateTask = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTaskName.trim() || !selectedGroupId) return;
+  const handleCreateTask = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newTaskName.trim() || !selectedGroupId) return;
 
-    if (startDateStr && endDateStr && new Date(endDateStr) < new Date(startDateStr)) {
-      toast.error("End date must be on or after start date");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      if (onAddTask) {
-        await onAddTask(
-          newTaskName.trim(),
-          selectedGroupId,
-          startDateStr || undefined,
-          endDateStr || undefined,
-          parentTaskId !== "none" ? parentTaskId : undefined,
-          selectedAssigneeIds.length > 0 ? selectedAssigneeIds : undefined
-        );
+      if (
+        startDateStr &&
+        endDateStr &&
+        new Date(endDateStr) < new Date(startDateStr)
+      ) {
+        toast.error("End date must be on or after start date");
+        return;
       }
-      // Reset form
-      setNewTaskName("");
-      setStartDateStr("");
-      setEndDateStr("");
-      setParentTaskId("none");
-      setSelectedAssigneeIds([]);
-      setAssigneeSearchQuery("");
-      setIsAddPopoverOpen(false);
-    } catch (err) {
-      console.error("Failed to add task:", err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [newTaskName, selectedGroupId, startDateStr, endDateStr, parentTaskId, selectedAssigneeIds, onAddTask]);
+
+      setIsSubmitting(true);
+      try {
+        if (onAddTask) {
+          await onAddTask(
+            newTaskName.trim(),
+            selectedGroupId,
+            startDateStr || undefined,
+            endDateStr || undefined,
+            parentTaskId !== "none" ? parentTaskId : undefined,
+            selectedAssigneeIds.length > 0 ? selectedAssigneeIds : undefined,
+          );
+        }
+        // Reset form
+        setNewTaskName("");
+        setStartDateStr("");
+        setEndDateStr("");
+        setParentTaskId("none");
+        setSelectedAssigneeIds([]);
+        setAssigneeSearchQuery("");
+        setIsAddPopoverOpen(false);
+      } catch (err) {
+        console.error("Failed to add task:", err);
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [
+      newTaskName,
+      selectedGroupId,
+      startDateStr,
+      endDateStr,
+      parentTaskId,
+      selectedAssigneeIds,
+      onAddTask,
+    ],
+  );
 
   const latestRef = useRef<any>(null);
 
@@ -456,73 +554,82 @@ export default function GanttView({
   );
 
   // Helper to calculate duration in days between two ISO date strings (inclusive)
-  const calculateDuration = useCallback((fromStr?: string, toStr?: string): number => {
-    if (!fromStr || !toStr) return 1;
-    try {
-      const from = parseISO(fromStr);
-      const to = parseISO(toStr);
-      if (isNaN(from.getTime()) || isNaN(to.getTime())) return 1;
-      return Math.max(1, differenceInCalendarDays(to, from) + 1);
-    } catch {
-      return 1;
-    }
-  }, []);
+  const calculateDuration = useCallback(
+    (fromStr?: string, toStr?: string): number => {
+      if (!fromStr || !toStr) return 1;
+      try {
+        const from = parseISO(fromStr);
+        const to = parseISO(toStr);
+        if (isNaN(from.getTime()) || isNaN(to.getTime())) return 1;
+        return Math.max(1, differenceInCalendarDays(to, from) + 1);
+      } catch {
+        return 1;
+      }
+    },
+    [],
+  );
 
   // Helper to resolve start date and duration for a task dynamically, including subitems
-  const getTaskDates = useCallback((task: Task): { start: Date; duration: number } => {
-    let start = new Date();
-    let duration = 1;
+  const getTaskDates = useCallback(
+    (task: Task): { start: Date; duration: number } => {
+      let start = new Date();
+      let duration = 1;
 
-    const taskAny = task as any;
-    const rawFrom = taskAny.estimation?.estimated_date_from;
-    const rawTo = taskAny.estimation?.estimated_date_to;
+      const taskAny = task as any;
+      const rawFrom = taskAny.estimation?.estimated_date_from;
+      const rawTo = taskAny.estimation?.estimated_date_to;
 
-    // Fallback: If no direct estimation, try to derive from scheduled subitems
-    if (!rawFrom && !rawTo && task.subitems && task.subitems.length > 0) {
-      let minStart: Date | null = null;
-      let maxEnd: Date | null = null;
+      // Fallback: If no direct estimation, try to derive from scheduled subitems
+      if (!rawFrom && !rawTo && task.subitems && task.subitems.length > 0) {
+        let minStart: Date | null = null;
+        let maxEnd: Date | null = null;
 
-      for (const sub of task.subitems) {
-        const subAny = sub as any;
-        const subFrom = subAny.estimation?.estimated_date_from;
-        const subTo = subAny.estimation?.estimated_date_to;
-        if (subFrom && subTo) {
-          try {
-            const s = parseISO(subFrom);
-            const e = parseISO(subTo);
-            if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
-              if (!minStart || s < minStart) minStart = s;
-              if (!maxEnd || e > maxEnd) maxEnd = e;
-            }
-          } catch {}
+        for (const sub of task.subitems) {
+          const subAny = sub as any;
+          const subFrom = subAny.estimation?.estimated_date_from;
+          const subTo = subAny.estimation?.estimated_date_to;
+          if (subFrom && subTo) {
+            try {
+              const s = parseISO(subFrom);
+              const e = parseISO(subTo);
+              if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+                if (!minStart || s < minStart) minStart = s;
+                if (!maxEnd || e > maxEnd) maxEnd = e;
+              }
+            } catch {}
+          }
+        }
+
+        if (minStart && maxEnd) {
+          return {
+            start: minStart,
+            duration: Math.max(
+              1,
+              differenceInCalendarDays(maxEnd, minStart) + 1,
+            ),
+          };
         }
       }
 
-      if (minStart && maxEnd) {
-        return {
-          start: minStart,
-          duration: Math.max(1, differenceInCalendarDays(maxEnd, minStart) + 1),
-        };
-      }
-    }
-
-    if (rawFrom) {
-      try {
-        const parsed = parseISO(rawFrom);
-        if (!isNaN(parsed.getTime())) {
-          start = parsed;
+      if (rawFrom) {
+        try {
+          const parsed = parseISO(rawFrom);
+          if (!isNaN(parsed.getTime())) {
+            start = parsed;
+          }
+        } catch (e) {
+          console.warn("Failed to parse start date:", rawFrom, e);
         }
-      } catch (e) {
-        console.warn("Failed to parse start date:", rawFrom, e);
       }
-    }
 
-    if (rawFrom && rawTo) {
-      duration = calculateDuration(rawFrom, rawTo);
-    }
+      if (rawFrom && rawTo) {
+        duration = calculateDuration(rawFrom, rawTo);
+      }
 
-    return { start, duration };
-  }, [calculateDuration]);
+      return { start, duration };
+    },
+    [calculateDuration],
+  );
 
   // Helper to check if a task has estimated dates defined or has scheduled subitems
   const hasEstimation = useCallback((task: Task): boolean => {
@@ -564,6 +671,7 @@ export default function GanttView({
     getTaskDates,
     onEstimatedDateChange,
     onTaskClick,
+    setOpenPopoverId,
   };
 
   // Map our tasks to SVAR's expected format (reactive to groups prop changes)
@@ -576,8 +684,12 @@ export default function GanttView({
         const hasSubitems = task.subitems && task.subitems.length > 0;
         const isScheduled = hasEstimation(task);
 
-        const resolvedStatus = task.status_id ? (statusNameMap.get(task.status_id) || task.status) : task.status;
-        const resolvedPriority = task.priority_id ? (priorityNameMap.get(task.priority_id) || task.priority) : task.priority;
+        const resolvedStatus = task.status_id
+          ? statusNameMap.get(task.status_id) || task.status
+          : task.status;
+        const resolvedPriority = task.priority_id
+          ? priorityNameMap.get(task.priority_id) || task.priority
+          : task.priority;
 
         // 1. Map the main task row as top-level (no parent)
         list.push({
@@ -595,10 +707,13 @@ export default function GanttView({
           unscheduled: !isScheduled,
           assignees: task.assignee_names,
           priority: resolvedPriority,
-          priority_color: getTaskPriorityColor(task.priority_id, resolvedPriority) || undefined,
+          priority_color:
+            getTaskPriorityColor(task.priority_id, resolvedPriority) ||
+            undefined,
           status: resolvedStatus,
           status_id: task.status_id,
-          status_color: getTaskStatusColor(task.status_id, resolvedStatus) || undefined,
+          status_color:
+            getTaskStatusColor(task.status_id, resolvedStatus) || undefined,
           estimatedHours: task.estimatedHours,
           originalTask: task,
         });
@@ -610,8 +725,12 @@ export default function GanttView({
               getTaskDates(sub);
             const isSubScheduled = hasEstimation(sub);
 
-            const resolvedSubStatus = sub.status_id ? (statusNameMap.get(sub.status_id) || sub.status) : sub.status;
-            const resolvedSubPriority = sub.priority_id ? (priorityNameMap.get(sub.priority_id) || sub.priority) : sub.priority;
+            const resolvedSubStatus = sub.status_id
+              ? statusNameMap.get(sub.status_id) || sub.status
+              : sub.status;
+            const resolvedSubPriority = sub.priority_id
+              ? priorityNameMap.get(sub.priority_id) || sub.priority
+              : sub.priority;
 
             list.push({
               id: sub.id,
@@ -624,10 +743,14 @@ export default function GanttView({
               unscheduled: !isSubScheduled,
               assignees: sub.assignee_names,
               priority: resolvedSubPriority,
-              priority_color: getTaskPriorityColor(sub.priority_id, resolvedSubPriority) || undefined,
+              priority_color:
+                getTaskPriorityColor(sub.priority_id, resolvedSubPriority) ||
+                undefined,
               status: resolvedSubStatus,
               status_id: sub.status_id,
-              status_color: getTaskStatusColor(sub.status_id, resolvedSubStatus) || undefined,
+              status_color:
+                getTaskStatusColor(sub.status_id, resolvedSubStatus) ||
+                undefined,
               estimatedHours: sub.estimatedHours,
               originalTask: sub,
             });
@@ -636,14 +759,38 @@ export default function GanttView({
       }
     }
     return list;
-  }, [groups, hasEstimation, getTaskDates, getTaskStatusColor, getTaskPriorityColor, statusNameMap, priorityNameMap]);
+  }, [
+    groups,
+    hasEstimation,
+    getTaskDates,
+    getTaskStatusColor,
+    getTaskPriorityColor,
+    statusNameMap,
+    priorityNameMap,
+  ]);
 
   // Handle SVAR Gantt actions and events
   const handleInit = useCallback(
     (api: any) => {
       setGanttApi(api);
-      // 1. Intercept select-task to open the custom task dialog/card, returning false to prevent persistent selection background
       api.intercept("select-task", (payload: any) => {
+        // If the user clicks on the estimatedDate column, trigger opening its popover and prevent selection
+        if (
+          payload &&
+          typeof payload === "object" &&
+          payload.column === "estimatedDate"
+        ) {
+          const rawId = payload.id;
+          if (rawId) {
+            const stringId = String(rawId);
+            if (!stringId.startsWith("group-")) {
+              const popoverId = `gantt-est-date-${stringId}`;
+              latestRef.current.setOpenPopoverId(popoverId);
+            }
+          }
+          return false;
+        }
+
         // If the user is clicking on an estimated date trigger button or its active popover/portaled content,
         // intercept and ignore the selection event. This prevents parent re-renders and stops the popover from blinking.
         const event = window.event as any;
@@ -693,7 +840,10 @@ export default function GanttView({
         // Retrieve the fully updated task directly from the SVAR Gantt store
         const updatedTask = api.getTask(id);
         if (!updatedTask) {
-          console.warn("[GanttView] Could not retrieve updated task from store:", idStr);
+          console.warn(
+            "[GanttView] Could not retrieve updated task from store:",
+            idStr,
+          );
           return;
         }
 
@@ -706,7 +856,11 @@ export default function GanttView({
           const toDate = addDays(start, duration - 1);
           const toDateStr = format(toDate, "yyyy-MM-dd");
 
-          latestRef.current.onEstimatedDateChange(idStr, fromDateStr, toDateStr);
+          latestRef.current.onEstimatedDateChange(
+            idStr,
+            fromDateStr,
+            toDateStr,
+          );
         }
       });
 
@@ -715,23 +869,24 @@ export default function GanttView({
         return false;
       });
     },
-    [getTaskById, onEstimatedDateChange, onTaskClick, getTaskDates, setGanttApi],
+    [
+      getTaskById,
+      onEstimatedDateChange,
+      onTaskClick,
+      getTaskDates,
+      setGanttApi,
+    ],
   );
 
-  const ganttColumns = useMemo(
-    () => [
+  const ganttColumns = useMemo(() => {
+    return [
       { id: "text", width: 220, resize: true, header: [{ text: "Task Name" }] },
       {
         id: "estimatedDate",
         width: 140,
         resize: true,
         header: [{ text: "Est. Date" }],
-        cell: (props: any) => (
-          <GanttEstimatedDateCell
-            {...props}
-            onOpenTaskCard={onOpenTaskCard}
-          />
-        ),
+        cell: GanttEstimatedDateCell,
       },
       {
         id: "status",
@@ -747,9 +902,8 @@ export default function GanttView({
         header: [{ text: "Priority" }],
         cell: PriorityCell,
       },
-    ],
-    [onOpenTaskCard],
-  );
+    ];
+  }, []);
 
   const ganttTimeRange = useMemo(() => {
     const now = new Date();
@@ -793,21 +947,27 @@ export default function GanttView({
     return { start, end };
   }, [groups, hasEstimation, getTaskDates, customJumpDate]);
 
-  const scrollToCurrentMonth = useCallback((apiInstance: any) => {
-    if (!apiInstance) return;
-    const now = new Date();
-    const currentMonthStart = startOfMonth(now);
-    const daysDiff = differenceInCalendarDays(currentMonthStart, ganttTimeRange.start);
-    
-    let leftOffset = 0;
-    if (scaleMode === "day") {
-      leftOffset = daysDiff * 50; // cellWidth is 50
-    } else {
-      leftOffset = (daysDiff / 7) * 80; // cellWidth is 80
-    }
-    
-    apiInstance.exec("scroll-chart", { left: Math.max(0, leftOffset) });
-  }, [ganttTimeRange.start, scaleMode]);
+  const scrollToCurrentMonth = useCallback(
+    (apiInstance: any) => {
+      if (!apiInstance) return;
+      const now = new Date();
+      const currentMonthStart = startOfMonth(now);
+      const daysDiff = differenceInCalendarDays(
+        currentMonthStart,
+        ganttTimeRange.start,
+      );
+
+      let leftOffset = 0;
+      if (scaleMode === "day") {
+        leftOffset = daysDiff * 50; // cellWidth is 50
+      } else {
+        leftOffset = (daysDiff / 7) * 80; // cellWidth is 80
+      }
+
+      apiInstance.exec("scroll-chart", { left: Math.max(0, leftOffset) });
+    },
+    [ganttTimeRange.start, scaleMode],
+  );
 
   useEffect(() => {
     if (ganttApi) {
@@ -834,9 +994,8 @@ export default function GanttView({
       const target = mouseEvent.target as HTMLElement;
       if (!target) return;
 
-      const isOverInteractive = 
-        target.closest(".wx-bar") || 
-        target.closest(".wx-tooltip");
+      const isOverInteractive =
+        target.closest(".wx-bar") || target.closest(".wx-tooltip");
 
       if (!isOverInteractive) {
         hideTooltips();
@@ -871,33 +1030,41 @@ export default function GanttView({
     };
   }, []);
 
-  const scrollToDate = useCallback((targetDate: Date) => {
-    if (!ganttApi) return;
-    
-    // Sanitize year to prevent browser-hanging ranges (e.g. year 0132 or 9999)
-    const year = targetDate.getFullYear();
-    if (year < 2000 || year > 2100) return;
-    
-    // If target date is outside current range, update customJumpDate state
-    let needsRangeUpdate = false;
-    if (ganttTimeRange.start && targetDate < ganttTimeRange.start) needsRangeUpdate = true;
-    if (ganttTimeRange.end && targetDate > ganttTimeRange.end) needsRangeUpdate = true;
-    
-    if (needsRangeUpdate) {
-      setCustomJumpDate(targetDate);
-      // Let the useEffect scroll to it after rendering
-      setScrollTargetDate(targetDate);
-    } else {
-      const daysDiff = differenceInCalendarDays(targetDate, ganttTimeRange.start);
-      let leftOffset = 0;
-      if (scaleMode === "day") {
-        leftOffset = daysDiff * 50;
+  const scrollToDate = useCallback(
+    (targetDate: Date) => {
+      if (!ganttApi) return;
+
+      // Sanitize year to prevent browser-hanging ranges (e.g. year 0132 or 9999)
+      const year = targetDate.getFullYear();
+      if (year < 2000 || year > 2100) return;
+
+      // If target date is outside current range, update customJumpDate state
+      let needsRangeUpdate = false;
+      if (ganttTimeRange.start && targetDate < ganttTimeRange.start)
+        needsRangeUpdate = true;
+      if (ganttTimeRange.end && targetDate > ganttTimeRange.end)
+        needsRangeUpdate = true;
+
+      if (needsRangeUpdate) {
+        setCustomJumpDate(targetDate);
+        // Let the useEffect scroll to it after rendering
+        setScrollTargetDate(targetDate);
       } else {
-        leftOffset = (daysDiff / 7) * 80;
+        const daysDiff = differenceInCalendarDays(
+          targetDate,
+          ganttTimeRange.start,
+        );
+        let leftOffset = 0;
+        if (scaleMode === "day") {
+          leftOffset = daysDiff * 50;
+        } else {
+          leftOffset = (daysDiff / 7) * 80;
+        }
+        ganttApi.exec("scroll-chart", { left: Math.max(0, leftOffset) });
       }
-      ganttApi.exec("scroll-chart", { left: Math.max(0, leftOffset) });
-    }
-  }, [ganttApi, ganttTimeRange.start, ganttTimeRange.end, scaleMode]);
+    },
+    [ganttApi, ganttTimeRange.start, ganttTimeRange.end, scaleMode],
+  );
 
   const handleGoToToday = useCallback(() => {
     const today = new Date();
@@ -910,7 +1077,10 @@ export default function GanttView({
   useEffect(() => {
     if (ganttApi && scrollTargetDate) {
       const timer = setTimeout(() => {
-        const daysDiff = differenceInCalendarDays(scrollTargetDate, ganttTimeRange.start);
+        const daysDiff = differenceInCalendarDays(
+          scrollTargetDate,
+          ganttTimeRange.start,
+        );
         let leftOffset = 0;
         if (scaleMode === "day") {
           leftOffset = daysDiff * 50;
@@ -927,7 +1097,8 @@ export default function GanttView({
   const dynamicStyles = useMemo(() => {
     let stylesStr = "";
     mappedTasks.forEach((t) => {
-      const activeColor = colorBy === "priority" ? t.priority_color : t.status_color;
+      const activeColor =
+        colorBy === "priority" ? t.priority_color : t.status_color;
       if (activeColor) {
         stylesStr += `
           .pm-gantt-wrapper .wx-bar[data-id="${t.id}"],
@@ -954,16 +1125,24 @@ export default function GanttView({
     return stylesStr;
   }, [mappedTasks, colorBy]);
 
+  const cellContextValue = useMemo(
+    () => ({
+      openPopoverId,
+      setOpenPopoverId,
+      onEstimatedDateChange,
+    }),
+    [openPopoverId, onEstimatedDateChange],
+  );
+
   return (
-    <div className="flex-1 w-[calc(100%-1.5rem)] h-[calc(100vh-220px)] min-h-[500px] flex flex-col mt-4 ml-6">
+    <GanttCellContext.Provider value={cellContextValue}>
+      <div className="flex-1 w-[calc(100%-1.5rem)] h-[calc(100vh-220px)] min-h-[500px] flex flex-col mt-4 ml-6">
       {/* Customized View / Horizontal Toolbar for Scale Control and Future Filters */}
       <div className="flex items-center justify-end mb-4 pr-6 select-none">
         {onAddTask && (
           <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
             <PopoverTrigger asChild>
-              <Button
-                className="mr-3 h-9 px-4 text-xs font-semibold rounded-md shadow-sm gap-1.5 flex items-center bg-primary hover:bg-primary/95 text-primary-foreground"
-              >
+              <Button className="mr-3 h-9 px-4 text-xs font-semibold rounded-md shadow-sm gap-1.5 flex items-center bg-primary hover:bg-primary/95 text-primary-foreground">
                 <Plus className="w-3.5 h-3.5" />
                 Add Task
               </Button>
@@ -975,21 +1154,27 @@ export default function GanttView({
                 const target = e.target as HTMLElement;
                 if (
                   target.closest('[role="listbox"]') ||
-                  target.closest('[data-radix-select-viewport]') ||
-                  target.closest('.SelectContent') ||
-                  target.closest('[data-radix-portal]')
+                  target.closest("[data-radix-select-viewport]") ||
+                  target.closest(".SelectContent") ||
+                  target.closest("[data-radix-portal]")
                 ) {
                   e.preventDefault();
                 }
               }}
             >
               <div className="space-y-1 mb-3">
-                <h3 className="font-semibold text-sm text-white leading-none">Create New Task</h3>
-                <p className="text-xs text-muted-foreground">Add a new task or subtask to the board</p>
+                <h3 className="font-semibold text-sm text-white leading-none">
+                  Create New Task
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Add a new task or subtask to the board
+                </p>
               </div>
               <form onSubmit={handleCreateTask} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="taskName" className="text-slate-300">Task Name</Label>
+                  <Label htmlFor="taskName" className="text-slate-300">
+                    Task Name
+                  </Label>
                   <Input
                     id="taskName"
                     value={newTaskName}
@@ -1000,17 +1185,26 @@ export default function GanttView({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="taskGroup" className="text-slate-300">Group</Label>
+                  <Label htmlFor="taskGroup" className="text-slate-300">
+                    Group
+                  </Label>
                   <Select
                     value={selectedGroupId}
                     onValueChange={setSelectedGroupId}
                   >
-                    <SelectTrigger id="taskGroup" className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary">
+                    <SelectTrigger
+                      id="taskGroup"
+                      className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary"
+                    >
                       <SelectValue placeholder="Select a group" />
                     </SelectTrigger>
                     <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000]">
                       {groups.map((group) => (
-                        <SelectItem key={group.id} value={String(group.id)} className="text-white focus:bg-[#334155] focus:text-white">
+                        <SelectItem
+                          key={group.id}
+                          value={String(group.id)}
+                          className="text-white focus:bg-[#334155] focus:text-white"
+                        >
                           {group.name}
                         </SelectItem>
                       ))}
@@ -1018,20 +1212,29 @@ export default function GanttView({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="parentTask" className="text-slate-300">Parent Task (Optional)</Label>
-                  <Select
-                    value={parentTaskId}
-                    onValueChange={setParentTaskId}
-                  >
-                    <SelectTrigger id="parentTask" className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary">
+                  <Label htmlFor="parentTask" className="text-slate-300">
+                    Parent Task (Optional)
+                  </Label>
+                  <Select value={parentTaskId} onValueChange={setParentTaskId}>
+                    <SelectTrigger
+                      id="parentTask"
+                      className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary"
+                    >
                       <SelectValue placeholder="Select a parent task (optional)" />
                     </SelectTrigger>
                     <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000]">
-                      <SelectItem value="none" className="text-white focus:bg-[#334155] focus:text-white">
+                      <SelectItem
+                        value="none"
+                        className="text-white focus:bg-[#334155] focus:text-white"
+                      >
                         None (Create as Main Task)
                       </SelectItem>
                       {parentTaskOptions.map((task) => (
-                        <SelectItem key={task.id} value={String(task.id)} className="text-white focus:bg-[#334155] focus:text-white">
+                        <SelectItem
+                          key={task.id}
+                          value={String(task.id)}
+                          className="text-white focus:bg-[#334155] focus:text-white"
+                        >
                           {task.name}
                         </SelectItem>
                       ))}
@@ -1048,12 +1251,16 @@ export default function GanttView({
                         className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary hover:bg-[#2e3e56] hover:text-white h-9 px-3 flex items-center justify-between font-normal text-xs"
                       >
                         {selectedAssigneeIds.length === 0 ? (
-                          <span className="text-slate-400">Select assignees (optional)</span>
+                          <span className="text-slate-400">
+                            Select assignees (optional)
+                          </span>
                         ) : (
                           <div className="flex items-center gap-1.5 overflow-hidden">
                             <div className="flex -space-x-1.5 overflow-hidden">
                               {selectedAssigneeIds.slice(0, 3).map((id) => {
-                                const member = members.find((m) => Number(m.user_id) === id);
+                                const member = members.find(
+                                  (m) => Number(m.user_id) === id,
+                                );
                                 if (!member) return null;
                                 const initials = (member.name || "")
                                   .split(/\s+/)
@@ -1062,11 +1269,19 @@ export default function GanttView({
                                   .slice(0, 2)
                                   .join("")
                                   .toUpperCase();
-                                const bgColor = stringToHslColor(member.name || String(id));
+                                const bgColor = stringToHslColor(
+                                  member.name || String(id),
+                                );
                                 return (
-                                  <Avatar key={id} className="h-5 w-5 border border-slate-900 shrink-0">
+                                  <Avatar
+                                    key={id}
+                                    className="h-5 w-5 border border-slate-900 shrink-0"
+                                  >
                                     <AvatarFallback
-                                      style={{ background: bgColor, color: "white" }}
+                                      style={{
+                                        background: bgColor,
+                                        color: "white",
+                                      }}
                                       className="text-[8px] font-semibold flex items-center justify-center"
                                     >
                                       {initials || "U"}
@@ -1077,7 +1292,11 @@ export default function GanttView({
                             </div>
                             <span className="truncate text-xs">
                               {selectedAssigneeIds.length === 1
-                                ? members.find((m) => Number(m.user_id) === selectedAssigneeIds[0])?.name
+                                ? members.find(
+                                    (m) =>
+                                      Number(m.user_id) ===
+                                      selectedAssigneeIds[0],
+                                  )?.name
                                 : `${selectedAssigneeIds.length} assignees selected`}
                             </span>
                           </div>
@@ -1093,18 +1312,23 @@ export default function GanttView({
                         <Input
                           placeholder="Search members..."
                           value={assigneeSearchQuery}
-                          onChange={(e) => setAssigneeSearchQuery(e.target.value)}
+                          onChange={(e) =>
+                            setAssigneeSearchQuery(e.target.value)
+                          }
                           className="h-8 bg-slate-950 border-slate-800 text-xs text-white focus-visible:ring-primary mb-2"
                         />
                       </div>
                       <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
                         {members
                           .filter((m) =>
-                            (m.name || "").toLowerCase().includes(assigneeSearchQuery.toLowerCase())
+                            (m.name || "")
+                              .toLowerCase()
+                              .includes(assigneeSearchQuery.toLowerCase()),
                           )
                           .map((member) => {
                             const memberIdNum = Number(member.user_id);
-                            const isSelected = selectedAssigneeIds.includes(memberIdNum);
+                            const isSelected =
+                              selectedAssigneeIds.includes(memberIdNum);
                             const initials = (member.name || "")
                               .split(/\s+/)
                               .map((n: string) => n[0])
@@ -1112,7 +1336,9 @@ export default function GanttView({
                               .slice(0, 2)
                               .join("")
                               .toUpperCase();
-                            const bgColor = stringToHslColor(member.name || String(member.user_id));
+                            const bgColor = stringToHslColor(
+                              member.name || String(member.user_id),
+                            );
                             return (
                               <button
                                 key={member.user_id}
@@ -1121,7 +1347,7 @@ export default function GanttView({
                                   setSelectedAssigneeIds((prev) =>
                                     isSelected
                                       ? prev.filter((id) => id !== memberIdNum)
-                                      : [...prev, memberIdNum]
+                                      : [...prev, memberIdNum],
                                   );
                                 }}
                                 className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-slate-800 text-xs text-left cursor-pointer transition-colors"
@@ -1129,20 +1355,29 @@ export default function GanttView({
                                 <div className="flex items-center gap-2 min-w-0">
                                   <Avatar className="h-6 w-6 shrink-0">
                                     <AvatarFallback
-                                      style={{ background: bgColor, color: "white" }}
+                                      style={{
+                                        background: bgColor,
+                                        color: "white",
+                                      }}
                                       className="text-[10px] font-semibold flex items-center justify-center"
                                     >
                                       {initials || "U"}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span className="truncate">{member.name}</span>
+                                  <span className="truncate">
+                                    {member.name}
+                                  </span>
                                 </div>
-                                {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                                {isSelected && (
+                                  <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                                )}
                               </button>
                             );
                           })}
                         {members.filter((m) =>
-                          (m.name || "").toLowerCase().includes(assigneeSearchQuery.toLowerCase())
+                          (m.name || "")
+                            .toLowerCase()
+                            .includes(assigneeSearchQuery.toLowerCase()),
                         ).length === 0 && (
                           <div className="text-center py-2 text-xs text-slate-400">
                             No members found
@@ -1165,13 +1400,20 @@ export default function GanttView({
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5 flex flex-col">
-                    <Label htmlFor="startDate" className="text-slate-300 text-xs">Start Date (Opt)</Label>
+                    <Label
+                      htmlFor="startDate"
+                      className="text-slate-300 text-xs"
+                    >
+                      Start Date (Opt)
+                    </Label>
                     <Popover
                       open={isStartPopoverOpen}
                       onOpenChange={(open) => {
                         setIsStartPopoverOpen(open);
                         if (open) {
-                          setTempStartDate(startDateStr ? new Date(startDateStr) : undefined);
+                          setTempStartDate(
+                            startDateStr ? new Date(startDateStr) : undefined,
+                          );
                         }
                       }}
                     >
@@ -1181,12 +1423,14 @@ export default function GanttView({
                           variant="outline"
                           className={cn(
                             "w-full justify-start text-left font-normal bg-slate-950 border-slate-800 hover:bg-slate-900 hover:text-white h-9 px-3 text-xs text-white relative pr-8",
-                            !startDateStr && "text-slate-400"
+                            !startDateStr && "text-slate-400",
                           )}
                         >
                           <CalendarDays className="mr-2 h-3.5 w-3.5 text-slate-400 shrink-0" />
                           <span className="truncate">
-                            {startDateStr ? format(new Date(startDateStr), "MMM d, yyyy") : "Pick start date"}
+                            {startDateStr
+                              ? format(new Date(startDateStr), "MMM d, yyyy")
+                              : "Pick start date"}
                           </span>
                           {startDateStr && (
                             <button
@@ -1202,16 +1446,29 @@ export default function GanttView({
                           )}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-3 bg-slate-900 border-slate-800 z-[10000] flex flex-col gap-3" align="start">
+                      <PopoverContent
+                        className="w-auto p-3 bg-slate-900 border-slate-800 z-[10000] flex flex-col gap-3"
+                        align="start"
+                      >
                         <Calendar
                           mode="single"
                           selected={tempStartDate}
                           onSelect={setTempStartDate}
                           disabled={(date) => {
-                            const refDate = tempEndDate || (endDateStr ? parseISO(endDateStr) : null);
+                            const refDate =
+                              tempEndDate ||
+                              (endDateStr ? parseISO(endDateStr) : null);
                             if (!refDate) return false;
-                            const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                            const r = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate());
+                            const d = new Date(
+                              date.getFullYear(),
+                              date.getMonth(),
+                              date.getDate(),
+                            );
+                            const r = new Date(
+                              refDate.getFullYear(),
+                              refDate.getMonth(),
+                              refDate.getDate(),
+                            );
                             return d > r;
                           }}
                           initialFocus
@@ -1231,7 +1488,9 @@ export default function GanttView({
                             size="sm"
                             onClick={() => {
                               if (tempStartDate) {
-                                setStartDateStr(format(tempStartDate, "yyyy-MM-dd"));
+                                setStartDateStr(
+                                  format(tempStartDate, "yyyy-MM-dd"),
+                                );
                               } else {
                                 setStartDateStr("");
                               }
@@ -1246,13 +1505,17 @@ export default function GanttView({
                     </Popover>
                   </div>
                   <div className="space-y-1.5 flex flex-col">
-                    <Label htmlFor="endDate" className="text-slate-300 text-xs">End Date (Opt)</Label>
+                    <Label htmlFor="endDate" className="text-slate-300 text-xs">
+                      End Date (Opt)
+                    </Label>
                     <Popover
                       open={isEndPopoverOpen}
                       onOpenChange={(open) => {
                         setIsEndPopoverOpen(open);
                         if (open) {
-                          setTempEndDate(endDateStr ? new Date(endDateStr) : undefined);
+                          setTempEndDate(
+                            endDateStr ? new Date(endDateStr) : undefined,
+                          );
                         }
                       }}
                     >
@@ -1262,12 +1525,14 @@ export default function GanttView({
                           variant="outline"
                           className={cn(
                             "w-full justify-start text-left font-normal bg-slate-950 border-slate-800 hover:bg-slate-900 hover:text-white h-9 px-3 text-xs text-white relative pr-8",
-                            !endDateStr && "text-slate-400"
+                            !endDateStr && "text-slate-400",
                           )}
                         >
                           <CalendarDays className="mr-2 h-3.5 w-3.5 text-slate-400 shrink-0" />
                           <span className="truncate">
-                            {endDateStr ? format(new Date(endDateStr), "MMM d, yyyy") : "Pick end date"}
+                            {endDateStr
+                              ? format(new Date(endDateStr), "MMM d, yyyy")
+                              : "Pick end date"}
                           </span>
                           {endDateStr && (
                             <button
@@ -1283,16 +1548,29 @@ export default function GanttView({
                           )}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-3 bg-slate-900 border-slate-800 z-[10000] flex flex-col gap-3" align="start">
+                      <PopoverContent
+                        className="w-auto p-3 bg-slate-900 border-slate-800 z-[10000] flex flex-col gap-3"
+                        align="start"
+                      >
                         <Calendar
                           mode="single"
                           selected={tempEndDate}
                           onSelect={setTempEndDate}
                           disabled={(date) => {
-                            const refDate = tempStartDate || (startDateStr ? parseISO(startDateStr) : null);
+                            const refDate =
+                              tempStartDate ||
+                              (startDateStr ? parseISO(startDateStr) : null);
                             if (!refDate) return false;
-                            const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                            const r = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate());
+                            const d = new Date(
+                              date.getFullYear(),
+                              date.getMonth(),
+                              date.getDate(),
+                            );
+                            const r = new Date(
+                              refDate.getFullYear(),
+                              refDate.getMonth(),
+                              refDate.getDate(),
+                            );
                             return d < r;
                           }}
                           initialFocus
@@ -1312,7 +1590,9 @@ export default function GanttView({
                             size="sm"
                             onClick={() => {
                               if (tempEndDate) {
-                                setEndDateStr(format(tempEndDate, "yyyy-MM-dd"));
+                                setEndDateStr(
+                                  format(tempEndDate, "yyyy-MM-dd"),
+                                );
                               } else {
                                 setEndDateStr("");
                               }
@@ -1388,11 +1668,15 @@ export default function GanttView({
           >
             <div className="space-y-3">
               <div className="border-b border-slate-800/80 pb-1.5 select-none">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Jump to Date</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  Jump to Date
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-slate-400 text-[10px] uppercase font-semibold">Month</Label>
+                  <Label className="text-slate-400 text-[10px] uppercase font-semibold">
+                    Month
+                  </Label>
                   <Select
                     value={String(jumpMonth)}
                     onValueChange={(val) => {
@@ -1404,7 +1688,11 @@ export default function GanttView({
                     </SelectTrigger>
                     <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000] max-h-48 overflow-y-auto">
                       {MONTHS.map((m) => (
-                        <SelectItem key={m.value} value={m.value} className="text-white focus:bg-[#334155] focus:text-white text-xs">
+                        <SelectItem
+                          key={m.value}
+                          value={m.value}
+                          className="text-white focus:bg-[#334155] focus:text-white text-xs"
+                        >
                           {m.label}
                         </SelectItem>
                       ))}
@@ -1412,7 +1700,9 @@ export default function GanttView({
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-slate-400 text-[10px] uppercase font-semibold">Year</Label>
+                  <Label className="text-slate-400 text-[10px] uppercase font-semibold">
+                    Year
+                  </Label>
                   <Select
                     value={String(jumpYear)}
                     onValueChange={(val) => {
@@ -1424,7 +1714,11 @@ export default function GanttView({
                     </SelectTrigger>
                     <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000] max-h-48 overflow-y-auto">
                       {YEARS.map((y) => (
-                        <SelectItem key={y.value} value={y.value} className="text-white focus:bg-[#334155] focus:text-white text-xs">
+                        <SelectItem
+                          key={y.value}
+                          value={y.value}
+                          className="text-white focus:bg-[#334155] focus:text-white text-xs"
+                        >
                           {y.label}
                         </SelectItem>
                       ))}
@@ -1450,7 +1744,9 @@ export default function GanttView({
                   className="w-full text-left px-2 py-1.5 rounded text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-between"
                 >
                   <span>Go to Today</span>
-                  <span className="text-[10px] text-slate-500 font-mono">Today</span>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    Today
+                  </span>
                 </button>
               </div>
             </div>
@@ -1471,7 +1767,9 @@ export default function GanttView({
             className="w-48 p-2 bg-slate-900 border-slate-800 text-slate-100 shadow-2xl rounded-lg z-[9999]"
           >
             <div className="px-2 py-1.5 border-b border-slate-800/80 mb-1 select-none">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Color Bars By</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Color Bars By
+              </span>
             </div>
             <div className="space-y-1">
               {(["status", "priority"] as const).map((option) => (
@@ -1483,11 +1781,13 @@ export default function GanttView({
                     "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-all capitalize",
                     colorBy === option
                       ? "bg-primary/20 text-white font-semibold"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200",
                   )}
                 >
                   <span>{option}</span>
-                  {colorBy === option && <Check className="w-3.5 h-3.5 text-primary" />}
+                  {colorBy === option && (
+                    <Check className="w-3.5 h-3.5 text-primary" />
+                  )}
                 </button>
               ))}
             </div>
@@ -1496,7 +1796,7 @@ export default function GanttView({
       </div>
 
       {/* Gantt Wrapper */}
-      <div className="flex-1 min-h-0 flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden pm-gantt-wrapper">
+      <div className="flex-1 min-h-0 flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden pm-gantt-wrapper relative">
         <style>{`
           /* Custom styles to match the PM tool aesthetic */
           .pm-gantt-wrapper > div,
@@ -1647,6 +1947,8 @@ export default function GanttView({
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
+            pointer-events: none !important;
+            z-index: 9999 !important;
           }
 
           /* Prevent Gantt tooltips from displaying when a Radix portal/popover/select/dialog is active */
@@ -1691,8 +1993,7 @@ export default function GanttView({
           </WillowDark>
         )}
       </div>
-
-
     </div>
+  </GanttCellContext.Provider>
   );
 }
