@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Clock } from "lucide-react";
-import { toast } from "sonner";
 import { format, parseISO, parse } from "date-fns";
 import {
   Popover,
@@ -10,7 +9,7 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { TimePickerInput } from "@/shared/components/TimePickerInput";
-import { tasksApi } from "@/features/tasks/tasksApi";
+
 
 interface EstimatedDatePickerProps {
   task: any;
@@ -253,37 +252,6 @@ export function EstimatedDatePicker({
     };
   }, [openPopoverId, popoverId, setOpenPopoverId]);
 
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-
-    const stop = (e: Event) => {
-      e.stopPropagation();
-    };
-
-    const events = [
-      "click",
-      "mousedown",
-      "mouseup",
-      "pointerdown",
-      "pointerup",
-      "touchstart",
-      "touchend",
-    ];
-
-    events.forEach((val) => {
-      el.addEventListener(val, stop, { capture: true });
-    });
-
-    return () => {
-      events.forEach((val) => {
-        el.removeEventListener(val, stop, { capture: true });
-      });
-    };
-  }, [openPopoverId]);
-
   const handleDateRangeChange = (
     range: { from?: Date; to?: Date } | undefined,
   ) => {
@@ -331,7 +299,13 @@ export function EstimatedDatePicker({
         className="w-auto p-4 bg-card border border-border shadow-lg rounded-lg"
         align="center"
       >
-        <div ref={contentRef} className="space-y-4">
+        <div
+          className="space-y-4"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-sm">Select Date Range</h3>
             <button
@@ -400,55 +374,25 @@ export function EstimatedDatePicker({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={async () => {
-                  try {
-                    await tasksApi.deleteEstimatedDate({ task_id: task.id });
-                    setDateRange(undefined);
-                    onEstimatedDateChange?.(task.id, null);
-                    setOpenPopoverId?.(null);
-                    toast.success("Estimated Date Cleared Successfully");
-                  } catch (error) {
-                    console.error("Failed to clear estimated date:", error);
-                    toast.error("Failed to Clear Estimated Date");
-                  }
+                onClick={() => {
+                  setDateRange(undefined);
+                  onEstimatedDateChange?.(task.id, null);
+                  setOpenPopoverId?.(null);
                 }}
               >
                 Clear
               </Button>
               <Button
                 size="sm"
-                onClick={async () => {
+                onClick={() => {
                   if (dateRange?.from) {
                     const fromDate = format(dateRange.from, "yyyy-MM-dd");
                     const toDate = dateRange.to
                       ? format(dateRange.to, "yyyy-MM-dd")
                       : fromDate;
 
-                    try {
-                      const hasEstimation =
-                        estimatedDate && estimatedDate !== "-";
-
-                      if (hasEstimation) {
-                        await tasksApi.updateEstimatedDate({
-                          task_id: task.id,
-                          estimated_date_from: fromDate,
-                          estimated_date_to: toDate,
-                        });
-                      } else {
-                        await tasksApi.createEstimatedDate({
-                          task_id: task.id,
-                          estimated_date_from: fromDate,
-                          estimated_date_to: toDate,
-                        });
-                      }
-
-                      onEstimatedDateChange?.(task.id, fromDate, toDate);
-                      setOpenPopoverId?.(null);
-                      toast.success("Estimated Date Updated Successfully");
-                    } catch (error) {
-                      console.error("Failed to update estimated date:", error);
-                      toast.error("Failed to Update Estimated Date");
-                    }
+                    onEstimatedDateChange?.(task.id, fromDate, toDate);
+                    setOpenPopoverId?.(null);
                   }
                 }}
               >
