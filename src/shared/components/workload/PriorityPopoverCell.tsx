@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Trash, GripVertical } from "lucide-react";
 import {
   DndContext,
@@ -164,6 +164,41 @@ export function PriorityPopoverCell({
 }: PriorityPopoverCellProps) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+
+  const preventPropagationRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = preventPropagationRef.current;
+    if (!el) return;
+
+    const stopAndToggle = (e: Event) => {
+      e.stopPropagation();
+      if (e.type === "click") {
+        const isCurrentOpen = openPopoverId === popoverId;
+        setOpenPopoverId?.(isCurrentOpen ? null : popoverId);
+      }
+    };
+
+    const events = [
+      "click",
+      "mousedown",
+      "mouseup",
+      "pointerdown",
+      "pointerup",
+      "touchstart",
+      "touchend",
+    ];
+
+    events.forEach((val) => {
+      el.addEventListener(val, stopAndToggle, { capture: true });
+    });
+
+    return () => {
+      events.forEach((val) => {
+        el.removeEventListener(val, stopAndToggle, { capture: true });
+      });
+    };
+  }, [openPopoverId, popoverId, setOpenPopoverId]);
 
   const [displayPriorities, setDisplayPriorities] = useState<Priority[]>([]);
   const [editablePriorities, setEditablePriorities] = useState<
@@ -407,144 +442,156 @@ export function PriorityPopoverCell({
       modal={true}
     >
       <PopoverTrigger asChild>
-        <Button
-          size="sm"
-          className="h-8 px-3 text-xs text-white max-w-full"
-          style={{
-            backgroundColor: priorityObj?.color_code || "#e5e7eb",
-            border: "none",
-          }}
+        <div
+          ref={preventPropagationRef}
+          className="w-full flex items-center justify-center"
         >
-          <span className="truncate block min-w-0">{priorityObj?.name || "No Priority"}</span>
-        </Button>
+          <Button
+            size="sm"
+            className="h-8 px-3 text-xs text-white max-w-full"
+            style={{
+              backgroundColor: priorityObj?.color_code || "#e5e7eb",
+              border: "none",
+            }}
+          >
+            <span className="truncate block min-w-0">{priorityObj?.name || "No Priority"}</span>
+          </Button>
+        </div>
       </PopoverTrigger>
 
       <PopoverContent
         className="w-[500px] p-3 z-[200]"
         onWheel={(e) => e.stopPropagation()}
       >
-        {!isEditMode ? (
-          <>
-            {/* Header */}
-            <div className="flex justify-between mb-2">
-              <span className="text-sm font-medium">Select Priority</span>
-              <Button
-                className={showCreateForm ? `bg-primary text-white` : ""}
-                size="sm"
-                variant="ghost"
-                onClick={(e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  setShowCreateForm((v: boolean) => !v);
-                }}
-              >
-                {showCreateForm ? "x" : "+"}
-              </Button>
-            </div>
-
-            {/* Create */}
-            {showCreateForm && (
-              <div className="flex items-center gap-2 mb-2">
-                <Input
-                  value={newPriorityName}
-                  onChange={(e) => setNewPriorityName(e.target.value)}
-                  placeholder="Priority name"
-                />
-                <ColorPickerPopover
-                  size="w-10 h-10"
-                  color={newPriorityColor}
-                  onColorChange={setNewPriorityColor}
-                  isOpen={createColorPickerOpen}
-                  onOpenChange={setCreateColorPickerOpen}
-                />
-                <Button onClick={handleCreatePriority} disabled={isCreating}>
-                  Create
+        <div
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
+          {!isEditMode ? (
+            <>
+              {/* Header */}
+              <div className="flex justify-between mb-2">
+                <span className="text-sm font-medium">Select Priority</span>
+                <Button
+                  className={showCreateForm ? `bg-primary text-white` : ""}
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    setShowCreateForm((v: boolean) => !v);
+                  }}
+                >
+                  {showCreateForm ? "x" : "+"}
                 </Button>
               </div>
-            )}
 
-            {/* List */}
-            <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-2">
-              <div className="grid grid-cols-2 gap-2 p-2">
-                {displayPriorities.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      onPriorityChange?.(task.id, String(p.id));
-                      setOpenPopoverId?.(null);
-                    }}
-                    className="p-3 rounded text-white text-sm hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: p.color_code }}
-                  >
-                    {p.name}
-                  </button>
-                ))}
+              {/* Create */}
+              {showCreateForm && (
+                <div className="flex items-center gap-2 mb-2">
+                  <Input
+                    value={newPriorityName}
+                    onChange={(e) => setNewPriorityName(e.target.value)}
+                    placeholder="Priority name"
+                  />
+                  <ColorPickerPopover
+                    size="w-10 h-10"
+                    color={newPriorityColor}
+                    onColorChange={setNewPriorityColor}
+                    isOpen={createColorPickerOpen}
+                    onOpenChange={setCreateColorPickerOpen}
+                  />
+                  <Button onClick={handleCreatePriority} disabled={isCreating}>
+                    Create
+                  </Button>
+                </div>
+              )}
+
+              {/* List */}
+              <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-2">
+                <div className="grid grid-cols-2 gap-2 p-2">
+                  {displayPriorities.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        onPriorityChange?.(task.id, String(p.id));
+                        setOpenPopoverId?.(null);
+                      }}
+                      className="p-3 rounded text-white text-sm hover:opacity-90 transition-opacity"
+                      style={{ backgroundColor: p.color_code }}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <Button
-              className="w-full"
-              onClick={() => setIsEditMode(true)}
-              variant="outline"
-              size="sm"
-            >
-              Edit Labels
-            </Button>
-          </>
-        ) : (
-          <>
-            {/* Edit Header */}
-            <div className="flex justify-between mb-3">
-              <span className="text-sm font-medium">Edit Priority Labels</span>
               <Button
+                className="w-full"
+                onClick={() => setIsEditMode(true)}
+                variant="outline"
                 size="sm"
-                variant="ghost"
-                onClick={() => setIsEditMode(false)}
               >
-                <X className="h-4 w-4" />
+                Edit Labels
               </Button>
-            </div>
-
-            {/* Edit List */}
-            <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-3">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={editablePriorities.map((p) => p.id)}
-                  strategy={rectSortingStrategy}
+            </>
+          ) : (
+            <>
+              {/* Edit Header */}
+              <div className="flex justify-between mb-3">
+                <span className="text-sm font-medium">Edit Priority Labels</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsEditMode(false)}
                 >
-                  <div className="grid grid-cols-2 gap-2 p-2">
-                    {editablePriorities.map((p, i) => (
-                      <SortablePriorityItem
-                        key={p.id}
-                        priority={p}
-                        index={i}
-                        editablePriorities={editablePriorities}
-                        setEditablePriorities={setEditablePriorities}
-                        colorPickerOpen={colorPickerOpen}
-                        setColorPickerOpen={setColorPickerOpen}
-                        handleDeletePriority={handleDeletePriority}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            </div>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
 
-            <Button
-              className="w-full"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSaveEdits();
-              }}
-              size="sm"
-            >
-              Done
-            </Button>
-          </>
-        )}
+              {/* Edit List */}
+              <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-3">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={editablePriorities.map((p) => p.id)}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="grid grid-cols-2 gap-2 p-2">
+                      {editablePriorities.map((p, i) => (
+                        <SortablePriorityItem
+                          key={p.id}
+                          priority={p}
+                          index={i}
+                          editablePriorities={editablePriorities}
+                          setEditablePriorities={setEditablePriorities}
+                          colorPickerOpen={colorPickerOpen}
+                          setColorPickerOpen={setColorPickerOpen}
+                          handleDeletePriority={handleDeletePriority}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSaveEdits();
+                }}
+                size="sm"
+              >
+                Done
+              </Button>
+            </>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );
