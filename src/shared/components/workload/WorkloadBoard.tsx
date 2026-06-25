@@ -5869,9 +5869,13 @@ export function WorkloadBoard({
                                   <DndContext
                                     sensors={sensors}
                                     collisionDetection={closestCenter}
-                                    onDragEnd={(e) =>
-                                      handleTaskDragEnd(e, group.id)
-                                    }
+                                    onDragEnd={(e) => {
+                                      if (e.active.data.current?.type === "column") {
+                                        handleColumnDragEnd(e);
+                                      } else {
+                                        handleTaskDragEnd(e, group.id);
+                                      }
+                                    }}
                                   >
                                     <table
                                       className="border-separate border-spacing-0"
@@ -5881,11 +5885,6 @@ export function WorkloadBoard({
                                         minWidth: "100%",
                                       }}
                                     >
-                                      <DndContext
-                                        sensors={sensors}
-                                        collisionDetection={closestCenter}
-                                        onDragEnd={handleColumnDragEnd}
-                                      >
                                         <SortableContext
                                           items={workloadColumns.map(
                                             (c) => c.id,
@@ -5974,7 +5973,6 @@ export function WorkloadBoard({
                                             </tr>
                                           </thead>
                                         </SortableContext>
-                                      </DndContext>
 
                                       {/* Table Body */}
                                       <tbody>
@@ -6620,6 +6618,13 @@ export function WorkloadBoard({
             onTaskClick={openCommentsPanel}
             onOpenTaskCard={openTaskCard}
             onAddTask={handleGanttAddTask}
+            onStatusChange={handleStatusChange}
+            onPriorityChange={handlePriorityChange}
+            onStatusCreated={handleStatusCreated}
+            onStatusesUpdated={handleStatusesUpdated}
+            onPriorityCreated={handlePriorityCreated}
+            onPrioritiesUpdated={handlePrioritiesUpdated}
+            boardId={parseInt(boardId, 10)}
           />
         )}
 
