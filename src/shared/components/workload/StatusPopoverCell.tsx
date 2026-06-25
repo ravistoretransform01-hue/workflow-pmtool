@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { X, Trash, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -173,6 +173,41 @@ export default function StatusPopoverCell({
 }: StatusPopoverCellProps) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+
+  const preventPropagationRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = preventPropagationRef.current;
+    if (!el) return;
+
+    const stopAndToggle = (e: Event) => {
+      e.stopPropagation();
+      if (e.type === "click") {
+        const isCurrentOpen = openPopoverId === popoverId;
+        setOpenPopoverId?.(isCurrentOpen ? null : popoverId);
+      }
+    };
+
+    const events = [
+      "click",
+      "mousedown",
+      "mouseup",
+      "pointerdown",
+      "pointerup",
+      "touchstart",
+      "touchend",
+    ];
+
+    events.forEach((val) => {
+      el.addEventListener(val, stopAndToggle, { capture: true });
+    });
+
+    return () => {
+      events.forEach((val) => {
+        el.removeEventListener(val, stopAndToggle, { capture: true });
+      });
+    };
+  }, [openPopoverId, popoverId, setOpenPopoverId]);
 
   const [displayStatuses, setDisplayStatuses] = useState<Status[]>([]);
   const [editableStatuses, setEditableStatuses] = useState<EditableStatus[]>(
@@ -415,166 +450,178 @@ export default function StatusPopoverCell({
       modal={true}
     >
       <PopoverTrigger asChild>
-        <Button
-          size="sm"
-          className="h-8 px-3 text-xs text-white max-w-full"
-          style={{
-            backgroundColor: statusObj?.color_code || "#e5e7eb",
-            border: "none",
-          }}
+        <div
+          ref={preventPropagationRef}
+          className="w-full flex items-center justify-center"
         >
-          <span className="truncate block min-w-0">{statusObj?.name || "No Status"}</span>
-        </Button>
+          <Button
+            size="sm"
+            className="h-8 px-3 text-xs text-white max-w-full"
+            style={{
+              backgroundColor: statusObj?.color_code || "#e5e7eb",
+              border: "none",
+            }}
+          >
+            <span className="truncate block min-w-0">{statusObj?.name || "No Status"}</span>
+          </Button>
+        </div>
       </PopoverTrigger>
 
       <PopoverContent
         className="w-[500px] p-3 z-[200]"
         onWheel={(e) => e.stopPropagation()}
       >
-        {!isEditMode ? (
-          <>
-            {/* Header */}
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium">Select Status</span>
-              <div className="flex items-center gap-1">
-                {!showCreateForm && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
+          {!isEditMode ? (
+            <>
+              {/* Header */}
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium">Select Status</span>
+                <div className="flex items-center gap-1">
+                  {!showCreateForm && (
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs px-2 bg-green-500 hover:bg-green-600 text-white border-0"
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        const doneStatus = statuses.find(
+                          (s) => s.name?.toLowerCase() === "done",
+                        );
+                        if (doneStatus && onStatusChange) {
+                          onStatusChange(task.id, String(doneStatus.id));
+                          setOpenPopoverId?.(null);
+                        } else if (!doneStatus) {
+                          toast.error("Done status not found");
+                        }
+                      }}
+                    >
+                      Mark Done
+                    </Button>
+                  )}
                   <Button
+                    className={showCreateForm ? `bg-primary text-white` : ""}
                     size="sm"
-                    className="h-8 text-xs px-2 bg-green-500 hover:bg-green-600 text-white border-0"
+                    variant="ghost"
                     onClick={(e: React.MouseEvent) => {
                       e.stopPropagation();
-                      const doneStatus = statuses.find(
-                        (s) => s.name?.toLowerCase() === "done",
-                      );
-                      if (doneStatus && onStatusChange) {
-                        onStatusChange(task.id, String(doneStatus.id));
-                        setOpenPopoverId?.(null);
-                      } else if (!doneStatus) {
-                        toast.error("Done status not found");
-                      }
+                      setShowCreateForm((v: boolean) => !v);
                     }}
                   >
-                    Mark Done
+                    {showCreateForm ? "x" : "+"}
                   </Button>
-                )}
+                </div>
+              </div>
+
+              {/* Create */}
+              {showCreateForm && (
+                <div className="flex items-center gap-2 mb-2">
+                  <Input
+                    value={newStatusName}
+                    onChange={(e) => setNewStatusName(e.target.value)}
+                    placeholder="Status name"
+                  />
+                  <ColorPickerPopover
+                    size="w-10 h-10"
+                    color={newStatusColor}
+                    onColorChange={setNewStatusColor}
+                    isOpen={createColorPickerOpen}
+                    onOpenChange={setCreateColorPickerOpen}
+                  />
+                  <Button onClick={handleCreateStatus} disabled={isCreating}>
+                    Create
+                  </Button>
+                </div>
+              )}
+
+              {/* List */}
+              <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-2">
+                <div className="grid grid-cols-2 gap-2 p-2">
+                  {displayStatuses.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        onStatusChange?.(task.id, String(s.id));
+                        setOpenPopoverId?.(null);
+                      }}
+                      className="p-3 rounded text-white text-sm hover:opacity-90 transition-opacity"
+                      style={{ backgroundColor: s.color_code }}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={() => setIsEditMode(true)}
+                variant="outline"
+                size="sm"
+              >
+                Edit Labels
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* Edit Header */}
+              <div className="flex justify-between mb-3">
+                <span className="text-sm font-medium">Edit Status Labels</span>
                 <Button
-                  className={showCreateForm ? `bg-primary text-white` : ""}
                   size="sm"
                   variant="ghost"
-                  onClick={(e: React.MouseEvent) => {
-                    e.stopPropagation();
-                    setShowCreateForm((v: boolean) => !v);
-                  }}
+                  onClick={() => setIsEditMode(false)}
                 >
-                  {showCreateForm ? "x" : "+"}
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
 
-            {/* Create */}
-            {showCreateForm && (
-              <div className="flex items-center gap-2 mb-2">
-                <Input
-                  value={newStatusName}
-                  onChange={(e) => setNewStatusName(e.target.value)}
-                  placeholder="Status name"
-                />
-                <ColorPickerPopover
-                  size="w-10 h-10"
-                  color={newStatusColor}
-                  onColorChange={setNewStatusColor}
-                  isOpen={createColorPickerOpen}
-                  onOpenChange={setCreateColorPickerOpen}
-                />
-                <Button onClick={handleCreateStatus} disabled={isCreating}>
-                  Create
-                </Button>
-              </div>
-            )}
-
-            {/* List */}
-            <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-2">
-              <div className="grid grid-cols-2 gap-2 p-2">
-                {displayStatuses.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => {
-                      onStatusChange?.(task.id, String(s.id));
-                      setOpenPopoverId?.(null);
-                    }}
-                    className="p-3 rounded text-white text-sm hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: s.color_code }}
+              {/* Edit List */}
+              <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-3">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={editableStatuses.map((s) => s.id)}
+                    strategy={rectSortingStrategy}
                   >
-                    {s.name}
-                  </button>
-                ))}
+                    <div className="grid grid-cols-2 gap-2 p-2">
+                      {editableStatuses.map((s, i) => (
+                        <SortableStatusItem
+                          key={s.id}
+                          status={s}
+                          index={i}
+                          editableStatuses={editableStatuses}
+                          setEditableStatuses={setEditableStatuses}
+                          colorPickerOpen={colorPickerOpen}
+                          setColorPickerOpen={setColorPickerOpen}
+                          handleDeleteStatus={handleDeleteStatus}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               </div>
-            </div>
 
-            <Button
-              className="w-full"
-              onClick={() => setIsEditMode(true)}
-              variant="outline"
-              size="sm"
-            >
-              Edit Labels
-            </Button>
-          </>
-        ) : (
-          <>
-            {/* Edit Header */}
-            <div className="flex justify-between mb-3">
-              <span className="text-sm font-medium">Edit Status Labels</span>
               <Button
+                className="w-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSaveEdits();
+                }}
                 size="sm"
-                variant="ghost"
-                onClick={() => setIsEditMode(false)}
               >
-                <X className="h-4 w-4" />
+                Done
               </Button>
-            </div>
-
-            {/* Edit List */}
-            <div className="max-h-64 overflow-y-auto scrollbar-hide border border-border rounded mb-3">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={editableStatuses.map((s) => s.id)}
-                  strategy={rectSortingStrategy}
-                >
-                  <div className="grid grid-cols-2 gap-2 p-2">
-                    {editableStatuses.map((s, i) => (
-                      <SortableStatusItem
-                        key={s.id}
-                        status={s}
-                        index={i}
-                        editableStatuses={editableStatuses}
-                        setEditableStatuses={setEditableStatuses}
-                        colorPickerOpen={colorPickerOpen}
-                        setColorPickerOpen={setColorPickerOpen}
-                        handleDeleteStatus={handleDeleteStatus}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            </div>
-
-            <Button
-              className="w-full"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSaveEdits();
-              }}
-              size="sm"
-            >
-              Done
-            </Button>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

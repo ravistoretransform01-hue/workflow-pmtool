@@ -22,6 +22,8 @@ import { stringToHslColor } from "./utils";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { toast } from "sonner";
 import { EstimatedDatePicker } from "./cells/EstimatedDatePicker";
+import StatusPopoverCell from "./StatusPopoverCell";
+import { PriorityPopoverCell } from "./PriorityPopoverCell";
 
 // Robust helper to parse dates from various formats (Date, timestamp, or ISO string)
 const parseDate = (val: any): Date | null => {
@@ -178,36 +180,76 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
     </div>
   );
 }; // Custom cell renderers for grid columns to provide premium and consistent date formatting
-const StatusCell = ({ row }: { row: any }) => {
-  if (!row || !row.status) {
-    return <span className="text-muted-foreground/60">-</span>;
-  }
-  const color = row.status_color || "#334155";
+const GanttStatusCell = ({ row }: { row: any }) => {
+  const context = useContext(GanttCellContext);
+  const task = row.originalTask;
+  if (!task) return <span className="text-muted-foreground/60">-</span>;
+
+  const popoverId = `gantt-status-${task.id}`;
+  const openPopoverId = context?.openPopoverId ?? null;
+  const setOpenPopoverId = context?.setOpenPopoverId ?? (() => {});
+
+  const statusObj = context?.statuses?.find(
+    (s) => String(s.id) === String(task.status_id)
+  );
+
   return (
-    <div className="flex items-center justify-center w-full h-full px-1">
-      <span
-        className="px-2 py-0.5 rounded text-[11px] font-medium text-white truncate max-w-full block"
-        style={{ backgroundColor: color }}
-      >
-        {row.status}
-      </span>
+    <div
+      className="flex items-center justify-center w-full h-full px-1"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+    >
+      <StatusPopoverCell
+        task={task}
+        statuses={context?.statuses ?? []}
+        statusObj={statusObj}
+        popoverId={popoverId}
+        openPopoverId={openPopoverId}
+        setOpenPopoverId={setOpenPopoverId}
+        onStatusChange={context?.onStatusChange}
+        onStatusCreated={context?.onStatusCreated}
+        onStatusesUpdated={context?.onStatusesUpdated}
+        boardId={context?.boardId}
+      />
     </div>
   );
 };
 
-const PriorityCell = ({ row }: { row: any }) => {
-  if (!row || !row.priority) {
-    return <span className="text-muted-foreground/60">-</span>;
-  }
-  const color = row.priority_color || "#334155";
+const GanttPriorityCell = ({ row }: { row: any }) => {
+  const context = useContext(GanttCellContext);
+  const task = row.originalTask;
+  if (!task) return <span className="text-muted-foreground/60">-</span>;
+
+  const popoverId = `gantt-priority-${task.id}`;
+  const openPopoverId = context?.openPopoverId ?? null;
+  const setOpenPopoverId = context?.setOpenPopoverId ?? (() => {});
+
+  const priorityObj = context?.priorities?.find(
+    (p) => String(p.id) === String(task.priority_id)
+  );
+
   return (
-    <div className="flex items-center justify-center w-full h-full px-1">
-      <span
-        className="px-2 py-0.5 rounded text-[11px] font-medium text-white truncate max-w-full block"
-        style={{ backgroundColor: color }}
-      >
-        {row.priority}
-      </span>
+    <div
+      className="flex items-center justify-center w-full h-full px-1"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+    >
+      <PriorityPopoverCell
+        task={task}
+        priorities={context?.priorities ?? []}
+        priorityObj={priorityObj}
+        popoverId={popoverId}
+        openPopoverId={openPopoverId}
+        setOpenPopoverId={setOpenPopoverId}
+        onPriorityChange={context?.onPriorityChange}
+        onPriorityCreated={context?.onPriorityCreated}
+        onPrioritiesUpdated={context?.onPrioritiesUpdated}
+        boardId={context?.boardId}
+      />
     </div>
   );
 };
@@ -220,6 +262,15 @@ interface GanttCellContextType {
     fromDate: string | null,
     toDate?: string | null,
   ) => void;
+  statuses?: Status[];
+  priorities?: Priority[];
+  boardId?: string | number;
+  onStatusChange?: (taskId: string, statusId: string) => void;
+  onPriorityChange?: (taskId: string, priorityId: string) => void;
+  onStatusCreated?: (status: Status) => void;
+  onStatusesUpdated?: (statuses: Status[]) => void;
+  onPriorityCreated?: (newPriority: Priority) => void;
+  onPrioritiesUpdated?: (updatedPriorities: Priority[]) => void;
 }
 
 const GanttCellContext = createContext<GanttCellContextType | null>(null);
@@ -281,6 +332,13 @@ interface GanttViewProps {
     parentId?: string,
     assigneeIds?: number[],
   ) => Promise<void>;
+  onStatusChange?: (taskId: string, statusId: string) => void;
+  onPriorityChange?: (taskId: string, priorityId: string) => void;
+  onStatusCreated?: (status: Status) => void;
+  onStatusesUpdated?: (statuses: Status[]) => void;
+  onPriorityCreated?: (newPriority: Priority) => void;
+  onPrioritiesUpdated?: (updatedPriorities: Priority[]) => void;
+  boardId?: string | number;
 }
 const MONTHS = [
   { value: "0", label: "January" },
@@ -312,6 +370,13 @@ export default function GanttView({
   onTaskClick,
   onOpenTaskCard: _onOpenTaskCard,
   onAddTask,
+  onStatusChange,
+  onPriorityChange,
+  onStatusCreated,
+  onStatusesUpdated,
+  onPriorityCreated,
+  onPrioritiesUpdated,
+  boardId,
 }: GanttViewProps) {
   const [scaleMode, setScaleMode] = useState<"day" | "week">("day");
   const [ganttApi, setGanttApi] = useState<any>(null);
@@ -791,6 +856,40 @@ export default function GanttView({
           return false;
         }
 
+        // If the user clicks on the status column, trigger opening its popover and prevent selection
+        if (
+          payload &&
+          typeof payload === "object" &&
+          payload.column === "status"
+        ) {
+          const rawId = payload.id;
+          if (rawId) {
+            const stringId = String(rawId);
+            if (!stringId.startsWith("group-")) {
+              const popoverId = `gantt-status-${stringId}`;
+              latestRef.current.setOpenPopoverId(popoverId);
+            }
+          }
+          return false;
+        }
+
+        // If the user clicks on the priority column, trigger opening its popover and prevent selection
+        if (
+          payload &&
+          typeof payload === "object" &&
+          payload.column === "priority"
+        ) {
+          const rawId = payload.id;
+          if (rawId) {
+            const stringId = String(rawId);
+            if (!stringId.startsWith("group-")) {
+              const popoverId = `gantt-priority-${stringId}`;
+              latestRef.current.setOpenPopoverId(popoverId);
+            }
+          }
+          return false;
+        }
+
         // If the user is clicking on an estimated date trigger button or its active popover/portaled content,
         // intercept and ignore the selection event. This prevents parent re-renders and stops the popover from blinking.
         const event = window.event as any;
@@ -893,14 +992,14 @@ export default function GanttView({
         width: 110,
         resize: true,
         header: [{ text: "Status" }],
-        cell: StatusCell,
+        cell: GanttStatusCell,
       },
       {
         id: "priority",
         width: 110,
         resize: true,
         header: [{ text: "Priority" }],
-        cell: PriorityCell,
+        cell: GanttPriorityCell,
       },
     ];
   }, []);
@@ -1130,8 +1229,29 @@ export default function GanttView({
       openPopoverId,
       setOpenPopoverId,
       onEstimatedDateChange,
+      statuses,
+      priorities,
+      boardId,
+      onStatusChange,
+      onPriorityChange,
+      onStatusCreated,
+      onStatusesUpdated,
+      onPriorityCreated,
+      onPrioritiesUpdated,
     }),
-    [openPopoverId, onEstimatedDateChange],
+    [
+      openPopoverId,
+      onEstimatedDateChange,
+      statuses,
+      priorities,
+      boardId,
+      onStatusChange,
+      onPriorityChange,
+      onStatusCreated,
+      onStatusesUpdated,
+      onPriorityCreated,
+      onPrioritiesUpdated,
+    ],
   );
 
   return (
