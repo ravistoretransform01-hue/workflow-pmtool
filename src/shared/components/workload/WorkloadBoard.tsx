@@ -4605,19 +4605,28 @@ export function WorkloadBoard({
   const groupsContainerRef = useRef<HTMLDivElement | null>(null);
   const [stickyGroupId, setStickyGroupId] = useState<string | null>(null);
 
-  const handleTableScroll = (groupId: string, scrollLeft: number) => {
+  const handleTableScroll = (groupId: string, scrollLeft: number, isHeader: boolean = false) => {
     if (isSyncingScroll.current) return;
 
-    // Scroll the corresponding header table of this group
-    const currentHeader = tableHeaderScrollRefs.current[groupId];
-    if (currentHeader) {
-      currentHeader.scrollLeft = scrollLeft;
+    // Scroll the corresponding body or header table of this group
+    if (isHeader) {
+      const currentTable = tableScrollRefs.current[groupId];
+      if (currentTable) {
+        currentTable.scrollLeft = scrollLeft;
+      }
+    } else {
+      const currentHeader = tableHeaderScrollRefs.current[groupId];
+      if (currentHeader) {
+        currentHeader.scrollLeft = scrollLeft;
+      }
     }
 
     // Scroll all other tables to the same position (proportional mapping)
     Object.entries(tableScrollRefs.current).forEach(([id, ref]) => {
       if (ref && id !== groupId) {
-        const srcRef = tableScrollRefs.current[groupId];
+        const srcRef = isHeader
+          ? tableHeaderScrollRefs.current[groupId]
+          : tableScrollRefs.current[groupId];
         if (srcRef) {
           const srcMax = Math.max(0, srcRef.scrollWidth - srcRef.clientWidth);
           const dstMax = Math.max(0, ref.scrollWidth - ref.clientWidth);
@@ -4644,7 +4653,9 @@ export function WorkloadBoard({
       "[data-unified-scrollbar]",
     ) as HTMLDivElement;
     if (unifiedScrollbar) {
-      const srcRef = tableScrollRefs.current[groupId];
+      const srcRef = isHeader
+        ? tableHeaderScrollRefs.current[groupId]
+        : tableScrollRefs.current[groupId];
       const srcMax = srcRef
         ? Math.max(0, srcRef.scrollWidth - srcRef.clientWidth)
         : 0;
@@ -5876,6 +5887,15 @@ export function WorkloadBoard({
                                       if (el)
                                         tableHeaderScrollRefs.current[group.id] = el;
                                     }}
+                                    onScroll={(e) => {
+                                      const target =
+                                        e.currentTarget as HTMLDivElement;
+                                      handleTableScroll(
+                                        group.id,
+                                        target.scrollLeft,
+                                        true,
+                                      );
+                                    }}
                                   >
                                     <DndContext
                                       sensors={sensors}
@@ -6595,7 +6615,7 @@ export function WorkloadBoard({
                 );
 
                 isSyncingScroll.current = true;
-                Object.values(tableScrollRefs.current).forEach((ref) => {
+                Object.entries(tableScrollRefs.current).forEach(([groupId, ref]) => {
                   if (ref) {
                     const tableMax = Math.max(
                       0,
@@ -6606,6 +6626,11 @@ export function WorkloadBoard({
                         ? (unifiedLeft / unifiedMax) * tableMax
                         : unifiedLeft;
                     if (ref.scrollLeft !== mapped) ref.scrollLeft = mapped;
+
+                    const headerRef = tableHeaderScrollRefs.current[groupId];
+                    if (headerRef && headerRef.scrollLeft !== mapped) {
+                      headerRef.scrollLeft = mapped;
+                    }
                   }
                 });
                 window.requestAnimationFrame(() => {
