@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { EstimatedDatePicker } from "./cells/EstimatedDatePicker";
 import StatusPopoverCell from "./StatusPopoverCell";
 import { PriorityPopoverCell } from "./PriorityPopoverCell";
+import { PersonPopover } from "./cells/PersonPopover";
 
 // Robust helper to parse dates from various formats (Date, timestamp, or ISO string)
 const parseDate = (val: any): Date | null => {
@@ -254,6 +255,41 @@ const GanttPriorityCell = ({ row }: { row: any }) => {
   );
 };
 
+const GanttPersonCell = ({ row }: { row: any }) => {
+  const context = useContext(GanttCellContext);
+  const task = row.originalTask;
+  if (!task) return <span className="text-muted-foreground/60">-</span>;
+
+  const popoverId = `gantt-person-${task.id}`;
+  const openPopoverId = context?.openPopoverId ?? null;
+  const setOpenPopoverId = context?.setOpenPopoverId ?? (() => {});
+
+  const selectedMemberIds = (task.assigned_to_ids ||
+    (task.assigned_to_id
+      ? [String(task.assigned_to_id)]
+      : [])) as string[];
+
+  return (
+    <div
+      className="flex items-center justify-center w-full h-full px-1"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+    >
+      <PersonPopover
+        task={task}
+        members={context?.members ?? []}
+        selectedMemberIds={selectedMemberIds}
+        popoverId={popoverId}
+        openPopoverId={openPopoverId}
+        setOpenPopoverId={setOpenPopoverId}
+        onPersonChange={context?.onPersonChange}
+      />
+    </div>
+  );
+};
+
 interface GanttCellContextType {
   openPopoverId: string | null;
   setOpenPopoverId: (id: string | null) => void;
@@ -271,6 +307,8 @@ interface GanttCellContextType {
   onStatusesUpdated?: (statuses: Status[]) => void;
   onPriorityCreated?: (newPriority: Priority) => void;
   onPrioritiesUpdated?: (updatedPriorities: Priority[]) => void;
+  members?: any[];
+  onPersonChange?: (taskId: string, memberIds: string[]) => void;
 }
 
 const GanttCellContext = createContext<GanttCellContextType | null>(null);
@@ -338,6 +376,7 @@ interface GanttViewProps {
   onStatusesUpdated?: (statuses: Status[]) => void;
   onPriorityCreated?: (newPriority: Priority) => void;
   onPrioritiesUpdated?: (updatedPriorities: Priority[]) => void;
+  onPersonChange?: (taskId: string, memberIds: string[]) => void;
   boardId?: string | number;
 }
 const MONTHS = [
@@ -376,6 +415,7 @@ export default function GanttView({
   onStatusesUpdated,
   onPriorityCreated,
   onPrioritiesUpdated,
+  onPersonChange,
   boardId,
 }: GanttViewProps) {
   const [scaleMode, setScaleMode] = useState<"day" | "week">("day");
@@ -890,6 +930,23 @@ export default function GanttView({
           return false;
         }
 
+        // If the user clicks on the person column, trigger opening its popover and prevent selection
+        if (
+          payload &&
+          typeof payload === "object" &&
+          payload.column === "person"
+        ) {
+          const rawId = payload.id;
+          if (rawId) {
+            const stringId = String(rawId);
+            if (!stringId.startsWith("group-")) {
+              const popoverId = `gantt-person-${stringId}`;
+              latestRef.current.setOpenPopoverId(popoverId);
+            }
+          }
+          return false;
+        }
+
         // If the user is clicking on an estimated date trigger button or its active popover/portaled content,
         // intercept and ignore the selection event. This prevents parent re-renders and stops the popover from blinking.
         const event = window.event as any;
@@ -1000,6 +1057,13 @@ export default function GanttView({
         resize: true,
         header: [{ text: "Priority" }],
         cell: GanttPriorityCell,
+      },
+      {
+        id: "person",
+        width: 120,
+        resize: true,
+        header: [{ text: "Assignee" }],
+        cell: GanttPersonCell,
       },
     ];
   }, []);
@@ -1238,6 +1302,8 @@ export default function GanttView({
       onStatusesUpdated,
       onPriorityCreated,
       onPrioritiesUpdated,
+      members,
+      onPersonChange,
     }),
     [
       openPopoverId,
@@ -1251,6 +1317,8 @@ export default function GanttView({
       onStatusesUpdated,
       onPriorityCreated,
       onPrioritiesUpdated,
+      members,
+      onPersonChange,
     ],
   );
 

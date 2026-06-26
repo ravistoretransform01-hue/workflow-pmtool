@@ -6624,6 +6624,7 @@ export function WorkloadBoard({
             onStatusesUpdated={handleStatusesUpdated}
             onPriorityCreated={handlePriorityCreated}
             onPrioritiesUpdated={handlePrioritiesUpdated}
+            onPersonChange={handlePersonChange}
             boardId={parseInt(boardId, 10)}
           />
         )}

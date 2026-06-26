@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { Input } from "@/shared/components/ui/input";
 import { toast } from "sonner";
@@ -33,6 +33,41 @@ export function PersonPopover({
     selectedMemberIds || [],
   );
   const [isSaving, setIsSaving] = useState(false);
+
+  const preventPropagationRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const el = preventPropagationRef.current;
+    if (!el) return;
+
+    const stopAndToggle = (e: Event) => {
+      e.stopPropagation();
+      if (e.type === "click") {
+        const isCurrentOpen = openPopoverId === popoverId;
+        setOpenPopoverId?.(isCurrentOpen ? null : popoverId);
+      }
+    };
+
+    const events = [
+      "click",
+      "mousedown",
+      "mouseup",
+      "pointerdown",
+      "pointerup",
+      "touchstart",
+      "touchend",
+    ];
+
+    events.forEach((val) => {
+      el.addEventListener(val, stopAndToggle, { capture: true });
+    });
+
+    return () => {
+      events.forEach((val) => {
+        el.removeEventListener(val, stopAndToggle, { capture: true });
+      });
+    };
+  }, [openPopoverId, popoverId, setOpenPopoverId]);
 
   // Sync localSelected with selectedMemberIds when it changes
   useEffect(() => {
@@ -95,8 +130,8 @@ export function PersonPopover({
     >
       <PopoverTrigger asChild>
         <button
+          ref={preventPropagationRef}
           className="w-full flex justify-center hover:opacity-80 transition-opacity cursor-pointer"
-          onClick={(e) => e.stopPropagation()}
         >
           {localSelected.length === 0 ? (
             <span className="text-muted-foreground text-xs">+ Add</span>
@@ -143,8 +178,15 @@ export function PersonPopover({
       <PopoverContent
         className="w-56 p-3 bg-card border border-border shadow-lg rounded-lg flex flex-col max-h-96"
         align="center"
+        onWheel={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-col h-full space-y-2">
+        <div
+          className="flex flex-col h-full space-y-2"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
           {/* Search Input */}
           <div className="flex-shrink-0">
             <Input
