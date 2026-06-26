@@ -5546,7 +5546,7 @@ export function WorkloadBoard({
                               {/* Group Header */}
 
                               <div
-                                className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-50 bg-muted border-b border-border ${stickyGroupId === group.id ? "shadow-md" : ""}`}
+                                className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-50 bg-muted border-b border-border`}
                                 data-group-header
                                 data-group-id={group.id}
                               >
