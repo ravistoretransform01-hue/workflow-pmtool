@@ -4603,7 +4603,6 @@ export function WorkloadBoard({
   const isSyncingScroll = useRef(false);
   const [maxScrollWidth, setMaxScrollWidth] = useState(0);
   const groupsContainerRef = useRef<HTMLDivElement | null>(null);
-  const [stickyGroupId, setStickyGroupId] = useState<string | null>(null);
 
   const handleTableScroll = (groupId: string, scrollLeft: number, isHeader: boolean = false) => {
     if (isSyncingScroll.current) return;
@@ -4693,35 +4692,7 @@ export function WorkloadBoard({
     }
   }, [workloadColumns, groups]);
 
-  // Handle scroll event to detect sticky group header
-  useEffect(() => {
-    const container = groupsContainerRef.current;
-    if (!container) return;
 
-    const handleScroll = () => {
-      // Find which group header is currently at the top (sticky)
-      const groupHeaders = container.querySelectorAll("[data-group-header]");
-      let currentStickyGroupId: string | null = null;
-
-      groupHeaders.forEach((header) => {
-        const rect = header.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-
-        // Check if header is at the top of the container (sticky position)
-        if (
-          rect.top <= containerRect.top + 1 &&
-          rect.bottom > containerRect.top
-        ) {
-          currentStickyGroupId = header.getAttribute("data-group-id");
-        }
-      });
-
-      setStickyGroupId(currentStickyGroupId);
-    };
-
-    container.addEventListener("scroll", handleScroll);
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, []);
 
   const handleOpenProfile = () => {
     setProfileDialogOpen(true);
