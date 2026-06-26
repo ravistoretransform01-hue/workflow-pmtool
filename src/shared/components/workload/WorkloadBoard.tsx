@@ -5535,7 +5535,7 @@ export function WorkloadBoard({
                               {/* Group Header */}
 
                               <div
-                                className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-30 bg-muted border-b border-border ${stickyGroupId === group.id ? "shadow-md" : ""}`}
+                                className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-50 bg-muted border-b border-border ${stickyGroupId === group.id ? "shadow-md" : ""}`}
                                 data-group-header
                                 data-group-id={group.id}
                               >
@@ -5871,7 +5871,7 @@ export function WorkloadBoard({
                                 <>
                                   {/* Table Header Wrapper (Sticky Vertically) */}
                                   <div
-                                    className="overflow-x-auto w-full scrollbar-hide sticky top-[56px] z-30 bg-card border-b border-border"
+                                    className="overflow-x-auto w-full scrollbar-hide sticky top-[56px] z-40 bg-card border-b border-border"
                                     ref={(el) => {
                                       if (el)
                                         tableHeaderScrollRefs.current[group.id] = el;
