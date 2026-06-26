@@ -4599,6 +4599,7 @@ export function WorkloadBoard({
 
   // Synchronized horizontal scrolling for all group tables
   const tableScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const tableHeaderScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const isSyncingScroll = useRef(false);
   const [maxScrollWidth, setMaxScrollWidth] = useState(0);
   const groupsContainerRef = useRef<HTMLDivElement | null>(null);
@@ -4606,6 +4607,12 @@ export function WorkloadBoard({
 
   const handleTableScroll = (groupId: string, scrollLeft: number) => {
     if (isSyncingScroll.current) return;
+
+    // Scroll the corresponding header table of this group
+    const currentHeader = tableHeaderScrollRefs.current[groupId];
+    if (currentHeader) {
+      currentHeader.scrollLeft = scrollLeft;
+    }
 
     // Scroll all other tables to the same position (proportional mapping)
     Object.entries(tableScrollRefs.current).forEach(([id, ref]) => {
@@ -4616,8 +4623,18 @@ export function WorkloadBoard({
           const dstMax = Math.max(0, ref.scrollWidth - ref.clientWidth);
           const mapped = srcMax > 0 ? (scrollLeft / srcMax) * dstMax : 0;
           ref.scrollLeft = mapped;
+
+          // Also scroll the header of the other group proportionally
+          const otherHeader = tableHeaderScrollRefs.current[id];
+          if (otherHeader) {
+            otherHeader.scrollLeft = mapped;
+          }
         } else {
           ref.scrollLeft = scrollLeft;
+          const otherHeader = tableHeaderScrollRefs.current[id];
+          if (otherHeader) {
+            otherHeader.scrollLeft = scrollLeft;
+          }
         }
       }
     });
@@ -5851,40 +5868,42 @@ export function WorkloadBoard({
 
                               {/* Task Table */}
                               {expandedGroups[group.id] && (
-                                <div
-                                  className="overflow-x-auto w-full scrollbar-hide"
-                                  ref={(el) => {
-                                    if (el)
-                                      tableScrollRefs.current[group.id] = el;
-                                  }}
-                                  onScroll={(e) => {
-                                    const target =
-                                      e.currentTarget as HTMLDivElement;
-                                    handleTableScroll(
-                                      group.id,
-                                      target.scrollLeft,
-                                    );
-                                  }}
-                                >
-                                  <DndContext
-                                    sensors={sensors}
-                                    collisionDetection={closestCenter}
-                                    onDragEnd={(e) => {
-                                      if (e.active.data.current?.type === "column") {
-                                        handleColumnDragEnd(e);
-                                      } else {
-                                        handleTaskDragEnd(e, group.id);
-                                      }
+                                <>
+                                  {/* Table Header Wrapper (Sticky Vertically) */}
+                                  <div
+                                    className="overflow-x-auto w-full scrollbar-hide sticky top-[56px] z-30 bg-card border-b border-border"
+                                    ref={(el) => {
+                                      if (el)
+                                        tableHeaderScrollRefs.current[group.id] = el;
                                     }}
                                   >
-                                    <table
-                                      className="border-separate border-spacing-0"
-                                      style={{
-                                        tableLayout: "fixed",
-                                        width: `${totalTableWidth}px`,
-                                        minWidth: "100%",
-                                      }}
+                                    <DndContext
+                                      sensors={sensors}
+                                      collisionDetection={closestCenter}
+                                      onDragEnd={handleColumnDragEnd}
                                     >
+                                      <table
+                                        className="border-separate border-spacing-0"
+                                        style={{
+                                          tableLayout: "fixed",
+                                          width: `${totalTableWidth}px`,
+                                          minWidth: "100%",
+                                        }}
+                                      >
+                                        <colgroup>
+                                          <col style={{ width: "48px", minWidth: "48px", maxWidth: "48px" }} />
+                                          {workloadColumns.map((col) => (
+                                            <col
+                                              key={col.id}
+                                              style={{
+                                                width: col.width,
+                                                minWidth: col.minWidth || col.width,
+                                                maxWidth: col.maxWidth || col.width,
+                                              }}
+                                            />
+                                          ))}
+                                          <col style={{ width: "auto" }} />
+                                        </colgroup>
                                         <SortableContext
                                           items={workloadColumns.map(
                                             (c) => c.id,
@@ -5893,7 +5912,7 @@ export function WorkloadBoard({
                                             horizontalListSortingStrategy
                                           }
                                         >
-                                          <thead className="bg-muted/30 top-0 z-30">
+                                          <thead className="bg-muted/30">
                                             <tr className="text-sm text-muted-foreground group">
                                               <th className="p-4 w-12 border-b border-r border-border text-center sticky left-0 z-30 bg-card">
                                                 <input
@@ -5967,15 +5986,63 @@ export function WorkloadBoard({
                                               ))}
                                               {/* Filler column to absorb extra space and prevent stretching */}
                                               <th
-                                                className="p-0 border-b border-border"
+                                                className="p-0 border-b border-border bg-card z-20"
                                                 style={{ width: "auto" }}
                                               />
                                             </tr>
                                           </thead>
                                         </SortableContext>
+                                      </table>
+                                    </DndContext>
+                                  </div>
 
-                                      {/* Table Body */}
-                                      <tbody>
+                                  {/* Table Body Wrapper */}
+                                  <div
+                                    className="overflow-x-auto w-full scrollbar-hide"
+                                    ref={(el) => {
+                                      if (el)
+                                        tableScrollRefs.current[group.id] = el;
+                                    }}
+                                    onScroll={(e) => {
+                                      const target =
+                                        e.currentTarget as HTMLDivElement;
+                                      handleTableScroll(
+                                        group.id,
+                                        target.scrollLeft,
+                                      );
+                                    }}
+                                  >
+                                    <DndContext
+                                      sensors={sensors}
+                                      collisionDetection={closestCenter}
+                                      onDragEnd={(e) => {
+                                        handleTaskDragEnd(e, group.id);
+                                      }}
+                                    >
+                                      <table
+                                        className="border-separate border-spacing-0"
+                                        style={{
+                                          tableLayout: "fixed",
+                                          width: `${totalTableWidth}px`,
+                                          minWidth: "100%",
+                                        }}
+                                      >
+                                        <colgroup>
+                                          <col style={{ width: "48px", minWidth: "48px", maxWidth: "48px" }} />
+                                          {workloadColumns.map((col) => (
+                                            <col
+                                              key={col.id}
+                                              style={{
+                                                width: col.width,
+                                                minWidth: col.minWidth || col.width,
+                                                maxWidth: col.maxWidth || col.width,
+                                              }}
+                                            />
+                                          ))}
+                                          <col style={{ width: "auto" }} />
+                                        </colgroup>
+                                        {/* Table Body */}
+                                        <tbody>
                                         <SortableContext
                                           items={group.tasks.map((t) => t.id)}
                                           strategy={verticalListSortingStrategy}
@@ -6178,6 +6245,9 @@ export function WorkloadBoard({
                                                               "p-4 text-center border-b border-r border-border sticky left-0 z-30"
                                                             )}
                                                             style={{
+                                                              width: "48px",
+                                                              minWidth: "48px",
+                                                              maxWidth: "48px",
                                                               backgroundColor: isSubtaskActive
                                                                 ? "color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--card)))"
                                                                 : "hsl(var(--card))",
@@ -6306,7 +6376,14 @@ export function WorkloadBoard({
                                                   task.id
                                                 ] && (
                                                   <tr>
-                                                    <td className="p-4 text-center border-b border-r border-border sticky left-0 z-30 bg-card">
+                                                    <td
+                                                      className="p-4 text-center border-b border-r border-border sticky left-0 z-30 bg-card"
+                                                      style={{
+                                                        width: "48px",
+                                                        minWidth: "48px",
+                                                        maxWidth: "48px",
+                                                      }}
+                                                    >
                                                       {/* Empty Cell */}
                                                     </td>
                                                     <td
@@ -6401,7 +6478,14 @@ export function WorkloadBoard({
 
                                         {/* ================= ADD ITEM ROW ================= */}
                                         <tr>
-                                          <td className="p-4 text-center border-r border-border sticky left-0 z-30 bg-card">
+                                          <td
+                                            className="p-4 text-center border-r border-border sticky left-0 z-30 bg-card"
+                                            style={{
+                                              width: "48px",
+                                              minWidth: "48px",
+                                              maxWidth: "48px",
+                                            }}
+                                          >
                                             {/* Empty Cell */}
                                           </td>
                                           <td
@@ -6462,7 +6546,7 @@ export function WorkloadBoard({
                                     </table>
                                   </DndContext>
                                 </div>
-                              )}
+                              </>)}
                             </div>
                           )}
                         </SortableGroupCard>
