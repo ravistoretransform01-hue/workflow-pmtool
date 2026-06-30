@@ -130,7 +130,10 @@ export const getWorkloadColumns = ({
       render: (task: Task, isSubitem?: boolean) => {
         if (isSubitem) {
           return (
-            <div className="flex items-center gap-2 pl-8 justify-between group">
+            <div
+              onClick={() => onOpenComments?.(task)}
+              className="flex items-center gap-2 pl-8 justify-between group cursor-pointer w-full h-full min-h-[36px]"
+            >
               <div className="flex-1 flex items-center gap-2 min-w-0">
                 <span className="text-muted-foreground shrink-0"> {"├"}</span>
                 {inlineEditingTaskId === task.id ? (
@@ -139,6 +142,7 @@ export const getWorkloadColumns = ({
                     autoFocus
                     value={inlineEditingTaskName}
                     onChange={(e) => setInlineEditingTaskName?.(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => {
                       const isSubmitKey = e.key === "Enter" || e.key === "Tab";
 
@@ -204,7 +208,10 @@ export const getWorkloadColumns = ({
           );
         }
         return (
-          <div className="flex items-center gap-2 justify-between group">
+          <div
+            onClick={() => onOpenComments?.(task)}
+            className="flex items-center gap-2 justify-between group cursor-pointer w-full h-full min-h-[36px]"
+          >
             <div className="flex-1 flex items-center gap-2 min-w-0">
               <button
                 onClick={(e) => {
@@ -225,6 +232,7 @@ export const getWorkloadColumns = ({
                   autoFocus
                   value={inlineEditingTaskName}
                   onChange={(e) => setInlineEditingTaskName?.(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => {
                     const isSubmitKey = e.key === "Enter" || e.key === "Tab";
 
