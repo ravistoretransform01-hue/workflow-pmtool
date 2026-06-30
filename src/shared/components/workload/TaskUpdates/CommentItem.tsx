@@ -246,47 +246,49 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               </div>
             </div>
 
-            {isOwnComment && (
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {!isClient && (
-                      <DropdownMenuItem onClick={() => onToggleSOP(comment.id)}>
-                        <FileText className="h-3 w-3 mr-2" />
-                        {comment.sop ? "Remove From SOP" : "Add To SOP"}
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {isOwnComment && !isClient && (
+                    <DropdownMenuItem onClick={() => onToggleSOP(comment.id)}>
+                      <FileText className="h-3 w-3 mr-2" />
+                      {comment.sop ? "Remove From SOP" : "Add To SOP"}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => onShareComment(comment.id)}
+                  >
+                    <Share2 className="h-3 w-3 mr-2" />
+                    Share Link
+                  </DropdownMenuItem>
+                  {isOwnComment && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditingCommentId(comment.id);
+                          setEditCommentText(comment.content);
+                        }}
+                      >
+                        <Pencil className="h-3 w-3 mr-2" />
+                        Edit
                       </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem
-                      onClick={() => onShareComment(comment.id)}
-                    >
-                      <Share2 className="h-3 w-3 mr-2" />
-                      Share Link
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setEditingCommentId(comment.id);
-                        setEditCommentText(comment.content);
-                      }}
-                    >
-                      <Pencil className="h-3 w-3 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive"
-                      onClick={() => onDeleteComment(comment.id)}
-                    >
-                      <Trash2 className="h-3 w-3 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => onDeleteComment(comment.id)}
+                      >
+                        <Trash2 className="h-3 w-3 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
           {/* Indented Content Block */}
