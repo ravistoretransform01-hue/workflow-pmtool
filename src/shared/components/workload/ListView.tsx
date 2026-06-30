@@ -100,6 +100,7 @@ export function ListView(props: ListViewProps) {
     onTaskClick,
     expandedTasks,
     workloadColumns: propsColumns,
+    onOpenComments,
   } = props;
 
   // Initialize shared columns - use props columns if available, otherwise generate them
@@ -267,7 +268,12 @@ export function ListView(props: ListViewProps) {
                                 minWidth: col.minWidth || col.width,
                                 maxWidth: col.maxWidth || col.width,
                               }}
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (col.id === "item") {
+                                  onOpenComments(task);
+                                }
+                              }}
                             >
                               {col.render(task)}
                             </td>
@@ -297,7 +303,12 @@ export function ListView(props: ListViewProps) {
                                       minWidth: col.minWidth || col.width,
                                       maxWidth: col.maxWidth || col.width,
                                     }}
-                                    onClick={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (col.id === "item") {
+                                        onOpenComments(sub);
+                                      }
+                                    }}
                                   >
                                     {col.render(sub, true)}
                                   </td>

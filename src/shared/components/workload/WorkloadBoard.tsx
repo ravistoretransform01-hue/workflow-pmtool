@@ -6155,9 +6155,12 @@ export function WorkloadBoard({
                                                                       : "hsl(var(--card))"
                                                                     : undefined,
                                                               }}
-                                                              onClick={(e) =>
-                                                                e.stopPropagation()
-                                                              }
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (col.id === "item") {
+                                                                  openCommentsPanel(task);
+                                                                }
+                                                              }}
                                                             >
                                                             {col.collapsed ? (
                                                               <div className="flex items-center justify-center">
@@ -6318,9 +6321,12 @@ export function WorkloadBoard({
                                                                         : "hsl(var(--card))"
                                                                       : undefined,
                                                                 }}
-                                                                onClick={(e) =>
-                                                                  e.stopPropagation()
-                                                                }
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  if (col.id === "item") {
+                                                                    openCommentsPanel(subtask);
+                                                                  }
+                                                                }}
                                                               >
                                                                 {col.collapsed ? (
                                                                   <div className="flex items-center justify-center">
