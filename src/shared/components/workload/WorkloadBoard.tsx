@@ -37,6 +37,7 @@ import {
   Archive,
   Save,
   Pencil,
+  FolderSymlink,
 } from "lucide-react";
 import { cn, getCurrentUserId, copyToClipboard } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
@@ -177,6 +178,7 @@ export interface Task {
     tagged_at: string;
   }>;
   subitems?: Task[];
+  parent_id?: string | null;
   position?: string;
   assignee_names?: string[];
   recurrence?: any;
@@ -4604,6 +4606,182 @@ export function WorkloadBoard({
   const [maxScrollWidth, setMaxScrollWidth] = useState(0);
   const groupsContainerRef = useRef<HTMLDivElement | null>(null);
 
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [moveToGroupId, setMoveToGroupId] = useState<string>("");
+  const [moveToParentId, setMoveToParentId] = useState<string>("none");
+
+  // Find group ID of the first checked task to initialize target group
+  useEffect(() => {
+    if (isMoveDialogOpen) {
+      const firstCheckedId = Object.keys(taskState.checkedTasks).find(
+        (id) => taskState.checkedTasks[id]
+      );
+      if (firstCheckedId) {
+        const task = getTaskById(firstCheckedId);
+        if (task) {
+          const group = groups.find((g) => 
+            g.tasks.some((t) => String(t.id) === String(task.id) || (t.subitems && t.subitems.some((sub) => String(sub.id) === String(task.id))))
+          );
+          if (group) {
+            setMoveToGroupId(String(group.id));
+          }
+        }
+      }
+      setMoveToParentId("none");
+    }
+  }, [isMoveDialogOpen]);
+
+  const availableParentTasks = useMemo(() => {
+    if (!moveToGroupId) return [];
+    const group = groups.find((g) => String(g.id) === String(moveToGroupId));
+    if (!group) return [];
+    
+    const checkedTaskIds = Object.keys(taskState.checkedTasks).filter(
+      (id) => taskState.checkedTasks[id]
+    );
+
+    return group.tasks.filter(
+      (t) => !t.parent_id && !checkedTaskIds.includes(String(t.id))
+    );
+  }, [groups, moveToGroupId, taskState.checkedTasks]);
+
+  const moveCheckedTasks = async () => {
+    const checkedTaskIds = Object.keys(taskState.checkedTasks).filter(
+      (id) => taskState.checkedTasks[id]
+    );
+
+    if (checkedTaskIds.length === 0) {
+      toast.error("No tasks selected");
+      return;
+    }
+
+    try {
+      const boardIdNum = parseInt(boardId, 10);
+      const targetGroupId = moveToGroupId ? parseInt(moveToGroupId, 10) : null;
+      const targetParentId = moveToParentId === "none" ? null : parseInt(moveToParentId, 10);
+
+      // Call API for each selected task
+      await Promise.all(
+        checkedTaskIds.map((taskId) => {
+          const payload: any = {
+            id: taskId,
+            board_id: boardIdNum,
+          };
+          if (targetGroupId !== null) {
+            payload.group_id = targetGroupId;
+          }
+          payload.parent_id = targetParentId;
+
+          return tasksApi.updateTask(payload);
+        })
+      );
+
+      // Locally update groups state to reflect moves
+      setGroups((prevGroups) => {
+        const movedTasksMap: Record<string, Task> = {};
+        
+        const cleanGroups = prevGroups.map((group) => {
+          const filteredTasks: Task[] = [];
+          
+          group.tasks.forEach((task) => {
+            const isTaskMoved = checkedTaskIds.includes(String(task.id));
+            
+
+            const remainingSubitems = (task.subitems || []).filter((sub) => {
+              const isSubMoved = checkedTaskIds.includes(String(sub.id));
+              if (isSubMoved) {
+                movedTasksMap[String(sub.id)] = {
+                  ...sub,
+                  parent_id: targetParentId ? String(targetParentId) : null,
+                  group_id: targetGroupId ? String(targetGroupId) : group.id,
+                };
+                return false;
+              }
+              return true;
+            });
+
+            if (isTaskMoved) {
+              movedTasksMap[String(task.id)] = {
+                ...task,
+                parent_id: targetParentId ? String(targetParentId) : null,
+                group_id: targetGroupId ? String(targetGroupId) : group.id,
+                subitems: remainingSubitems,
+              };
+            } else {
+              filteredTasks.push({
+                ...task,
+                subitems: remainingSubitems,
+              });
+            }
+          });
+
+          return { ...group, tasks: filteredTasks };
+        });
+
+        const finalGroups = cleanGroups.map((group) => {
+          const isTargetGroup = targetGroupId !== null 
+            ? String(group.id) === String(targetGroupId)
+            : false;
+            
+          let updatedTasks = [...group.tasks];
+
+          checkedTaskIds.forEach((taskId) => {
+            const task = movedTasksMap[taskId];
+            if (!task) return;
+
+            const belongsToThisGroup = targetGroupId !== null 
+              ? isTargetGroup 
+              : String(task.group_id) === String(group.id);
+
+            if (!belongsToThisGroup) return;
+
+            if (targetParentId !== null) {
+              updatedTasks = updatedTasks.map((t) => {
+                if (String(t.id) === String(targetParentId)) {
+                  const existingSubitems = t.subitems || [];
+                  if (!existingSubitems.some((sub) => String(sub.id) === String(task.id))) {
+                    return {
+                      ...t,
+                      subitems: [...existingSubitems, {
+                        ...task,
+                        parent_id: String(targetParentId),
+                      }],
+                    };
+                  }
+                }
+                return t;
+              });
+            } else {
+              if (!updatedTasks.some((t) => String(t.id) === String(task.id))) {
+                updatedTasks.push({
+                  ...task,
+                  parent_id: null,
+                  subitems: task.subitems || [],
+                });
+              }
+            }
+          });
+
+          return { ...group, tasks: updatedTasks };
+        });
+
+        localStorage.setItem(
+          `board-groups-${boardId}`,
+          JSON.stringify(finalGroups),
+        );
+
+        return finalGroups;
+      });
+
+      toast.success("Tasks moved successfully");
+      taskState.clearCheckedTasks();
+      setIsMoveDialogOpen(false);
+    } catch (err) {
+      console.error("Failed to move tasks:", err);
+      toast.error("Failed to move tasks");
+    }
+  };
+
   const handleTableScroll = (groupId: string, scrollLeft: number, isHeader: boolean = false) => {
     if (isSyncingScroll.current) return;
 
@@ -6955,6 +7133,84 @@ export function WorkloadBoard({
                     <Archive className="h-5 w-5" />
                     <span className="text-xs">Archive</span>
                   </button>
+
+                  <Popover open={isMoveDialogOpen} onOpenChange={setIsMoveDialogOpen}>
+                    <PopoverTrigger asChild>
+                      <button className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+                        <FolderSymlink className="h-5 w-5" />
+                        <span className="text-xs">Move to</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-4" align="center" side="top">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <h4 className="font-medium leading-none text-foreground">Move Selected Tasks</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Select a group and/or parent task to move items to.
+                          </p>
+                        </div>
+                        <div className="grid gap-3">
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-medium text-foreground">
+                              Move to Group
+                            </label>
+                            <select
+                              value={moveToGroupId}
+                              onChange={(e) => {
+                                setMoveToGroupId(e.target.value);
+                                setMoveToParentId("none");
+                              }}
+                              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                              <option value="">Select a Group...</option>
+                              {groups.map((group) => (
+                                <option key={group.id} value={group.id}>
+                                  {group.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-medium text-foreground">
+                              Make Subtask of (Parent)
+                            </label>
+                            <select
+                              value={moveToParentId}
+                              onChange={(e) => setMoveToParentId(e.target.value)}
+                              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                              <option value="none">None (Move as main task)</option>
+                              {availableParentTasks.map((parentTask) => (
+                                <option key={parentTask.id} value={parentTask.id}>
+                                  {parentTask.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="flex justify-end gap-2 pt-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs"
+                              onClick={() => setIsMoveDialogOpen(false)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button 
+                              size="sm"
+                              className="h-8 text-xs"
+                              onClick={moveCheckedTasks} 
+                              disabled={!moveToGroupId}
+                            >
+                              Move Tasks
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
 
