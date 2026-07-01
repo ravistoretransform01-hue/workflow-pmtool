@@ -25,7 +25,7 @@ const TASKS_ENDPOINTS = {
   DELETE_ESTIMATED_DATE: `/tasks/estimate`,
   ADD_TAG: `/tasks/tag`,
   REMOVE_TAG: (taskTagId: string | number) => `/tasks/tag/${taskTagId}`,
-  REMOVE_TASK_TAG: `/task-tags`,
+  REMOVE_TASK_TAG: `/task-tags`,  
   GET_COMMENTS: (taskId: string | number) => `/tasks/${taskId}/comments`,
   CREATE_COMMENT: (taskId: string | number) => `/tasks/${taskId}/comments`,
   UPDATE_COMMENT: (taskId: string | number, commentId: string | number) =>

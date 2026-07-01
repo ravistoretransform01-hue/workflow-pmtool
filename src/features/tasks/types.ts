@@ -145,6 +145,8 @@ export interface UpdateTaskRequest {
   is_private?: number;
   member?: string;
   position?: string; // Support for task reordering
+  group_id?: number;
+  parent_id?: number | null;
   // optional rating update - now an object with rating and assignee_id
   rating?: {
     rating: string | number;
