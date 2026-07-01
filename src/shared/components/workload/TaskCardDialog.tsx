@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { TiptapEditor } from "./texteditor/TiptapEditor";
 import { getMembers } from "@/features/cms/cmsStorage";
+import { formatActivityValue } from "./CommentsPanelSheet";
 import {
   getCurrentUserId,
   getOrganizationId,
@@ -1221,7 +1222,7 @@ export function TaskCardDialog({
                                   <div
                                     className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                     dangerouslySetInnerHTML={renderFormattedContent(
-                                      activity.old_value,
+                                      formatActivityValue(activity.action, activity.old_value, statuses, priorities) || "",
                                     )}
                                   />
                                 </div>
@@ -1234,7 +1235,7 @@ export function TaskCardDialog({
                                   <div
                                     className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                     dangerouslySetInnerHTML={renderFormattedContent(
-                                      activity.new_value,
+                                      formatActivityValue(activity.action, activity.new_value, statuses, priorities) || "",
                                     )}
                                   />
                                 </div>

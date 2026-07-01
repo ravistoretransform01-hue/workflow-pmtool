@@ -36,6 +36,7 @@ import {
 import type { TaskComment } from "@/features/tasks/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { getCurrentUserId, getOrganizationId, isClientRole } from "@/lib/utils";
+import type { Status, Priority } from "@/features/cms/types";
 import { getMembers } from "@/features/cms/cmsStorage";
 
 interface CommentsPanelSheetProps {
@@ -74,6 +75,32 @@ interface CommentsPanelSheetProps {
   boardId?: string;
   activeCommentsTab?: string;
   onActiveCommentsTabChange?: (tab: string) => void;
+  statuses?: Status[];
+  priorities?: Priority[];
+}
+
+export function formatActivityValue(
+  action: string,
+  value: string | null,
+  statuses: Status[] = [],
+  priorities: Priority[] = []
+): string | null {
+  if (!value) return value;
+  
+  const trimmed = value.trim();
+  const actionLower = action.toLowerCase();
+  
+  if (actionLower === "status_id" || actionLower === "status") {
+    const status = statuses.find((s) => String(s.id) === trimmed);
+    if (status) return status.name;
+  }
+  
+  if (actionLower === "priority_id" || actionLower === "priority") {
+    const priority = priorities.find((p) => String(p.id) === trimmed);
+    if (priority) return priority.name;
+  }
+  
+  return value;
 }
 
 /**
@@ -106,6 +133,8 @@ export function CommentsPanelSheet({
   boardId,
   activeCommentsTab: propActiveCommentsTab,
   onActiveCommentsTabChange,
+  statuses = [],
+  priorities = [],
 }: CommentsPanelSheetProps) {
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [previewFileName, setPreviewFileName] = useState<string | undefined>(
@@ -139,7 +168,7 @@ export function CommentsPanelSheet({
           });
 
           const currentMember = cmsMembers.find(
-            (m) => String(m.user_id) === String(currentUserId),
+            (m: any) => String(m.user_id) === String(currentUserId),
           );
 
           if (currentMember) {
@@ -799,7 +828,7 @@ export function CommentsPanelSheet({
                                         <div
                                           className="mt-1 break-words [&_.pdf-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.pdf-card-content]:bg-card [&_.pdf-card-content]:border-border [&_.pdf-card-content]:shadow-sm [&_.pdf-card-preview-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                           dangerouslySetInnerHTML={renderFormattedContent(
-                                            activity.old_value,
+                                            formatActivityValue(activity.action, activity.old_value, statuses, priorities) || "",
                                           )}
                                         />
                                       </div>
@@ -812,7 +841,7 @@ export function CommentsPanelSheet({
                                         <div
                                           className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                           dangerouslySetInnerHTML={renderFormattedContent(
-                                            activity.new_value,
+                                            formatActivityValue(activity.action, activity.new_value, statuses, priorities) || "",
                                           )}
                                         />
                                       </div>
