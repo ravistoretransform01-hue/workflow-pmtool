@@ -6917,6 +6917,8 @@ export function WorkloadBoard({
           boardId={boardId}
           activeCommentsTab={activeCommentsTab}
           onActiveCommentsTabChange={setActiveCommentsTab}
+          statuses={statuses}
+          priorities={priorities}
         />
 
         {/* Bulk Actions Toolbar */}
