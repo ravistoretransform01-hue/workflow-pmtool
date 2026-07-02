@@ -241,7 +241,7 @@ const HomePage = () => {
       {/* <h1 className="text-3xl font-bold mb-6">Welcome to Home</h1> */}
       <div className="space-y-4">
         {/* <p>This is your homepage with the sidebar and header layout.</p> */}
-        <p>Welcome to WorkflowPM</p>
+        <p>Welcome to WorkFlowPM</p>
         {/* Add your content here */}
       </div>
     </div>
