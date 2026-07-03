@@ -24,10 +24,12 @@ export interface Task {
 
 export interface CreateGroupRequest {
   board_id: number;
-  workspace_id: number;
+  workspace_id: number | null;
   organization_id: number;
   name: string;
   color: string;
+  abbreviation?: string;
+  completion_date?: string;
 }
 
 export interface UpdateGroupRequest {

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import type { RootState } from "@/app/store";
 import { groupsApi } from "@/features/groups/groupsApi";
+import type { CreateGroupRequest } from "@/features/groups/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { cmsApi } from "@/features/cms/cmsApi";
@@ -38,6 +39,7 @@ import {
   Save,
   Pencil,
   FolderSymlink,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { cn, getCurrentUserId, copyToClipboard } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
@@ -59,6 +61,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/shared/components/ui/dialog";
+import { Calendar } from "@/shared/components/ui/calendar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -522,7 +525,7 @@ const SortableTaskRow = ({
 export function WorkloadBoard({
   boardName,
   boardId,
-  workspaceId,
+  workspaceId: _workspaceId,
   // workspaceName,
 }: WorkloadBoardProps) {
   const navigate = useNavigate();
@@ -757,6 +760,8 @@ export function WorkloadBoard({
 
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupNameInput, setNewGroupNameInput] = useState("");
+  const [newGroupAbbreviationInput, setNewGroupAbbreviationInput] = useState("");
+  const [newGroupCompletionDate, setNewGroupCompletionDate] = useState<Date | undefined>(undefined);
   const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
   const [editGroupNameInput, setEditGroupNameInput] = useState("");
   const [editGroupColorInput, setEditGroupColorInput] = useState("#3b82f6");
@@ -1814,9 +1819,11 @@ export function WorkloadBoard({
     );
   };
 
-  const addNewGroup = async () => {
+  const addNewGroup = () => {
     setNewGroupDialogOpen(true);
     setNewGroupNameInput("");
+    setNewGroupAbbreviationInput("");
+    setNewGroupCompletionDate(undefined);
   };
 
   const handleCreateGroup = async () => {
@@ -1833,12 +1840,16 @@ export function WorkloadBoard({
         toast.error("Organization not found");
         return;
       }
-      const payload = {
+      const payload: CreateGroupRequest = {
         board_id: boardIdNum,
-        workspace_id: parseInt(workspaceId, 10),
+        workspace_id: null,
         organization_id: organizationIdNum,
         name: newGroupNameInput.trim(),
         color: newGroupColorInput, // Use selected color
+        abbreviation: newGroupAbbreviationInput.trim() || undefined,
+        completion_date: newGroupCompletionDate
+          ? format(newGroupCompletionDate, "dd-MM-yyyy")
+          : undefined,
       };
 
       const newGroup = await groupsApi.createGroup(payload);
@@ -1885,6 +1896,8 @@ export function WorkloadBoard({
       // Close dialog and reset input
       setNewGroupDialogOpen(false);
       setNewGroupNameInput("");
+      setNewGroupAbbreviationInput("");
+      setNewGroupCompletionDate(undefined);
       setNewGroupColorInput("#3b82f6"); // Reset to default color
 
       toast.success(`Group "${newGroupNameInput.trim()}" Created Successfully`);
@@ -6956,6 +6969,56 @@ export function WorkloadBoard({
                   autoFocus
                 />
               </div>
+              <div className="grid gap-2">
+                <label htmlFor="group-abbreviation" className="text-sm font-medium">
+                  Abbreviation
+                </label>
+                <Input
+                  id="group-abbreviation"
+                  placeholder="Enter abbreviation (e.g. ABS)..."
+                  value={newGroupAbbreviationInput}
+                  onChange={(e) => setNewGroupAbbreviationInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleCreateGroup();
+                    }
+                  }}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">
+                  Completion Date
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal h-10 bg-background border-input",
+                        !newGroupCompletionDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                      {newGroupCompletionDate ? (
+                        format(newGroupCompletionDate, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={newGroupCompletionDate}
+                      onSelect={setNewGroupCompletionDate}
+                      disabled={(date) =>
+                        date < new Date(new Date().setHours(0, 0, 0, 0))
+                      }
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             <DialogFooter>
               <Button
@@ -6963,6 +7026,8 @@ export function WorkloadBoard({
                 onClick={() => {
                   setNewGroupDialogOpen(false);
                   setNewGroupNameInput("");
+                  setNewGroupAbbreviationInput("");
+                  setNewGroupCompletionDate(undefined);
                   setNewGroupColorInput("#3b82f6");
                 }}
                 disabled={isCreatingGroup}
