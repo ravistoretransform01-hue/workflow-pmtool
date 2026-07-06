@@ -6129,6 +6129,32 @@ export function WorkloadBoard({
                                     </div>
                                   );
                                 })()}
+
+                                 {group.completion_date && (() => {
+                                   let parsedDate: Date | null = null;
+                                   try {
+                                     const isoParsed = parseISO(group.completion_date);
+                                     if (!isNaN(isoParsed.getTime())) {
+                                       parsedDate = isoParsed;
+                                     } else if (/^\d{2}-\d{2}-\d{4}$/.test(group.completion_date)) {
+                                       const parts = group.completion_date.split("-");
+                                       const day = parseInt(parts[0], 10);
+                                       const month = parseInt(parts[1], 10) - 1;
+                                       const year = parseInt(parts[2], 10);
+                                       const customDate = new Date(year, month, day);
+                                       if (!isNaN(customDate.getTime())) {
+                                         parsedDate = customDate;
+                                       }
+                                     }
+                                   } catch {}
+                                   if (!parsedDate) return null;
+                                   return (
+                                     <div className="ml-auto text-xs font-semibold text-muted-foreground flex items-center gap-1.5 px-3 py-1 bg-background rounded-md border border-border shadow-sm shrink-0">
+                                       <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                       <span>Due: {format(parsedDate, "PP")}</span>
+                                     </div>
+                                   );
+                                 })()}
                               </div>
 
                               {/* Task Table */}
