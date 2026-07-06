@@ -5836,6 +5836,7 @@ export function WorkloadBoard({
                                   }}
                                 >
                                   {groupNames[group.id] || group.name}
+                                  {group.abbreviation && ` (${group.abbreviation})`}
                                 </span>
 
                                 {/* Label Chip (optional) */}
