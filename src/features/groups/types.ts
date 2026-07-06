@@ -53,6 +53,8 @@ export interface UpdateGroupRequest {
   color?: string;
   label?: string | null;
   label_color?: string | null;
+  abbreviation?: string | null;
+  completion_date?: string | null;
 }
 
 export interface GetGroupsResponse {
