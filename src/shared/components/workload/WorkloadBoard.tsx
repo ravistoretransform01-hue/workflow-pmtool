@@ -1846,10 +1846,10 @@ export function WorkloadBoard({
         organization_id: organizationIdNum,
         name: newGroupNameInput.trim(),
         color: newGroupColorInput, // Use selected color
-        abbreviation: newGroupAbbreviationInput.trim() || undefined,
+        abbreviation: newGroupAbbreviationInput.trim() || null,
         completion_date: newGroupCompletionDate
           ? format(newGroupCompletionDate, "dd-MM-yyyy")
-          : undefined,
+          : null,
       };
 
       const newGroup = await groupsApi.createGroup(payload);

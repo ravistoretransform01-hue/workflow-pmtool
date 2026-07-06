@@ -2,14 +2,30 @@ export interface Group {
   id: string | number;
   name: string;
   color: string;
-  board_id: number;
-  workspace_id: number;
-  organization_id: number;
+  board_id: number | string;
+  workspace_id?: number | string | null;
+  organization_id: number | string;
   label?: string | null;
   label_color?: string | null;
   tasks?: Task[];
+  abbreviation?: string | null;
+  completion_date?: string | null;
+  external_project_id?: string | null;
+  position?: string | number;
+  columns?: string;
+  created_by?: string | number;
+  updated_by?: string | number | null;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string | null;
+  label_ids?: any[];
+  label_details?: any[];
+  creator?: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  task_count?: string | number;
 }
 
 export interface Task {
@@ -28,8 +44,8 @@ export interface CreateGroupRequest {
   organization_id: number;
   name: string;
   color: string;
-  abbreviation?: string;
-  completion_date?: string;
+  abbreviation?: string | null;
+  completion_date?: string | null;
 }
 
 export interface UpdateGroupRequest {
