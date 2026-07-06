@@ -68,6 +68,8 @@ export interface TaskGroup {
   name: string;
   color: string;
   tasks: Task[];
+  abbreviation?: string | null;
+  completion_date?: string | null;
 }
 
 /**

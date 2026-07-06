@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import type { RootState } from "@/app/store";
 import { groupsApi } from "@/features/groups/groupsApi";
+import type { CreateGroupRequest, UpdateGroupRequest } from "@/features/groups/types";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { attachmentsApi } from "@/features/tasks/attachmentsApi";
 import { cmsApi } from "@/features/cms/cmsApi";
@@ -38,6 +39,7 @@ import {
   Save,
   Pencil,
   FolderSymlink,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { cn, getCurrentUserId, copyToClipboard } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
@@ -59,6 +61,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/shared/components/ui/dialog";
+import { Calendar } from "@/shared/components/ui/calendar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -124,6 +127,8 @@ export interface TaskGroup {
   color: string;
   tasks: Task[];
   label_id?: string;
+  abbreviation?: string | null;
+  completion_date?: string | null;
 }
 
 export interface Task {
@@ -522,7 +527,7 @@ const SortableTaskRow = ({
 export function WorkloadBoard({
   boardName,
   boardId,
-  workspaceId,
+  workspaceId: _workspaceId,
   // workspaceName,
 }: WorkloadBoardProps) {
   const navigate = useNavigate();
@@ -757,6 +762,8 @@ export function WorkloadBoard({
 
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupNameInput, setNewGroupNameInput] = useState("");
+  const [newGroupAbbreviationInput, setNewGroupAbbreviationInput] = useState("");
+  const [newGroupCompletionDate, setNewGroupCompletionDate] = useState<Date | undefined>(undefined);
   const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
   const [editGroupNameInput, setEditGroupNameInput] = useState("");
   const [editGroupColorInput, setEditGroupColorInput] = useState("#3b82f6");
@@ -766,6 +773,8 @@ export function WorkloadBoard({
   const [editGroupLabelInput, setEditGroupLabelInput] = useState<string>("");
   const [editGroupLabelColorInput, setEditGroupLabelColorInput] =
     useState<string>("#3b82f6");
+  const [editGroupAbbreviationInput, setEditGroupAbbreviationInput] = useState("");
+  const [editGroupCompletionDate, setEditGroupCompletionDate] = useState<Date | undefined>(undefined);
   const [newGroupColorInput, setNewGroupColorInput] = useState("#3b82f6");
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<string | null>(
     null,
@@ -1018,6 +1027,8 @@ export function WorkloadBoard({
             name: group.name,
             color: group.color ?? "#3b82f6",
             label_id: groupLabelId,
+            abbreviation: group.abbreviation,
+            completion_date: group.completion_date,
             tasks: tasksWithSubtasks
               .filter((task) => String(task.group_id) === groupIdStr)
               .sort((a, b) => {
@@ -1814,9 +1825,11 @@ export function WorkloadBoard({
     );
   };
 
-  const addNewGroup = async () => {
+  const addNewGroup = () => {
     setNewGroupDialogOpen(true);
     setNewGroupNameInput("");
+    setNewGroupAbbreviationInput("");
+    setNewGroupCompletionDate(undefined);
   };
 
   const handleCreateGroup = async () => {
@@ -1833,12 +1846,16 @@ export function WorkloadBoard({
         toast.error("Organization not found");
         return;
       }
-      const payload = {
+      const payload: CreateGroupRequest = {
         board_id: boardIdNum,
-        workspace_id: parseInt(workspaceId, 10),
+        workspace_id: null,
         organization_id: organizationIdNum,
         name: newGroupNameInput.trim(),
         color: newGroupColorInput, // Use selected color
+        abbreviation: newGroupAbbreviationInput.trim() || null,
+        completion_date: newGroupCompletionDate
+          ? format(newGroupCompletionDate, "dd-MM-yyyy")
+          : null,
       };
 
       const newGroup = await groupsApi.createGroup(payload);
@@ -1885,6 +1902,8 @@ export function WorkloadBoard({
       // Close dialog and reset input
       setNewGroupDialogOpen(false);
       setNewGroupNameInput("");
+      setNewGroupAbbreviationInput("");
+      setNewGroupCompletionDate(undefined);
       setNewGroupColorInput("#3b82f6"); // Reset to default color
 
       toast.success(`Group "${newGroupNameInput.trim()}" Created Successfully`);
@@ -1903,6 +1922,28 @@ export function WorkloadBoard({
     setEditingGroupId(groupId);
     setEditGroupNameInput(groupNames[groupId] || group.name);
     setEditGroupColorInput(groupColors[groupId] || group.color);
+    setEditGroupAbbreviationInput(group.abbreviation || "");
+    let parsedDate: Date | undefined;
+    if (group.completion_date) {
+      try {
+        const isoParsed = parseISO(group.completion_date);
+        if (!isNaN(isoParsed.getTime())) {
+          parsedDate = isoParsed;
+        } else if (/^\d{2}-\d{2}-\d{4}$/.test(group.completion_date)) {
+          const parts = group.completion_date.split("-");
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1;
+          const year = parseInt(parts[2], 10);
+          const customDate = new Date(year, month, day);
+          if (!isNaN(customDate.getTime())) {
+            parsedDate = customDate;
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing group completion date:", e);
+      }
+    }
+    setEditGroupCompletionDate(parsedDate);
     // Prefer in-memory label state; fallback to server-provided group label
     setEditGroupLabelInput(groupLabels[groupId] ?? (group as any).label ?? "");
     setEditGroupLabelColorInput(
@@ -1917,12 +1958,16 @@ export function WorkloadBoard({
     }
 
     try {
-      const payload = {
+      const payload: UpdateGroupRequest = {
         name: editGroupNameInput.trim(),
         color: editGroupColorInput,
         // use label fields so the server owns label persistence
         label: editGroupLabelInput.trim() || null,
         label_color: editGroupLabelColorInput || null,
+        abbreviation: editGroupAbbreviationInput.trim() || null,
+        completion_date: editGroupCompletionDate
+          ? format(editGroupCompletionDate, "dd-MM-yyyy")
+          : null,
       };
 
       // Call API to update group
@@ -1980,6 +2025,8 @@ export function WorkloadBoard({
             label: res.label,
             label_id: res.label ? String(res.label) : undefined,
             label_color: res.label_color,
+            abbreviation: res.abbreviation,
+            completion_date: res.completion_date,
           };
         }
         return group;
@@ -1994,6 +2041,8 @@ export function WorkloadBoard({
       setEditGroupColorInput("#3b82f6");
       setEditGroupLabelInput("");
       setEditGroupLabelColorInput("#3b82f6");
+      setEditGroupAbbreviationInput("");
+      setEditGroupCompletionDate(undefined);
 
       toast.success("Group Updated Successfully");
     } catch (error) {
@@ -5960,6 +6009,59 @@ export function WorkloadBoard({
                                           )}
                                         </div>
 
+                                        {/* Abbreviation & Completion Date */}
+                                        <div className="grid gap-2">
+                                          <label htmlFor="edit-group-abbreviation" className="text-sm font-medium">
+                                            Abbreviation
+                                          </label>
+                                          <Input
+                                            id="edit-group-abbreviation"
+                                            placeholder="Enter abbreviation (e.g. ABS)..."
+                                            value={editGroupAbbreviationInput}
+                                            onChange={(e) => setEditGroupAbbreviationInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") {
+                                                handleUpdateGroup();
+                                              }
+                                            }}
+                                          />
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                          <label className="text-sm font-medium">
+                                            Completion Date
+                                          </label>
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <Button
+                                                variant="outline"
+                                                className={cn(
+                                                  "w-full justify-start text-left font-normal h-10 bg-background border-input",
+                                                  !editGroupCompletionDate && "text-muted-foreground"
+                                                )}
+                                              >
+                                                <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                                {editGroupCompletionDate && !isNaN(editGroupCompletionDate.getTime()) ? (
+                                                  format(editGroupCompletionDate, "PPP")
+                                                ) : (
+                                                  <span>Pick a date</span>
+                                                )}
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                              <Calendar
+                                                mode="single"
+                                                selected={editGroupCompletionDate}
+                                                onSelect={setEditGroupCompletionDate}
+                                                disabled={(date) =>
+                                                  date < new Date(new Date().setHours(0, 0, 0, 0))
+                                                }
+                                                initialFocus
+                                              />
+                                            </PopoverContent>
+                                          </Popover>
+                                        </div>
+
                                         {/* Action Buttons */}
                                         <div className="flex gap-2 justify-end pt-2">
                                           <Button
@@ -5974,6 +6076,8 @@ export function WorkloadBoard({
                                               setEditGroupLabelColorInput(
                                                 "#3b82f6",
                                               );
+                                              setEditGroupAbbreviationInput("");
+                                              setEditGroupCompletionDate(undefined);
                                             }}
                                           >
                                             Cancel
@@ -6956,6 +7060,56 @@ export function WorkloadBoard({
                   autoFocus
                 />
               </div>
+              <div className="grid gap-2">
+                <label htmlFor="group-abbreviation" className="text-sm font-medium">
+                  Abbreviation
+                </label>
+                <Input
+                  id="group-abbreviation"
+                  placeholder="Enter abbreviation (e.g. ABS)..."
+                  value={newGroupAbbreviationInput}
+                  onChange={(e) => setNewGroupAbbreviationInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleCreateGroup();
+                    }
+                  }}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">
+                  Completion Date
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal h-10 bg-background border-input",
+                        !newGroupCompletionDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                      {newGroupCompletionDate ? (
+                        format(newGroupCompletionDate, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={newGroupCompletionDate}
+                      onSelect={setNewGroupCompletionDate}
+                      disabled={(date) =>
+                        date < new Date(new Date().setHours(0, 0, 0, 0))
+                      }
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             <DialogFooter>
               <Button
@@ -6963,6 +7117,8 @@ export function WorkloadBoard({
                 onClick={() => {
                   setNewGroupDialogOpen(false);
                   setNewGroupNameInput("");
+                  setNewGroupAbbreviationInput("");
+                  setNewGroupCompletionDate(undefined);
                   setNewGroupColorInput("#3b82f6");
                 }}
                 disabled={isCreatingGroup}
