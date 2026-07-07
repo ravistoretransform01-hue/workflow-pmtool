@@ -2,6 +2,32 @@ import { format, parseISO } from "date-fns";
 import type { Task } from "../WorkloadBoard";
 
 /**
+ * Safely parses a group completion date from either ISO format or dd-MM-yyyy format.
+ */
+export function parseGroupCompletionDate(dateStr?: string | null): Date | undefined {
+  if (!dateStr) return undefined;
+  try {
+    const isoParsed = parseISO(dateStr);
+    if (!isNaN(isoParsed.getTime())) {
+      return isoParsed;
+    }
+    if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+      const parts = dateStr.split("-");
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      const customDate = new Date(year, month, day);
+      if (!isNaN(customDate.getTime())) {
+        return customDate;
+      }
+    }
+  } catch (e) {
+    console.error("Error parsing group completion date:", e);
+  }
+  return undefined;
+}
+
+/**
  * Generates a consistent HSL color from a string
  * Useful for generating avatar colors from names
  */
