@@ -747,6 +747,7 @@ export function WorkloadBoard({
 
   // Main Table FilterRow states
   const [mainTableSearchQuery, setMainTableSearchQuery] = useState("");
+  const [showOverbudgetOnly, setShowOverbudgetOnly] = useState(false);
   const [groups, setGroups] = useState<TaskGroup[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {},
@@ -3608,6 +3609,14 @@ export function WorkloadBoard({
           if (!filterState.taskFilters.groups.has(group.id)) return false;
         }
 
+        // Overbudget filter (Group Level)
+        if (showOverbudgetOnly) {
+          const parsedDate = parseGroupCompletionDate(group.completion_date);
+          if (!parsedDate) return false;
+          const isPastDate = parsedDate < new Date(new Date().setHours(0, 0, 0, 0));
+          if (!isPastDate) return false;
+        }
+
         // 2. Label Filter (Group Level)
         if (filterState.taskFilters.labels.size > 0) {
           // Get the names of the selected labels to match against group.label (which is often a name)
@@ -3799,6 +3808,7 @@ export function WorkloadBoard({
     mainTableSearchQuery,
     filterState.taskFilters,
     filterState.showDoneItemsOnly,
+    showOverbudgetOnly,
     statuses,
     labels,
     groupLabels,
@@ -5088,6 +5098,19 @@ export function WorkloadBoard({
                   className="cursor-pointer"
                 />
                 <span className="text-sm font-medium">Done Items</span>
+              </label>
+
+              {/* Overbudget Items Checkbox */}
+              <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showOverbudgetOnly}
+                  onChange={(e) =>
+                    setShowOverbudgetOnly(e.target.checked)
+                  }
+                  className="cursor-pointer"
+                />
+                <span className="text-sm font-medium">Overbudget</span>
               </label>
 
               {/* Show/Hide Filter Popover */}
