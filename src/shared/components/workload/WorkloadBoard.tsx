@@ -6114,9 +6114,18 @@ export function WorkloadBoard({
                                  {(() => {
                                    const parsedDate = parseGroupCompletionDate(group.completion_date);
                                    if (!parsedDate) return null;
+                                   const isPastDate = parsedDate < new Date(new Date().setHours(0, 0, 0, 0));
                                    return (
-                                     <div className="ml-auto text-xs font-semibold text-muted-foreground flex items-center gap-1.5 px-3 py-1 bg-background rounded-md border border-border shadow-sm shrink-0">
-                                       <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                     <div className={cn(
+                                       "ml-auto text-xs font-semibold flex items-center gap-1.5 px-3 py-1 rounded-md border shadow-sm shrink-0",
+                                       isPastDate
+                                         ? "bg-destructive/10 text-destructive border-destructive/25"
+                                         : "bg-background text-muted-foreground border-border"
+                                     )}>
+                                       <CalendarIcon className={cn(
+                                         "h-3.5 w-3.5",
+                                         isPastDate ? "text-destructive" : "text-muted-foreground"
+                                       )} />
                                        <span>Due: {format(parsedDate, "PP")}</span>
                                      </div>
                                    );
