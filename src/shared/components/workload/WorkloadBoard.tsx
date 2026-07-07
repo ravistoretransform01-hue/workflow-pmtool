@@ -53,6 +53,7 @@ import {
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
+import { parseGroupCompletionDate } from "./utils/workload-utils";
 import { Progress } from "@/shared/components/ui/progress";
 import {
   Dialog,
@@ -1923,27 +1924,7 @@ export function WorkloadBoard({
     setEditGroupNameInput(groupNames[groupId] || group.name);
     setEditGroupColorInput(groupColors[groupId] || group.color);
     setEditGroupAbbreviationInput(group.abbreviation || "");
-    let parsedDate: Date | undefined;
-    if (group.completion_date) {
-      try {
-        const isoParsed = parseISO(group.completion_date);
-        if (!isNaN(isoParsed.getTime())) {
-          parsedDate = isoParsed;
-        } else if (/^\d{2}-\d{2}-\d{4}$/.test(group.completion_date)) {
-          const parts = group.completion_date.split("-");
-          const day = parseInt(parts[0], 10);
-          const month = parseInt(parts[1], 10) - 1;
-          const year = parseInt(parts[2], 10);
-          const customDate = new Date(year, month, day);
-          if (!isNaN(customDate.getTime())) {
-            parsedDate = customDate;
-          }
-        }
-      } catch (e) {
-        console.error("Error parsing group completion date:", e);
-      }
-    }
-    setEditGroupCompletionDate(parsedDate);
+    setEditGroupCompletionDate(parseGroupCompletionDate(group.completion_date));
     // Prefer in-memory label state; fallback to server-provided group label
     setEditGroupLabelInput(groupLabels[groupId] ?? (group as any).label ?? "");
     setEditGroupLabelColorInput(
@@ -6130,23 +6111,8 @@ export function WorkloadBoard({
                                   );
                                 })()}
 
-                                 {group.completion_date && (() => {
-                                   let parsedDate: Date | null = null;
-                                   try {
-                                     const isoParsed = parseISO(group.completion_date);
-                                     if (!isNaN(isoParsed.getTime())) {
-                                       parsedDate = isoParsed;
-                                     } else if (/^\d{2}-\d{2}-\d{4}$/.test(group.completion_date)) {
-                                       const parts = group.completion_date.split("-");
-                                       const day = parseInt(parts[0], 10);
-                                       const month = parseInt(parts[1], 10) - 1;
-                                       const year = parseInt(parts[2], 10);
-                                       const customDate = new Date(year, month, day);
-                                       if (!isNaN(customDate.getTime())) {
-                                         parsedDate = customDate;
-                                       }
-                                     }
-                                   } catch {}
+                                 {(() => {
+                                   const parsedDate = parseGroupCompletionDate(group.completion_date);
                                    if (!parsedDate) return null;
                                    return (
                                      <div className="ml-auto text-xs font-semibold text-muted-foreground flex items-center gap-1.5 px-3 py-1 bg-background rounded-md border border-border shadow-sm shrink-0">
