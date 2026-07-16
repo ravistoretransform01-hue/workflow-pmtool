@@ -22,6 +22,7 @@ const DEFAULT_TABS = [
   "Gantt",
   "Calendar",
   "Workload",
+  "Teams",
   "Time",
   "Recurring",
   "Completed",
