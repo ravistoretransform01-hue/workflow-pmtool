@@ -39,16 +39,7 @@ import {
   Save,
   Pencil,
   FolderSymlink,
-  Calendar as CalendarIcon,
-  ArrowRight,
-  Star,
-  User,
-  Users,
-  CalendarDays,
-  Clock,
-  PieChart,
-  LayoutList,
-  Columns
+  Calendar as CalendarIcon
 } from "lucide-react";
 import { cn, getCurrentUserId, copyToClipboard } from "@/lib/utils";
 import { sortBy } from "@/lib/sorting";
@@ -2734,7 +2725,7 @@ export function WorkloadBoard({
     }
   };
 
-  const handlePersonChange = async (taskId: string, memberIds: string[]) => {
+  const handlePersonChange = async (taskId: string, memberIds: string[], skipToast?: boolean) => {
     try {
       const boardIdNum = Number(boardId);
 
@@ -2883,12 +2874,13 @@ export function WorkloadBoard({
           }),
         })),
       );
-
-      toast.success(
-        tasksToUpdate.length > 1
-          ? `${tasksToUpdate.length} Tasks Assignees Updated`
-          : "Member Updated."
-      );
+      if (!skipToast) {
+        toast.success(
+          tasksToUpdate.length > 1
+            ? `${tasksToUpdate.length} Tasks Assignees Updated`
+            : "Member Updated."
+        );
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to Update Member.");
@@ -7034,32 +7026,10 @@ export function WorkloadBoard({
 
         {/* Teams View */}
         {activeTab === "Teams" && isViewLive.teams && (
-          <div className="flex-1 overflow-x-auto overflow-y-hidden p-6 bg-muted/10 flex flex-col min-h-0">
-            {/* Header info matching screenshot */}
-            <div className="mb-6 shrink-0">
-              <h2 className="text-2xl font-bold">{boardName || "Project RoadMap"} 06/19</h2>
-              <p className="text-muted-foreground text-sm mt-1">Plan and track your project development strategy.</p>
-              
-              <div className="flex flex-wrap items-center gap-4 mt-4 text-sm font-medium text-muted-foreground">
-                <button className="flex items-center gap-2 hover:text-foreground transition-colors"><ArrowRight className="w-4 h-4" /> By Status</button>
-                <button className="flex items-center gap-2 hover:text-foreground transition-colors"><Star className="w-4 h-4" /> All Projects</button>
-                <button className="flex items-center gap-2 hover:text-foreground transition-colors"><User className="w-4 h-4" /> My Projects</button>
-                <button className="flex items-center gap-2 hover:text-foreground transition-colors"><Users className="w-4 h-4" /> By Team</button>
-                <button className="flex items-center gap-2 hover:text-foreground transition-colors"><CalendarDays className="w-4 h-4" /> By Quarter</button>
-                <button className="flex items-center gap-2 hover:text-foreground transition-colors"><Clock className="w-4 h-4" /> Timeline</button>
-                <button className="flex items-center gap-2 hover:text-foreground transition-colors"><PieChart className="w-4 h-4" /> Chart</button>
-                
-                <div className="flex bg-muted/30 p-1 rounded-md ml-2 border border-border/50">
-                   <button className="px-3 py-1 bg-background shadow-sm rounded flex items-center gap-2 text-foreground"><Columns className="w-4 h-4" /> Board</button>
-                   <button className="px-3 py-1 hover:bg-background hover:shadow-sm rounded flex items-center gap-2 transition-all"><LayoutList className="w-4 h-4" /> Table</button>
-                </div>
-
-                <div className="flex-1"></div>
-              </div>
-            </div>
-
-            {/* Kanban by Team Member */}
-            <div className="flex flex-1 gap-6 overflow-x-auto overflow-y-hidden pb-4 items-start">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 overflow-x-auto overflow-y-hidden p-6 bg-muted/10 custom-scrollbar">
+              {/* Kanban by Team Member */}
+              <div className="flex w-max h-full gap-6 pb-2 items-start">
               {(() => {
                 const allTasks = memoizedFilteredData.groups.flatMap(g => g.tasks);
                 
@@ -7091,7 +7061,11 @@ export function WorkloadBoard({
                     const headerColor = bgColors[index % bgColors.length];
 
                     return (
-                      <div key={person} className="flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 min-h-full bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800">
+                      <div 
+                        key={person} 
+                        className="flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800"
+                        style={{ maxHeight: 'calc(100vh - 220px)' }}
+                      >
                         {/* KANBAN COLUMN HEADER */}
                         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2 group/header">
                           <div className="flex items-center justify-between">
@@ -7105,7 +7079,7 @@ export function WorkloadBoard({
 
                         {/* KANBAN COLUMN BODY */}
                         <div 
-                          className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-hide min-h-[200px]"
+                          className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px] custom-scrollbar"
                           onDragOver={(e) => {
                             e.preventDefault();
                             e.dataTransfer.dropEffect = "move";
@@ -7146,7 +7120,7 @@ export function WorkloadBoard({
                                   }
                                 }
 
-                                handlePersonChange(String(draggedTask.id), nextAssignees);
+                                handlePersonChange(String(draggedTask.id), nextAssignees, true);
                                 toast.success(`Reassigned to ${toPerson}`);
                               }
                             } catch (err) {}
@@ -7217,6 +7191,7 @@ export function WorkloadBoard({
               })()}
             </div>
           </div>
+        </div>
         )}
 
         {/* Other Views - Coming Soon */}
