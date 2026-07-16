@@ -381,3 +381,23 @@ button:focus-visible {
   animation: highlight-comment 0.8s ease-in-out;
   border-radius: 0.75rem;
 }
+
+/* Custom thin scrollbars */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsla(217, 10%, 65%, 0.3) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsla(217, 10%, 65%, 0.3);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsla(217, 10%, 65%, 0.5);
+}
