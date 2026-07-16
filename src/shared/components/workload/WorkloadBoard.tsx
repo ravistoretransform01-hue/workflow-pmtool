@@ -7078,15 +7078,6 @@ export function WorkloadBoard({
                 
                 const persons = Array.from(personsSet).sort();
                 
-                const columnColors = [
-                  "bg-green-100/50 text-green-700 border-green-200", 
-                  "bg-red-100/50 text-red-700 border-red-200", 
-                  "bg-orange-100/50 text-orange-700 border-orange-200", 
-                  "bg-blue-100/50 text-blue-700 border-blue-200", 
-                  "bg-purple-100/50 text-purple-700 border-purple-200",
-                  "bg-yellow-100/50 text-yellow-700 border-yellow-200",
-                ];
-
                 return persons.map((person, index) => {
                     const personTasks = allTasks.filter(t => {
                       const assignees = t.assignee_names || (t.person ? [t.person] : []);
@@ -7096,18 +7087,25 @@ export function WorkloadBoard({
 
                     if (personTasks.length === 0 && person !== "Unassigned") return null;
 
-                    const headerStyle = columnColors[index % columnColors.length];
+                    const bgColors = ["#22c55e", "#ef4444", "#f97316", "#3b82f6", "#a855f7", "#eab308"];
+                    const headerColor = bgColors[index % bgColors.length];
 
                     return (
-                      <div key={person} className="flex-shrink-0 w-[300px] flex flex-col max-h-full bg-muted/30 rounded-xl border border-border shadow-sm overflow-hidden">
-                        
-                        <div className={`m-3 px-3 py-2.5 rounded-lg flex items-center gap-2 font-medium border shadow-sm ${headerStyle}`}>
-                          <span className="truncate flex-1">{person}</span>
-                          <span className="text-xs opacity-80 bg-background/50 px-2 py-0.5 rounded-full">{personTasks.length}</span>
+                      <div key={person} className="flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 min-h-full bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800">
+                        {/* KANBAN COLUMN HEADER */}
+                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2 group/header">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-3.5 h-3.5 rounded-full shadow-sm" style={{ backgroundColor: headerColor }} />
+                              <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100">{person}</h3>
+                              <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center">{personTasks.length}</span>
+                            </div>
+                          </div>
                         </div>
-                        
+
+                        {/* KANBAN COLUMN BODY */}
                         <div 
-                          className="flex-1 overflow-y-auto px-3 pb-3 space-y-3 custom-scrollbar"
+                          className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-hide min-h-[200px]"
                           onDragOver={(e) => {
                             e.preventDefault();
                             e.dataTransfer.dropEffect = "move";
@@ -7121,9 +7119,9 @@ export function WorkloadBoard({
                               
                               if (data.type === "TASK_REASSIGN" && data.taskId && data.fromPerson) {
                                 const fromPerson = data.fromPerson;
-                                const toPerson = person; // the column we dropped on
+                                const toPerson = person; 
                                 
-                                if (fromPerson === toPerson) return; // Dropped in same column
+                                if (fromPerson === toPerson) return; 
 
                                 const draggedTask = allTasks.find(t => t.id === data.taskId);
                                 if (!draggedTask) return;
@@ -7157,8 +7155,9 @@ export function WorkloadBoard({
                           {personTasks.map(task => {
                               const parentGroup = memoizedFilteredData.groups.find(g => g.tasks.find(t => t.id === task.id) || g.tasks.find(t => t.subitems?.find(s => s.id === task.id)));
                               const groupColor = parentGroup?.color || "#3b82f6";
+                              const groupName = parentGroup?.name || "Group";
                               const statusName = statuses.find(s => String(s.id) === String(task.status_id))?.name || task.status || "Working";
-                              const statusColor = statuses.find(s => String(s.id) === String(task.status_id))?.color_code || "#3b82f6";
+                              const priorityInfo = priorities.find(p => String(p.id) === String(task.priority_id));
 
                               return (
                                 <div 
@@ -7169,35 +7168,38 @@ export function WorkloadBoard({
                                     e.dataTransfer.effectAllowed = "move";
                                   }}
                                   onClick={() => openTaskCard(task)} 
-                                  className="bg-background rounded-lg border border-border p-4 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
+                                  className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group relative"
                                 >
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-1.5 h-4 rounded-sm" style={{ backgroundColor: groupColor }}></div>
-                                    <h4 className="font-semibold text-sm truncate flex-1 leading-tight">{task.name}</h4>
-                                  </div>
-                                  
-                                  <div className="flex items-center flex-wrap gap-2 text-xs font-medium">
-                                    <span className="px-2 py-1 rounded" style={{ backgroundColor: `${statusColor}20`, color: statusColor }}>
-                                      {statusName}
-                                    </span>
-                                    {task.estimatedDate && task.estimatedDate !== "-" && (
-                                      <span className="text-muted-foreground whitespace-nowrap">{task.estimatedDate}</span>
-                                    )}
-                                    
-                                    <div className="flex-1"></div>
+                                  <div className="flex items-start gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      {groupName && (
+                                        <div className="flex items-center gap-1.5 mb-1.5 mt-0.5">
+                                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
+                                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold truncate max-w-[150px]">
+                                            {groupName}
+                                          </span>
+                                        </div>
+                                      )}
 
-                                    {(task.assignee_names || []).length > 0 && (
-                                      <div className="flex items-center gap-1">
-                                        {(task.assignee_names || []).map((p: string, i: number) => i < 2 ? (
-                                            <span key={p} className="px-1.5 py-0.5 bg-muted rounded text-muted-foreground truncate max-w-[60px]" title={p}>
-                                              {p}
-                                            </span>
-                                        ) : null)}
-                                        {(task.assignee_names || []).length > 2 && (
-                                           <span className="text-muted-foreground text-[10px] ml-1">+{(task.assignee_names || []).length - 2}</span>
+                                      <p className="text-sm font-medium text-foreground line-clamp-2">
+                                        {task.name}
+                                      </p>
+
+                                      <div className="mt-1.5 flex flex-col gap-0.5">
+                                        <p className="text-sm text-muted-foreground leading-tight">
+                                          <span className="font-medium">Status:</span>{" "}
+                                          <span className="font-medium">{statusName}</span>
+                                        </p>
+                                        {priorityInfo && (
+                                          <p className="text-sm text-muted-foreground leading-tight">
+                                            <span className="font-medium">Priority:</span>{" "}
+                                            <span className="font-medium">{priorityInfo.name}</span>
+                                          </p>
                                         )}
                                       </div>
-                                    )}
+
+                                      {/* Removed Assignees block since the Teams column serves this exact purpose */}
+                                    </div>
                                   </div>
                                 </div>
                               );
