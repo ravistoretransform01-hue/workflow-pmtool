@@ -7106,7 +7106,54 @@ export function WorkloadBoard({
                           <span className="text-xs opacity-80 bg-background/50 px-2 py-0.5 rounded-full">{personTasks.length}</span>
                         </div>
                         
-                        <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-3 custom-scrollbar">
+                        <div 
+                          className="flex-1 overflow-y-auto px-3 pb-3 space-y-3 custom-scrollbar"
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            try {
+                              const raw = e.dataTransfer.getData("text/plain");
+                              if (!raw) return;
+                              const data = JSON.parse(raw);
+                              
+                              if (data.type === "TASK_REASSIGN" && data.taskId && data.fromPerson) {
+                                const fromPerson = data.fromPerson;
+                                const toPerson = person; // the column we dropped on
+                                
+                                if (fromPerson === toPerson) return; // Dropped in same column
+
+                                const draggedTask = allTasks.find(t => t.id === data.taskId);
+                                if (!draggedTask) return;
+
+                                const currentAssignees = (draggedTask.assigned_to_ids || (draggedTask.assigned_to_id ? [draggedTask.assigned_to_id] : [])).map(String);
+                                let nextAssignees = [...currentAssignees];
+
+                                if (fromPerson !== "Unassigned") {
+                                  const oldMember = members.find((m: any) => m.name === fromPerson || m.username === fromPerson);
+                                  if (oldMember) {
+                                     nextAssignees = nextAssignees.filter(id => id !== String(oldMember.user_id));
+                                  }
+                                }
+
+                                if (toPerson !== "Unassigned") {
+                                  const newMember = members.find((m: any) => m.name === toPerson || m.username === toPerson);
+                                  if (newMember && !nextAssignees.includes(String(newMember.user_id))) {
+                                     nextAssignees.push(String(newMember.user_id));
+                                  } else if (!newMember) {
+                                     toast.error("Could not resolve member ID for " + toPerson);
+                                     return;
+                                  }
+                                }
+
+                                handlePersonChange(String(draggedTask.id), nextAssignees);
+                                toast.success(`Reassigned to ${toPerson}`);
+                              }
+                            } catch (err) {}
+                          }}
+                        >
                           {personTasks.map(task => {
                               const parentGroup = memoizedFilteredData.groups.find(g => g.tasks.find(t => t.id === task.id) || g.tasks.find(t => t.subitems?.find(s => s.id === task.id)));
                               const groupColor = parentGroup?.color || "#3b82f6";
@@ -7114,7 +7161,16 @@ export function WorkloadBoard({
                               const statusColor = statuses.find(s => String(s.id) === String(task.status_id))?.color_code || "#3b82f6";
 
                               return (
-                                <div key={task.id} onClick={() => openTaskCard(task)} className="bg-background rounded-lg border border-border p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                                <div 
+                                  key={task.id} 
+                                  draggable
+                                  onDragStart={(e) => {
+                                    e.dataTransfer.setData("text/plain", JSON.stringify({ type: "TASK_REASSIGN", taskId: task.id, fromPerson: person }));
+                                    e.dataTransfer.effectAllowed = "move";
+                                  }}
+                                  onClick={() => openTaskCard(task)} 
+                                  className="bg-background rounded-lg border border-border p-4 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
+                                >
                                   <div className="flex items-center gap-2 mb-2">
                                     <div className="w-1.5 h-4 rounded-sm" style={{ backgroundColor: groupColor }}></div>
                                     <h4 className="font-semibold text-sm truncate flex-1 leading-tight">{task.name}</h4>
