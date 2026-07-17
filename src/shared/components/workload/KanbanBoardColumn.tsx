@@ -14,7 +14,6 @@ import React from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
 
 export interface KanbanBoardColumnProps {
   /** Unique key used to identify this column in DnD state */
@@ -77,35 +76,41 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
       ref={isOverlay ? undefined : setNodeRef}
       style={isOverlay ? undefined : style}
       className={[
-        "flex-shrink-0 w-80 rounded-xl border flex flex-col",
-        "bg-[#f8fafc] dark:bg-[#0f172a]",
-        "transition-all duration-150",
+        "flex-shrink-0 w-80 rounded-xl border flex flex-col overflow-hidden transition-all duration-200",
         isColumnActive && !isDragging
-          ? "border-primary/60 ring-2 ring-primary/20 shadow-lg shadow-primary/10"
-          : "border-slate-200 dark:border-slate-800",
+          ? "bg-primary/5 border-primary/30 ring-2 ring-primary/10 shadow-lg"
+          : "bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800",
         isOverlay
           ? "shadow-2xl border-primary/50 ring-2 ring-primary/20 rotate-[2deg]"
           : isDragging
             ? "opacity-40"
             : "",
-        "h-auto min-h-[300px]",
+        isOverlay ? "h-auto max-h-[70vh]" : "h-full min-h-[300px]",
       ].join(" ")}
     >
-      {/* Sticky header — the whole header is the column drag handle */}
-      <div
-        className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between sticky top-0 z-10 bg-[#f8fafc] dark:bg-[#0f172a] rounded-t-xl shadow-sm shrink-0 cursor-grab active:cursor-grabbing group/header"
-        {...(isOverlay ? {} : attributes)}
-        {...(isOverlay ? {} : listeners)}
-      >
-        {header}
-        {!isOverlay && (
-          <GripVertical className="h-4 w-4 text-slate-300 opacity-0 group-hover/header:opacity-100 transition-opacity shrink-0 ml-1" />
-        )}
-      </div>
+      {/* Scrollable column container — min-h-0 overrides the flex item's
+          default min-height:auto, which otherwise forces this to grow to fit
+          all cards instead of respecting flex-grow and actually scrolling.
+          The header lives inside as its sticky first child, so only the
+          task list beneath it ever scrolls. */}
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+        {/* Sticky header — the whole header is the column drag handle.
+            Background always matches the column body, including while it's
+            the active drop target, so the header never looks "cut out". */}
+        <div
+          className={[
+            "p-4 border-b flex flex-col gap-2 sticky top-0 z-10 shadow-sm cursor-grab active:cursor-grabbing group/header",
+            isColumnActive && !isDragging
+              ? "bg-primary/5 border-primary/20"
+              : "bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800",
+          ].join(" ")}
+          {...(isOverlay ? {} : attributes)}
+          {...(isOverlay ? {} : listeners)}
+        >
+          {header}
+        </div>
 
-      {/* Scrollable body */}
-      <div className="p-3 flex-grow overflow-y-auto custom-scrollbar">
-        <div className="flex flex-col gap-3">
+        <div className="p-3 space-y-3">
           {taskIds.length === 0 ? (
             emptyContent ?? <EmptyColumn />
           ) : isOverlay ? (
@@ -148,7 +153,7 @@ function KanbanBoardCard({
       <div
         ref={setNodeRef}
         style={{ ...style, height: ghostHeight }}
-        className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 w-full"
+        className="bg-muted/30 border-2 border-dashed border-primary/20 rounded-lg w-full"
       />
     );
   }
