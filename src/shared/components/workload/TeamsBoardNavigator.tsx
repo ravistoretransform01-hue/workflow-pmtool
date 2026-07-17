@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { Move } from "lucide-react";
 
 interface TeamsBoardNavigatorProps {
   containerNode: HTMLDivElement | null;
@@ -83,6 +84,13 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
     setIsDragging(false);
   };
 
+  const handleWheel = (e: React.WheelEvent) => {
+    if (!containerNode) return;
+    // Push the wheel delta into the horizontal container directly
+    const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+    containerNode.scrollLeft += delta;
+  };
+
   // Keep navigator hidden on mobile where swiping is natural, or if everything fits
   if (columnsCount <= 1 || scrollStats.ratio >= 1) return null;
 
@@ -100,6 +108,7 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onWheel={handleWheel}
       >
         {/* Render proportional mini columns */}
         {Array.from({ length: columnsCount }).map((_, i) => (
@@ -108,7 +117,7 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
         
         {/* Draggable Viewport Rect */}
         <div 
-          className="absolute top-0 bottom-0 pointer-events-none rounded-[8px]"
+          className="absolute top-0 bottom-0 pointer-events-none rounded-[8px] flex items-center justify-center overflow-hidden transition-colors"
           style={{
             width: `${scrollStats.ratio * 100}%`,
             left: `${scrollStats.leftRatio * 100}%`, // Using Left over Transform for strict bounds without scale artifacts during window resize
@@ -116,7 +125,9 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
             border: '2px solid hsl(var(--primary))',
             boxShadow: '0 0 10px hsla(var(--primary)/0.2)',
           }}
-        />
+        >
+          <Move className="w-3.5 h-3.5 text-primary opacity-70 drop-shadow-sm shrink-0" strokeWidth={2.5} />
+        </div>
       </div>
     </div>
   );
