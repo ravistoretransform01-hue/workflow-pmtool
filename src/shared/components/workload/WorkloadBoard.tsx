@@ -77,11 +77,16 @@ import {
 } from "@/shared/components/ui/popover";
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
+  closestCorners,
   PointerSensor,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -115,6 +120,7 @@ import { ComingSoonAnimation } from "../ComingSoonAnimation";
 import { SOPView } from "./SOPView";
 import GanttView from "./GanttView";
 import { TeamsBoardNavigator } from "./TeamsBoardNavigator";
+import { KanbanBoardColumn } from "./KanbanBoardColumn";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -131,6 +137,7 @@ export interface TaskGroup {
   label_id?: string;
   abbreviation?: string | null;
   completion_date?: string | null;
+  position?: string | number;
 }
 
 export interface Task {
@@ -622,6 +629,42 @@ export function WorkloadBoard({
   const [teamsBoardNode, setTeamsBoardNode] = useState<HTMLDivElement | null>(null);
   const [teamsSubTab, setTeamsSubTab] = useState<"Projects" | "Tasks">("Tasks");
 
+  // ── Kanban DnD (dnd-kit) – Projects tab ────────────────────────────────
+  const projectsSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+  const [projectsActiveId, setProjectsActiveId] = useState<string | null>(null);
+  const [projectsActiveType, setProjectsActiveType] = useState<"card" | "column" | null>(null);
+  const [projectsOverColumnId, setProjectsOverColumnId] = useState<string | null>(null);
+  const projectsDragSnapshotRef = useRef<TaskGroup[] | null>(null);
+
+  // ── Kanban DnD (dnd-kit) – Teams tab ────────────────────────────────────
+  const teamsSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+  const [teamsActiveId, setTeamsActiveId] = useState<string | null>(null);
+  const [teamsActiveType, setTeamsActiveType] = useState<"card" | "column" | null>(null);
+  const [teamsOverColumnId, setTeamsOverColumnId] = useState<string | null>(null);
+  // Session-local card order override for the Teams (person) columns.
+  // Tasks in a person column can span multiple project groups, so there is
+  // no single persisted "position" that orders them relative to one
+  // another — mirrors the existing local-only reorder used by the
+  // status/priority grouped Kanban view.
+  const [teamsOrder, setTeamsOrder] = useState<Record<string, string[]>>({});
+  // Session-local order of the Teams (person) COLUMNS themselves — a person
+  // isn't a persisted DB entity, so there's no backend field to reorder;
+  // this mirrors the localStorage-only column order KanbanView.tsx already
+  // uses for its status/priority columns.
+  const [teamsColumnOrder, setTeamsColumnOrder] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(`teams-column-order-${boardId}`);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const teamsDragSnapshotRef = useRef<{ groups: TaskGroup[]; teamsOrder: Record<string, string[]> } | null>(null);
+
   // Local state for task card and comments
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
   const [sheetTaskCardOpen, setSheetTaskCardOpen] = useState(false);
@@ -1068,6 +1111,7 @@ export function WorkloadBoard({
             id: groupIdStr,
             name: group.name,
             color: group.color ?? "#3b82f6",
+            position: group.position,
             label_id: groupLabelId,
             abbreviation: group.abbreviation,
             completion_date: group.completion_date,
@@ -1613,23 +1657,23 @@ export function WorkloadBoard({
    * based on its neighbors in the array using a midpoint algorithm.
    */
   const calculateNewTaskPosition = (
-    tasks: Task[],
+    tasks: Array<{ position?: string | number }>,
     newIndex: number,
   ): number => {
     const prevTask = tasks[newIndex - 1];
     const nextTask = tasks[newIndex + 1];
 
-    const prevPos = prevTask ? parseFloat(prevTask.position || "0") : 0;
+    const prevPos = prevTask ? parseFloat(String(prevTask.position ?? "0")) : 0;
 
     if (!prevTask && nextTask) {
       // Top of list
-      return parseFloat(nextTask.position || "0") / 2;
+      return parseFloat(String(nextTask.position ?? "0")) / 2;
     } else if (prevTask && !nextTask) {
       // Bottom of list
       return prevPos + 16384;
     } else if (prevTask && nextTask) {
       // Between two items
-      const nextPos = parseFloat(nextTask.position || "0");
+      const nextPos = parseFloat(String(nextTask.position ?? "0"));
       return (prevPos + nextPos) / 2;
     } else {
       return 16384; // First item
@@ -2764,61 +2808,6 @@ export function WorkloadBoard({
     }
   };
 
-  const handleGroupChange = async (taskId: string, targetGroupId: string) => {
-    try {
-      const boardIdNum = Number(boardId);
-      const payload: any = {
-        id: taskId,
-        board_id: boardIdNum,
-        group_id: Number(targetGroupId)
-      };
-
-      await tasksApi.updateTask(payload);
-
-      // Optimistically/Locally update the groups state
-      setGroups((prevGroups) => {
-        let movedTask: Task | null = null;
-
-        // 1. Remove the task from its current group
-        const updatedGroups = prevGroups.map((group) => {
-          const isTaskInGroup = group.tasks.some(t => t.id === taskId);
-          if (isTaskInGroup) {
-            movedTask = group.tasks.find(t => t.id === taskId) || null;
-            return {
-              ...group,
-              tasks: group.tasks.filter(t => t.id !== taskId)
-            };
-          }
-          return group;
-        });
-
-        // 2. Add the task to the target group
-        if (movedTask) {
-          const taskObj = movedTask as Task;
-          const nextTask = {
-            ...taskObj,
-            group_id: targetGroupId
-          };
-          return updatedGroups.map((group) => {
-            if (group.id === targetGroupId) {
-              return {
-                ...group,
-                tasks: [...group.tasks, nextTask]
-              };
-            }
-            return group;
-          });
-        }
-
-        return prevGroups;
-      });
-
-      toast.success("Task moved to project successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to move task to project");
-    }
-  };
 
   const handlePersonChange = async (taskId: string, memberIds: string[], skipToast?: boolean) => {
     try {
@@ -3921,6 +3910,424 @@ export function WorkloadBoard({
     ).reduce((acc: Record<string, boolean>, id) => ((acc[id] = true), acc), {});
     return { ...taskState.expandedTasks, ...additions };
   }, [taskState.expandedTasks, memoizedFilteredData.autoExpandedTaskIds]);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * Kanban DnD (dnd-kit) – Teams/Projects board shared helpers
+   * ─────────────────────────────────────────────────────────────────────────*/
+
+  // Full set of person columns for the Teams tab, derived from the same
+  // (filtered) data actually rendered, then reordered via the session-local
+  // `teamsColumnOrder` override (unknown/new persons are appended at the end).
+  const teamsPersons = useMemo(() => {
+    const allTasks = memoizedFilteredData.groups.flatMap((g) => g.tasks);
+    const personsSet = new Set<string>();
+    allTasks.forEach((t) => {
+      const assignees = t.assignee_names || (t.person ? [t.person] : []);
+      if (assignees.length > 0) assignees.forEach((p: string) => personsSet.add(p));
+    });
+    if (personsSet.size === 0) personsSet.add("Unassigned");
+    return Array.from(personsSet).sort();
+  }, [memoizedFilteredData]);
+
+  const orderedPersons = useMemo(() => {
+    const known = teamsColumnOrder.filter((p) => teamsPersons.includes(p));
+    const missing = teamsPersons.filter((p) => !teamsColumnOrder.includes(p));
+    return [...known, ...missing];
+  }, [teamsColumnOrder, teamsPersons]);
+
+  const persistTeamsColumnOrder = useCallback(
+    (order: string[]) => {
+      try {
+        localStorage.setItem(`teams-column-order-${boardId}`, JSON.stringify(order));
+      } catch {
+        /* ignore storage errors */
+      }
+    },
+    [boardId],
+  );
+
+  // Shared dnd-kit collision detection for the Teams/Projects boards, mirroring
+  // KanbanView.tsx's strategy: cards are hit-tested first (so dropping directly
+  // on a card reorders relative to it), then columns (so empty space / empty
+  // columns still accept the drop). Column drags only collide with other columns.
+  const kanbanCollisionDetection: CollisionDetection = useCallback((args) => {
+    const pointerCoordinates = args.pointerCoordinates;
+    if (!pointerCoordinates) return [];
+
+    if (args.active.data.current?.type === "column") {
+      const columnContainers = args.droppableContainers.filter(
+        (c) => c.data.current?.type === "column",
+      );
+      return closestCorners({ ...args, droppableContainers: columnContainers });
+    }
+
+    const cardContainers = args.droppableContainers.filter((c) => c.data.current?.type === "card");
+    for (const container of cardContainers) {
+      const rect = container.rect.current;
+      if (!rect) continue;
+      if (
+        pointerCoordinates.x >= rect.left &&
+        pointerCoordinates.x <= rect.right &&
+        pointerCoordinates.y >= rect.top &&
+        pointerCoordinates.y <= rect.bottom
+      ) {
+        return [{ id: container.id }];
+      }
+    }
+
+    const columnContainers = args.droppableContainers.filter((c) => c.data.current?.type === "column");
+    for (const container of columnContainers) {
+      const rect = container.rect.current;
+      if (!rect) continue;
+      if (
+        pointerCoordinates.x >= rect.left &&
+        pointerCoordinates.x <= rect.right &&
+        pointerCoordinates.y >= rect.top &&
+        pointerCoordinates.y <= rect.bottom
+      ) {
+        return [{ id: container.id }];
+      }
+    }
+
+    return closestCorners(args);
+  }, []);
+
+  /* ── Projects tab: column = project group ──────────────────────────────*/
+
+  const handleProjectsDragStart = useCallback(
+    (event: DragStartEvent) => {
+      projectsDragSnapshotRef.current = groups;
+      const type = event.active.data.current?.type as "card" | "column" | undefined;
+      setProjectsActiveType(type ?? null);
+      setProjectsActiveId(String(event.active.id));
+    },
+    [groups],
+  );
+
+  const handleProjectsDragOver = useCallback((event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) {
+      setProjectsOverColumnId(null);
+      return;
+    }
+    const activeData = active.data.current;
+    if (activeData?.type === "column") return;
+
+    const overData = over.data.current;
+    const toGroupId: string | undefined =
+      overData?.type === "column" || overData?.type === "card" ? overData.columnId : undefined;
+    setProjectsOverColumnId(toGroupId ?? null);
+    if (!toGroupId) return;
+
+    const taskId = String(active.id);
+    const overTaskId = overData?.type === "card" ? String(over.id) : null;
+    if (overTaskId === taskId) return;
+
+    setGroups((prev) => {
+      let fromGroupId: string | null = null;
+      let movedTask: Task | null = null;
+      for (const g of prev) {
+        const found = g.tasks.find((t) => t.id === taskId);
+        if (found) {
+          fromGroupId = g.id;
+          movedTask = found;
+          break;
+        }
+      }
+      if (!movedTask || !fromGroupId) return prev;
+
+      const withoutTask = prev.map((g) =>
+        g.id === fromGroupId ? { ...g, tasks: g.tasks.filter((t) => t.id !== taskId) } : g,
+      );
+
+      return withoutTask.map((g) => {
+        if (g.id !== toGroupId) return g;
+        const newTasks = [...g.tasks];
+        const rawIdx = overTaskId ? newTasks.findIndex((t) => t.id === overTaskId) : -1;
+        const idx = rawIdx === -1 ? newTasks.length : rawIdx;
+        newTasks.splice(idx, 0, { ...(movedTask as Task), group_id: toGroupId });
+        return { ...g, tasks: newTasks };
+      });
+    });
+  }, []);
+
+  const handleProjectsDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      const activeData = active.data.current;
+      setProjectsActiveId(null);
+      setProjectsActiveType(null);
+      setProjectsOverColumnId(null);
+      if (!over) return;
+
+      if (activeData?.type === "column") {
+        const oldGroupId = String(active.id).replace("column-", "");
+        const overIdRaw = String(over.id);
+        const newGroupId = overIdRaw.startsWith("column-") ? overIdRaw.replace("column-", "") : overIdRaw;
+        if (oldGroupId === newGroupId) return;
+
+        const oldIdx = groups.findIndex((g) => g.id === oldGroupId);
+        const newIdx = groups.findIndex((g) => g.id === newGroupId);
+        if (oldIdx === -1 || newIdx === -1) return;
+
+        const snapshot = groups;
+        const reordered = arrayMove(groups, oldIdx, newIdx);
+        const newPosition = calculateNewTaskPosition(reordered, newIdx);
+        const updated = reordered.map((g, i) => (i === newIdx ? { ...g, position: newPosition } : g));
+        setGroups(updated);
+
+        try {
+          await groupsApi.updateGroup(oldGroupId, { position: newPosition });
+        } catch (err) {
+          console.error("handleProjectsDragEnd: failed to persist column order, rolling back", err);
+          setGroups(snapshot);
+          toast.error("Failed to save project order – restored original position");
+        }
+        return;
+      }
+
+      // Card drop — `groups` already reflects the final arrangement from onDragOver.
+      const taskId = String(active.id);
+      let finalGroupId: string | null = null;
+      let finalIndex = -1;
+      for (const g of groups) {
+        const idx = g.tasks.findIndex((t) => t.id === taskId);
+        if (idx !== -1) {
+          finalGroupId = g.id;
+          finalIndex = idx;
+          break;
+        }
+      }
+      if (!finalGroupId || finalIndex === -1) return;
+
+      const finalGroup = groups.find((g) => g.id === finalGroupId)!;
+      const newPosition = calculateNewTaskPosition(finalGroup.tasks, finalIndex);
+
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id !== finalGroupId
+            ? g
+            : {
+                ...g,
+                tasks: g.tasks.map((t) => (t.id === taskId ? { ...t, position: String(newPosition) } : t)),
+              },
+        ),
+      );
+
+      const snapshot = projectsDragSnapshotRef.current;
+      let originalGroupId: string | null = null;
+      if (snapshot) {
+        for (const g of snapshot) {
+          if (g.tasks.some((t) => t.id === taskId)) {
+            originalGroupId = g.id;
+            break;
+          }
+        }
+      }
+      const isSameColumn = originalGroupId === finalGroupId;
+
+      try {
+        const payload: UpdateTaskRequest = {
+          id: taskId,
+          board_id: Number(boardId),
+          position: String(newPosition),
+        };
+        if (!isSameColumn) payload.group_id = Number(finalGroupId);
+        await tasksApi.updateTask(payload);
+        if (!isSameColumn) toast.success("Task moved to project");
+      } catch (err) {
+        console.error("handleProjectsDragEnd: API error, rolling back", err);
+        if (snapshot) setGroups(snapshot);
+        toast.error("Failed to move task – restored original position");
+      }
+    },
+    [groups, boardId],
+  );
+
+  /* ── Teams tab: column = assignee ───────────────────────────────────────*/
+
+  const handleTeamsDragStart = useCallback(
+    (event: DragStartEvent) => {
+      teamsDragSnapshotRef.current = { groups, teamsOrder };
+      const type = event.active.data.current?.type as "card" | "column" | undefined;
+      setTeamsActiveType(type ?? null);
+      setTeamsActiveId(String(event.active.id));
+    },
+    [groups, teamsOrder],
+  );
+
+  const handleTeamsDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const { active, over } = event;
+      if (!over) {
+        setTeamsOverColumnId(null);
+        return;
+      }
+      const activeData = active.data.current;
+      if (activeData?.type === "column") return;
+
+      const overData = over.data.current;
+      const toPerson: string | undefined =
+        overData?.type === "column" || overData?.type === "card" ? overData.columnId : undefined;
+      setTeamsOverColumnId(toPerson ?? null);
+      if (!toPerson) return;
+
+      const taskId = String(active.id);
+      const overTaskId = overData?.type === "card" ? String(over.id) : null;
+      if (overTaskId === taskId) return;
+
+      setTeamsOrder((prev) => {
+        const allTasksNow = groups.flatMap((g) => g.tasks);
+        const orderFor = (person: string) =>
+          prev[person] ??
+          allTasksNow
+            .filter((t) => {
+              const assignees = t.assignee_names || (t.person ? [t.person] : []);
+              return person === "Unassigned" ? assignees.length === 0 : assignees.includes(person);
+            })
+            .map((t) => t.id);
+
+        let fromPerson: string | null = null;
+        for (const p of teamsPersons) {
+          if (orderFor(p).includes(taskId)) {
+            fromPerson = p;
+            break;
+          }
+        }
+        if (!fromPerson) return prev;
+
+        const fromOrder = orderFor(fromPerson).filter((id) => id !== taskId);
+        const toOrderBase = fromPerson === toPerson ? fromOrder : orderFor(toPerson).filter((id) => id !== taskId);
+        const rawIdx = overTaskId ? toOrderBase.indexOf(overTaskId) : -1;
+        const idx = rawIdx === -1 ? toOrderBase.length : rawIdx;
+        const toOrder = [...toOrderBase];
+        toOrder.splice(idx, 0, taskId);
+
+        return { ...prev, [fromPerson]: fromOrder, [toPerson]: toOrder };
+      });
+    },
+    [groups, teamsPersons],
+  );
+
+  const handleTeamsDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      const activeData = active.data.current;
+      setTeamsActiveId(null);
+      setTeamsActiveType(null);
+      setTeamsOverColumnId(null);
+      if (!over) return;
+
+      if (activeData?.type === "column") {
+        const oldPerson = String(active.id).replace("column-", "");
+        const overIdRaw = String(over.id);
+        const newPerson = overIdRaw.startsWith("column-") ? overIdRaw.replace("column-", "") : overIdRaw;
+        if (oldPerson === newPerson) return;
+        const oldIdx = orderedPersons.indexOf(oldPerson);
+        const newIdx = orderedPersons.indexOf(newPerson);
+        if (oldIdx === -1 || newIdx === -1) return;
+        const newOrder = arrayMove(orderedPersons, oldIdx, newIdx);
+        setTeamsColumnOrder(newOrder);
+        persistTeamsColumnOrder(newOrder);
+        return;
+      }
+
+      // Card drop — reassignment + persistence
+      const taskId = String(active.id);
+      let toPerson: string | null = null;
+      for (const p of teamsPersons) {
+        if ((teamsOrder[p] ?? []).includes(taskId)) {
+          toPerson = p;
+          break;
+        }
+      }
+      if (!toPerson) return;
+
+      const snapshot = teamsDragSnapshotRef.current;
+      let fromPerson: string | null = null;
+      if (snapshot) {
+        for (const p of teamsPersons) {
+          if ((snapshot.teamsOrder[p] ?? []).includes(taskId)) {
+            fromPerson = p;
+            break;
+          }
+        }
+        if (!fromPerson) {
+          const task = snapshot.groups.flatMap((g) => g.tasks).find((t) => t.id === taskId);
+          if (task) {
+            const assignees = task.assignee_names || (task.person ? [task.person] : []);
+            fromPerson = assignees.length > 0 ? assignees[0] : "Unassigned";
+          }
+        }
+      }
+      const isSameColumn = fromPerson === toPerson;
+
+      let draggedTask: Task | null = null;
+      for (const g of groups) {
+        const found = g.tasks.find((t) => t.id === taskId);
+        if (found) {
+          draggedTask = found;
+          break;
+        }
+      }
+      if (!draggedTask) return;
+
+      const prevIds: string[] = (
+        (draggedTask as any).assigned_to_ids ||
+        ((draggedTask as any).assigned_to_id ? [String((draggedTask as any).assigned_to_id)] : [])
+      ).map(String);
+      let nextIds = [...prevIds];
+
+      if (!isSameColumn) {
+        if (fromPerson && fromPerson !== "Unassigned") {
+          const old = members.find((m: any) => m.name === fromPerson || m.username === fromPerson);
+          if (old) nextIds = nextIds.filter((id) => id !== String(old.user_id));
+        }
+        if (toPerson !== "Unassigned") {
+          const newMem = members.find((m: any) => m.name === toPerson || m.username === toPerson);
+          if (!newMem) {
+            toast.error(`Cannot resolve member: ${toPerson}`);
+            return;
+          }
+          if (!nextIds.includes(String(newMem.user_id))) nextIds.push(String(newMem.user_id));
+        }
+
+        setGroups((prev) =>
+          prev.map((g) => ({
+            ...g,
+            tasks: g.tasks.map((t) => {
+              if (t.id !== taskId) return t;
+              const nextMembers = nextIds
+                .map((id) => members.find((m: any) => String(m.user_id) === id))
+                .filter(Boolean) as any[];
+              return {
+                ...t,
+                assigned_to_ids: nextIds,
+                assignee_names: nextMembers.map((m: any) => m.name || m.username || ""),
+                person: nextMembers[0]?.name || nextMembers[0]?.username || "",
+              };
+            }),
+          })),
+        );
+      }
+
+      try {
+        if (!isSameColumn) {
+          const validIds = nextIds.filter(Boolean).map(Number);
+          await tasksApi.updateTask({ id: taskId, board_id: Number(boardId), assignees: validIds } as any);
+          toast.success(`Reassigned to ${toPerson}`);
+        }
+      } catch (err) {
+        console.error("handleTeamsDragEnd: API error, rolling back", err);
+        if (snapshot) {
+          setGroups(snapshot.groups);
+          setTeamsOrder(snapshot.teamsOrder);
+        }
+        toast.error("Failed to reassign – restored original position");
+      }
+    },
+    [groups, teamsOrder, teamsPersons, orderedPersons, members, boardId, persistTeamsColumnOrder],
+  );
 
   const saveUpdate = async (isClientOnly?: boolean | number) => {
     if (!updateText.trim() || !selectedCommentsId || isSaving) {
@@ -7150,211 +7557,204 @@ export function WorkloadBoard({
             </div>
             {teamsSubTab === "Projects" ? (
               <>
-              <div 
+              <div
                 ref={teamsBoardRef}
                 className="flex-1 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  const container = e.currentTarget;
-                  const edgeThreshold = 100;
-                  const speed = 15;
-                  const rect = container.getBoundingClientRect();
-                  
-                  if (e.clientX < rect.left + edgeThreshold) {
-                    container.scrollLeft -= speed;
-                  } else if (e.clientX > rect.right - edgeThreshold) {
-                    container.scrollLeft += speed;
-                  }
-                }}
               >
                 {/* Kanban by Project Name */}
                 <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
                 {(() => {
                   const groupsToRender = memoizedFilteredData.groups;
+                  const allProjectTasks = groupsToRender.flatMap((g) => g.tasks);
+                  const bgColors = ["#3b82f6", "#10b981", "#ef4444", "#f59e0b", "#8b5cf6", "#ec4899"];
 
-                  return groupsToRender.map((group, index) => {
-                    const projectTasks = group.tasks || [];
-                    const bgColors = ["#3b82f6", "#10b981", "#ef4444", "#f59e0b", "#8b5cf6", "#ec4899"];
-                    const headerColor = group.color || bgColors[index % bgColors.length];
+                  const renderProjectHeader = (group: TaskGroup, headerColor: string, count: number) => (
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-3.5 h-3.5 rounded-full shadow-sm shrink-0" style={{ backgroundColor: headerColor }} />
+                        <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate" title={group.name}>{group.name}</h3>
+                        <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">{count}</span>
+                      </div>
+                      <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors shrink-0">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+
+                  const renderProjectCard = (taskId: string) => {
+                    const task = allProjectTasks.find((t) => t.id === taskId);
+                    if (!task) return null;
+                    const parentGroup = groupsToRender.find((g) => g.tasks.some((t) => t.id === taskId));
+                    if (!parentGroup) return null;
+
+                    const groupColor = parentGroup.color || "#3b82f6";
+                    const groupName = parentGroup.name || "Group";
+                    const statusName = statuses.find(s => String(s.id) === String(task.status_id))?.name || task.status || "Working";
+                    const priorityInfo = priorities.find(p => String(p.id) === String(task.priority_id));
+                    const taskDisplayId = parentGroup.abbreviation ? `${parentGroup.abbreviation}-${(task as any).number || task.id}` : `#${(task as any).number || task.id}`;
+                    const assigneeNames = task.assignee_names || (task.person ? [task.person] : []);
+                    const tooltipAssigneesText = assigneeNames.join(", ");
+                    const visibleAssignees = assigneeNames.slice(0, 3);
+                    const extraAssigneesCount = assigneeNames.length - 3;
+
+                    let dueDateText = "-";
+                    try {
+                      if (task.estimatedDateRaw) dueDateText = format(new Date(task.estimatedDateRaw), "dd MMM yyyy");
+                      else if (task.estimatedDate) dueDateText = task.estimatedDate;
+                    } catch (e) {}
 
                     return (
-                      <div 
-                        key={group.id} 
-                        className="flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800 h-auto min-h-[300px]"
+                      <div
+                        onClick={() => openTaskCard(task)}
+                        className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
                       >
-                        {/* KANBAN COLUMN HEADER */}
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between group/header sticky top-0 z-10 bg-[#f8fafc] dark:bg-[#0f172a] rounded-t-xl shadow-sm shrink-0">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-3.5 h-3.5 rounded-full shadow-sm shrink-0" style={{ backgroundColor: headerColor }} />
-                            <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate" title={group.name}>{group.name}</h3>
-                            <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">{projectTasks.length}</span>
+                        {/* 1. Project ID & Name */}
+                        <div className="flex flex-col gap-1 shrink-0">
+                          <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                            <span className="text-primary font-mono">{taskDisplayId}</span>
+                            {groupName && (
+                              <div className="flex items-center gap-1">
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
+                                <span className="truncate max-w-[125px]">{groupName}</span>
+                              </div>
+                            )}
                           </div>
-                          <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors shrink-0">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
+                          <h4 className="text-sm font-bold text-foreground line-clamp-2 mt-1" title={task.name}>
+                            {task.name}
+                          </h4>
                         </div>
 
-                        {/* KANBAN COLUMN BODY */}
-                        <div 
-                          className="p-3 space-y-3 min-h-0 overflow-y-visible flex-grow"
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = "move";
-                          }}
-                          onDrop={async (e) => {
-                            e.preventDefault();
-                            try {
-                              const raw = e.dataTransfer.getData("text/plain");
-                              if (!raw) return;
-                              const data = JSON.parse(raw);
-                              
-                              if (data.type === "PROJECT_REASSIGN" && data.taskId && data.fromGroupId) {
-                                const fromGroupId = data.fromGroupId;
-                                const toGroupId = group.id; 
-                                
-                                if (fromGroupId === toGroupId) return; 
-                                
-                                await handleGroupChange(String(data.taskId), String(toGroupId));
-                              }
-                            } catch (err) {
-                              console.error("Drop failed:", err);
-                            }
-                          }}
-                        >
-                          {projectTasks.map(task => {
-                              const parentGroup = group;
-                              const groupColor = parentGroup.color || "#3b82f6";
-                              const groupName = parentGroup.name || "Group";
-                              const statusName = statuses.find(s => String(s.id) === String(task.status_id))?.name || task.status || "Working";
-                              const priorityInfo = priorities.find(p => String(p.id) === String(task.priority_id));
-
-                              // Task ID
-                              const taskDisplayId = parentGroup.abbreviation ? `${parentGroup.abbreviation}-${(task as any).number || task.id}` : `#${(task as any).number || task.id}`;
-
-                              // Gather assignee information
-                              const assigneeNames = task.assignee_names || (task.person ? [task.person] : []);
-                              const tooltipAssigneesText = assigneeNames.join(", ");
-                              const visibleAssignees = assigneeNames.slice(0, 3);
-                              const extraAssigneesCount = assigneeNames.length - 3;
-
-                              let dueDateText = "-";
-                              try {
-                                if (task.estimatedDateRaw) {
-                                  dueDateText = format(new Date(task.estimatedDateRaw), "dd MMM yyyy");
-                                } else if (task.estimatedDate) {
-                                  dueDateText = task.estimatedDate;
-                                }
-                              } catch (e) {}
-
+                        {/* 2. Tags/Labels */}
+                        {Array.isArray(task.tags) && task.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {task.tags.map((tag: any, idx: number) => {
+                              const tColor = tag.color || "var(--muted-foreground)";
                               return (
-                                <div 
-                                  key={task.id}
-                                  draggable
-                                  onDragStart={(e) => {
-                                    e.dataTransfer.setData("text/plain", JSON.stringify({ type: "PROJECT_REASSIGN", taskId: task.id, fromGroupId: group.id }));
-                                    e.dataTransfer.effectAllowed = "move";
-                                  }}
-                                  onClick={() => openTaskCard(task)} 
-                                  className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
+                                <span
+                                  key={idx}
+                                  className="px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center justify-center"
+                                  style={{ borderColor: `${tColor}30`, color: tColor, backgroundColor: `${tColor}12` }}
                                 >
-                                  {/* 1. Project ID & Name */}
-                                  <div className="flex flex-col gap-1 shrink-0">
-                                    <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                                      <span className="text-primary font-mono">{taskDisplayId}</span>
-                                      {groupName && (
-                                        <div className="flex items-center gap-1">
-                                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
-                                          <span className="truncate max-w-[125px]">{groupName}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                    <h4 className="text-sm font-bold text-foreground line-clamp-2 mt-1" title={task.name}>
-                                      {task.name}
-                                    </h4>
-                                  </div>
-
-                                  {/* 2. Tags/Labels (if available) */}
-                                  {Array.isArray(task.tags) && task.tags.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-0.5">
-                                      {task.tags.map((tag: any, idx: number) => {
-                                        const tColor = tag.color || "var(--muted-foreground)";
-                                        return (
-                                          <span 
-                                            key={idx} 
-                                            className="px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center justify-center"
-                                            style={{
-                                              borderColor: `${tColor}30`,
-                                              color: tColor,
-                                              backgroundColor: `${tColor}12`
-                                            }}
-                                          >
-                                            {tag.tag_name || tag.name}
-                                          </span>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-
-                                  {/* 3. Due Date */}
-                                  <div className="text-xs text-muted-foreground grid grid-cols-1 gap-1">
-                                    <span className="truncate">Due: {dueDateText}</span>
-                                  </div>
-
-                                  {/* 4. Status and Priority */}
-                                  <div className="flex flex-wrap gap-2 items-center">
-                                    <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
-                                      {statusName}
-                                    </span>
-                                    {priorityInfo && (
-                                      <span 
-                                        className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center" 
-                                        style={{ 
-                                          borderColor: priorityInfo.color_code || 'var(--border)', 
-                                          color: priorityInfo.color_code || 'inherit',
-                                          backgroundColor: priorityInfo.color_code ? `${priorityInfo.color_code}15` : 'var(--muted)'
-                                        }}
-                                      >
-                                        {priorityInfo.name}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {/* 5. Assigned Members */}
-                                  <div className="mt-auto pt-2 border-t border-border flex flex-col gap-1.5">
-                                    <div className="flex flex-wrap items-center gap-1" title={tooltipAssigneesText}>
-                                      {visibleAssignees.length === 0 && (
-                                        <span className="text-[10px] text-muted-foreground italic">Unassigned</span>
-                                      )}
-                                      {visibleAssignees.map((name: string, i: number) => (
-                                        <div key={i} className="flex items-center gap-1 bg-muted/40 rounded-full pr-1.5 p-0.5 border border-border/80">
-                                          <Avatar className="w-4 h-4 border border-background">
-                                            <AvatarFallback className="text-[8px] bg-primary/10 text-primary uppercase font-bold">
-                                              {name.charAt(0)}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                          <span className="text-[9px] font-medium truncate max-w-[50px] text-foreground">{name}</span>
-                                        </div>
-                                      ))}
-                                      {extraAssigneesCount > 0 && (
-                                        <div className="flex items-center justify-center h-4 px-1 rounded-full bg-muted border border-border text-[8px] font-medium text-muted-foreground">
-                                          +{extraAssigneesCount}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
+                                  {tag.tag_name || tag.name}
+                                </span>
                               );
-                          })}
+                            })}
+                          </div>
+                        )}
 
-                          {projectTasks.length === 0 && (
-                            <div className="flex-grow flex flex-col items-center justify-center py-12 text-center text-sm text-slate-400 dark:text-slate-500 italic">
-                               No Tasks Available
-                            </div>
+                        {/* 3. Due Date */}
+                        <div className="text-xs text-muted-foreground grid grid-cols-1 gap-1">
+                          <span className="truncate">Due: {dueDateText}</span>
+                        </div>
+
+                        {/* 4. Status and Priority */}
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
+                            {statusName}
+                          </span>
+                          {priorityInfo && (
+                            <span
+                              className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center"
+                              style={{
+                                borderColor: priorityInfo.color_code || 'var(--border)',
+                                color: priorityInfo.color_code || 'inherit',
+                                backgroundColor: priorityInfo.color_code ? `${priorityInfo.color_code}15` : 'var(--muted)'
+                              }}
+                            >
+                              {priorityInfo.name}
+                            </span>
                           )}
+                        </div>
+
+                        {/* 5. Assigned Members */}
+                        <div className="mt-auto pt-2 border-t border-border flex flex-col gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1" title={tooltipAssigneesText}>
+                            {visibleAssignees.length === 0 && (
+                              <span className="text-[10px] text-muted-foreground italic">Unassigned</span>
+                            )}
+                            {visibleAssignees.map((name: string, i: number) => (
+                              <div key={i} className="flex items-center gap-1 bg-muted/40 rounded-full pr-1.5 p-0.5 border border-border/80">
+                                <Avatar className="w-4 h-4 border border-background">
+                                  <AvatarFallback className="text-[8px] bg-primary/10 text-primary uppercase font-bold">
+                                    {name.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-[9px] font-medium truncate max-w-[50px] text-foreground">{name}</span>
+                              </div>
+                            ))}
+                            {extraAssigneesCount > 0 && (
+                              <div className="flex items-center justify-center h-4 px-1 rounded-full bg-muted border border-border text-[8px] font-medium text-muted-foreground">
+                                +{extraAssigneesCount}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
-                  });
+                  };
+
+                  const activeGroup =
+                    projectsActiveType === "column" && projectsActiveId
+                      ? groupsToRender.find((g) => g.id === projectsActiveId.replace("column-", ""))
+                      : null;
+
+                  return (
+                    <DndContext
+                      sensors={projectsSensors}
+                      collisionDetection={kanbanCollisionDetection}
+                      onDragStart={handleProjectsDragStart}
+                      onDragOver={handleProjectsDragOver}
+                      onDragEnd={handleProjectsDragEnd}
+                    >
+                      <SortableContext
+                        items={groupsToRender.map((g) => `column-${g.id}`)}
+                        strategy={horizontalListSortingStrategy}
+                      >
+                        {groupsToRender.map((group, index) => {
+                          const projectTasks = group.tasks || [];
+                          const taskIdList = projectTasks.map((t) => t.id);
+                          const headerColor = group.color || bgColors[index % bgColors.length];
+
+                          return (
+                            <KanbanBoardColumn
+                              key={group.id}
+                              columnId={String(group.id)}
+                              taskIds={taskIdList}
+                              isColumnActive={projectsOverColumnId === String(group.id)}
+                              cardGhostHeight={175}
+                              header={renderProjectHeader(group, headerColor, projectTasks.length)}
+                              emptyContent={
+                                <div className="flex-grow flex flex-col items-center justify-center py-12 text-center text-sm text-slate-400 dark:text-slate-500 italic">
+                                  No Tasks Available
+                                </div>
+                              }
+                              renderCard={renderProjectCard}
+                            />
+                          );
+                        })}
+                      </SortableContext>
+                      <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
+                        {projectsActiveType === "card" && projectsActiveId
+                          ? renderProjectCard(projectsActiveId)
+                          : projectsActiveType === "column" && activeGroup
+                            ? (
+                              <KanbanBoardColumn
+                                columnId={String(activeGroup.id)}
+                                taskIds={activeGroup.tasks.map((t) => t.id)}
+                                cardGhostHeight={175}
+                                header={renderProjectHeader(
+                                  activeGroup,
+                                  activeGroup.color || bgColors[groupsToRender.indexOf(activeGroup) % bgColors.length],
+                                  activeGroup.tasks.length,
+                                )}
+                                renderCard={renderProjectCard}
+                                isOverlay
+                              />
+                            )
+                            : null}
+                      </DragOverlay>
+                    </DndContext>
+                  );
                 })()}
                 </div>
               </div>
@@ -7365,241 +7765,214 @@ export function WorkloadBoard({
                 columnsCount={memoizedFilteredData.groups.length} 
               />
               </>
+
             ) : (
             <>
-            <div 
+            <div
               ref={teamsBoardRef}
               className="flex-1 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
-              onDragOver={(e) => {
-                // Auto-scroll when dragging near edges
-                e.preventDefault();
-                const container = e.currentTarget;
-                const edgeThreshold = 100;
-                const speed = 15;
-                const rect = container.getBoundingClientRect();
-                
-                if (e.clientX < rect.left + edgeThreshold) {
-                  container.scrollLeft -= speed;
-                } else if (e.clientX > rect.right - edgeThreshold) {
-                  container.scrollLeft += speed;
-                }
-              }}
             >
               {/* Kanban by Team Member */}
               <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
               {(() => {
                 const allTasks = memoizedFilteredData.groups.flatMap(g => g.tasks);
-                
-                // Extract all persons from tasks
-                const personsSet = new Set<string>();
-                allTasks.forEach(t => {
+                const bgColors = ["#22c55e", "#ef4444", "#f97316", "#3b82f6", "#a855f7", "#eab308"];
+
+                const getPersonTasks = (person: string) => {
+                  let personTasks = allTasks.filter(t => {
                     const assignees = t.assignee_names || (t.person ? [t.person] : []);
-                    if (assignees.length > 0) {
-                      assignees.forEach((p: string) => personsSet.add(p));
-                    }
-                });
-                
-                if (personsSet.size === 0) {
-                    personsSet.add("Unassigned");
-                }
-                
-                const persons = Array.from(personsSet).sort();
-                
-                return persons.map((person, index) => {
-                    const personTasks = allTasks.filter(t => {
-                      const assignees = t.assignee_names || (t.person ? [t.person] : []);
-                      if (person === "Unassigned") return assignees.length === 0;
-                      return assignees.includes(person);
+                    if (person === "Unassigned") return assignees.length === 0;
+                    return assignees.includes(person);
+                  });
+
+                  // Apply session-local drag-and-drop reorder override, if any
+                  const orderOverride = teamsOrder[person];
+                  if (orderOverride) {
+                    const rank = new Map(orderOverride.map((id, i) => [id, i]));
+                    personTasks = [...personTasks].sort((a, b) => {
+                      const ra = rank.has(a.id) ? rank.get(a.id)! : Number.MAX_SAFE_INTEGER;
+                      const rb = rank.has(b.id) ? rank.get(b.id)! : Number.MAX_SAFE_INTEGER;
+                      return ra - rb;
                     });
+                  }
+                  return personTasks;
+                };
 
-                    if (personTasks.length === 0 && person !== "Unassigned") return null;
+                const renderPersonHeader = (person: string, headerColor: string, count: number) => (
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-3.5 h-3.5 rounded-full shadow-sm shrink-0" style={{ backgroundColor: headerColor }} />
+                      <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate" title={person}>{person}</h3>
+                      <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">{count}</span>
+                    </div>
+                    <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors shrink-0">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
 
-                    const bgColors = ["#22c55e", "#ef4444", "#f97316", "#3b82f6", "#a855f7", "#eab308"];
-                    const headerColor = bgColors[index % bgColors.length];
+                const renderPersonCard = (taskId: string) => {
+                  const task = allTasks.find((t) => t.id === taskId);
+                  if (!task) return null;
 
-                    return (
-                      <div 
-                        key={person} 
-                        className="flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800 h-auto min-h-[300px]"
-                      >
-                        {/* KANBAN COLUMN HEADER */}
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between group/header sticky top-0 z-10 bg-[#f8fafc] dark:bg-[#0f172a] rounded-t-xl shadow-sm shrink-0">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-3.5 h-3.5 rounded-full shadow-sm shrink-0" style={{ backgroundColor: headerColor }} />
-                            <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate" title={person}>{person}</h3>
-                            <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">{personTasks.length}</span>
+                  const parentGroup = memoizedFilteredData.groups.find(g => g.tasks.find(t => t.id === task.id) || g.tasks.find(t => t.subitems?.find((s: any) => s.id === task.id)));
+                  const groupColor = parentGroup?.color || "#3b82f6";
+                  const groupName = parentGroup?.name || "Group";
+                  const statusName = statuses.find(s => String(s.id) === String(task.status_id))?.name || task.status || "Working";
+                  const priorityInfo = priorities.find(p => String(p.id) === String(task.priority_id));
+                  const assigneeNames = task.assignee_names || (task.person ? [task.person] : []);
+                  const tooltipAssigneesText = assigneeNames.join(", ");
+                  const visibleAssignees = assigneeNames.slice(0, 3);
+                  const extraAssigneesCount = assigneeNames.length - 3;
+
+                  let createdDateText = "-";
+                  try {
+                    if ((task as any).created_at) createdDateText = format(new Date((task as any).created_at), "dd MMM yyyy");
+                  } catch (e) {}
+
+                  let dueDateText = "-";
+                  try {
+                    if (task.estimatedDateRaw) dueDateText = format(new Date(task.estimatedDateRaw), "dd MMM yyyy");
+                    else if (task.estimatedDate) dueDateText = task.estimatedDate;
+                  } catch (e) {}
+
+                  return (
+                    <div
+                      onClick={() => openTaskCard(task)}
+                      className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[160px]"
+                    >
+                      {/* 1. Project Name (Header) */}
+                      <div className="flex flex-col gap-1.5 shrink-0">
+                        {groupName && (
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold truncate max-w-[150px]">
+                              {groupName}
+                            </span>
                           </div>
-                          <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors shrink-0">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
+                        )}
+                        <h4 className="text-sm font-bold text-foreground line-clamp-2" title={task.name}>
+                          {task.name}
+                        </h4>
+                      </div>
+
+                      {/* 2. Project Information */}
+                      <div className="flex flex-col gap-2 text-xs text-muted-foreground">
+                        <div className="grid grid-cols-1 gap-1">
+                          <span className="truncate">Created: {createdDateText}</span>
+                          <span className="truncate">Due: {dueDateText}</span>
                         </div>
+                        <div className="flex flex-wrap gap-2 items-center mt-0.5">
+                          <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
+                            {statusName}
+                          </span>
+                          {priorityInfo && (
+                            <span
+                              className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center"
+                              style={{
+                                borderColor: priorityInfo.color_code || 'var(--border)',
+                                color: priorityInfo.color_code || 'inherit',
+                                backgroundColor: priorityInfo.color_code ? `${priorityInfo.color_code}15` : 'var(--muted)'
+                              }}
+                            >
+                              {priorityInfo.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-                        {/* KANBAN COLUMN BODY */}
-                        <div 
-                          className="p-3 space-y-3 min-h-0 overflow-y-visible flex-grow"
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = "move";
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            try {
-                              const raw = e.dataTransfer.getData("text/plain");
-                              if (!raw) return;
-                              const data = JSON.parse(raw);
-                              
-                              if (data.type === "TASK_REASSIGN" && data.taskId && data.fromPerson) {
-                                const fromPerson = data.fromPerson;
-                                const toPerson = person; 
-                                
-                                if (fromPerson === toPerson) return; 
-
-                                const draggedTask = allTasks.find(t => t.id === data.taskId);
-                                if (!draggedTask) return;
-
-                                const currentAssignees = (draggedTask.assigned_to_ids || (draggedTask.assigned_to_id ? [draggedTask.assigned_to_id] : [])).map(String);
-                                let nextAssignees = [...currentAssignees];
-
-                                if (fromPerson !== "Unassigned") {
-                                  const oldMember = members.find((m: any) => m.name === fromPerson || m.username === fromPerson);
-                                  if (oldMember) {
-                                     nextAssignees = nextAssignees.filter(id => id !== String(oldMember.user_id));
-                                  }
-                                }
-
-                                if (toPerson !== "Unassigned") {
-                                  const newMember = members.find((m: any) => m.name === toPerson || m.username === toPerson);
-                                  if (newMember && !nextAssignees.includes(String(newMember.user_id))) {
-                                     nextAssignees.push(String(newMember.user_id));
-                                  } else if (!newMember) {
-                                     toast.error("Could not resolve member ID for " + toPerson);
-                                     return;
-                                  }
-                                }
-
-                                handlePersonChange(String(draggedTask.id), nextAssignees, true);
-                                toast.success(`Reassigned to ${toPerson}`);
-                              }
-                            } catch (err) {}
-                          }}
-                        >
-                          {personTasks.map(task => {
-                              const parentGroup = memoizedFilteredData.groups.find(g => g.tasks.find(t => t.id === task.id) || g.tasks.find(t => t.subitems?.find(s => s.id === task.id)));
-                              const groupColor = parentGroup?.color || "#3b82f6";
-                              const groupName = parentGroup?.name || "Group";
-                              const statusName = statuses.find(s => String(s.id) === String(task.status_id))?.name || task.status || "Working";
-                              const priorityInfo = priorities.find(p => String(p.id) === String(task.priority_id));
-
-                              // Gather assignee information
-                              const assigneeNames = task.assignee_names || (task.person ? [task.person] : []);
-                              const tooltipAssigneesText = assigneeNames.join(", ");
-                              const visibleAssignees = assigneeNames.slice(0, 3);
-                              const extraAssigneesCount = assigneeNames.length - 3;
-                              
-                              let createdDateText = "-";
-                              try {
-                                if ((task as any).created_at) {
-                                  createdDateText = format(new Date((task as any).created_at), "dd MMM yyyy");
-                                }
-                              } catch (e) {}
-
-                              let dueDateText = "-";
-                              try {
-                                if (task.estimatedDateRaw) {
-                                  dueDateText = format(new Date(task.estimatedDateRaw), "dd MMM yyyy");
-                                } else if (task.estimatedDate) {
-                                  dueDateText = task.estimatedDate;
-                                }
-                              } catch (e) {}
-
-                              return (
-                                <div 
-                                  key={task.id} 
-                                  draggable
-                                  onDragStart={(e) => {
-                                    e.dataTransfer.setData("text/plain", JSON.stringify({ type: "TASK_REASSIGN", taskId: task.id, fromPerson: person }));
-                                    e.dataTransfer.effectAllowed = "move";
-                                  }}
-                                  onClick={() => openTaskCard(task)} 
-                                  className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[160px]"
-                                >
-                                  {/* 1. Project Name (Header) */}
-                                  <div className="flex flex-col gap-1.5 shrink-0">
-                                    {groupName && (
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
-                                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold truncate max-w-[150px]">
-                                          {groupName}
-                                        </span>
-                                      </div>
-                                    )}
-                                    <h4 className="text-sm font-bold text-foreground line-clamp-2" title={task.name}>
-                                      {task.name}
-                                    </h4>
-                                  </div>
-
-                                  {/* 2. Project Information */}
-                                  <div className="flex flex-col gap-2 text-xs text-muted-foreground">
-                                    <div className="grid grid-cols-1 gap-1">
-                                      <span className="truncate">Created: {createdDateText}</span>
-                                      <span className="truncate">Due: {dueDateText}</span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2 items-center mt-0.5">
-                                      <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
-                                        {statusName}
-                                      </span>
-                                      {priorityInfo && (
-                                        <span 
-                                          className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center" 
-                                          style={{ 
-                                            borderColor: priorityInfo.color_code || 'var(--border)', 
-                                            color: priorityInfo.color_code || 'inherit',
-                                            backgroundColor: priorityInfo.color_code ? `${priorityInfo.color_code}15` : 'var(--muted)'
-                                          }}
-                                        >
-                                          {priorityInfo.name}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* 3. Assigned Members */}
-                                  <div className="mt-auto pt-3 border-t border-border flex flex-col gap-2">
-                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Assigned To:</span>
-                                    <div className="flex flex-wrap items-center gap-1.5" title={tooltipAssigneesText}>
-                                      {visibleAssignees.length === 0 && (
-                                        <span className="text-xs text-muted-foreground italic">Unassigned</span>
-                                      )}
-                                      {visibleAssignees.map((name, i) => (
-                                        <div key={i} className="flex items-center gap-1.5 bg-muted/30 rounded-full pr-2 p-0.5 border border-border/80">
-                                          <Avatar className="w-5 h-5 border border-background">
-                                            <AvatarFallback className="text-[9px] bg-primary/10 text-primary uppercase font-bold">
-                                              {name.charAt(0)}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                          <span className="text-[10px] font-medium truncate max-w-[60px] text-foreground">{name}</span>
-                                        </div>
-                                      ))}
-                                      {extraAssigneesCount > 0 && (
-                                        <div className="flex items-center justify-center h-6 px-1.5 rounded-full bg-muted border border-border text-[10px] font-medium text-muted-foreground">
-                                          +{extraAssigneesCount} More
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                          })}
-
-                          {personTasks.length === 0 && (
-                            <div className="py-8 text-center text-sm text-muted-foreground">
-                               No tasks assigned
+                      {/* 3. Assigned Members */}
+                      <div className="mt-auto pt-3 border-t border-border flex flex-col gap-2">
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Assigned To:</span>
+                        <div className="flex flex-wrap items-center gap-1.5" title={tooltipAssigneesText}>
+                          {visibleAssignees.length === 0 && (
+                            <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                          )}
+                          {visibleAssignees.map((name: string, i: number) => (
+                            <div key={i} className="flex items-center gap-1.5 bg-muted/30 rounded-full pr-2 p-0.5 border border-border/80">
+                              <Avatar className="w-5 h-5 border border-background">
+                                <AvatarFallback className="text-[9px] bg-primary/10 text-primary uppercase font-bold">
+                                  {name.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-[10px] font-medium truncate max-w-[60px] text-foreground">{name}</span>
+                            </div>
+                          ))}
+                          {extraAssigneesCount > 0 && (
+                            <div className="flex items-center justify-center h-6 px-1.5 rounded-full bg-muted border border-border text-[10px] font-medium text-muted-foreground">
+                              +{extraAssigneesCount} More
                             </div>
                           )}
                         </div>
                       </div>
-                    );
-                });
+                    </div>
+                  );
+                };
+
+                const activePerson =
+                  teamsActiveType === "column" && teamsActiveId
+                    ? teamsActiveId.replace("column-", "")
+                    : null;
+
+                return (
+                  <DndContext
+                    sensors={teamsSensors}
+                    collisionDetection={kanbanCollisionDetection}
+                    onDragStart={handleTeamsDragStart}
+                    onDragOver={handleTeamsDragOver}
+                    onDragEnd={handleTeamsDragEnd}
+                  >
+                    <SortableContext
+                      items={orderedPersons.map((p) => `column-${p}`)}
+                      strategy={horizontalListSortingStrategy}
+                    >
+                      {orderedPersons.map((person, index) => {
+                        const personTasks = getPersonTasks(person);
+                        if (personTasks.length === 0 && person !== "Unassigned") return null;
+
+                        const taskIdList = personTasks.map((t) => t.id);
+                        const headerColor = bgColors[index % bgColors.length];
+
+                        return (
+                          <KanbanBoardColumn
+                            key={person}
+                            columnId={person}
+                            taskIds={taskIdList}
+                            isColumnActive={teamsOverColumnId === person}
+                            cardGhostHeight={160}
+                            header={renderPersonHeader(person, headerColor, personTasks.length)}
+                            emptyContent={
+                              <div className="py-8 text-center text-sm text-muted-foreground italic">
+                                No tasks assigned
+                              </div>
+                            }
+                            renderCard={renderPersonCard}
+                          />
+                        );
+                      })}
+                    </SortableContext>
+                    <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
+                      {teamsActiveType === "card" && teamsActiveId
+                        ? renderPersonCard(teamsActiveId)
+                        : teamsActiveType === "column" && activePerson
+                          ? (
+                            <KanbanBoardColumn
+                              columnId={activePerson}
+                              taskIds={getPersonTasks(activePerson).map((t) => t.id)}
+                              cardGhostHeight={160}
+                              header={renderPersonHeader(
+                                activePerson,
+                                bgColors[orderedPersons.indexOf(activePerson) % bgColors.length],
+                                getPersonTasks(activePerson).length,
+                              )}
+                              renderCard={renderPersonCard}
+                              isOverlay
+                            />
+                          )
+                          : null}
+                    </DragOverlay>
+                  </DndContext>
+                );
               })()}
               </div>
             </div>
@@ -7612,10 +7985,9 @@ export function WorkloadBoard({
                   memoizedFilteredData.groups
                     .flatMap(g => g.tasks)
                     .flatMap(t => t.assignee_names || (t.person ? [t.person] : []))
-                    .concat(["Unassigned"]) // To match logic used in Teams Board rendering
+                    .concat(["Unassigned"])
                 ))
                 .filter(person => {
-                   // Calculate if this column natively renders based on same exact logic in inline view
                    const allTasks = memoizedFilteredData.groups.flatMap(g => g.tasks);
                    const personTasks = allTasks.filter(t => {
                      const assignees = t.assignee_names || (t.person ? [t.person] : []);
