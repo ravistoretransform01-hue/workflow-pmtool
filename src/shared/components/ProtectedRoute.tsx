@@ -107,7 +107,7 @@ function ProtectedRoute() {
         <AppSidebar />
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-hidden">
+          <main className="flex-1 overflow-y-auto custom-scrollbar">
             <Outlet />
           </main>
         </div>

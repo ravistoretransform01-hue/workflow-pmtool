@@ -382,24 +382,56 @@ button:focus-visible {
   border-radius: 0.75rem;
 }
 
-/* Custom thin scrollbars */
+/* Custom thin scrollbars styling */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: hsla(217, 10%, 65%, 0.3) transparent;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
 }
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: hsla(217, 10%, 65%, 0.3);
-  border-radius: 10px;
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border: 2.5px solid transparent;
+  background-clip: padding-box;
+  border-radius: 9999px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: hsla(217, 10%, 65%, 0.5);
+  background-color: hsl(var(--muted-foreground) / 0.5);
+}
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Global scrollbar styling for page scroll and all layout scrollable areas */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border: 2.5px solid transparent;
+  background-clip: padding-box;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.5);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* For Firefox global scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
 }
 
 .scroll-shadows-x {
