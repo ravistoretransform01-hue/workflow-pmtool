@@ -2764,6 +2764,62 @@ export function WorkloadBoard({
     }
   };
 
+  const handleGroupChange = async (taskId: string, targetGroupId: string) => {
+    try {
+      const boardIdNum = Number(boardId);
+      const payload: any = {
+        id: taskId,
+        board_id: boardIdNum,
+        group_id: Number(targetGroupId)
+      };
+
+      await tasksApi.updateTask(payload);
+
+      // Optimistically/Locally update the groups state
+      setGroups((prevGroups) => {
+        let movedTask: Task | null = null;
+
+        // 1. Remove the task from its current group
+        const updatedGroups = prevGroups.map((group) => {
+          const isTaskInGroup = group.tasks.some(t => t.id === taskId);
+          if (isTaskInGroup) {
+            movedTask = group.tasks.find(t => t.id === taskId) || null;
+            return {
+              ...group,
+              tasks: group.tasks.filter(t => t.id !== taskId)
+            };
+          }
+          return group;
+        });
+
+        // 2. Add the task to the target group
+        if (movedTask) {
+          const taskObj = movedTask as Task;
+          const nextTask = {
+            ...taskObj,
+            group_id: targetGroupId
+          };
+          return updatedGroups.map((group) => {
+            if (group.id === targetGroupId) {
+              return {
+                ...group,
+                tasks: [...group.tasks, nextTask]
+              };
+            }
+            return group;
+          });
+        }
+
+        return prevGroups;
+      });
+
+      toast.success("Task moved to project successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to move task to project");
+    }
+  };
+
   const handlePersonChange = async (taskId: string, memberIds: string[], skipToast?: boolean) => {
     try {
       const boardIdNum = Number(boardId);
@@ -7093,9 +7149,222 @@ export function WorkloadBoard({
               </button>
             </div>
             {teamsSubTab === "Projects" ? (
-              <div className="flex-1 flex items-center justify-center p-6 bg-muted/10 text-muted-foreground">
-                Projects View (Coming Soon)
+              <>
+              <div 
+                ref={teamsBoardRef}
+                className="flex-1 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  const container = e.currentTarget;
+                  const edgeThreshold = 100;
+                  const speed = 15;
+                  const rect = container.getBoundingClientRect();
+                  
+                  if (e.clientX < rect.left + edgeThreshold) {
+                    container.scrollLeft -= speed;
+                  } else if (e.clientX > rect.right - edgeThreshold) {
+                    container.scrollLeft += speed;
+                  }
+                }}
+              >
+                {/* Kanban by Project Name */}
+                <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
+                {(() => {
+                  const groupsToRender = memoizedFilteredData.groups;
+
+                  return groupsToRender.map((group, index) => {
+                    const projectTasks = group.tasks || [];
+                    const bgColors = ["#3b82f6", "#10b981", "#ef4444", "#f59e0b", "#8b5cf6", "#ec4899"];
+                    const headerColor = group.color || bgColors[index % bgColors.length];
+
+                    return (
+                      <div 
+                        key={group.id} 
+                        className="flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800 h-auto min-h-[300px]"
+                      >
+                        {/* KANBAN COLUMN HEADER */}
+                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between group/header sticky top-0 z-10 bg-[#f8fafc] dark:bg-[#0f172a] rounded-t-xl shadow-sm shrink-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-3.5 h-3.5 rounded-full shadow-sm shrink-0" style={{ backgroundColor: headerColor }} />
+                            <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate" title={group.name}>{group.name}</h3>
+                            <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">{projectTasks.length}</span>
+                          </div>
+                          <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors shrink-0">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* KANBAN COLUMN BODY */}
+                        <div 
+                          className="p-3 space-y-3 min-h-0 overflow-y-visible flex-grow"
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                          }}
+                          onDrop={async (e) => {
+                            e.preventDefault();
+                            try {
+                              const raw = e.dataTransfer.getData("text/plain");
+                              if (!raw) return;
+                              const data = JSON.parse(raw);
+                              
+                              if (data.type === "PROJECT_REASSIGN" && data.taskId && data.fromGroupId) {
+                                const fromGroupId = data.fromGroupId;
+                                const toGroupId = group.id; 
+                                
+                                if (fromGroupId === toGroupId) return; 
+                                
+                                await handleGroupChange(String(data.taskId), String(toGroupId));
+                              }
+                            } catch (err) {
+                              console.error("Drop failed:", err);
+                            }
+                          }}
+                        >
+                          {projectTasks.map(task => {
+                              const parentGroup = group;
+                              const groupColor = parentGroup.color || "#3b82f6";
+                              const groupName = parentGroup.name || "Group";
+                              const statusName = statuses.find(s => String(s.id) === String(task.status_id))?.name || task.status || "Working";
+                              const priorityInfo = priorities.find(p => String(p.id) === String(task.priority_id));
+
+                              // Task ID
+                              const taskDisplayId = parentGroup.abbreviation ? `${parentGroup.abbreviation}-${(task as any).number || task.id}` : `#${(task as any).number || task.id}`;
+
+                              // Gather assignee information
+                              const assigneeNames = task.assignee_names || (task.person ? [task.person] : []);
+                              const tooltipAssigneesText = assigneeNames.join(", ");
+                              const visibleAssignees = assigneeNames.slice(0, 3);
+                              const extraAssigneesCount = assigneeNames.length - 3;
+
+                              let dueDateText = "-";
+                              try {
+                                if (task.estimatedDateRaw) {
+                                  dueDateText = format(new Date(task.estimatedDateRaw), "dd MMM yyyy");
+                                } else if (task.estimatedDate) {
+                                  dueDateText = task.estimatedDate;
+                                }
+                              } catch (e) {}
+
+                              return (
+                                <div 
+                                  key={task.id}
+                                  draggable
+                                  onDragStart={(e) => {
+                                    e.dataTransfer.setData("text/plain", JSON.stringify({ type: "PROJECT_REASSIGN", taskId: task.id, fromGroupId: group.id }));
+                                    e.dataTransfer.effectAllowed = "move";
+                                  }}
+                                  onClick={() => openTaskCard(task)} 
+                                  className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
+                                >
+                                  {/* 1. Project ID & Name */}
+                                  <div className="flex flex-col gap-1 shrink-0">
+                                    <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                      <span className="text-primary font-mono">{taskDisplayId}</span>
+                                      {groupName && (
+                                        <div className="flex items-center gap-1">
+                                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
+                                          <span className="truncate max-w-[125px]">{groupName}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <h4 className="text-sm font-bold text-foreground line-clamp-2 mt-1" title={task.name}>
+                                      {task.name}
+                                    </h4>
+                                  </div>
+
+                                  {/* 2. Tags/Labels (if available) */}
+                                  {Array.isArray(task.tags) && task.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-0.5">
+                                      {task.tags.map((tag: any, idx: number) => {
+                                        const tColor = tag.color || "var(--muted-foreground)";
+                                        return (
+                                          <span 
+                                            key={idx} 
+                                            className="px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center justify-center"
+                                            style={{
+                                              borderColor: `${tColor}30`,
+                                              color: tColor,
+                                              backgroundColor: `${tColor}12`
+                                            }}
+                                          >
+                                            {tag.tag_name || tag.name}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+
+                                  {/* 3. Due Date */}
+                                  <div className="text-xs text-muted-foreground grid grid-cols-1 gap-1">
+                                    <span className="truncate">Due: {dueDateText}</span>
+                                  </div>
+
+                                  {/* 4. Status and Priority */}
+                                  <div className="flex flex-wrap gap-2 items-center">
+                                    <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
+                                      {statusName}
+                                    </span>
+                                    {priorityInfo && (
+                                      <span 
+                                        className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center" 
+                                        style={{ 
+                                          borderColor: priorityInfo.color_code || 'var(--border)', 
+                                          color: priorityInfo.color_code || 'inherit',
+                                          backgroundColor: priorityInfo.color_code ? `${priorityInfo.color_code}15` : 'var(--muted)'
+                                        }}
+                                      >
+                                        {priorityInfo.name}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* 5. Assigned Members */}
+                                  <div className="mt-auto pt-2 border-t border-border flex flex-col gap-1.5">
+                                    <div className="flex flex-wrap items-center gap-1" title={tooltipAssigneesText}>
+                                      {visibleAssignees.length === 0 && (
+                                        <span className="text-[10px] text-muted-foreground italic">Unassigned</span>
+                                      )}
+                                      {visibleAssignees.map((name: string, i: number) => (
+                                        <div key={i} className="flex items-center gap-1 bg-muted/40 rounded-full pr-1.5 p-0.5 border border-border/80">
+                                          <Avatar className="w-4 h-4 border border-background">
+                                            <AvatarFallback className="text-[8px] bg-primary/10 text-primary uppercase font-bold">
+                                              {name.charAt(0)}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <span className="text-[9px] font-medium truncate max-w-[50px] text-foreground">{name}</span>
+                                        </div>
+                                      ))}
+                                      {extraAssigneesCount > 0 && (
+                                        <div className="flex items-center justify-center h-4 px-1 rounded-full bg-muted border border-border text-[8px] font-medium text-muted-foreground">
+                                          +{extraAssigneesCount}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                          })}
+
+                          {projectTasks.length === 0 && (
+                            <div className="flex-grow flex flex-col items-center justify-center py-12 text-center text-sm text-slate-400 dark:text-slate-500 italic">
+                               No Tasks Available
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+                </div>
               </div>
+              
+              {/* Jira-style Mini Scroll Map */}
+              <TeamsBoardNavigator 
+                containerNode={teamsBoardNode} 
+                columnsCount={memoizedFilteredData.groups.length} 
+              />
+              </>
             ) : (
             <>
             <div 
