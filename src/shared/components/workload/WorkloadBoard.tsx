@@ -634,7 +634,7 @@ export function WorkloadBoard({
 
   // State to hold actual DOM node for Teams Board container
   const [teamsBoardNode, setTeamsBoardNode] = useState<HTMLDivElement | null>(null);
-  const [teamsSubTab, setTeamsSubTab] = useState<"Projects" | "Tasks">("Tasks");
+  const [teamsSubTab, setTeamsSubTab] = useState<"Tasks Projects" | "Tasks">("Tasks");
 
   // ── Kanban DnD (dnd-kit) – Projects tab ────────────────────────────────
   const projectsSensors = useSensors(
@@ -7561,16 +7561,6 @@ export function WorkloadBoard({
             <div className="flex items-center gap-8 px-6 pt-3 shadow-sm sticky top-0 z-20 bg-background shrink-0 border-b border-border">
               <button 
                 className={`pb-3 border-b-2 font-semibold text-sm transition-colors whitespace-nowrap ${
-                  teamsSubTab === "Projects" 
-                    ? "border-primary text-primary" 
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-                onClick={() => setTeamsSubTab("Projects")}
-              >
-                Projects
-              </button>
-              <button 
-                className={`pb-3 border-b-2 font-semibold text-sm transition-colors whitespace-nowrap ${
                   teamsSubTab === "Tasks" 
                     ? "border-primary text-primary" 
                     : "border-transparent text-muted-foreground hover:text-foreground"
@@ -7579,6 +7569,17 @@ export function WorkloadBoard({
               >
                 Tasks
               </button>
+              <button 
+                className={`pb-3 border-b-2 font-semibold text-sm transition-colors whitespace-nowrap ${
+                  teamsSubTab === "Projects" 
+                    ? "border-primary text-primary" 
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setTeamsSubTab("Projects")}
+              >
+                Projects
+              </button>
+              
             </div>
             {teamsSubTab === "Projects" ? (
               <>
