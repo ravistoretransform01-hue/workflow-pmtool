@@ -114,6 +114,7 @@ import { isViewLive } from "@/lib/constants";
 import { ComingSoonAnimation } from "../ComingSoonAnimation";
 import { SOPView } from "./SOPView";
 import GanttView from "./GanttView";
+import { TeamsBoardNavigator } from "./TeamsBoardNavigator";
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -617,6 +618,9 @@ export function WorkloadBoard({
   // Ref for the main flex container (flex-1 flex flex-col)
   const mainFlexContainerRef = useRef<HTMLDivElement>(null);
 
+  // State to hold actual DOM node for Teams Board container
+  const [teamsBoardNode, setTeamsBoardNode] = useState<HTMLDivElement | null>(null);
+
   // Local state for task card and comments
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
   const [sheetTaskCardOpen, setSheetTaskCardOpen] = useState(false);
@@ -726,6 +730,7 @@ export function WorkloadBoard({
 
   // Handle horizontal scrolling on Teams board using wheel
   const teamsBoardRef = useCallback((node: HTMLDivElement | null) => {
+    setTeamsBoardNode(node);
     if (!node) return;
 
     const handleWheel = (e: WheelEvent) => {
@@ -7125,6 +7130,18 @@ export function WorkloadBoard({
                           onDragOver={(e) => {
                             e.preventDefault();
                             e.dataTransfer.dropEffect = "move";
+                            
+                            // Auto-scroll vertically when dragging near top or bottom
+                            const container = e.currentTarget;
+                            const edgeThreshold = 60;
+                            const speed = 15;
+                            const rect = container.getBoundingClientRect();
+                            
+                            if (e.clientY < rect.top + edgeThreshold) {
+                              container.scrollTop -= speed;
+                            } else if (e.clientY > rect.bottom - edgeThreshold) {
+                              container.scrollTop += speed;
+                            }
                           }}
                           onDrop={(e) => {
                             e.preventDefault();
@@ -7286,11 +7303,34 @@ export function WorkloadBoard({
                     );
                 });
               })()}
+              </div>
             </div>
+            
+            {/* Jira-style Mini Scroll Map */}
+            <TeamsBoardNavigator 
+              containerNode={teamsBoardNode} 
+              columnsCount={
+                Array.from(new Set(
+                  memoizedFilteredData.groups
+                    .flatMap(g => g.tasks)
+                    .flatMap(t => t.assignee_names || (t.person ? [t.person] : []))
+                    .concat(["Unassigned"]) // To match logic used in Teams Board rendering
+                ))
+                .filter(person => {
+                   // Calculate if this column natively renders based on same exact logic in inline view
+                   const allTasks = memoizedFilteredData.groups.flatMap(g => g.tasks);
+                   const personTasks = allTasks.filter(t => {
+                     const assignees = t.assignee_names || (t.person ? [t.person] : []);
+                     if (person === "Unassigned") return assignees.length === 0;
+                     return assignees.includes(person);
+                   });
+                   return personTasks.length > 0 || person === "Unassigned";
+                })
+                .length 
+              }
+            />
           </div>
-        </div>
         )}
-
         {/* Other Views - Coming Soon */}
         {!isCurrentViewLive(activeTab) && (
           <div className="flex-1 overflow-auto flex items-center justify-center bg-background/50">
