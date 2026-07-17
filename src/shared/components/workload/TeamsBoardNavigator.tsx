@@ -64,7 +64,10 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
        let targetLeftRatio = clickRatio - (scrollStats.ratio / 2);
        // constrain boundaries
        targetLeftRatio = Math.max(0, Math.min(1 - scrollStats.ratio, targetLeftRatio));
-       containerNode.scrollLeft = targetLeftRatio * containerNode.scrollWidth;
+       containerNode.scrollTo({
+         left: targetLeftRatio * containerNode.scrollWidth,
+         behavior: 'instant'
+       });
        // We don't have to manually update scrollStats, the container's "scroll" listener will handle it natively
     }
   };
@@ -76,7 +79,10 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
     const newLeftRatio = (e.clientX - navRect.left - ((scrollStats.ratio * navRect.width) / 2)) / navRect.width;
     
     const boundedRatio = Math.max(0, Math.min(1 - scrollStats.ratio, newLeftRatio));
-    containerNode.scrollLeft = boundedRatio * containerNode.scrollWidth;
+    containerNode.scrollTo({
+      left: boundedRatio * containerNode.scrollWidth,
+      behavior: 'instant'
+    });
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -88,7 +94,7 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
     if (!containerNode) return;
     // Push the wheel delta into the horizontal container directly
     const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
-    containerNode.scrollLeft += delta;
+    containerNode.scrollBy({ left: delta, behavior: 'instant' });
   };
 
   // Keep navigator hidden on mobile where swiping is natural

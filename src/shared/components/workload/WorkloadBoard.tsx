@@ -735,7 +735,31 @@ export function WorkloadBoard({
   const teamsBoardRef = useCallback((node: HTMLDivElement | null) => {
     teamsBoardRefInstance.current = node;
     setTeamsBoardNode(node);
-  }, []);
+
+    if (node) {
+      // Restore previous scroll position if available from sessionStorage
+      const savedScroll = sessionStorage.getItem(`teams-scroll-${boardId}`);
+      if (savedScroll) {
+        // use setTimeout to ensure layout has settled before scrolling
+        setTimeout(() => {
+          node.scrollLeft = parseInt(savedScroll, 10);
+        }, 50);
+      }
+      
+      // Persist scroll position on scroll
+      const handleNativeScroll = () => {
+        sessionStorage.setItem(`teams-scroll-${boardId}`, node.scrollLeft.toString());
+      };
+      node.addEventListener('scroll', handleNativeScroll, { passive: true });
+      node.style.scrollBehavior = 'smooth'; // Requirement: CSS smooth scroll
+      
+      const prevCleanup = (node as any)._scrollCleanup;
+      if (prevCleanup) prevCleanup();
+      (node as any)._scrollCleanup = () => {
+         node.removeEventListener('scroll', handleNativeScroll);
+      };
+    }
+  }, [boardId]);
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
@@ -756,8 +780,11 @@ export function WorkloadBoard({
 
       if (e.deltaY !== 0) {
         e.preventDefault();
-        // Scroll the board horizontally by the vertical wheel amount
-        node.scrollLeft += e.deltaY;
+        // Since scroll-behavior: smooth is active, incremental += might lag if triggered constantly.
+        // We can use scrollBy() for fluid native smooth scrolling mapped from wheel!
+        node.scrollBy({ left: e.deltaY, behavior: 'instant' }); 
+        // We use instant behavior for wheel to keep it snappy and responsive, 
+        // avoiding "queueing" lag while maintaining CSS smooth for distinct jumps or initial setups.
       }
     };
 
@@ -4969,7 +4996,7 @@ export function WorkloadBoard({
   }, 48); // 48px for checkbox column
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden">
+    <div className={cn("h-full flex flex-col bg-background", activeTab === "Teams" ? "overflow-y-auto" : "overflow-hidden")}>
       {/* Image resize styles */}
       <style>{`
         .image-resize-wrapper:hover {
@@ -5098,7 +5125,7 @@ export function WorkloadBoard({
         </DndContext>
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={cn("flex-1 flex flex-col", activeTab === "Teams" ? "overflow-y-auto" : "overflow-hidden")}>
         {/* Global Toolbar for all views */}
         {activeTab !== "SOP" && (
           <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
@@ -7120,7 +7147,7 @@ export function WorkloadBoard({
               }}
             >
               {/* Kanban by Team Member */}
-              <div className="flex w-max h-full gap-6 pb-2 items-start">
+              <div className="flex w-max h-full gap-6 pb-4 items-stretch">
               {(() => {
                 const allTasks = memoizedFilteredData.groups.flatMap(g => g.tasks);
                 
@@ -7154,23 +7181,44 @@ export function WorkloadBoard({
                     return (
                       <div 
                         key={person} 
-                        className="flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800"
-                        style={{ height: 'calc(100vh - 220px)' }}
+                        className="flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800 h-[calc(100%-8px)]"
                       >
                         {/* KANBAN COLUMN HEADER */}
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2 group/header sticky top-0 z-10 bg-[#f8fafc] dark:bg-[#0f172a] rounded-t-xl shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-3.5 h-3.5 rounded-full shadow-sm" style={{ backgroundColor: headerColor }} />
-                              <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100">{person}</h3>
-                              <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center">{personTasks.length}</span>
-                            </div>
+                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between group/header sticky top-0 z-10 bg-[#f8fafc] dark:bg-[#0f172a] rounded-t-xl shadow-sm shrink-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-3.5 h-3.5 rounded-full shadow-sm shrink-0" style={{ backgroundColor: headerColor }} />
+                            <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate" title={person}>{person}</h3>
+                            <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">{personTasks.length}</span>
                           </div>
+                          <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors shrink-0">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
                         </div>
 
                         {/* KANBAN COLUMN BODY */}
                         <div 
-                          className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0 custom-scrollbar column-scroll-container"
+                          ref={(node) => {
+                            if (node && !node.dataset.scrollInit) {
+                              node.dataset.scrollInit = "true";
+                              const memKey = `col-scroll-${boardId}-${person}`;
+                              const saved = sessionStorage.getItem(memKey);
+                              if (saved) {
+                                // Restore instantly before applying smooth config
+                                node.scrollTop = parseInt(saved, 10);
+                              }
+                              // Enforce generic CSS smooth scrolling explicitly per requirement
+                              node.style.scrollBehavior = "smooth";
+                              
+                              const trackScroll = () => {
+                                sessionStorage.setItem(memKey, node.scrollTop.toString());
+                              };
+                              node.addEventListener('scroll', trackScroll, { passive: true });
+                              (node as any)._cleanupColumn = () => {
+                                node.removeEventListener('scroll', trackScroll);
+                              }
+                            }
+                          }}
+                          className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-3 min-h-0 custom-scrollbar column-scroll-container"
                           onDragOver={(e) => {
                             e.preventDefault();
                             e.dataTransfer.dropEffect = "move";
@@ -7182,9 +7230,9 @@ export function WorkloadBoard({
                             const rect = container.getBoundingClientRect();
                             
                             if (e.clientY < rect.top + edgeThreshold) {
-                              container.scrollTop -= speed;
+                              container.scrollBy({ top: -speed, behavior: 'instant' });
                             } else if (e.clientY > rect.bottom - edgeThreshold) {
-                              container.scrollTop += speed;
+                              container.scrollBy({ top: speed, behavior: 'instant' });
                             }
                           }}
                           onDrop={(e) => {
