@@ -620,6 +620,7 @@ export function WorkloadBoard({
 
   // State to hold actual DOM node for Teams Board container
   const [teamsBoardNode, setTeamsBoardNode] = useState<HTMLDivElement | null>(null);
+  const [teamsSubTab, setTeamsSubTab] = useState<"Projects" | "Tasks">("Tasks");
 
   // Local state for task card and comments
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
@@ -729,31 +730,45 @@ export function WorkloadBoard({
   }, [searchParams, viewName, decodedViewName, boardId, activeTab]);
 
   // Handle horizontal scrolling on Teams board using wheel
-  const teamsBoardRef = useCallback((node: HTMLDivElement | null) => {
-    setTeamsBoardNode(node);
-    if (!node) return;
+  const teamsBoardRefInstance = useRef<HTMLDivElement | null>(null);
 
+  const teamsBoardRef = useCallback((node: HTMLDivElement | null) => {
+    teamsBoardRefInstance.current = node;
+    setTeamsBoardNode(node);
+  }, []);
+
+  useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
+      const node = teamsBoardRefInstance.current;
+      if (!node) return;
+
+      // If pressing shift, horizontal scrolling happens naturally anyway
       if (e.shiftKey) return;
+      
       const target = e.target as HTMLElement;
-      if (target.closest('.column-scroll-container')) return;
+      // Do not convert vertical to horizontal scroll if hovering a scrollable column body or other textareas
+      if (
+        target.closest('.column-scroll-container') ||
+        target.closest('textarea') ||
+        target.closest('.rc-virtual-list') ||
+        target.closest('[role="dialog"]')
+      ) return;
 
       if (e.deltaY !== 0) {
         e.preventDefault();
+        // Scroll the board horizontally by the vertical wheel amount
         node.scrollLeft += e.deltaY;
       }
     };
 
-    node.addEventListener('wheel', handleWheel, { passive: false });
+    if (activeTab === "Teams" && teamsSubTab === "Tasks") {
+      document.addEventListener('wheel', handleWheel, { passive: false });
+    }
     
-    // Add cleanup to the node itself if it gets replaced
-    const currentOnUnmount = (node as any)._cleanup;
-    if (currentOnUnmount) currentOnUnmount();
-    
-    (node as any)._cleanup = () => {
-      node.removeEventListener('wheel', handleWheel);
+    return () => {
+      document.removeEventListener('wheel', handleWheel);
     };
-  }, []);
+  }, [activeTab, teamsSubTab]);
 
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
@@ -7056,10 +7071,39 @@ export function WorkloadBoard({
 
         {/* Teams View */}
         {activeTab === "Teams" && isViewLive.teams && (
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 relative">
+            {/* Nested Tabs for Teams View */}
+            <div className="flex items-center gap-8 px-6 pt-3 shadow-sm z-10 bg-background shrink-0 border-b border-border">
+              <button 
+                className={`pb-3 border-b-2 font-semibold text-sm transition-colors whitespace-nowrap ${
+                  teamsSubTab === "Projects" 
+                    ? "border-primary text-primary" 
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setTeamsSubTab("Projects")}
+              >
+                Projects
+              </button>
+              <button 
+                className={`pb-3 border-b-2 font-semibold text-sm transition-colors whitespace-nowrap ${
+                  teamsSubTab === "Tasks" 
+                    ? "border-primary text-primary" 
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setTeamsSubTab("Tasks")}
+              >
+                Tasks
+              </button>
+            </div>
+            {teamsSubTab === "Projects" ? (
+              <div className="flex-1 flex items-center justify-center p-6 bg-muted/10 text-muted-foreground">
+                Projects View (Coming Soon)
+              </div>
+            ) : (
+            <>
             <div 
               ref={teamsBoardRef}
-              className="flex-1 overflow-x-auto overflow-y-hidden p-6 bg-muted/10 custom-scrollbar scroll-shadows-x"
+              className="flex-1 overflow-x-auto overflow-y-hidden pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
               onDragOver={(e) => {
                 // Auto-scroll when dragging near edges
                 e.preventDefault();
@@ -7329,6 +7373,8 @@ export function WorkloadBoard({
                 .length 
               }
             />
+            </>
+            )}
           </div>
         )}
         {/* Other Views - Coming Soon */}
