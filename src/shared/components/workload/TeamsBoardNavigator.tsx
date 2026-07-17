@@ -91,8 +91,8 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
     containerNode.scrollLeft += delta;
   };
 
-  // Keep navigator hidden on mobile where swiping is natural, or if everything fits
-  if (columnsCount <= 1 || scrollStats.ratio >= 1) return null;
+  // Keep navigator hidden on mobile where swiping is natural
+  if (columnsCount <= 0) return null;
 
   return (
     <div 
