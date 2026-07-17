@@ -5568,14 +5568,16 @@ export function WorkloadBoard({
               items={columnState.viewTabs}
               strategy={horizontalListSortingStrategy}
             >
-              {columnState.viewTabs.map((tab: any) => (
-                <SortableViewTab
-                  key={tab}
-                  tab={tab}
-                  activeTab={activeTab}
-                  onTabClick={handleTabChange}
-                />
-              ))}
+              {columnState.viewTabs
+                .filter((tab: string) => tab !== "Teams" || orgId === "31")
+                .map((tab: string) => (
+                  <SortableViewTab
+                    key={tab}
+                    tab={tab}
+                    activeTab={activeTab}
+                    onTabClick={handleTabChange}
+                  />
+                ))}
             </SortableContext>
           </div>
         </DndContext>
@@ -7553,7 +7555,7 @@ export function WorkloadBoard({
         )}
 
         {/* Teams View */}
-        {activeTab === "Teams" && isViewLive.teams && (
+        {activeTab === "Teams" && isViewLive.teams && orgId === "31" && (
           <div className="flex-1 flex flex-col min-h-0 relative">
             {/* Nested Tabs for Teams View */}
             <div className="flex items-center gap-8 px-6 pt-3 shadow-sm sticky top-0 z-20 bg-background shrink-0 border-b border-border">
