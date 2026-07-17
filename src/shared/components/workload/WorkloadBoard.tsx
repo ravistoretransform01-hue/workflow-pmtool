@@ -32,6 +32,7 @@ import {
   ChevronRight,
   Search,
   MoreHorizontal,
+  GripVertical,
   Maximize2,
   Minimize2,
   Trash2,
@@ -434,6 +435,12 @@ const SortableGroupCard = ({ group, children }: SortableGroupProps) => {
   );
 };
 
+// Tab identifiers stay stable (routing, persisted tab order, isViewLive keys
+// all key off of these) — only the displayed label changes.
+function getTabDisplayLabel(tab: string): string {
+  return tab === "Teams" ? "Team Kanban" : tab;
+}
+
 function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
   const {
     attributes,
@@ -477,7 +484,7 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
       {...attributes}
       {...listeners}
     >
-      {tab}
+      {getTabDisplayLabel(tab)}
     </button>
   );
 }
@@ -3915,11 +3922,27 @@ export function WorkloadBoard({
    * Kanban DnD (dnd-kit) – Teams/Projects board shared helpers
    * ─────────────────────────────────────────────────────────────────────────*/
 
+  // Team Kanban (Teams tab, both Projects and Teams sub-tabs) hides
+  // Done-status tasks — scoped to this board only, other views
+  // (Main Table, List, Kanban, Gantt, etc.) are unaffected.
+  const doneStatusId = useMemo(() => {
+    const doneStatus = statuses.find((s) => s.name.toLowerCase() === "done");
+    return doneStatus ? String(doneStatus.id) : null;
+  }, [statuses]);
+
+  const teamKanbanGroups = useMemo(() => {
+    if (!doneStatusId) return memoizedFilteredData.groups;
+    return memoizedFilteredData.groups.map((g) => ({
+      ...g,
+      tasks: g.tasks.filter((t) => String(t.status_id) !== doneStatusId),
+    }));
+  }, [memoizedFilteredData, doneStatusId]);
+
   // Full set of person columns for the Teams tab, derived from the same
   // (filtered) data actually rendered, then reordered via the session-local
   // `teamsColumnOrder` override (unknown/new persons are appended at the end).
   const teamsPersons = useMemo(() => {
-    const allTasks = memoizedFilteredData.groups.flatMap((g) => g.tasks);
+    const allTasks = teamKanbanGroups.flatMap((g) => g.tasks);
     const personsSet = new Set<string>();
     allTasks.forEach((t) => {
       const assignees = t.assignee_names || (t.person ? [t.person] : []);
@@ -3927,7 +3950,7 @@ export function WorkloadBoard({
     });
     if (personsSet.size === 0) personsSet.add("Unassigned");
     return Array.from(personsSet).sort();
-  }, [memoizedFilteredData]);
+  }, [teamKanbanGroups]);
 
   const orderedPersons = useMemo(() => {
     const known = teamsColumnOrder.filter((p) => teamsPersons.includes(p));
@@ -7533,7 +7556,7 @@ export function WorkloadBoard({
         {activeTab === "Teams" && isViewLive.teams && (
           <div className="flex-1 flex flex-col min-h-0 relative">
             {/* Nested Tabs for Teams View */}
-            <div className="flex items-center gap-8 px-6 pt-3 shadow-sm z-10 bg-background shrink-0 border-b border-border">
+            <div className="flex items-center gap-8 px-6 pt-3 shadow-sm sticky top-0 z-20 bg-background shrink-0 border-b border-border">
               <button 
                 className={`pb-3 border-b-2 font-semibold text-sm transition-colors whitespace-nowrap ${
                   teamsSubTab === "Projects" 
@@ -7562,9 +7585,9 @@ export function WorkloadBoard({
                 className="flex-1 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
               >
                 {/* Kanban by Project Name */}
-                <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
+                <div className="flex w-max h-full gap-6 pb-4 items-stretch">
                 {(() => {
-                  const groupsToRender = memoizedFilteredData.groups;
+                  const groupsToRender = teamKanbanGroups;
                   const allProjectTasks = groupsToRender.flatMap((g) => g.tasks);
                   const bgColors = ["#3b82f6", "#10b981", "#ef4444", "#f59e0b", "#8b5cf6", "#ec4899"];
 
@@ -7575,9 +7598,12 @@ export function WorkloadBoard({
                         <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate" title={group.name}>{group.name}</h3>
                         <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">{count}</span>
                       </div>
-                      <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors shrink-0">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
+                      <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
+                        <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                        <GripVertical className="h-4 w-4 text-slate-300" />
+                      </div>
                     </div>
                   );
 
@@ -7773,9 +7799,9 @@ export function WorkloadBoard({
               className="flex-1 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
             >
               {/* Kanban by Team Member */}
-              <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
+              <div className="flex w-max h-full gap-6 pb-4 items-stretch">
               {(() => {
-                const allTasks = memoizedFilteredData.groups.flatMap(g => g.tasks);
+                const allTasks = teamKanbanGroups.flatMap(g => g.tasks);
                 const bgColors = ["#22c55e", "#ef4444", "#f97316", "#3b82f6", "#a855f7", "#eab308"];
 
                 const getPersonTasks = (person: string) => {
@@ -7798,37 +7824,58 @@ export function WorkloadBoard({
                   return personTasks;
                 };
 
-                const renderPersonHeader = (person: string, headerColor: string, count: number) => (
+                const renderPersonHeader = (person: string, headerColor: string, count: number) => {
+                  const abbreviation = person !== "Unassigned" && person.length > 0 ? person.substring(0, 2).toUpperCase() : "?";
+                  return (
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-3.5 h-3.5 rounded-full shadow-sm shrink-0" style={{ backgroundColor: headerColor }} />
+                      {person === "Unassigned" ? (
+                        <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center bg-muted border border-border shadow-sm">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase">{abbreviation}</span>
+                        </div>
+                      ) : (
+                        <Avatar className="w-6 h-6 border border-border/50 shadow-sm">
+                          <AvatarFallback 
+                            className="text-[10px] font-bold uppercase transition-colors"
+                            style={{ 
+                              backgroundColor: `${headerColor}20`, 
+                              color: headerColor, 
+                            }}
+                          >
+                            {abbreviation}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
                       <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate" title={person}>{person}</h3>
                       <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">{count}</span>
                     </div>
-                    <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors shrink-0">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
+                    <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
+                      <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors flex items-center gap-1">
+                        <span className="sr-only">More Actions</span>
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                      <GripVertical className="h-4 w-4 text-slate-300" />
+                    </div>
                   </div>
-                );
+                  );
+                };
 
                 const renderPersonCard = (taskId: string) => {
                   const task = allTasks.find((t) => t.id === taskId);
                   if (!task) return null;
 
-                  const parentGroup = memoizedFilteredData.groups.find(g => g.tasks.find(t => t.id === task.id) || g.tasks.find(t => t.subitems?.find((s: any) => s.id === task.id)));
-                  const groupColor = parentGroup?.color || "#3b82f6";
-                  const groupName = parentGroup?.name || "Group";
+                  const parentGroup = teamKanbanGroups.find(g => g.tasks.find(t => t.id === task.id) || g.tasks.find(t => t.subitems?.find((s: any) => s.id === task.id)));
+                  if (!parentGroup) return null;
+
+                  const groupColor = parentGroup.color || "#3b82f6";
+                  const groupName = parentGroup.name || "Group";
                   const statusName = statuses.find(s => String(s.id) === String(task.status_id))?.name || task.status || "Working";
                   const priorityInfo = priorities.find(p => String(p.id) === String(task.priority_id));
+                  const taskDisplayId = parentGroup.abbreviation ? `${parentGroup.abbreviation}-${(task as any).number || task.id}` : `#${(task as any).number || task.id}`;
                   const assigneeNames = task.assignee_names || (task.person ? [task.person] : []);
                   const tooltipAssigneesText = assigneeNames.join(", ");
                   const visibleAssignees = assigneeNames.slice(0, 3);
                   const extraAssigneesCount = assigneeNames.length - 3;
-
-                  let createdDateText = "-";
-                  try {
-                    if ((task as any).created_at) createdDateText = format(new Date((task as any).created_at), "dd MMM yyyy");
-                  } catch (e) {}
 
                   let dueDateText = "-";
                   try {
@@ -7839,68 +7886,85 @@ export function WorkloadBoard({
                   return (
                     <div
                       onClick={() => openTaskCard(task)}
-                      className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[160px]"
+                      className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
                     >
-                      {/* 1. Project Name (Header) */}
-                      <div className="flex flex-col gap-1.5 shrink-0">
-                        {groupName && (
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold truncate max-w-[150px]">
-                              {groupName}
-                            </span>
-                          </div>
-                        )}
-                        <h4 className="text-sm font-bold text-foreground line-clamp-2" title={task.name}>
+                      {/* 1. Project ID & Name */}
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          <span className="text-primary font-mono">{taskDisplayId}</span>
+                          {groupName && (
+                            <div className="flex items-center gap-1">
+                              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
+                              <span className="truncate max-w-[125px]">{groupName}</span>
+                            </div>
+                          )}
+                        </div>
+                        <h4 className="text-sm font-bold text-foreground line-clamp-2 mt-1" title={task.name}>
                           {task.name}
                         </h4>
                       </div>
 
-                      {/* 2. Project Information */}
-                      <div className="flex flex-col gap-2 text-xs text-muted-foreground">
-                        <div className="grid grid-cols-1 gap-1">
-                          <span className="truncate">Created: {createdDateText}</span>
-                          <span className="truncate">Due: {dueDateText}</span>
+                      {/* 2. Tags/Labels */}
+                      {Array.isArray(task.tags) && task.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {task.tags.map((tag: any, idx: number) => {
+                            const tColor = tag.color || "var(--muted-foreground)";
+                            return (
+                              <span
+                                key={idx}
+                                className="px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center justify-center"
+                                style={{ borderColor: `${tColor}30`, color: tColor, backgroundColor: `${tColor}12` }}
+                              >
+                                {tag.tag_name || tag.name}
+                              </span>
+                            );
+                          })}
                         </div>
-                        <div className="flex flex-wrap gap-2 items-center mt-0.5">
-                          <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
-                            {statusName}
-                          </span>
-                          {priorityInfo && (
-                            <span
-                              className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center"
-                              style={{
-                                borderColor: priorityInfo.color_code || 'var(--border)',
-                                color: priorityInfo.color_code || 'inherit',
-                                backgroundColor: priorityInfo.color_code ? `${priorityInfo.color_code}15` : 'var(--muted)'
-                              }}
-                            >
-                              {priorityInfo.name}
-                            </span>
-                          )}
-                        </div>
+                      )}
+
+                      {/* 3. Due Date */}
+                      <div className="text-xs text-muted-foreground grid grid-cols-1 gap-1">
+                        <span className="truncate">Due: {dueDateText}</span>
                       </div>
 
-                      {/* 3. Assigned Members */}
-                      <div className="mt-auto pt-3 border-t border-border flex flex-col gap-2">
-                        <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Assigned To:</span>
-                        <div className="flex flex-wrap items-center gap-1.5" title={tooltipAssigneesText}>
+                      {/* 4. Status and Priority */}
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
+                          {statusName}
+                        </span>
+                        {priorityInfo && (
+                          <span
+                            className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center"
+                            style={{
+                              borderColor: priorityInfo.color_code || 'var(--border)',
+                              color: priorityInfo.color_code || 'inherit',
+                              backgroundColor: priorityInfo.color_code ? `${priorityInfo.color_code}15` : 'var(--muted)'
+                            }}
+                          >
+                            {priorityInfo.name}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* 5. Assigned Members */}
+                      <div className="mt-auto pt-2 border-t border-border flex flex-col gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1" title={tooltipAssigneesText}>
                           {visibleAssignees.length === 0 && (
-                            <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                            <span className="text-[10px] text-muted-foreground italic">Unassigned</span>
                           )}
                           {visibleAssignees.map((name: string, i: number) => (
-                            <div key={i} className="flex items-center gap-1.5 bg-muted/30 rounded-full pr-2 p-0.5 border border-border/80">
-                              <Avatar className="w-5 h-5 border border-background">
-                                <AvatarFallback className="text-[9px] bg-primary/10 text-primary uppercase font-bold">
+                            <div key={i} className="flex items-center gap-1 bg-muted/40 rounded-full pr-1.5 p-0.5 border border-border/80">
+                              <Avatar className="w-4 h-4 border border-background">
+                                <AvatarFallback className="text-[8px] bg-primary/10 text-primary uppercase font-bold">
                                   {name.charAt(0)}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="text-[10px] font-medium truncate max-w-[60px] text-foreground">{name}</span>
+                              <span className="text-[9px] font-medium truncate max-w-[50px] text-foreground">{name}</span>
                             </div>
                           ))}
                           {extraAssigneesCount > 0 && (
-                            <div className="flex items-center justify-center h-6 px-1.5 rounded-full bg-muted border border-border text-[10px] font-medium text-muted-foreground">
-                              +{extraAssigneesCount} More
+                            <div className="flex items-center justify-center h-4 px-1 rounded-full bg-muted border border-border text-[8px] font-medium text-muted-foreground">
+                              +{extraAssigneesCount}
                             </div>
                           )}
                         </div>
@@ -7939,7 +8003,7 @@ export function WorkloadBoard({
                             columnId={person}
                             taskIds={taskIdList}
                             isColumnActive={teamsOverColumnId === person}
-                            cardGhostHeight={160}
+                            cardGhostHeight={175}
                             header={renderPersonHeader(person, headerColor, personTasks.length)}
                             emptyContent={
                               <div className="py-8 text-center text-sm text-muted-foreground italic">
@@ -7959,7 +8023,7 @@ export function WorkloadBoard({
                             <KanbanBoardColumn
                               columnId={activePerson}
                               taskIds={getPersonTasks(activePerson).map((t) => t.id)}
-                              cardGhostHeight={160}
+                              cardGhostHeight={175}
                               header={renderPersonHeader(
                                 activePerson,
                                 bgColors[orderedPersons.indexOf(activePerson) % bgColors.length],
@@ -7978,26 +8042,9 @@ export function WorkloadBoard({
             </div>
             
             {/* Jira-style Mini Scroll Map */}
-            <TeamsBoardNavigator 
-              containerNode={teamsBoardNode} 
-              columnsCount={
-                Array.from(new Set(
-                  memoizedFilteredData.groups
-                    .flatMap(g => g.tasks)
-                    .flatMap(t => t.assignee_names || (t.person ? [t.person] : []))
-                    .concat(["Unassigned"])
-                ))
-                .filter(person => {
-                   const allTasks = memoizedFilteredData.groups.flatMap(g => g.tasks);
-                   const personTasks = allTasks.filter(t => {
-                     const assignees = t.assignee_names || (t.person ? [t.person] : []);
-                     if (person === "Unassigned") return assignees.length === 0;
-                     return assignees.includes(person);
-                   });
-                   return personTasks.length > 0 || person === "Unassigned";
-                })
-                .length 
-              }
+            <TeamsBoardNavigator
+              containerNode={teamsBoardNode}
+              columnsCount={orderedPersons.length}
             />
             </>
             )}
@@ -8015,7 +8062,7 @@ export function WorkloadBoard({
                 <p className="text-muted-foreground text-lg">
                   The{" "}
                   <span className="font-semibold text-primary">
-                    {activeTab}
+                    {getTabDisplayLabel(activeTab)}
                   </span>{" "}
                   view is under development
                 </p>

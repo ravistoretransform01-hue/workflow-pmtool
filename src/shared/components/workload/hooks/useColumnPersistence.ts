@@ -20,9 +20,9 @@ const DEFAULT_TABS = [
   "Kanban",
   "SOP",
   "Gantt",
+  "Teams",
   "Calendar",
   "Workload",
-  "Teams",
   "Time",
   "Recurring",
   "Completed",
@@ -30,6 +30,21 @@ const DEFAULT_TABS = [
   "Updates",
   "Dashboard",
 ];
+
+// "Teams" (displayed as "Team Kanban") must always sit immediately after
+// "Gantt" — boards that already have a tab order saved in localStorage
+// (from before this ordering was decided) won't reflect the new
+// DEFAULT_TABS position on their own, so this corrects it on every load
+// while leaving the relative order of every other tab untouched.
+function withTeamsAfterGantt(tabs: string[]): string[] {
+  if (!tabs.includes("Teams")) return tabs;
+  const withoutTeams = tabs.filter((t) => t !== "Teams");
+  const ganttIndex = withoutTeams.indexOf("Gantt");
+  if (ganttIndex === -1) return tabs;
+  const result = [...withoutTeams];
+  result.splice(ganttIndex + 1, 0, "Teams");
+  return result;
+}
 
 /**
  * Hook for managing column visibility, tab order, and column labels
@@ -55,7 +70,8 @@ export function useColumnPersistence(boardId: string) {
       try {
         const parsed = JSON.parse(savedTabs);
         const allTabs = [...new Set([...parsed, ...DEFAULT_TABS])];
-        return allTabs.filter((tab) => DEFAULT_TABS.includes(tab));
+        const filtered = allTabs.filter((tab) => DEFAULT_TABS.includes(tab));
+        return withTeamsAfterGantt(filtered);
       } catch {
         return DEFAULT_TABS;
       }
