@@ -708,7 +708,6 @@ export function WorkloadBoard({
 
     // Sync Comments Panel State
     if (commentsIdFromUrl) {
-
       if (commentsIdFromUrl !== selectedCommentsId) {
         setSelectedCommentsId(commentsIdFromUrl);
       }
@@ -724,6 +723,32 @@ export function WorkloadBoard({
       }
     }
   }, [searchParams, viewName, decodedViewName, boardId, activeTab]);
+
+  // Handle horizontal scrolling on Teams board using wheel
+  const teamsBoardRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.shiftKey) return;
+      const target = e.target as HTMLElement;
+      if (target.closest('.column-scroll-container')) return;
+
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        node.scrollLeft += e.deltaY;
+      }
+    };
+
+    node.addEventListener('wheel', handleWheel, { passive: false });
+    
+    // Add cleanup to the node itself if it gets replaced
+    const currentOnUnmount = (node as any)._cleanup;
+    if (currentOnUnmount) currentOnUnmount();
+    
+    (node as any)._cleanup = () => {
+      node.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
@@ -7027,7 +7052,24 @@ export function WorkloadBoard({
         {/* Teams View */}
         {activeTab === "Teams" && isViewLive.teams && (
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-1 overflow-x-auto overflow-y-hidden p-6 bg-muted/10 custom-scrollbar">
+            <div 
+              ref={teamsBoardRef}
+              className="flex-1 overflow-x-auto overflow-y-hidden p-6 bg-muted/10 custom-scrollbar scroll-shadows-x"
+              onDragOver={(e) => {
+                // Auto-scroll when dragging near edges
+                e.preventDefault();
+                const container = e.currentTarget;
+                const edgeThreshold = 100;
+                const speed = 15;
+                const rect = container.getBoundingClientRect();
+                
+                if (e.clientX < rect.left + edgeThreshold) {
+                  container.scrollLeft -= speed;
+                } else if (e.clientX > rect.right - edgeThreshold) {
+                  container.scrollLeft += speed;
+                }
+              }}
+            >
               {/* Kanban by Team Member */}
               <div className="flex w-max h-full gap-6 pb-2 items-start">
               {(() => {
@@ -7064,10 +7106,10 @@ export function WorkloadBoard({
                       <div 
                         key={person} 
                         className="flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800"
-                        style={{ maxHeight: 'calc(100vh - 220px)' }}
+                        style={{ height: 'calc(100vh - 220px)' }}
                       >
                         {/* KANBAN COLUMN HEADER */}
-                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2 group/header">
+                        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-2 group/header sticky top-0 z-10 bg-[#f8fafc] dark:bg-[#0f172a] rounded-t-xl shadow-sm">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5">
                               <div className="w-3.5 h-3.5 rounded-full shadow-sm" style={{ backgroundColor: headerColor }} />
@@ -7079,7 +7121,7 @@ export function WorkloadBoard({
 
                         {/* KANBAN COLUMN BODY */}
                         <div 
-                          className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px] custom-scrollbar"
+                          className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0 custom-scrollbar column-scroll-container"
                           onDragOver={(e) => {
                             e.preventDefault();
                             e.dataTransfer.dropEffect = "move";
@@ -7133,6 +7175,28 @@ export function WorkloadBoard({
                               const statusName = statuses.find(s => String(s.id) === String(task.status_id))?.name || task.status || "Working";
                               const priorityInfo = priorities.find(p => String(p.id) === String(task.priority_id));
 
+                              // Gather assignee information
+                              const assigneeNames = task.assignee_names || (task.person ? [task.person] : []);
+                              const tooltipAssigneesText = assigneeNames.join(", ");
+                              const visibleAssignees = assigneeNames.slice(0, 3);
+                              const extraAssigneesCount = assigneeNames.length - 3;
+                              
+                              let createdDateText = "-";
+                              try {
+                                if ((task as any).created_at) {
+                                  createdDateText = format(new Date((task as any).created_at), "dd MMM yyyy");
+                                }
+                              } catch (e) {}
+
+                              let dueDateText = "-";
+                              try {
+                                if (task.estimatedDateRaw) {
+                                  dueDateText = format(new Date(task.estimatedDateRaw), "dd MMM yyyy");
+                                } else if (task.estimatedDate) {
+                                  dueDateText = task.estimatedDate;
+                                }
+                              } catch (e) {}
+
                               return (
                                 <div 
                                   key={task.id} 
@@ -7142,37 +7206,70 @@ export function WorkloadBoard({
                                     e.dataTransfer.effectAllowed = "move";
                                   }}
                                   onClick={() => openTaskCard(task)} 
-                                  className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group relative"
+                                  className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[160px]"
                                 >
-                                  <div className="flex items-start gap-2">
-                                    <div className="flex-1 min-w-0">
-                                      {groupName && (
-                                        <div className="flex items-center gap-1.5 mb-1.5 mt-0.5">
-                                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
-                                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold truncate max-w-[150px]">
-                                            {groupName}
-                                          </span>
+                                  {/* 1. Project Name (Header) */}
+                                  <div className="flex flex-col gap-1.5 shrink-0">
+                                    {groupName && (
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
+                                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold truncate max-w-[150px]">
+                                          {groupName}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <h4 className="text-sm font-bold text-foreground line-clamp-2" title={task.name}>
+                                      {task.name}
+                                    </h4>
+                                  </div>
+
+                                  {/* 2. Project Information */}
+                                  <div className="flex flex-col gap-2 text-xs text-muted-foreground">
+                                    <div className="grid grid-cols-1 gap-1">
+                                      <span className="truncate">Created: {createdDateText}</span>
+                                      <span className="truncate">Due: {dueDateText}</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 items-center mt-0.5">
+                                      <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
+                                        {statusName}
+                                      </span>
+                                      {priorityInfo && (
+                                        <span 
+                                          className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center" 
+                                          style={{ 
+                                            borderColor: priorityInfo.color_code || 'var(--border)', 
+                                            color: priorityInfo.color_code || 'inherit',
+                                            backgroundColor: priorityInfo.color_code ? `${priorityInfo.color_code}15` : 'var(--muted)'
+                                          }}
+                                        >
+                                          {priorityInfo.name}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* 3. Assigned Members */}
+                                  <div className="mt-auto pt-3 border-t border-border flex flex-col gap-2">
+                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Assigned To:</span>
+                                    <div className="flex flex-wrap items-center gap-1.5" title={tooltipAssigneesText}>
+                                      {visibleAssignees.length === 0 && (
+                                        <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                                      )}
+                                      {visibleAssignees.map((name, i) => (
+                                        <div key={i} className="flex items-center gap-1.5 bg-muted/30 rounded-full pr-2 p-0.5 border border-border/80">
+                                          <Avatar className="w-5 h-5 border border-background">
+                                            <AvatarFallback className="text-[9px] bg-primary/10 text-primary uppercase font-bold">
+                                              {name.charAt(0)}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <span className="text-[10px] font-medium truncate max-w-[60px] text-foreground">{name}</span>
+                                        </div>
+                                      ))}
+                                      {extraAssigneesCount > 0 && (
+                                        <div className="flex items-center justify-center h-6 px-1.5 rounded-full bg-muted border border-border text-[10px] font-medium text-muted-foreground">
+                                          +{extraAssigneesCount} More
                                         </div>
                                       )}
-
-                                      <p className="text-sm font-medium text-foreground line-clamp-2">
-                                        {task.name}
-                                      </p>
-
-                                      <div className="mt-1.5 flex flex-col gap-0.5">
-                                        <p className="text-sm text-muted-foreground leading-tight">
-                                          <span className="font-medium">Status:</span>{" "}
-                                          <span className="font-medium">{statusName}</span>
-                                        </p>
-                                        {priorityInfo && (
-                                          <p className="text-sm text-muted-foreground leading-tight">
-                                            <span className="font-medium">Priority:</span>{" "}
-                                            <span className="font-medium">{priorityInfo.name}</span>
-                                          </p>
-                                        )}
-                                      </div>
-
-                                      {/* Removed Assignees block since the Teams column serves this exact purpose */}
                                     </div>
                                   </div>
                                 </div>
