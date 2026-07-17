@@ -26,6 +26,11 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
         ratio: containerNode.clientWidth / containerNode.scrollWidth,
         leftRatio: containerNode.scrollLeft / containerNode.scrollWidth
       });
+    } else {
+      setScrollStats({
+        ratio: 1,
+        leftRatio: 0
+      });
     }
   }, [containerNode, isDragging]);
 
@@ -35,12 +40,28 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
     containerNode.addEventListener("scroll", updateScrollStats, { passive: true });
     window.addEventListener("resize", updateScrollStats);
     
+    // Watch size/content changes of the scroll container to capture dynamic content loading
+    const resizeObserver = new ResizeObserver(() => {
+      updateScrollStats();
+    });
+    
+    resizeObserver.observe(containerNode);
+    
+    // Observe child element to watch column structure updates
+    const child = containerNode.firstElementChild;
+    if (child) {
+      resizeObserver.observe(child);
+    }
+    
     // Initial calculation
-    setTimeout(updateScrollStats, 100);
+    updateScrollStats();
+    const timer = setTimeout(updateScrollStats, 100);
 
     return () => {
       containerNode.removeEventListener("scroll", updateScrollStats);
       window.removeEventListener("resize", updateScrollStats);
+      resizeObserver.disconnect();
+      clearTimeout(timer);
     };
   }, [updateScrollStats, containerNode]);
 
