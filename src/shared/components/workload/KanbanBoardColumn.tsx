@@ -32,6 +32,8 @@ export interface KanbanBoardColumnProps {
   isColumnActive?: boolean;
   /** Render as the static floating clone inside a DragOverlay */
   isOverlay?: boolean;
+  /** Disable internal scrolling to allow sticky header against the window/outer container */
+  disableInternalScroll?: boolean;
 }
 
 export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
@@ -43,6 +45,7 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
   cardGhostHeight = 150,
   isColumnActive = false,
   isOverlay = false,
+  disableInternalScroll = false,
 }: KanbanBoardColumnProps) {
   const {
     attributes,
@@ -67,8 +70,8 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
   };
 
   const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
+    transform: transform && (transform.x !== 0 || transform.y !== 0) ? CSS.Translate.toString(transform) : undefined,
+    transition: transform && (transform.x !== 0 || transform.y !== 0) ? transition : undefined,
   };
 
   return (
@@ -76,7 +79,8 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
       ref={isOverlay ? undefined : setNodeRef}
       style={isOverlay ? undefined : style}
       className={[
-        "flex-shrink-0 w-80 rounded-xl border flex flex-col overflow-hidden transition-all duration-200",
+        "flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200",
+        !disableInternalScroll && "overflow-hidden",
         isColumnActive && !isDragging
           ? "bg-primary/5 border-primary/30 ring-2 ring-primary/10 shadow-lg"
           : "bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800",
@@ -93,7 +97,7 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
           all cards instead of respecting flex-grow and actually scrolling.
           The header lives inside as its sticky first child, so only the
           task list beneath it ever scrolls. */}
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+      <div className={["flex-1 min-h-0 custom-scrollbar", !disableInternalScroll && "overflow-y-auto"].filter(Boolean).join(" ")}>
         {/* Sticky header — the whole header is the column drag handle.
             Background always matches the column body, including while it's
             the active drop target, so the header never looks "cut out". */}
