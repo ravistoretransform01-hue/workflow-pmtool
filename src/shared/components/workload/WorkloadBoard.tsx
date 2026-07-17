@@ -761,41 +761,8 @@ export function WorkloadBoard({
     }
   }, [boardId]);
 
-  useEffect(() => {
-    const handleWheel = (e: WheelEvent) => {
-      const node = teamsBoardRefInstance.current;
-      if (!node) return;
 
-      // If pressing shift, horizontal scrolling happens naturally anyway
-      if (e.shiftKey) return;
-      
-      const target = e.target as HTMLElement;
-      // Do not convert vertical to horizontal scroll if hovering a scrollable column body or other textareas
-      if (
-        target.closest('.column-scroll-container') ||
-        target.closest('textarea') ||
-        target.closest('.rc-virtual-list') ||
-        target.closest('[role="dialog"]')
-      ) return;
 
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        // Since scroll-behavior: smooth is active, incremental += might lag if triggered constantly.
-        // We can use scrollBy() for fluid native smooth scrolling mapped from wheel!
-        node.scrollBy({ left: e.deltaY, behavior: 'instant' }); 
-        // We use instant behavior for wheel to keep it snappy and responsive, 
-        // avoiding "queueing" lag while maintaining CSS smooth for distinct jumps or initial setups.
-      }
-    };
-
-    if (activeTab === "Teams" && teamsSubTab === "Tasks") {
-      document.addEventListener('wheel', handleWheel, { passive: false });
-    }
-    
-    return () => {
-      document.removeEventListener('wheel', handleWheel);
-    };
-  }, [activeTab, teamsSubTab]);
 
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
@@ -4996,7 +4963,7 @@ export function WorkloadBoard({
   }, 48); // 48px for checkbox column
 
   return (
-    <div className={cn("h-full flex flex-col bg-background", activeTab === "Teams" ? "overflow-y-auto" : "overflow-hidden")}>
+    <div className="h-full flex flex-col bg-background overflow-hidden">
       {/* Image resize styles */}
       <style>{`
         .image-resize-wrapper:hover {
@@ -5047,6 +5014,9 @@ export function WorkloadBoard({
         }
         .scrollbar-visible::-webkit-scrollbar-thumb:hover {
           background: rgba(155, 155, 155, 0.6);
+        }
+        .scrollbar-visible::-webkit-scrollbar-corner {
+          background: transparent;
         }
       `}</style>
 
@@ -5125,7 +5095,7 @@ export function WorkloadBoard({
         </DndContext>
       </div>
 
-      <div className={cn("flex-1 flex flex-col", activeTab === "Teams" ? "overflow-y-auto" : "overflow-hidden")}>
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Global Toolbar for all views */}
         {activeTab !== "SOP" && (
           <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
@@ -6937,7 +6907,7 @@ export function WorkloadBoard({
 
             {/* Unified Horizontal Scrollbar at Bottom */}
             <div
-              className="h-5 overflow-x-scroll border-t border-border bg-muted flex-shrink-0"
+              className="h-5 overflow-x-scroll border-t border-border bg-muted flex-shrink-0 custom-scrollbar"
               data-unified-scrollbar
               ref={(el) => {
                 if (el && Object.keys(tableScrollRefs.current).length > 0) {
@@ -7130,7 +7100,7 @@ export function WorkloadBoard({
             <>
             <div 
               ref={teamsBoardRef}
-              className="flex-1 overflow-x-auto overflow-y-hidden pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
+              className="flex-1 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
               onDragOver={(e) => {
                 // Auto-scroll when dragging near edges
                 e.preventDefault();
@@ -7147,7 +7117,7 @@ export function WorkloadBoard({
               }}
             >
               {/* Kanban by Team Member */}
-              <div className="flex w-max h-full gap-6 pb-4 items-stretch">
+              <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
               {(() => {
                 const allTasks = memoizedFilteredData.groups.flatMap(g => g.tasks);
                 
@@ -7181,7 +7151,7 @@ export function WorkloadBoard({
                     return (
                       <div 
                         key={person} 
-                        className="flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800 h-[calc(100%-8px)]"
+                        className="flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800 h-auto min-h-[300px]"
                       >
                         {/* KANBAN COLUMN HEADER */}
                         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between group/header sticky top-0 z-10 bg-[#f8fafc] dark:bg-[#0f172a] rounded-t-xl shadow-sm shrink-0">
@@ -7197,43 +7167,10 @@ export function WorkloadBoard({
 
                         {/* KANBAN COLUMN BODY */}
                         <div 
-                          ref={(node) => {
-                            if (node && !node.dataset.scrollInit) {
-                              node.dataset.scrollInit = "true";
-                              const memKey = `col-scroll-${boardId}-${person}`;
-                              const saved = sessionStorage.getItem(memKey);
-                              if (saved) {
-                                // Restore instantly before applying smooth config
-                                node.scrollTop = parseInt(saved, 10);
-                              }
-                              // Enforce generic CSS smooth scrolling explicitly per requirement
-                              node.style.scrollBehavior = "smooth";
-                              
-                              const trackScroll = () => {
-                                sessionStorage.setItem(memKey, node.scrollTop.toString());
-                              };
-                              node.addEventListener('scroll', trackScroll, { passive: true });
-                              (node as any)._cleanupColumn = () => {
-                                node.removeEventListener('scroll', trackScroll);
-                              }
-                            }
-                          }}
-                          className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-3 min-h-0 custom-scrollbar column-scroll-container"
+                          className="p-3 space-y-3 min-h-0 overflow-y-visible flex-grow"
                           onDragOver={(e) => {
                             e.preventDefault();
                             e.dataTransfer.dropEffect = "move";
-                            
-                            // Auto-scroll vertically when dragging near top or bottom
-                            const container = e.currentTarget;
-                            const edgeThreshold = 60;
-                            const speed = 15;
-                            const rect = container.getBoundingClientRect();
-                            
-                            if (e.clientY < rect.top + edgeThreshold) {
-                              container.scrollBy({ top: -speed, behavior: 'instant' });
-                            } else if (e.clientY > rect.bottom - edgeThreshold) {
-                              container.scrollBy({ top: speed, behavior: 'instant' });
-                            }
                           }}
                           onDrop={(e) => {
                             e.preventDefault();
