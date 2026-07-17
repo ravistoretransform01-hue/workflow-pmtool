@@ -401,3 +401,11 @@ button:focus-visible {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: hsla(217, 10%, 65%, 0.5);
 }
+
+.scroll-shadows-x {
+  background:
+    linear-gradient(to right, hsl(var(--background)) 0%, hsla(var(--background), 0) 100%) left / 20px 100% no-repeat local,
+    linear-gradient(to left, hsl(var(--background)) 0%, hsla(var(--background), 0) 100%) right / 20px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0,0,0,0.15) 0%, transparent 100%) left / 15px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,0.15) 0%, transparent 100%) right / 15px 100% no-repeat scroll;
+}
