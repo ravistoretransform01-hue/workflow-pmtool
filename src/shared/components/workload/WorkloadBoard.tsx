@@ -634,7 +634,7 @@ export function WorkloadBoard({
 
   // State to hold actual DOM node for Teams Board container
   const [teamsBoardNode, setTeamsBoardNode] = useState<HTMLDivElement | null>(null);
-  const [teamsSubTab, setTeamsSubTab] = useState<"Tasks Projects" | "Tasks">("Tasks");
+  const [teamsSubTab, setTeamsSubTab] = useState<"Projects" | "Tasks">("Tasks");
 
   // ── Kanban DnD (dnd-kit) – Projects tab ────────────────────────────────
   const projectsSensors = useSensors(
@@ -7585,10 +7585,10 @@ export function WorkloadBoard({
               <>
               <div
                 ref={teamsBoardRef}
-                className="flex-1 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
+                className="flex-1 min-h-0 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
               >
                 {/* Kanban by Project Name */}
-                <div className="flex w-max h-full gap-6 pb-4 items-stretch">
+                <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
                 {(() => {
                   const groupsToRender = teamKanbanGroups;
                   const allProjectTasks = groupsToRender.flatMap((g) => g.tasks);
@@ -7799,10 +7799,10 @@ export function WorkloadBoard({
             <>
             <div
               ref={teamsBoardRef}
-              className="flex-1 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
+              className="flex-1 min-h-0 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
             >
               {/* Kanban by Team Member */}
-              <div className="flex w-max h-full gap-6 pb-4 items-stretch">
+              <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
               {(() => {
                 const allTasks = teamKanbanGroups.flatMap(g => g.tasks);
                 const bgColors = ["#22c55e", "#ef4444", "#f97316", "#3b82f6", "#a855f7", "#eab308"];

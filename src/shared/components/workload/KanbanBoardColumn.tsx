@@ -89,7 +89,7 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
           : isDragging
             ? "opacity-40"
             : "",
-        isOverlay ? "h-auto max-h-[70vh]" : "h-full min-h-[300px]",
+        isOverlay ? "h-auto max-h-[70vh]" : "h-auto min-h-[300px] max-h-[110vh] lg:max-h-[1000px]",
       ].join(" ")}
     >
       {/* Scrollable column container — min-h-0 overrides the flex item's
