@@ -31,7 +31,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import NotFound from "@/pages/NotFound";
 
 // import { io } from "socket.io-client";
-import { useAppSelector } from "./app/hooks";
+import { useAppSelector } from "@/hooks";
 
 const RootPathRedirect = () => {
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);

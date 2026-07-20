@@ -55,6 +55,7 @@ export interface UpdateGroupRequest {
   label_color?: string | null;
   abbreviation?: string | null;
   completion_date?: string | null;
+  position?: string | number;
 }
 
 export interface GetGroupsResponse {

@@ -19,6 +19,7 @@ import type { Priority, Status } from "@/features/cms/types";
 import type { Task } from "./WorkloadBoard";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard } from "./KanbanCard";
+import { TeamsBoardNavigator } from "./TeamsBoardNavigator";
 import {
   Popover,
   PopoverTrigger,
@@ -92,6 +93,7 @@ export function KanbanView({
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<"card" | "column" | null>(null);
+  const [boardNode, setBoardNode] = useState<HTMLDivElement | null>(null);
 
   // Track optimistic status changes: taskId -> newStatusId
   const [optimisticStatusChanges, setOptimisticStatusChanges] = useState<
@@ -972,7 +974,10 @@ export function KanbanView({
             </div>
           </div>
 
-          <div className="flex-1 flex gap-4 overflow-x-auto px-6 py-4 min-h-0">
+          <div 
+            ref={setBoardNode}
+            className="flex-1 flex gap-4 overflow-x-auto pt-4 px-6 pb-2 min-h-0 custom-scrollbar scrollbar-visible scroll-shadows-x"
+          >
             <SortableContext
               items={activeOrderedIds.map((id) => `column-${id}`)}
               strategy={horizontalListSortingStrategy}
@@ -1043,6 +1048,11 @@ export function KanbanView({
                 })}
             </SortableContext>
           </div>
+
+          <TeamsBoardNavigator 
+            containerNode={boardNode} 
+            columnsCount={activeOrderedIds.filter((id) => activeVisibleIds.has(id)).length} 
+          />
 
           <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
             {activeTask ? (

@@ -22,3 +22,7 @@ export type {
   PopoverCellProps,
   SelectionCellProps,
 } from "./workload-types";
+
+export { API_ENDPOINTS } from "./apiendpoints";
+export type { EndpointConfig } from "./apiendpoints";
+

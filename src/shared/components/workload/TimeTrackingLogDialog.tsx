@@ -13,7 +13,7 @@ import { Input } from "@/shared/components/ui/input";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import type { TimeEntry } from "@/features/tasks/types";
 import { format, addDays, isAfter, startOfToday } from "date-fns";
-import { useAppDispatch } from "@/app/hooks";
+import { useAppDispatch } from "@/hooks";
 import { updateActiveTaskTime } from "@/features/tasks/tasksSlice";
 import { TimePickerInput } from "@/shared/components/TimePickerInput";
 import { debugLog } from "@/lib/debugLog";

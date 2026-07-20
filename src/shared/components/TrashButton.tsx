@@ -44,7 +44,7 @@ import {
 } from "@/features/trash/trashApi";
 import { getOrganizationId, cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useAppDispatch } from "@/app/hooks";
+import { useAppDispatch } from "@/hooks";
 import { triggerRefresh } from "@/features/ui/uiSlice";
 
 export function TrashButton() {

@@ -5,6 +5,7 @@ export const isViewLive = {
   calendar: false,
   timeline: true,
   workload: false,
+  teams: true,
   time: false,
   recurring: false,
   completed: false,
