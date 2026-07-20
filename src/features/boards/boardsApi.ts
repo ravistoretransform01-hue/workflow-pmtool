@@ -14,7 +14,6 @@ const BOARD_ENDPOINTS = {
   UPDATE: "/boards",
   DELETE: "/boards",
   CLONE: "/boards/clone",
-  CLONE: "/boards/clone",
 };
 
 // const CACHE_CONTROL_HEADERS = {
@@ -315,29 +314,6 @@ export const boardsApi = {
       return response.data;
     } catch (error) {
       console.error("Remove client group API error:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * Clone/Duplicate board
-   */
-  cloneBoard: async (boardId: number | string): Promise<{
-    code: number;
-    status: string;
-    message: string;
-    data: {
-      old_board_id: number;
-      new_board_id: number;
-    }
-  }> => {
-    try {
-      const response = await api.post(BOARD_ENDPOINTS.CLONE, {
-        board_id: boardId
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Clone board API error:", error);
       throw error;
     }
   },

@@ -36,7 +36,6 @@ import { GripVertical, MoreHorizontal, MessageCircle, MessageCirclePlus } from "
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { tasksApi } from "@/features/tasks/tasksApi";
 import type { Task } from "./WorkloadBoard";
 import type { Status, Priority } from "@/features/cms/types";
 
@@ -89,8 +88,6 @@ function SortableCard({
   columnId,
   statuses,
   priorities,
-  members,
-  mode,
   overlay = false,
   onClick,
   onOpenComments,
@@ -246,7 +243,6 @@ interface DroppableColumnProps {
 function DroppableColumn({
   column,
   taskIds,
-  draggingTaskId,
   statuses,
   priorities,
   members,
@@ -339,7 +335,6 @@ export function TeamsBoardView({
   statuses,
   priorities,
   members,
-  boardId,
   mode,
   onDrop,
   onTaskClick,

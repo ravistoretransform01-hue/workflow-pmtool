@@ -24,13 +24,6 @@ import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { FilePreviewModal } from "@/shared/components/workload/texteditor/FilePreviewModal";
 // import { TruncatedTaskName } from "./TruncatedTaskName";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu";
-import { TiptapEditor } from "@/shared/components/workload/texteditor/TiptapEditor";
-import {
   Home,
   RefreshCcw,
   Pencil,

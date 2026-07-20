@@ -602,6 +602,7 @@ export const AppSidebar = () => {
                             onClick={() =>
                               handleDuplicateBoard(board.id, board.name)
                             }
+                            disabled={isDuplicating}
                           >
                             <Copy className="h-4 w-4 mr-2" />
                             <span>Duplicate</span>
