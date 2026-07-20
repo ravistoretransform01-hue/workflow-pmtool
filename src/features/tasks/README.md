@@ -67,7 +67,7 @@ This feature provides API integration for managing tasks and subtasks in the wor
 
 ### Import the API
 ```typescript
-import { tasksApi } from "@/features/tasks/tasksApi";
+import { tasksApi } from "@/features/tasks/api/tasksApi";
 ```
 
 ### Create a Task

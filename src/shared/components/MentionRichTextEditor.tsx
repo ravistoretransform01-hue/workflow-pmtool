@@ -1,9 +1,9 @@
 import { useRef, useState, useEffect, useImperativeHandle, forwardRef } from "react";
 import { Bold, Italic, Underline, Strikethrough, Type, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Link2, Minus, Check, AtSign, FileText, X } from "lucide-react";
-import { Button } from "@/shared/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
-import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { Button } from "@/shared/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
+import { cn } from "@/utils/utils";
 
 interface MentionRichTextEditorProps {
   value: string;

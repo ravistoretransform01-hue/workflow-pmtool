@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Input } from "@/shared/components/ui/input";
+import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/components/label";
 import {
   Card,
@@ -13,11 +13,11 @@ import {
 import { Loader2 } from "lucide-react";
 import { Logo } from "@/shared/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/shared/components/ui/button";
-import { requestNotificationPermission } from "@/lib/firebase";
-import { authApi } from "@/features/auth/authApi";
-import { debugLog } from "@/lib/debugLog";
-import { appName } from "@/lib/constants";
+import { Button } from "@/shared/ui/button";
+import { requestNotificationPermission } from "@/config/firebase";
+import { authApi } from "@/features/auth/api/authApi";
+import { debugLog } from "@/utils/debugLog";
+import { appName } from "@/constants";
 
 const LoginPage = () => {
   const navigate = useNavigate();

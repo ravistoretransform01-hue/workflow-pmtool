@@ -53,7 +53,7 @@ POST https://dev-wp-platform.pantheonsite.io/wp-json/wp-platform/v1/cms
 ### Get all CMS data
 
 ```typescript
-import { getCMSData } from "@/features/cms/cmsStorage";
+import { getCMSData } from "@/features/cms/services/cmsStorage";
 
 const cmsData = await getCMSData({
   organization_id: 2,
@@ -68,7 +68,7 @@ debugLog(cmsData.priority);
 ### Get only statuses
 
 ```typescript
-import { getStatuses } from "@/features/cms/cmsStorage";
+import { getStatuses } from "@/features/cms/services/cmsStorage";
 
 const statuses = await getStatuses({
   organization_id: 2,
@@ -80,7 +80,7 @@ const statuses = await getStatuses({
 ### Get only priorities
 
 ```typescript
-import { getPriorities } from "@/features/cms/cmsStorage";
+import { getPriorities } from "@/features/cms/services/cmsStorage";
 
 const priorities = await getPriorities({
   organization_id: 2,
@@ -92,7 +92,7 @@ const priorities = await getPriorities({
 ### Get specific status by ID
 
 ```typescript
-import { getStatusById } from "@/features/cms/cmsStorage";
+import { getStatusById } from "@/features/cms/services/cmsStorage";
 
 const status = await getStatusById(
   {
@@ -107,7 +107,7 @@ const status = await getStatusById(
 ### Get specific priority by ID
 
 ```typescript
-import { getPriorityById } from "@/features/cms/cmsStorage";
+import { getPriorityById } from "@/features/cms/services/cmsStorage";
 
 const priority = await getPriorityById(
   {
@@ -122,7 +122,7 @@ const priority = await getPriorityById(
 ### Clear cache
 
 ```typescript
-import { clearCMSCache } from "@/features/cms/cmsStorage";
+import { clearCMSCache } from "@/features/cms/services/cmsStorage";
 
 clearCMSCache();
 ```

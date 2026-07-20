@@ -1,0 +1,1109 @@
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { MoreHorizontal, UserPlus, LayoutDashboard, X, ChevronDown, Check } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/ui/alert-dialog";
+import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
+import { Button } from "@/shared/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/shared/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/shared/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { boardsApi } from "@/features/boards/api/boardsApi";
+import type { Group } from "@/features/groups/types/types";
+import { BoardInviteDialog } from "@/shared/modals/BoardInviteDialog";
+import { getMembers, getCMSData } from "@/features/cms/services/cmsStorage";
+import { clearCMSCache } from "@/features/cms/services/cmsStorage";
+import type { Role } from "@/features/cms/types/types";
+import { getCurrentUserId, getOrganizationId, isClientRole } from "@/utils/utils";
+import { debugLog } from "@/utils/debugLog";
+
+const colorOptions = [
+  { name: "Blue", value: "hsl(221, 83%, 53%)" },
+  { name: "Purple", value: "hsl(262, 83%, 58%)" },
+  { name: "Pink", value: "hsl(330, 81%, 60%)" },
+  { name: "Red", value: "hsl(0, 72%, 51%)" },
+  { name: "Orange", value: "hsl(25, 95%, 53%)" },
+  { name: "Yellow", value: "hsl(48, 96%, 53%)" },
+  { name: "Green", value: "hsl(142, 71%, 45%)" },
+  { name: "Teal", value: "hsl(173, 80%, 40%)" },
+  { name: "Cyan", value: "hsl(199, 89%, 48%)" },
+  { name: "Indigo", value: "hsl(239, 84%, 67%)" },
+];
+
+export default function BoardDashboardPage() {
+  const { boardId } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // State
+  const [boardName, setBoardName] = useState("Loading...");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [currentName, setCurrentName] = useState("");
+  const [currentDescription, setCurrentDescription] = useState("");
+  const [iconColor, setIconColor] = useState("hsl(221, 83%, 53%)");
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("user-management");
+
+  // Refs
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Mock Members Data (Replace with real API)
+  const [members, setMembers] = useState<
+    Array<{
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      role_id?: string;
+      avatarColor?: string;
+      group_ids?: string[];
+    }>
+  >([]);
+
+  // Board Groups state
+  const [boardGroups, setBoardGroups] = useState<Group[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+
+  // CMS Roles state
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [roleChangingUserId, setRoleChangingUserId] = useState<string | null>(
+    null,
+  );
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
+
+  // Find current user's role in this board
+  const getCurrentUserBoardRole = (): string | null => {
+    const userId = getCurrentUserId();
+    if (!userId) return null;
+
+    // 1. Try to find in loaded members state first
+    const memberInState = members.find((m) => String(m.id) === String(userId));
+    if (memberInState) {
+      return memberInState.role;
+    }
+
+    // 2. Fallback to localStorage cached board cms data
+    if (boardId) {
+      try {
+        const cachedDataRaw = localStorage.getItem(`cms_data_board_${boardId}`);
+        if (cachedDataRaw) {
+          const cachedData = JSON.parse(cachedDataRaw);
+          const cachedMembers = cachedData?.members || [];
+          const matchedMember = cachedMembers.find(
+            (m: any) => String(m.user_id) === String(userId)
+          );
+          if (matchedMember) {
+            return matchedMember.board_role_label || null;
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing cached board role", e);
+      }
+    }
+
+    // 3. Global role fallback if not loaded/cached for board yet
+    try {
+      const globalUserDataRaw = localStorage.getItem("user_data");
+      if (globalUserDataRaw) {
+        const globalUserData = JSON.parse(globalUserDataRaw);
+        return globalUserData.role_label || null;
+      }
+    } catch (e) {
+      console.error("Error parsing global user role", e);
+    }
+
+    return null;
+  };
+
+  const currentUserRole = getCurrentUserBoardRole();
+  const isCurrentUserClient = isClientRole(currentUserRole);
+
+  const loadAllDashboardData = async (id: number, forceRefresh = true) => {
+    setIsLoadingGroups(true);
+    setLoadingRoles(true);
+    try {
+      const organizationId = getOrganizationId() || 2;
+      const userId = getCurrentUserId() || 1;
+
+      // Fetch all CMS data in a single API call
+      const cmsData = await getCMSData({
+        organization_id: organizationId,
+        board_id: id,
+        user_id: userId,
+        forceRefresh,
+      });
+
+      // 1. Process and set Groups
+      const sourceGroups =
+        cmsData.all_board_groups && cmsData.all_board_groups.length > 0
+          ? cmsData.all_board_groups
+          : cmsData.groups || [];
+
+      const groups = sourceGroups.map((bg: any) => ({
+        id: bg.id,
+        name: bg.name,
+        color: bg.color || "#3b82f6",
+        board_id: id,
+        workspace_id: 1,
+        organization_id: organizationId,
+      }));
+      setBoardGroups(groups);
+
+      // 2. Process and set Roles
+      setRoles(cmsData.roles || []);
+
+      // 3. Process and set Members
+      const groupsList = cmsData.groups || [];
+      const cmsMembers = (cmsData.members || []).map((member) => {
+        const memberGroupIds = groupsList
+          .filter((g: any) => 
+            g.assigned_users && 
+            g.assigned_users.some((uid: any) => String(uid) === String(member.user_id))
+          )
+          .map((g: any) => String(g.id));
+        return {
+          ...member,
+          group_ids: memberGroupIds,
+        };
+      });
+
+      const transformedMembers = cmsMembers.map((member: any) => ({
+        id: member.user_id,
+        name: member.name,
+        email: member.email || `${member.username || "user"}@example.com`,
+        role: member.board_role_label || "Project Member",
+        role_id: member.board_role_id
+          ? String(member.board_role_id)
+          : undefined,
+        avatarColor: `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`, // Generate color from user_id
+        group_ids: member.group_ids || [],
+      }));
+
+      // Check if current user is in the list, if not add them
+      const currentUserExists = transformedMembers.some(
+        (member) => member.id === String(userId),
+      );
+
+      if (!currentUserExists) {
+        // Get current user data from localStorage
+        const userData = localStorage.getItem("user_data");
+        if (userData) {
+          const currentUser = JSON.parse(userData);
+          transformedMembers.unshift({
+            id: String(userId),
+            name:
+              currentUser.display_name || currentUser.name || "Current User",
+            email: currentUser.email || "current@user.com",
+            role: "Project Owner", // Default role for current user
+            role_id: undefined,
+            avatarColor: `hsl(${(userId * 137) % 360}, 70%, 50%)`,
+            group_ids: [],
+          });
+        }
+      }
+
+      setMembers(transformedMembers);
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error);
+    } finally {
+      setIsLoadingGroups(false);
+      setLoadingRoles(false);
+    }
+  };
+
+  useEffect(() => {
+    if (boardId) {
+      loadBoardData(Number(boardId));
+      loadAllDashboardData(Number(boardId), true);
+    }
+  }, [boardId]);
+
+
+  const loadBoardData = async (id: number) => {
+    try {
+      const board = await boardsApi.getBoardById(String(id));
+      if (board) {
+        setBoardName(board.name);
+        setCurrentName(board.name);
+        setCurrentDescription(board.description || "");
+        if (board.icon_color) setIconColor(board.icon_color);
+
+        // Add creator to members if available
+        const creator = board.creator;
+        if (creator) {
+          setMembers((prev) => {
+            const exists = prev.some((m) => m.id === String(creator.id));
+            if (exists) return prev;
+            return [
+              ...prev,
+              {
+                id: String(creator.id),
+                name: creator.name,
+                email: creator.email,
+                role: "Project Owner",
+                avatarColor: board.icon_color || "hsl(221, 83%, 53%)",
+                group_ids: [],
+              },
+            ];
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load board data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to Load Board Data",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
+  };
+
+  const loadMembers = async (id: number, forceRefresh = true) => {
+    try {
+      // Get organization_id and user_id using utility functions
+      const organizationId = getOrganizationId() || 2;
+      const userId = getCurrentUserId() || 1;
+
+      // Fetch members from CMS API
+      const cmsMembers = await getMembers({
+        organization_id: organizationId,
+        board_id: id,
+        user_id: userId,
+        forceRefresh,
+      });
+
+      // Transform CMS members to dashboard member format
+      const transformedMembers = cmsMembers.map((member: any) => ({
+        id: member.user_id,
+        name: member.name,
+        email: member.email || `${member.username || "user"}@example.com`,
+        role: member.board_role_label || "Project Member",
+        role_id: member.board_role_id
+          ? String(member.board_role_id)
+          : undefined,
+        avatarColor: `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`, // Generate color from user_id
+        group_ids: member.group_ids ? member.group_ids.map(String) : [],
+      }));
+
+      // Check if current user is in the list, if not add them
+      const currentUserExists = transformedMembers.some(
+        (member) => member.id === String(userId),
+      );
+
+      if (!currentUserExists) {
+        // Get current user data from localStorage
+        const userData = localStorage.getItem("user_data");
+        if (userData) {
+          const currentUser = JSON.parse(userData);
+          transformedMembers.unshift({
+            id: String(userId),
+            name:
+              currentUser.display_name || currentUser.name || "Current User",
+            email: currentUser.email || "current@user.com",
+            role: "Project Owner", // Default role for current user
+            role_id: undefined,
+            avatarColor: `hsl(${(userId * 137) % 360}, 70%, 50%)`,
+            group_ids: [],
+          });
+        }
+      }
+
+      setMembers(transformedMembers);
+    } catch (e) {
+      console.error("Failed to load members:", e);
+      // Don't show error toast, just log it
+    }
+  };
+
+
+  const handleRoleChange = async (userId: string, newRoleId: string) => {
+    if (!boardId) return;
+
+    const organizationId = getOrganizationId() || 0;
+
+    setRoleChangingUserId(userId);
+    try {
+      const response = await boardsApi.assignBoardRole({
+        user_id: Number(userId),
+        board_id: Number(boardId),
+        organization_id: organizationId,
+        role_id: Number(newRoleId),
+      });
+
+      // Check if the API returned a failed status
+      if (response.status === "failed") {
+        toast({
+          title: "Permission Denied",
+          description:
+            response.message || "You don't have permission to assign roles",
+          variant: "destructive",
+          duration: 2000,
+        });
+        return;
+      }
+
+      debugLog("response", response);
+      debugLog("response.data.role_label", response.message);
+
+      // Update local state with new role_label from API response
+      setMembers((prevMembers) =>
+        prevMembers.map((member) =>
+          member.id === userId
+            ? {
+                ...member,
+                role: response.data.role_label,
+                role_id: String(response.data.role_id),
+              }
+            : member,
+        ),
+      );
+
+      // Clear CMS cache to ensure local storage remains in sync as source of truth
+      clearCMSCache(Number(boardId));
+
+      toast({
+        title: "Success",
+        description: `Role updated to ${response.data.role_label}`,
+      });
+    } catch (error: any) {
+      console.error("Failed to update role:", error);
+
+      // Handle error response from API
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to update user role";
+
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 3000,
+      });
+    } finally {
+      setRoleChangingUserId(null);
+    }
+  };
+
+  const handleRemoveMember = async (memberUserId: string) => {
+    setRemovingUserId(memberUserId);
+    try {
+      const organizationId = getOrganizationId() || 2;
+
+      const response = await boardsApi.removeMembers({
+        board_id: parseInt(boardId!),
+        user_ids: [parseInt(memberUserId)],
+        role_id: 2, // Default role_id (required by API)
+        organization_id: organizationId,
+      });
+
+      if (response.status === "success") {
+        toast({
+          title: "Member removed",
+          description: "Member has been successfully removed from the board",
+        });
+
+        // Clear CMS cache to ensure fresh data is loaded
+        clearCMSCache(parseInt(boardId!));
+
+        // Reload members with a small delay to ensure API operations are complete
+        setTimeout(() => {
+          loadMembers(Number(boardId));
+        }, 500);
+      } else {
+        throw new Error(response.message || "Failed to remove member");
+      }
+    } catch (error: any) {
+      console.error("Error removing member:", error);
+      toast({
+        title: "Error",
+        description:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to remove member from board",
+        variant: "destructive",
+      });
+    } finally {
+      setRemovingUserId(null);
+    }
+  };
+
+  const [assigningGroupsUserId, setAssigningGroupsUserId] = useState<string | null>(null);
+
+  const handleToggleGroup = async (userId: string, groupId: string, isCurrentlySelected: boolean) => {
+    if (!boardId) return;
+
+    setAssigningGroupsUserId(userId);
+    const organizationId = getOrganizationId() || 2;
+    try {
+      if (isCurrentlySelected) {
+        // Remove group
+        const response = await boardsApi.removeClientGroup({
+          groupId: String(groupId),
+          userId: String(userId),
+          organization_id: organizationId,
+        });
+
+        if (response.status === "success" || response.code === 200) {
+          toast({
+            title: "Success",
+            description: "Group removed successfully",
+          });
+          clearCMSCache(Number(boardId));
+          setMembers((prevMembers) =>
+            prevMembers.map((member) =>
+              member.id === userId
+                ? {
+                    ...member,
+                    group_ids: (member.group_ids || []).filter((id) => id !== groupId),
+                  }
+                : member
+            )
+          );
+        } else {
+          throw new Error(response.message || "Failed to remove group");
+        }
+      } else {
+        // Add group
+        const response = await boardsApi.assignClientGroups({
+          user_id: Number(userId),
+          organization_id: organizationId,
+          board_id: Number(boardId),
+          group_ids: [Number(groupId)],
+        });
+
+        if (response.status === "success" || response.code === 201) {
+          toast({
+            title: "Success",
+            description: "Group assigned successfully",
+          });
+          clearCMSCache(Number(boardId));
+          setMembers((prevMembers) =>
+            prevMembers.map((member) =>
+              member.id === userId
+                ? {
+                    ...member,
+                    group_ids: [...(member.group_ids || []), groupId],
+                  }
+                : member
+            )
+          );
+        } else {
+          throw new Error(response.message || "Failed to assign group");
+        }
+      }
+    } catch (error: any) {
+      console.error("Error toggling group:", error);
+      toast({
+        title: "Error",
+        description:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to update groups",
+        variant: "destructive",
+      });
+    } finally {
+      setAssigningGroupsUserId(null);
+    }
+  };
+
+  // Effect handles
+  useEffect(() => {
+    if (isEditingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [isEditingName]);
+
+  useEffect(() => {
+    if (isEditingDescription && descriptionInputRef.current) {
+      descriptionInputRef.current.focus();
+    }
+  }, [isEditingDescription]);
+
+  const handleNameBlur = async () => {
+    setIsEditingName(false);
+    if (!currentName.trim()) {
+      setCurrentName(boardName);
+      return;
+    }
+
+    if (currentName !== boardName && boardId) {
+      try {
+        await boardsApi.updateBoard(boardId, { name: currentName });
+        setBoardName(currentName);
+        toast({ title: "Success", description: "Board Name Updated" });
+      } catch (error) {
+        console.error(error);
+        toast({
+          title: "Error",
+          description: "Failed to Update Board Name",
+          variant: "destructive",
+          duration: 3000,
+        });
+        setCurrentName(boardName);
+      }
+    }
+  };
+
+  const handleDescriptionBlur = () => {
+    setIsEditingDescription(false);
+    // API call to update desc would go here
+  };
+
+  return (
+    <div className="h-full flex flex-col bg-background min-h-screen">
+      {/* Header */}
+      <div className="border-b border-border px-8 py-6">
+        <Button
+          variant="ghost"
+          className="mb-4 pl-0 hover:bg-transparent hover:text-primary"
+          onClick={() => navigate(`/org/${getOrganizationId()}/board/${boardId}`)}
+        >
+          ← Back to Project
+        </Button>
+
+        <div className="flex items-center gap-6">
+          <Popover
+            open={!isCurrentUserClient && colorPickerOpen}
+            onOpenChange={(open) => {
+              if (!isCurrentUserClient) setColorPickerOpen(open);
+            }}
+          >
+            <PopoverTrigger asChild>
+              <button
+                disabled={isCurrentUserClient}
+                className={`w-32 h-32 rounded-2xl flex items-center justify-center shadow-sm ${
+                  isCurrentUserClient
+                    ? "cursor-default"
+                    : "transition-transform hover:scale-105 cursor-pointer"
+                }`}
+                style={{ backgroundColor: iconColor }}
+              >
+                <span className="text-6xl font-bold text-white">
+                  {currentName.charAt(0)}
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-64 p-4 bg-popover z-50 shadow-lg border"
+              align="start"
+            >
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm">Choose icon color</h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color.name}
+                      onClick={async () => {
+                        setIconColor(color.value);
+                        setColorPickerOpen(false);
+                        if (boardId) {
+                          try {
+                            await boardsApi.updateBoard(boardId, {
+                              icon_color: color.value,
+                            });
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }
+                      }}
+                      className="w-10 h-10 rounded-lg transition-transform hover:scale-110 focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                      style={{ backgroundColor: color.value }}
+                      title={color.name}
+                    />
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              {isEditingName ? (
+                <Input
+                  ref={nameInputRef}
+                  value={currentName}
+                  onChange={(e) => setCurrentName(e.target.value)}
+                  onBlur={handleNameBlur}
+                  className="text-4xl font-semibold h-auto py-1 px-2 mb-2 border-2 border-primary flex-1"
+                />
+              ) : (
+                <div className="flex items-center gap-3 mb-2">
+                  <h1
+                    className={`text-4xl font-semibold text-foreground transition-colors ${
+                      isCurrentUserClient
+                        ? ""
+                        : "cursor-pointer hover:text-primary"
+                    }`}
+                    onClick={() => {
+                      if (!isCurrentUserClient) {
+                        setIsEditingName(true);
+                      }
+                    }}
+                  >
+                    {currentName}
+                  </h1>
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto h-11 text-sm font-semibold rounded-lg bg-[#ffffff05] border-[#ffffff10] text-[#ffffff80] hover:text-[#fff] hover:bg-[#ffffff10] transition-colors"
+                    onClick={() =>
+                      navigate(`/org/${getOrganizationId()}/board/${boardId}/view/Main%20Table`)
+                    }
+                  >
+                    View Items
+                  </Button>
+
+                  {/* Small profile icon next to board name for members */}
+                  <div className="flex -space-x-2">
+                    {members.slice(0, 3).map((m) => (
+                      <Avatar
+                        key={m.id}
+                        className="w-6 h-6 border-2 border-background"
+                      >
+                        <AvatarFallback
+                          style={{ backgroundColor: m.avatarColor }}
+                          className="text-[10px] text-white"
+                        >
+                          {m.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!isCurrentUserClient && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-2 rounded-lg hover:bg-muted transition-colors mb-2">
+                      <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuItem
+                      onClick={() =>
+                        navigate(`/org/${getOrganizationId()}/board/${boardId}/view/Main%20Table`)
+                      }
+                    >
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Go to Board
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsEditingName(true)}>
+                      Rename project
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setDeleteDialogOpen(true)}
+                      className="text-destructive"
+                    >
+                      Delete project
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+            {isEditingDescription ? (
+              <Textarea
+                ref={descriptionInputRef}
+                value={currentDescription}
+                onChange={(e) => setCurrentDescription(e.target.value)}
+                onBlur={handleDescriptionBlur}
+                placeholder="Add board description"
+                className="min-h-[60px] border-2 border-primary max-w-xl"
+              />
+            ) : (
+              <p
+                className={`text-muted-foreground transition-colors ${
+                  isCurrentUserClient
+                    ? ""
+                    : "cursor-pointer hover:text-foreground"
+                }`}
+                onClick={() => {
+                  if (!isCurrentUserClient) {
+                    setIsEditingDescription(true);
+                  }
+                }}
+              >
+                {currentDescription || "Add board description"}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto px-8 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3 mb-6">
+            <TabsTrigger value="user-management">User management</TabsTrigger>
+            <TabsTrigger value="permissions" className="text-amber-400" title="Coming Soon">Permissions</TabsTrigger>
+            <TabsTrigger value="my-schedule" className="text-amber-400" title="Coming Soon">My Schedule</TabsTrigger>
+          </TabsList>
+
+          {/* User Management Tab */}
+          <TabsContent value="user-management" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing: {members.length} result
+                {members.length !== 1 ? "s" : ""}
+              </p>
+              {!isCurrentUserClient && (
+                <Button
+                  size="lg"
+                  className="gap-2"
+                  onClick={() => setInviteDialogOpen(true)}
+                >
+                  <UserPlus className="h-5 w-5" />
+                  Invite
+                </Button>
+              )}
+            </div>
+
+            {/* Members Table */}
+            <div className="border border-border rounded-lg overflow-hidden bg-card">
+              <div className="grid grid-cols-[1.2fr_1.8fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 bg-muted/30 border-b border-border">
+                <div className="text-sm font-medium text-muted-foreground">
+                  Name
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Email
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Groups
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  User role
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Actions
+                </div>
+              </div>
+
+              <div className="divide-y divide-border">
+                {members.length > 0 ? (
+                  members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="grid grid-cols-[1.2fr_1.8fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 items-center hover:bg-muted/10 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback
+                            style={{ backgroundColor: member.avatarColor }}
+                          >
+                            <span className="text-white text-xs font-semibold">
+                              {member.name.charAt(0)}
+                            </span>
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium text-foreground">
+                          {member.name}
+                        </span>
+                      </div>
+
+                      <div className="text-muted-foreground text-sm truncate" title={member.email}>
+                        {member.email}
+                      </div>
+
+                      {/* Group Selector Column */}
+                      <div>
+                        {isClientRole(member.role) ? (
+                          <Popover modal={true}>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                disabled={isCurrentUserClient || isLoadingGroups || assigningGroupsUserId === member.id}
+                                className="w-full max-w-[180px] flex items-center justify-between bg-background border border-input rounded-md h-8 px-3 text-left text-xs hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <div className="flex items-center gap-1 overflow-hidden max-w-[85%]">
+                                  {(!member.group_ids || member.group_ids.length === 0) ? (
+                                    <span className="text-muted-foreground text-[11px]">Select groups</span>
+                                  ) : (
+                                    member.group_ids.map((groupId) => {
+                                      const group = boardGroups.find((g) => String(g.id) === groupId);
+                                      if (!group) return null;
+                                      return (
+                                        <span
+                                          key={groupId}
+                                          className="flex items-center gap-1 bg-muted text-foreground px-1.5 py-0.5 rounded-sm text-[10px] border border-border shrink-0"
+                                        >
+                                          <span
+                                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                                            style={{ backgroundColor: group.color || '#3b82f6' }}
+                                          />
+                                          <span className="truncate max-w-[50px]">{group.name}</span>
+                                        </span>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                                <ChevronDown className="h-3 text-muted-foreground flex-shrink-0" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[200px] p-2 bg-popover border border-border rounded-md shadow-md text-popover-foreground z-50">
+                              {isLoadingGroups ? (
+                                <p className="text-xs text-muted-foreground p-2">Loading groups...</p>
+                              ) : boardGroups.length === 0 ? (
+                                <p className="text-xs text-muted-foreground p-2">No groups available</p>
+                              ) : (
+                                <div className="space-y-1 max-h-[160px] overflow-y-auto" onWheel={(e) => e.stopPropagation()}>
+                                  {boardGroups.map((group) => {
+                                    const currentGroupIds = member.group_ids || [];
+                                    const isSelected = currentGroupIds.includes(String(group.id));
+                                    return (
+                                      <button
+                                        key={group.id}
+                                        type="button"
+                                        onClick={() => {
+                                          handleToggleGroup(member.id, String(group.id), isSelected);
+                                        }}
+                                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-medium transition-all hover:bg-accent hover:text-accent-foreground ${
+                                          isSelected ? "bg-accent text-accent-foreground font-semibold" : "text-foreground"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 truncate">
+                                          <span
+                                            className="w-2 h-2 rounded-full shrink-0"
+                                            style={{ backgroundColor: group.color || '#3b82f6' }}
+                                          />
+                                          <span className="truncate">{group.name}</span>
+                                        </div>
+                                        {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        ) : (
+                          <span className="text-muted-foreground text-sm pl-4">—</span>
+                        )}
+                      </div>
+
+                      <Select
+                        value={member.role_id || member.role}
+                        onValueChange={(value) =>
+                          handleRoleChange(member.id, value)
+                        }
+                        disabled={
+                          isCurrentUserClient ||
+                          loadingRoles ||
+                          roles.length === 0 ||
+                          roleChangingUserId === member.id
+                        }
+                      >
+                        <SelectTrigger className="w-[180px] h-8">
+                          <SelectValue
+                            placeholder={
+                              roleChangingUserId === member.id
+                                ? "Updating..."
+                                : "Select role"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roles.map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <div className="flex items-center justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveMember(member.id)}
+                          disabled={isCurrentUserClient || removingUserId === member.id}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {removingUserId === member.id ? (
+                            <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <X className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-6 py-8 text-center text-muted-foreground">
+                    No members found.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4">
+              {!isCurrentUserClient && (
+                <Button variant="outline" size="sm">
+                  See and edit all project permissions
+                </Button>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="permissions">
+            <div className="p-8 text-center text-muted-foreground border rounded-lg bg-muted/10">
+              Permissions management coming soon.
+            </div>
+          </TabsContent>
+
+          <TabsContent value="my-schedule">
+            <div className="p-8 text-center text-muted-foreground border rounded-lg bg-muted/10">
+              Schedule view coming soon.
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Delete Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{currentName}"? This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <BoardInviteDialog
+        open={inviteDialogOpen}
+        onOpenChange={(open) => {
+          setInviteDialogOpen(open);
+          if (!open) {
+            // Reload members when dialog closes to ensure main list is fresh
+            if (boardId) {
+              // Add a small delay to ensure API operations are complete
+              setTimeout(() => {
+                loadMembers(Number(boardId));
+              }, 500);
+            }
+          }
+        }}
+        boardId={boardId || ""}
+        currentMembers={members}
+        onMembersUpdate={() => {
+          if (boardId) {
+            // Add a small delay to ensure API operations are complete
+            setTimeout(() => {
+              loadMembers(Number(boardId));
+            }, 500);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+// import { useParams, useNavigate } from "react-router-dom";
+// import { useState, useEffect } from "react";
+// import { Button } from "@/shared/ui/button";
+// import { ArrowLeft } from "lucide-react";
+
+// interface BoardDashboard {
+//   id: string;
+//   boardId: string;
+//   taskCount: number;
+//   completedCount: number;
+//   teamMembers: number;
+// }
+
+// export default function BoardDashboardPage() {
+//   const { boardId } = useParams();
+//   const navigate = useNavigate();
+//   const [dashboard] = useState<BoardDashboard | null>(null);
+//   const [loading, setLoading] = useState(true);
+
+//   useEffect(() => {
+//     // TODO: Fetch dashboard data from REST API
+//     setLoading(false);
+//   }, [boardId]);
+
+//   return (
+//     <div className="min-h-screen p-8">
+//       <div className="max-w-7xl mx-auto">
+//         <Button
+//           variant="outline"
+//           onClick={() => navigate(`/board/${boardId}/view/Main%20Table`)}
+//           className="bg-transparent border-slate-700/50 hover:bg-slate-800 text-slate-300 hover:text-white"
+//         >     Back
+//         </Button>
+
+//         {loading ? (
+//           <div className="text-center py-8">Loading...</div>
+//         ) : dashboard ? (
+//           <div>
+//             <h1 className="text-3xl font-bold mb-8">Board Dashboard</h1>
+//             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+//               <div className="p-6 border rounded-lg">
+//                 <p className="text-sm text-muted-foreground">Total Tasks</p>
+//                 <p className="text-3xl font-bold">{dashboard.taskCount}</p>
+//               </div>
+//               <div className="p-6 border rounded-lg">
+//                 <p className="text-sm text-muted-foreground">Completed</p>
+//                 <p className="text-3xl font-bold">{dashboard.completedCount}</p>
+//               </div>
+//               <div className="p-6 border rounded-lg">
+//                 <p className="text-sm text-muted-foreground">Team Members</p>
+//                 <p className="text-3xl font-bold">{dashboard.teamMembers}</p>
+//               </div>
+//             </div>
+//           </div>
+//         ) : (
+//           <div className="text-center py-8 text-muted-foreground">
+//             <p>Dashboard not found</p>
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// }

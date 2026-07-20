@@ -1,5 +1,5 @@
 import logoSymbol from "@/assets/logo-symbol.png";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 
 interface LogoProps {
   className?: string;
