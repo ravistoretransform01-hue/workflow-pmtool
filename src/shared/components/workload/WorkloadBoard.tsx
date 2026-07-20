@@ -7,7 +7,7 @@ import { format, parseISO } from "date-fns";
 // const _loadedCMSForBoard = new Set<string>();
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { useAppDispatch, useAppSelector } from "@/app/hooks";
+import { useAppDispatch, useAppSelector } from "@/hooks";
 import type { RootState } from "@/app/store";
 import { groupsApi } from "@/features/groups/groupsApi";
 import type { CreateGroupRequest, UpdateGroupRequest } from "@/features/groups/types";

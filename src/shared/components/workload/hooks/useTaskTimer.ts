@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useAppDispatch, useAppSelector } from "@/app/hooks";
+import { useAppDispatch, useAppSelector } from "@/hooks";
 import {
   startTimer as startTimerAction,
   stopTimer as stopTimerAction,
