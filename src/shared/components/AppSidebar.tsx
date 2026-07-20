@@ -52,7 +52,7 @@ import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useBoards } from "@/hooks/useBoards";
 import { boardsApi } from "@/features/boards/boardsApi";
-import { useAppSelector } from "@/app/hooks";
+import { useAppSelector } from "@/hooks";
 import { appName } from "@/lib/constants";
 
 import { Logo } from "@/shared/components/Logo";

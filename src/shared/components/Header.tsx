@@ -9,7 +9,7 @@ import {
   UserPlus,
   Building2,
 } from "lucide-react";
-import { useAppDispatch, useAppSelector } from "@/app/hooks";
+import { useAppDispatch, useAppSelector } from "@/hooks";
 import { switchOrganization } from "@/features/auth/authSlice";
 import { Button } from "@/shared/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";

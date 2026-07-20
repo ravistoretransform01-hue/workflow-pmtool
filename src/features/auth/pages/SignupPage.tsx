@@ -410,7 +410,7 @@ export default SignupPage;
 //   CardTitle,
 // } from "@/shared/components/card";
 // import { BarChart3, Loader2 } from "lucide-react";
-// // import { useToast } from "@/app/hooks/use-toast";
+// // import { useToast } from "@/hooks/use-toast";
 // // import { useAuth } from "@/hooks/useAuth";
 // // import { useToast } from "@/hooks/use-toast";
 

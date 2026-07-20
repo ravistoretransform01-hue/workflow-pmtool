@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAppSelector, useAppDispatch } from "@/app/hooks";
+import { useAppSelector, useAppDispatch } from "@/hooks";
 import { stopTimer } from "@/features/tasks/tasksSlice";
 import { tasksApi } from "@/features/tasks/tasksApi";
 import { Square, Timer } from "lucide-react";

@@ -21,7 +21,7 @@
 // import { Progress } from "@/shared/components/ui/progress";
 // import { Checkbox } from "@/shared/components/ui/checkbox";
 // import { Skeleton } from "@/shared/components/ui/skeleton";
-// import { useAppSelector } from "@/app/hooks";
+// import { useAppSelector } from "@/hooks";
 // import type { RootState } from "@/app/store";
 
 // const HomePage = () => {
