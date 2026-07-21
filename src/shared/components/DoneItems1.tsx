@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
 import { ChevronUp, ChevronDown, FileText } from "lucide-react";
-import { Button } from "@/shared/components/ui/button";
-import { Checkbox } from "@/shared/components/ui/checkbox";
-import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/ui/button";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { Badge } from "@/shared/ui/badge";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/shared/components/ui/popover";
+} from "@/shared/ui/popover";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/shared/components/ui/collapsible";
+} from "@/shared/ui/collapsible";
 
 export interface DoneItems1Status {
   name: string;

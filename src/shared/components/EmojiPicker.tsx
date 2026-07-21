@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
-import { Button } from "@/shared/components/ui/button";
-import { ScrollArea } from "@/shared/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import { Button } from "@/shared/ui/button";
+import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Smile } from "lucide-react";
 
 interface EmojiPickerProps {

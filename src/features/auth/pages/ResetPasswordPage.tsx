@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Input } from "@/shared/components/ui/input";
+import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/components/label";
 import {
   Card,
@@ -11,9 +11,9 @@ import {
   CardTitle,
 } from "@/shared/components/card";
 import { Loader2, ArrowLeft } from "lucide-react";
-import { Button } from "@/shared/components/ui/button";
-import { authApi } from "../authApi";
-import { appName } from "@/lib/constants";
+import { Button } from "@/shared/ui/button";
+import { authApi } from "@/features/auth/api/authApi";
+import { appName } from "@/constants";
 import { Logo } from "@/shared/components/Logo";
 
 const ResetPasswordPage = () => {

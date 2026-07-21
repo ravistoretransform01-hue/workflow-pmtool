@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { LayoutDashboard } from 'lucide-react';
-import { useTestUser } from './TestUserContext';
+import { useTestUser } from "@/contexts/TestUserContext";
 
 
 export interface Board {

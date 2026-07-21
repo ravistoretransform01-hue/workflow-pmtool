@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://outskillmarketing.com/wp-json/wp-platform/v1/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

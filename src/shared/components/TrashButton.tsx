@@ -15,24 +15,24 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from "@/shared/components/ui/dialog";
-import { Input } from "@/shared/components/ui/input";
-import { Button } from "@/shared/components/ui/button";
-import { Checkbox } from "@/shared/components/ui/checkbox";
-import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
+} from "@/shared/ui/dialog";
+import { Input } from "@/shared/ui/input";
+import { Button } from "@/shared/ui/button";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import {
   Tabs,
   TabsList,
   TabsTrigger,
   TabsContent,
-} from "@/shared/components/ui/tabs";
+} from "@/shared/ui/tabs";
 import { format } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu";
+} from "@/shared/ui/dropdown-menu";
 import {
   trashApi,
   type TrashTask,
@@ -41,11 +41,11 @@ import {
   type TrashGroup,
   type TrashStatus,
   type TrashPriority,
-} from "@/features/trash/trashApi";
-import { getOrganizationId, cn } from "@/lib/utils";
+} from "@/features/trash/api/trashApi";
+import { getOrganizationId, cn } from "@/utils/utils";
 import { toast } from "sonner";
 import { useAppDispatch } from "@/hooks";
-import { triggerRefresh } from "@/features/ui/uiSlice";
+import { triggerRefresh } from "@/features/ui/services/uiSlice";
 
 export function TrashButton() {
   const [open, setOpen] = useState(false);
@@ -251,7 +251,7 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
   const handleUnarchive = async (taskId: string) => {
     try {
       // Use the newly added tasksApi.archiveTask with isArchived = false
-      const { tasksApi } = await import("@/features/tasks/tasksApi");
+      const { tasksApi } = await import("@/features/tasks/api/tasksApi");
       await tasksApi.archiveTask(taskId, false);
       
       toast.success("Task Unarchived Successfully");
@@ -271,7 +271,7 @@ function TrashDialog({ open, onOpenChange }: TrashDialogProps) {
 
     setIsDeleting(true);
     try {
-      const { tasksApi } = await import("@/features/tasks/tasksApi");
+      const { tasksApi } = await import("@/features/tasks/api/tasksApi");
       for (const id of selectedIds) {
         await tasksApi.archiveTask(id, false);
       }

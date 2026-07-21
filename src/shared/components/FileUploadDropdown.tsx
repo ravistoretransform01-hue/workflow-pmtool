@@ -1,8 +1,8 @@
 import { useState, useRef } from "react";
-import { Button } from "@/shared/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import { Paperclip, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { attachmentsApi } from "@/features/tasks/attachmentsApi";
+import { attachmentsApi } from "@/features/tasks/api/attachmentsApi";
 
 interface FileUploadDropdownProps {
   onFileSelect?: (fileInfo: {

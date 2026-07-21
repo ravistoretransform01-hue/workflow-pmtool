@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAppSelector, useAppDispatch } from "@/hooks";
-import { stopTimer } from "@/features/tasks/tasksSlice";
-import { tasksApi } from "@/features/tasks/tasksApi";
+import { stopTimer } from "@/features/tasks/services/tasksSlice";
+import { tasksApi } from "@/features/tasks/api/tasksApi";
 import { Square, Timer } from "lucide-react";
 import { toast } from "sonner";
 
