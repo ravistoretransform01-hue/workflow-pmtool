@@ -2860,56 +2860,38 @@ export function WorkloadBoard({
       // Perform updates in parallel
       const updatedResults = await Promise.all(
         tasksToUpdate.map(async (id) => {
-          let targetTask: any = null;
-          for (const group of groups) {
-            const found = group.tasks.find((t) => t.id === id);
-            if (found) {
-              targetTask = found;
-              break;
+          let latestTaskStatus: any = null;
+          
+          if (added.length > 0) {
+            const addedUsers = added.filter(uId => uId && uId !== "null" && uId !== "undefined").map(Number);
+            if (addedUsers.length > 0) {
+                latestTaskStatus = await tasksApi.updateTaskAssignees({
+                  taskId: id,
+                  action: "add",
+                  users: addedUsers,
+                });
             }
-            for (const task of group.tasks) {
-              const foundSub = task.subitems?.find((sub) => sub.id === id);
-              if (foundSub) {
-                targetTask = foundSub;
-                break;
-              }
+          }
+          
+          if (removed.length > 0) {
+            const removedUsers = removed.filter(uId => uId && uId !== "null" && uId !== "undefined").map(Number);
+            if (removedUsers.length > 0) {
+                latestTaskStatus = await tasksApi.updateTaskAssignees({
+                  taskId: id,
+                  action: "remove",
+                  users: removedUsers,
+                });
             }
-            if (targetTask) break;
           }
 
-          let finalMemberIds: string[] = [];
-          if (targetTask) {
-            const targetPrevIds = (targetTask.assigned_to_ids ||
-              (targetTask.assigned_to_id ? [String(targetTask.assigned_to_id)] : [])) as string[];
-
-            if (isClearAction) {
-              finalMemberIds = [];
-            } else {
-              let list = [...targetPrevIds];
-              added.forEach((aId) => {
-                if (!list.includes(aId)) {
-                  list.push(aId);
-                }
-              });
-              if (removed.length > 0) {
-                list = list.filter((rId) => !removed.includes(rId));
-              }
-              finalMemberIds = list;
-            }
-          } else {
-            finalMemberIds = id === taskId ? memberIds : [];
+          // In case nothing changed but we clicked somehow (e.g. clear action on an already empty task)
+          if (!latestTaskStatus && isClearAction) {
+              // Technically if it's already empty we don't need to do anything, 
+              // but we can return mock structure so the map doesn't break
+              return { id: Number(id), assignees: [] };
           }
 
-          const validMemberIds = finalMemberIds
-            .filter((id) => id && id !== "null" && id !== "undefined")
-            .map((id) => Number(id));
-
-          const payload: UpdateTaskRequest = {
-            id,
-            board_id: boardIdNum,
-            assignees: validMemberIds,
-          };
-          return tasksApi.updateTask(payload);
+          return latestTaskStatus || { id: Number(id), assignees: [] };
         })
       );
 

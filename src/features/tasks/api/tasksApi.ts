@@ -948,6 +948,30 @@ export const tasksApi = {
     }
   },
 
+  updateTaskAssignees: async (payload: {
+    taskId: string | number;
+    action: "add" | "remove";
+    users: number[];
+  }): Promise<TaskResponse> => {
+    try {
+      const response = await axios.patch<{ data: TaskResponse }>(
+        TASKS_ENDPOINTS.PATCH_UPDATE_TASK,
+        {
+          task_id: payload.taskId,
+          type: "assignees",
+          assignees: {
+            action: payload.action,
+            users: payload.users,
+          },
+        },
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to update task assignees:", error);
+      throw error;
+    }
+  },
+
   /**
    * Archive or unarchive a task
    */
