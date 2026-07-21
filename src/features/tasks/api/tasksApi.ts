@@ -868,6 +868,30 @@ export const tasksApi = {
   },
 
   /**
+   * Update the status of a task via the standard update endpoint
+   */
+  updateTaskStatus: async (payload: {
+    taskId: string | number;
+    status_id: number;
+    board_id: number;
+  }): Promise<TaskResponse> => {
+    try {
+      const response = await axios.put<{ data: TaskResponse }>(
+        TASKS_ENDPOINTS.UPDATE_TASK,
+        {
+          id: payload.taskId,
+          status_id: payload.status_id,
+          board_id: payload.board_id,
+        },
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to update task status:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Archive or unarchive a task
    */
   archiveTask: async (

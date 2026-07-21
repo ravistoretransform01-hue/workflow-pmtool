@@ -198,6 +198,8 @@ export interface Task {
   assignee_names?: string[];
   recurrence?: any;
   estimation?: any;
+  completed_at?: string | null;
+  started_at?: string | null;
 }
 
 // All available columns (for the dropdown menu)
@@ -3286,15 +3288,14 @@ export function WorkloadBoard({
       const isCurrentTaskChecked = checkedTaskIds.includes(taskId);
       const tasksToUpdate = isCurrentTaskChecked ? checkedTaskIds : [taskId];
 
-      // Perform status updates in parallel
+      // Perform status updates in parallel using the dedicated status endpoint
       const updatedResults = await Promise.all(
         tasksToUpdate.map(async (id) => {
-          const payload: UpdateTaskRequest = {
-            id,
+          return tasksApi.updateTaskStatus({
+            taskId: id,
             board_id: boardIdNum,
             status_id: Number(statusId),
-          };
-          return tasksApi.updateTask(payload);
+          });
         })
       );
 
@@ -3348,6 +3349,60 @@ export function WorkloadBoard({
           ? `${tasksToUpdate.length} Tasks Status Updated Successfully`
           : "Status Updated Successfully"
       );
+
+      // Refresh task data from the server to ensure consistency
+      try {
+        const orgId = getOrganizationId();
+        const refreshedResults = await Promise.all(
+          tasksToUpdate.map((id) => tasksApi.getSingleTasks(id, orgId))
+        );
+
+        const refreshedMap = new Map(
+          refreshedResults.map((t) => [String(t.id), t])
+        );
+
+        setGroups((prevGroups) =>
+          prevGroups.map((group) => ({
+            ...group,
+            tasks: group.tasks.map((task) => {
+              let updatedTask = task;
+              const match = refreshedMap.get(task.id);
+              if (match) {
+                updatedTask = {
+                  ...task,
+                  status: match.status_label,
+                  status_id: String(match.status_id),
+                  completed_at: match.completed_at,
+                  started_at: match.started_at,
+                };
+              }
+
+              if (task.subitems?.length) {
+                updatedTask = {
+                  ...updatedTask,
+                  subitems: task.subitems.map((sub) => {
+                    const subMatch = refreshedMap.get(sub.id);
+                    return subMatch
+                      ? {
+                          ...sub,
+                          status: subMatch.status_label,
+                          status_id: String(subMatch.status_id),
+                          completed_at: subMatch.completed_at,
+                          started_at: subMatch.started_at,
+                        }
+                      : sub;
+                  }),
+                };
+              }
+
+              return updatedTask;
+            }),
+          })),
+        );
+      } catch (refreshError) {
+        // Silent fail on refresh — optimistic update already applied
+        console.warn("Failed to refresh task data after status update:", refreshError);
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to Update Status");

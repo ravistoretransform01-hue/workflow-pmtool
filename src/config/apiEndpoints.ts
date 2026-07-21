@@ -269,6 +269,10 @@ export const API_ENDPOINTS = {
       path: (taskId: string | number) => `/tasks/${taskId}/comments/isclient`,
       method: "GET" as const
     },
+    updateStatus: {
+      path: (taskId: string | number) => `/tasks/${taskId}`,
+      method: "PUT" as const
+    },
     archive: {
       path: (taskId: string | number) => `/tasks/${taskId}/archive`,
       method: "PUT" as const
