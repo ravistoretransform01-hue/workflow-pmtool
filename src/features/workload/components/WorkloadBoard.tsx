@@ -3195,9 +3195,6 @@ export function WorkloadBoard({
             // We want to REMOVE the tag from this task.
             // Only remove if the task actually has the tag.
             if (hasTag) {
-              const tagToRemove = targetTask.tags.find(
-                (t: any) => String(t.tag_id) === tagIdStr,
-              );
               // We now send the tag_id instead of task_tag_id since we are using PATCH update api
               await tasksApi.removeTaskTagByTagId({
                 id,

@@ -39,11 +39,7 @@ export const Logo = ({
       <img
         src={logoSymbol}
         alt="WorkFlowPM"
-        className={cn("object-contain", iconClassName)}
-        style={{
-          width: "70%",
-          height: "70%",
-        }}
+        className={cn("w-full h-full object-contain p-1", iconClassName)}
       />
     </div>
   );
