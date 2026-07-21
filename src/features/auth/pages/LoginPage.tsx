@@ -18,7 +18,7 @@ import { authApi } from "@/features/auth/api/authApi";
 import { debugLog } from "@/utils/debugLog";
 import { appName } from "@/constants";
 
-import appleTouchIcon from "../../../../public/favicon/apple-touch-icon.png";
+import loginLogo from "@/assets/login-logo.png";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -140,7 +140,7 @@ const LoginPage = () => {
         {/* Logo and Title */}
         <div className="text-center space-y-4">
           <img
-            src={appleTouchIcon}
+            src={loginLogo}
             alt={`${appName} Logo`}
             className="w-16 h-16 mx-auto rounded-xl bg-white shadow-sm object-contain p-1 border border-white/10"
           />
