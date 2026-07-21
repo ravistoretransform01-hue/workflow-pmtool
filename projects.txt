@@ -1,0 +1,9 @@
+Vercel CLI 56.4.1 (Node.js 20.19.6)
+Fetching projects in softwere-team
+> Projects found under softwere-team  [2s]
+
+  Project Name                  Latest Production URL                            Updated   Node Version   
+  pm-tool                       --                                               60s       24.x           
+  ravi-development              https://ravi-development.vercel.app              3h        24.x           
+  nextjs-lighthouse-dashboard   https://nextjs-lighthouse-dashboard.vercel.app   5d        24.x           
+

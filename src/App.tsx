@@ -1,34 +1,34 @@
 import { useEffect, useState } from "react";
 import devtools from "devtools-detect";
 import { Toaster as Sonner } from "sonner";
-import { TooltipProvider } from "@/shared/components/ui/tooltip";
+import { TooltipProvider } from "@/shared/ui/tooltip";
 import ToasterFromUseToast from "@/shared/components/ToasterFromUseToast";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { TestUserProvider } from "@/contexts/TestUserContext";
 import {
   ProtectedRoute,
   ProtectedLayout,
-} from "@/shared/components/ProtectedRoute";
-import { getFirebaseMessaging, onMessage } from "@/lib/firebase";
+} from "@/shared/layouts/ProtectedRoute";
+import { getFirebaseMessaging, onMessage } from "@/config/firebase";
 
 // Pages
 import LoginPage from "@/features/auth/pages/LoginPage";
 import SignupPage from "@/features/auth/pages/SignupPage";
-import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage";
-import ResetPasswordPage from "./features/auth/pages/ResetPasswordPage";
+import ForgotPasswordPage from "@/features/auth/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/features/auth/pages/ResetPasswordPage";
 import LandingPage from "@/features/landing/pages/LandingPage";
 import HomePage from "@/features/home/pages/HomePage";
-import MyWork from "@/pages/MyWork";
-import MyTeam from "@/pages/MyTeam";
-import AllItems from "@/pages/AllItems";
-import MyHabits from "@/pages/MyHabits";
-import MembersPage from "@/pages/MembersPage";
-import DynamicWorkspace from "@/pages/DynamicWorkspace";
-import DynamicBoard from "@/pages/DynamicBoard";
-import BoardDashboardPage from "@/pages/BoardDashboardPage";
-import DocumentEditor from "@/pages/DocumentEditor";
-import ProfilePage from "@/pages/ProfilePage";
-import NotFound from "@/pages/NotFound";
+import MyWork from "@/features/workload/pages/MyWork";
+import MyTeam from "@/features/workload/pages/MyTeam";
+import AllItems from "@/features/workload/pages/AllItems";
+import MyHabits from "@/features/habits/pages/MyHabits";
+import MembersPage from "@/features/members/pages/MembersPage";
+import DynamicWorkspace from "@/features/workspaces/pages/DynamicWorkspace";
+import DynamicBoard from "@/features/boards/pages/DynamicBoard";
+import BoardDashboardPage from "@/features/boards/pages/BoardDashboardPage";
+import DocumentEditor from "@/features/documents/pages/DocumentEditor";
+import ProfilePage from "@/features/profile/pages/ProfilePage";
+import NotFound from "@/features/home/pages/NotFound";
 
 // import { io } from "socket.io-client";
 import { useAppSelector } from "@/hooks";
@@ -224,29 +224,29 @@ const App = () => {
 export default App;
 
 // import { useEffect } from "react";
-// import { TooltipProvider } from "@/shared/components/ui/tooltip";
+// import { TooltipProvider } from "@/shared/ui/tooltip";
 // import { BrowserRouter, Routes, Route } from "react-router-dom";
-// import { SidebarProvider } from "@/shared/components/ui/sidebar";
-// import { AppSidebar } from "@/shared/components/AppSidebar";
-// import { Header } from "@/shared/components/Header";
+// import { SidebarProvider } from "@/shared/ui/sidebar";
+// import { AppSidebar } from "@/shared/layouts/AppSidebar";
+// import { Header } from "@/shared/layouts/Header";
 // import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 // import { TestUserProvider } from "@/contexts/TestUserContext";
-// import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
+// import { ProtectedRoute } from "@/shared/layouts/ProtectedRoute";
 
 // // Pages
 // import LoginPage from "@/features/auth/pages/LoginPage";
 // import SignupPage from "@/features/auth/pages/SignupPage";
 // import LandingPage from "@/features/landing/pages/LandingPage";
 // import HomePage from "@/features/home/pages/HomePage";
-// import MyWork from "@/pages/MyWork";
-// import MyTeam from "@/pages/MyTeam";
-// import AllItems from "@/pages/AllItems";
-// import MyHabits from "@/pages/MyHabits";
-// import DynamicWorkspace from "@/pages/DynamicWorkspace";
-// import DynamicBoard from "@/pages/DynamicBoard";
-// import BoardDashboardPage from "@/pages/BoardDashboardPage";
-// import DocumentEditor from "@/pages/DocumentEditor";
-// import NotFound from "@/pages/NotFound";
+// import MyWork from "@/features/workload/pages/MyWork";
+// import MyTeam from "@/features/workload/pages/MyTeam";
+// import AllItems from "@/features/workload/pages/AllItems";
+// import MyHabits from "@/features/habits/pages/MyHabits";
+// import DynamicWorkspace from "@/features/workspaces/pages/DynamicWorkspace";
+// import DynamicBoard from "@/features/boards/pages/DynamicBoard";
+// import BoardDashboardPage from "@/features/boards/pages/BoardDashboardPage";
+// import DocumentEditor from "@/features/documents/pages/DocumentEditor";
+// import NotFound from "@/features/home/pages/NotFound";
 
 // const App = () => (
 //   <TooltipProvider>

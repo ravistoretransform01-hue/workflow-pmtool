@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Input } from "@/shared/components/ui/input";
+import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/components/label";
 import {
   Card,
@@ -11,13 +11,14 @@ import {
   CardTitle,
 } from "@/shared/components/card";
 import { Loader2 } from "lucide-react";
-import { Logo } from "@/shared/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/shared/components/ui/button";
-import { requestNotificationPermission } from "@/lib/firebase";
-import { authApi } from "@/features/auth/authApi";
-import { debugLog } from "@/lib/debugLog";
-import { appName } from "@/lib/constants";
+import { Button } from "@/shared/ui/button";
+import { requestNotificationPermission } from "@/config/firebase";
+import { authApi } from "@/features/auth/api/authApi";
+import { debugLog } from "@/utils/debugLog";
+import { appName } from "@/constants";
+
+import loginLogo from "@/assets/login-logo.png";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -138,7 +139,11 @@ const LoginPage = () => {
       <div className="w-full max-w-md space-y-8 animate-slide-up">
         {/* Logo and Title */}
         <div className="text-center space-y-4">
-          <Logo size={64} rounded="rounded-xl" className="mx-auto" bgColor="bg-white" />
+          <img
+            src={loginLogo}
+            alt={`${appName} Logo`}
+            className="w-16 h-16 mx-auto rounded-xl bg-white shadow-sm object-contain p-1 border border-white/10"
+          />
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
               {appName}

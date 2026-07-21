@@ -1,9 +1,9 @@
 import { useDispatch, useSelector } from "react-redux";
 import { useCallback } from "react";
-import type { RootState, AppDispatch } from "@/app/store";
-import { createBoardThunk, fetchBoardsThunk } from "@/features/boards/boardsThunks";
-import { clearError, clearCreatedBoard } from "@/features/boards/boardsSlice";
-import type { CreateBoardRequest } from "@/features/boards/types";
+import type { RootState, AppDispatch } from "@/store";
+import { createBoardThunk, fetchBoardsThunk } from "@/features/boards/services/boardsThunks";
+import { clearError, clearCreatedBoard } from "@/features/boards/services/boardsSlice";
+import type { CreateBoardRequest } from "@/features/boards/types/types";
 
 export const useBoards = () => {
   const dispatch = useDispatch<AppDispatch>();

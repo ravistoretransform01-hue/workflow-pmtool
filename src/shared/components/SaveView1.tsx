@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Save, Check } from 'lucide-react';
-import { Button } from '@/shared/components/ui/button';
+import { Button } from "@/shared/ui/button";
 import { toast } from 'sonner';
 
 export interface SaveView1State {

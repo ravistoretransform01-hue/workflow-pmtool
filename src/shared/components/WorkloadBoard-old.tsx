@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { groupsApi } from "@/features/groups/groupsApi";
+import { groupsApi } from "@/features/groups/api/groupsApi";
 import {
   LayoutDashboard,
   Filter,
@@ -30,10 +30,10 @@ import {
   Columns
   // GripVertical,
 } from "lucide-react";
-import { Input } from "@/shared/components/ui/input";
-import { Button } from "@/shared/components/ui/button";
-import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
-import { Progress } from "@/shared/components/ui/progress";
+import { Input } from "@/shared/ui/input";
+import { Button } from "@/shared/ui/button";
+import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
+import { Progress } from "@/shared/ui/progress";
 import { MentionRichTextEditor } from "@/shared/components/MentionRichTextEditor";
 import {
   Dialog,
@@ -41,27 +41,27 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/shared/components/ui/dialog";
+} from "@/shared/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from "@/shared/components/ui/dropdown-menu";
+} from "@/shared/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@/shared/components/ui/sheet";
+} from "@/shared/ui/sheet";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@/shared/components/ui/tabs";
-// import { Popover, PopoverContent, PopoverTrigger} from "@/shared/components/ui/popover";
+} from "@/shared/ui/tabs";
+// import { Popover, PopoverContent, PopoverTrigger} from "@/shared/ui/popover";
 import {
   DndContext,
   closestCenter,
@@ -77,11 +77,11 @@ import {
   horizontalListSortingStrategy,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { GifPicker } from "./GifPicker";
-import { FileUploadDropdown } from "./FileUploadDropdown";
-import { EmojiPicker } from "./EmojiPicker";
-import { TableHeaderCell } from "./ui/tableHeadCell";
-import { debugLog } from "@/lib/debugLog";
+import { GifPicker } from "@/shared/components/GifPicker";
+import { FileUploadDropdown } from "@/shared/components/FileUploadDropdown";
+import { EmojiPicker } from "@/shared/components/EmojiPicker";
+import { TableHeaderCell } from "@/shared/ui/tableHeadCell";
+import { debugLog } from "@/utils/debugLog";
 
 interface WorkloadBoardProps {
   boardId: string;

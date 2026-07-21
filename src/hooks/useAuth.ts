@@ -1,10 +1,10 @@
 import { useDispatch, useSelector } from "react-redux";
 import { useCallback } from "react";
-import type { RootState, AppDispatch } from "@/app/store";
-import { loginThunk, signupThunk, logoutThunk } from "@/features/auth/authThunks";
-import { clearError, setUser } from "@/features/auth/authSlice";
-import type { LoginRequest, SignupRequest } from "@/features/auth/types";
-import { userApi } from "@/features/auth/userAPI";
+import type { RootState, AppDispatch } from "@/store";
+import { loginThunk, signupThunk, logoutThunk } from "@/features/auth/services/authThunks";
+import { clearError, setUser } from "@/features/auth/services/authSlice";
+import type { LoginRequest, SignupRequest } from "@/features/auth/types/types";
+import { userApi } from "@/features/auth/api/userAPI";
 
 export const useAuth = () => {
   const dispatch = useDispatch<AppDispatch>();

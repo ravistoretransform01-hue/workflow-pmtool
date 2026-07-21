@@ -1,11 +1,11 @@
 import { useSelector, useDispatch } from "react-redux";
 import { RotateCw } from "lucide-react";
-import type { RootState } from "@/app/store";
-import { cn } from "@/lib/utils";
-import { Button } from "@/shared/components/ui/button";
-import { triggerRefresh } from "@/features/ui/uiSlice";
-import { fetchBoardsThunk } from "@/features/boards/boardsThunks";
-import { fetchActiveTimer } from "@/features/tasks/tasksSlice";
+import type { RootState } from "@/store";
+import { cn } from "@/utils/utils";
+import { Button } from "@/shared/ui/button";
+import { triggerRefresh } from "@/features/ui/services/uiSlice";
+import { fetchBoardsThunk } from "@/features/boards/services/boardsThunks";
+import { fetchActiveTimer } from "@/features/tasks/services/tasksSlice";
 
 interface SavingSpinnerProps {
   className?: string;

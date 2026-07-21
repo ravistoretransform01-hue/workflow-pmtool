@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { switchOrganization } from "@/features/auth/authSlice";
-import type { RootState } from "@/app/store";
+import { switchOrganization } from "@/features/auth/services/authSlice";
+import type { RootState } from "@/store";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuPortal,
-} from "@/shared/components/ui/dropdown-menu";
+} from "@/shared/ui/dropdown-menu";
 import {
   Bell,
   Search,
@@ -18,18 +18,18 @@ import {
   X as CloseIcon,
   Check,
 } from "lucide-react";
-import { Button } from "@/shared/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@/shared/components/ui/sheet";
-import { Input } from "@/shared/components/ui/input";
-import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
-import { ScrollArea } from "@/shared/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { stringToHslColor } from "@/shared/components/workload/utils/workload-utils";
+} from "@/shared/ui/sheet";
+import { Input } from "@/shared/ui/input";
+import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
+import { ScrollArea } from "@/shared/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
+import { stringToHslColor } from "@/features/workload/utils/workload-utils";
 
 const stripHtml = (html: string) => {
   if (!html) return "";
@@ -44,15 +44,15 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/shared/components/ui/tooltip";
+} from "@/shared/ui/tooltip";
 import {
   notificationsApi,
   type Notification,
-} from "@/features/notifications/notificationsApi";
-import { cn } from "@/lib/utils";
-import { timeAgoFromApiDate } from "@/lib/dates";
-import { Switch } from "@/shared/components/ui/switch";
-import { Label } from "@/shared/components/ui/label";
+} from "@/features/notifications/api/notificationsApi";
+import { cn } from "@/utils/utils";
+import { timeAgoFromApiDate } from "@/utils/dates";
+import { Switch } from "@/shared/ui/switch";
+import { Label } from "@/shared/ui/label";
 
 export function NotificationBell() {
   const dispatch = useDispatch();

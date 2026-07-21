@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/components/label";
 import {
   Card,
@@ -13,9 +13,9 @@ import {
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Logo } from "@/shared/components/Logo";
 import { useToast } from "@/hooks/use-toast";
-import api from "@/lib/axios";
-import { clearAllBrowserStorage } from "@/lib/utils";
-import { appName } from "@/lib/constants";
+import api from "@/config/axios";
+import { clearAllBrowserStorage } from "@/utils/utils";
+import { appName } from "@/constants";
 
 const SignupPage = () => {
   const navigate = useNavigate();
@@ -399,8 +399,8 @@ export default SignupPage;
 // // import { Link, useNavigate } from "react-router-dom";
 // import { useState } from "react";
 // import { Link } from "react-router-dom";
-// import { Button } from "@/shared/components/ui/button";
-// import { Input } from "@/shared/components/ui/input";
+// import { Button } from "@/shared/ui/button";
+// import { Input } from "@/shared/ui/input";
 // import { Label } from "@/shared/components/label";
 // import {
 //   Card,

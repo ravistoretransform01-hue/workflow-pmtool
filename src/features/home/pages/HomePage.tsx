@@ -11,18 +11,18 @@
 //   ChevronDown,
 // } from "lucide-react";
 // import { useNavigate } from "react-router-dom";
-// import { groupsApi } from "@/features/groups/groupsApi";
-// import { boardsApi } from "@/features/boards/boardsApi";
-// import type { Group } from "@/features/groups/types";
-// import type { Board } from "@/features/boards/types";
-// import { Input } from "@/shared/components/ui/input";
-// import { Button } from "@/shared/components/ui/button";
-// import { Badge } from "@/shared/components/ui/badge";
-// import { Progress } from "@/shared/components/ui/progress";
-// import { Checkbox } from "@/shared/components/ui/checkbox";
-// import { Skeleton } from "@/shared/components/ui/skeleton";
+// import { groupsApi } from "@/features/groups/api/groupsApi";
+// import { boardsApi } from "@/features/boards/api/boardsApi";
+// import type { Group } from "@/features/groups/types/types";
+// import type { Board } from "@/features/boards/types/types";
+// import { Input } from "@/shared/ui/input";
+// import { Button } from "@/shared/ui/button";
+// import { Badge } from "@/shared/ui/badge";
+// import { Progress } from "@/shared/ui/progress";
+// import { Checkbox } from "@/shared/ui/checkbox";
+// import { Skeleton } from "@/shared/ui/skeleton";
 // import { useAppSelector } from "@/hooks";
-// import type { RootState } from "@/app/store";
+// import type { RootState } from "@/store";
 
 // const HomePage = () => {
 //   const navigate = useNavigate();

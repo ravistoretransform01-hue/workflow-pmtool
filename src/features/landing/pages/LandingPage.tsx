@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/shared/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { Users, FolderKanban, ArrowRight, BarChart3 } from "lucide-react";
-import { appName } from "@/lib/constants";
+import { appName } from "@/constants";
 import { Logo } from "@/shared/components/Logo";
 
 const LandingPage = () => {
