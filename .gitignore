@@ -27,3 +27,4 @@ src-copy
 .kiro
 READMETEMP.md
 .env
+.vercel
