@@ -5654,7 +5654,7 @@ export function WorkloadBoard({
               </div>
 
               {/* Done Items Checkbox */}
-              <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
+              {/* <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
                 <input
                   type="checkbox"
                   checked={filterState.showDoneItemsOnly}
@@ -5664,7 +5664,7 @@ export function WorkloadBoard({
                   className="cursor-pointer"
                 />
                 <span className="text-sm font-medium">Done Items</span>
-              </label>
+              </label> */}
 
               {/* Overbudget Items Checkbox */}
               <label className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded hover:bg-hover transition-colors">
