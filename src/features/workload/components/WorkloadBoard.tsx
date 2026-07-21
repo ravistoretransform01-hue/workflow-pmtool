@@ -2907,7 +2907,7 @@ export function WorkloadBoard({
             let updatedTask = task;
             const match = updatedMap.get(task.id);
             if (match) {
-              const assigneeIds = match.assignees?.map((a) => String(a.user_id)) || [];
+              const assigneeIds = match.assignees?.map((a: any) => String(a.user_id)) || [];
               updatedTask = {
                 ...task,
                 person: match.assignees?.[0]?.name || match.assignee?.name,
@@ -2916,7 +2916,7 @@ export function WorkloadBoard({
                   String(match.assigned_to),
                 assigned_to_ids: assigneeIds,
                 assignee_names:
-                  match.assignees?.map((a) => a.name || a.username || "") ||
+                  match.assignees?.map((a: any) => a.name || a.username || "") ||
                   (match.assignee?.name ? [match.assignee.name] : []),
               };
             }
@@ -2927,7 +2927,7 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) => {
                   const subMatch = updatedMap.get(sub.id);
                   if (subMatch) {
-                    const assigneeIds = subMatch.assignees?.map((a) => String(a.user_id)) || [];
+                    const assigneeIds = subMatch.assignees?.map((a: any) => String(a.user_id)) || [];
                     return {
                       ...sub,
                       person: subMatch.assignees?.[0]?.name || subMatch.assignee?.name,
@@ -2936,7 +2936,7 @@ export function WorkloadBoard({
                         String(subMatch.assigned_to),
                       assigned_to_ids: assigneeIds,
                       assignee_names:
-                        subMatch.assignees?.map((a) => a.name || a.username || "") ||
+                        subMatch.assignees?.map((a: any) => a.name || a.username || "") ||
                         (subMatch.assignee?.name ? [subMatch.assignee.name] : []),
                     };
                   }
