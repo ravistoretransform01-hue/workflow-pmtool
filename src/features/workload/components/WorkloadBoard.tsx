@@ -2820,6 +2820,8 @@ export function WorkloadBoard({
 
   const handlePersonChange = async (taskId: string, memberIds: string[], skipToast?: boolean) => {
     try {
+      const boardIdNum = Number(boardId);
+
       // Find the reference task to identify which member was added or removed
       let referenceTask: any = null;
       for (const group of groups) {
