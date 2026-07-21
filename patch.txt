@@ -1,0 +1,23 @@
+﻿diff --git a/.gitignore b/.gitignore
+index 428f4c1..7c7fa43 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -27,3 +27,5 @@ src-copy
+ .kiro
+ READMETEMP.md
+ .env
++.vercel
++.env*
+diff --git a/src/features/workload/components/WorkloadBoard.tsx b/src/features/workload/components/WorkloadBoard.tsx
+index 9be447b..8227b24 100644
+--- a/src/features/workload/components/WorkloadBoard.tsx
++++ b/src/features/workload/components/WorkloadBoard.tsx
+@@ -964,7 +964,7 @@ export function WorkloadBoard({
+       setIsLoadingGroups(true);
+ 
+       try {
+-        const boardIdNum = Number(boardId);
++        
+ 
+         const [groupsRes, tasksRes] = await Promise.all([
+           groupsApi.getGroupsByBoard(boardIdNum),
