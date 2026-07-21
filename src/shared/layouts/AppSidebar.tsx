@@ -55,7 +55,7 @@ import { boardsApi } from "@/features/boards/api/boardsApi";
 import { useAppSelector } from "@/hooks";
 import { appName } from "@/constants";
 
-import { Logo } from "@/shared/components/Logo";
+
 
 export const AppSidebar = () => {
   const user = useAppSelector((state) => state.auth.user);
@@ -317,9 +317,9 @@ export const AppSidebar = () => {
         </div>
         <SidebarHeader className="h-16 flex items-center justify-center">
           <div className="flex items-center justify-between gap-2 w-full px-6">
-            <div className="flex items-center gap-2">
-              <Logo size={32} rounded="rounded-md" bgColor="bg-white" />
-              {open && <h1 className="text-lg">{appName}</h1>}
+            <div className="flex items-center gap-2 w-full">
+              <img src="/favicon/apple-touch-icon.png" alt="Logo" className="w-8 h-8 rounded-md bg-white object-contain shadow-sm" style={{ padding: "2px" }} />
+              {open && <h1 className="text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap">{appName}</h1>}
             </div>
           </div>
         </SidebarHeader>
