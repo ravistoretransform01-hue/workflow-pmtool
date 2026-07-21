@@ -3492,12 +3492,11 @@ export function WorkloadBoard({
       // Perform priority updates in parallel
       const updatedResults = await Promise.all(
         tasksToUpdate.map(async (id) => {
-          const payload: UpdateTaskRequest = {
-            id,
+          return tasksApi.updateTaskPriority({
+            taskId: id,
             board_id: boardIdNum,
-            task_priority_id: Number(priorityId),
-          };
-          return tasksApi.updateTask(payload);
+            priority_id: Number(priorityId),
+          });
         })
       );
 

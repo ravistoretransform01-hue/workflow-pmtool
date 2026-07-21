@@ -20,6 +20,7 @@ const TASKS_ENDPOINTS = {
   CREATE_TASK: `/tasks`,
   DELETE_TASK: `/tasks`,
   UPDATE_TASK: `/tasks`,
+  PATCH_UPDATE_TASK: `/tasks/update`,
   CREATE_ESTIMATED_DATE: `/tasks/estimate/date`,
   UPDATE_ESTIMATED_DATE: `/tasks/estimate/date`,
   DELETE_ESTIMATED_DATE: `/tasks/estimate`,
@@ -258,9 +259,13 @@ export const tasksApi = {
     tag_id: string | number;
   }): Promise<TaskResponse> => {
     try {
-      const response = await axios.put<{ data: TaskResponse }>(
-        TASKS_ENDPOINTS.UPDATE_TASK,
-        payload,
+      const response = await axios.patch<{ data: TaskResponse }>(
+        TASKS_ENDPOINTS.PATCH_UPDATE_TASK,
+        {
+          task_id: payload.id,
+          type: "tag", // Assuming "tag" is the type for applying a tag based on the pattern
+          tag_id: payload.tag_id,
+        },
       );
       return response.data.data;
     } catch (error) {
@@ -876,17 +881,41 @@ export const tasksApi = {
     board_id: number;
   }): Promise<TaskResponse> => {
     try {
-      const response = await axios.put<{ data: TaskResponse }>(
-        TASKS_ENDPOINTS.UPDATE_TASK,
+      const response = await axios.patch<{ data: TaskResponse }>(
+        TASKS_ENDPOINTS.PATCH_UPDATE_TASK,
         {
-          id: payload.taskId,
+          task_id: payload.taskId,
+          type: "status",
           status_id: payload.status_id,
-          board_id: payload.board_id,
         },
       );
       return response.data.data;
     } catch (error) {
       console.error("Failed to update task status:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update the priority of a task via the patch update endpoint
+   */
+  updateTaskPriority: async (payload: {
+    taskId: string | number;
+    priority_id: number;
+    board_id: number;
+  }): Promise<TaskResponse> => {
+    try {
+      const response = await axios.patch<{ data: TaskResponse }>(
+        TASKS_ENDPOINTS.PATCH_UPDATE_TASK,
+        {
+          task_id: payload.taskId,
+          type: "priority",
+          task_priority_id: payload.priority_id,
+        },
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Failed to update task priority:", error);
       throw error;
     }
   },
