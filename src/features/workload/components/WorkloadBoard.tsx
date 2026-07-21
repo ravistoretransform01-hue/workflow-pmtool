@@ -3198,14 +3198,17 @@ export function WorkloadBoard({
               const tagToRemove = targetTask.tags.find(
                 (t: any) => String(t.tag_id) === tagIdStr,
               );
-              if (tagToRemove?.task_tag_id) {
-                await tasksApi.removeTaskTag(tagToRemove.task_tag_id);
-                // Return updated task tags by filtering out the removed tag
-                const newTags = targetTask.tags.filter(
-                  (t: any) => String(t.tag_id) !== tagIdStr,
-                );
-                return { id, tags: newTags };
-              }
+              // We now send the tag_id instead of task_tag_id since we are using PATCH update api
+              await tasksApi.removeTaskTagByTagId({
+                id,
+                tag_id: Number(cmsTag.id),
+              });
+              
+              // Return updated task tags by filtering out the removed tag
+              const newTags = targetTask.tags.filter(
+                (t: any) => String(t.tag_id) !== tagIdStr,
+              );
+              return { id, tags: newTags };
             }
           } else {
             // We want to ADD the tag to this task.

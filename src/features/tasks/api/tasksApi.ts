@@ -256,15 +256,18 @@ export const tasksApi = {
    */
   updateTaskTags: async (payload: {
     id: string | number;
-    tag_id: string | number;
+    tag_id: string | number; // Note: We might want to allow an array here if UI supports batch, but keeping it scalar for now based on current interface
   }): Promise<TaskResponse> => {
     try {
       const response = await axios.patch<{ data: TaskResponse }>(
         TASKS_ENDPOINTS.PATCH_UPDATE_TASK,
         {
           task_id: payload.id,
-          type: "tag", // Assuming "tag" is the type for applying a tag based on the pattern
-          tag_id: payload.tag_id,
+          type: "tags",
+          tags: {
+            action: "add",
+            tags: [Number(payload.tag_id)], // Wrap in array as expected by API
+          },
         },
       );
       return response.data.data;
@@ -310,6 +313,31 @@ export const tasksApi = {
       await axios.delete(TASKS_ENDPOINTS.REMOVE_TASK_TAG, {
         data: { id: taskTagId },
       });
+    } catch (error) {
+      console.error("Failed to remove task tag:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove a tag from a task using the new PATCH endpoint 
+   */
+  removeTaskTagByTagId: async (payload: {
+    id: string | number;
+    tag_id: string | number;
+  }): Promise<void> => {
+    try {
+      await axios.patch(
+        TASKS_ENDPOINTS.PATCH_UPDATE_TASK,
+        {
+          task_id: payload.id,
+          type: "tags",
+          tags: {
+            action: "remove",
+            tags: [Number(payload.tag_id)],
+          },
+        },
+      );
     } catch (error) {
       console.error("Failed to remove task tag:", error);
       throw error;
