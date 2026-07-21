@@ -11,7 +11,6 @@ import {
   CardTitle,
 } from "@/shared/components/card";
 import { Loader2 } from "lucide-react";
-import { Logo } from "@/shared/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/shared/ui/button";
 import { requestNotificationPermission } from "@/config/firebase";
@@ -138,7 +137,11 @@ const LoginPage = () => {
       <div className="w-full max-w-md space-y-8 animate-slide-up">
         {/* Logo and Title */}
         <div className="text-center space-y-4">
-          <Logo size={64} rounded="rounded-xl" className="mx-auto" bgColor="bg-white" />
+          <img
+            src="/favicon/apple-touch-icon.png"
+            alt={`${appName} Logo`}
+            className="w-16 h-16 mx-auto rounded-xl bg-white shadow-sm"
+          />
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
               {appName}
