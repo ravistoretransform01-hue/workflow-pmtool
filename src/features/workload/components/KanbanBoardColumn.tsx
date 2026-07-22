@@ -47,32 +47,39 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
   isOverlay = false,
   disableInternalScroll = false,
 }: KanbanBoardColumnProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef: setSortableRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: `column-${columnId}`,
-    data: { type: "column", columnId },
-  });
+  // Removed drag drop comment
+  // const {
+  //   attributes,
+  //   listeners,
+  //   setNodeRef: setSortableRef,
+  //   transform,
+  //   transition,
+  //   isDragging,
+  // } = useSortable({
+  //   id: `column-${columnId}`,
+  //   data: { type: "column", columnId },
+  // });
 
-  const { setNodeRef: setDroppableRef } = useDroppable({
-    id: columnId,
-    data: { type: "column", columnId },
-  });
+  // const { setNodeRef: setDroppableRef } = useDroppable({
+  //   id: columnId,
+  //   data: { type: "column", columnId },
+  // });
 
-  const setNodeRef = (node: HTMLDivElement | null) => {
-    setSortableRef(node);
-    setDroppableRef(node);
-  };
+  // const setNodeRef = (node: HTMLDivElement | null) => {
+  //   setSortableRef(node);
+  //   setDroppableRef(node);
+  // };
 
-  const style = {
-    transform: transform && (transform.x !== 0 || transform.y !== 0) ? CSS.Translate.toString(transform) : undefined,
-    transition: transform && (transform.x !== 0 || transform.y !== 0) ? transition : undefined,
-  };
+  // const style = {
+  //   transform: transform && (transform.x !== 0 || transform.y !== 0) ? CSS.Translate.toString(transform) : undefined,
+  //   transition: transform && (transform.x !== 0 || transform.y !== 0) ? transition : undefined,
+  // };
+
+  const isDragging = false;
+  const style = undefined;
+  const setNodeRef = undefined;
+  const attributes = {};
+  const listeners = {};
 
   return (
     <div
@@ -103,7 +110,7 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
             the active drop target, so the header never looks "cut out". */}
         <div
           className={[
-            "p-4 border-b flex flex-col gap-2 sticky top-0 z-10 shadow-sm cursor-grab active:cursor-grabbing group/header",
+            "p-4 border-b flex flex-col gap-2 sticky top-0 z-10 shadow-sm group/header",
             isColumnActive && !isDragging
               ? "bg-primary/5 border-primary/20"
               : "bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800",
@@ -121,11 +128,13 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
             // Static, non-interactive preview for the floating column clone
             taskIds.slice(0, 3).map((id) => <div key={id}>{renderCard(id)}</div>)
           ) : (
-            <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+            <>
+              {/* <SortableContext items={taskIds} strategy={verticalListSortingStrategy}> */}
               {taskIds.map((id) => (
                 <KanbanBoardCard key={id} taskId={id} renderCard={renderCard} ghostHeight={cardGhostHeight} />
               ))}
-            </SortableContext>
+              {/* </SortableContext> */}
+            </>
           )}
         </div>
       </div>
@@ -142,28 +151,33 @@ function KanbanBoardCard({
   renderCard: (taskId: string) => React.ReactNode;
   ghostHeight: number;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: taskId,
-    data: { type: "card", taskId },
-  });
+  // const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  //   id: taskId,
+  //   data: { type: "card", taskId },
+  // });
 
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-  };
+  // const style = {
+  //   transform: CSS.Translate.toString(transform),
+  //   transition,
+  // };
+  const attributes = {};
+  const listeners = {};
+  const setNodeRef = undefined;
+  const isDragging = false;
+  const style: React.CSSProperties | undefined = undefined;
 
   if (isDragging) {
     return (
       <div
         ref={setNodeRef}
-        style={{ ...style, height: ghostHeight }}
+        style={{ ...(style || {}), height: ghostHeight }}
         className="bg-muted/30 border-2 border-dashed border-primary/20 rounded-lg w-full"
       />
     );
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef as any} style={style}>
       {renderCard(taskId)}
     </div>
   );

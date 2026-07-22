@@ -7669,7 +7669,7 @@ export function WorkloadBoard({
                     return (
                       <div
                         onClick={() => openTaskCard(task)}
-                        className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
+                        className="bg-card border border-border rounded-lg p-3 hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
                       >
                         {/* 1. Project ID & Name */}
                         <div className="flex flex-col gap-1 shrink-0">
@@ -7762,17 +7762,18 @@ export function WorkloadBoard({
                       : null;
 
                   return (
-                    <DndContext
-                      sensors={projectsSensors}
-                      collisionDetection={kanbanCollisionDetection}
-                      onDragStart={handleProjectsDragStart}
-                      onDragOver={handleProjectsDragOver}
-                      onDragEnd={handleProjectsDragEnd}
-                    >
-                      <SortableContext
-                        items={groupsToRender.map((g) => `column-${g.id}`)}
-                        strategy={horizontalListSortingStrategy}
+                    <>
+                      {/* <DndContext
+                        sensors={projectsSensors}
+                        collisionDetection={kanbanCollisionDetection}
+                        onDragStart={handleProjectsDragStart}
+                        onDragOver={handleProjectsDragOver}
+                        onDragEnd={handleProjectsDragEnd}
                       >
+                        <SortableContext
+                          items={groupsToRender.map((g) => `column-${g.id}`)}
+                          strategy={horizontalListSortingStrategy}
+                        > */}
                         {groupsToRender.map((group, index) => {
                           const projectTasks = group.tasks || [];
                           const taskIdList = projectTasks.map((t) => t.id);
@@ -7795,7 +7796,7 @@ export function WorkloadBoard({
                             />
                           );
                         })}
-                      </SortableContext>
+                      {/* </SortableContext>
                       <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
                         {projectsActiveType === "card" && projectsActiveId
                           ? renderProjectCard(projectsActiveId)
@@ -7816,7 +7817,8 @@ export function WorkloadBoard({
                             )
                             : null}
                       </DragOverlay>
-                    </DndContext>
+                    </DndContext> */}
+                    </>
                   );
                 })()}
                 </div>
@@ -7923,7 +7925,7 @@ export function WorkloadBoard({
                   return (
                     <div
                       onClick={() => openTaskCard(task)}
-                      className="bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
+                      className="bg-card border border-border rounded-lg p-3 hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
                     >
                       {/* 1. Project ID & Name */}
                       <div className="flex flex-col gap-1 shrink-0">
@@ -8015,18 +8017,19 @@ export function WorkloadBoard({
                     ? teamsActiveId.replace("column-", "")
                     : null;
 
-                return (
-                  <DndContext
-                    sensors={teamsSensors}
-                    collisionDetection={kanbanCollisionDetection}
-                    onDragStart={handleTeamsDragStart}
-                    onDragOver={handleTeamsDragOver}
-                    onDragEnd={handleTeamsDragEnd}
-                  >
-                    <SortableContext
-                      items={orderedPersons.map((p) => `column-${p}`)}
-                      strategy={horizontalListSortingStrategy}
-                    >
+                  return (
+                    <>
+                      {/* <DndContext
+                        sensors={teamsSensors}
+                        collisionDetection={kanbanCollisionDetection}
+                        onDragStart={handleTeamsDragStart}
+                        onDragOver={handleTeamsDragOver}
+                        onDragEnd={handleTeamsDragEnd}
+                      >
+                        <SortableContext
+                          items={orderedPersons.map((p) => `column-${p}`)}
+                          strategy={horizontalListSortingStrategy}
+                        > */}
                       {orderedPersons.map((person, index) => {
                         const personTasks = getPersonTasks(person);
                         if (personTasks.length === 0 && person !== "Unassigned") return null;
@@ -8051,28 +8054,29 @@ export function WorkloadBoard({
                           />
                         );
                       })}
-                    </SortableContext>
-                    <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
-                      {teamsActiveType === "card" && teamsActiveId
-                        ? renderPersonCard(teamsActiveId)
-                        : teamsActiveType === "column" && activePerson
-                          ? (
-                            <KanbanBoardColumn
-                              columnId={activePerson}
-                              taskIds={getPersonTasks(activePerson).map((t) => t.id)}
-                              cardGhostHeight={175}
-                              header={renderPersonHeader(
-                                activePerson,
-                                bgColors[orderedPersons.indexOf(activePerson) % bgColors.length],
-                                getPersonTasks(activePerson).length,
-                              )}
-                              renderCard={renderPersonCard}
-                              isOverlay
-                            />
-                          )
-                          : null}
-                    </DragOverlay>
-                  </DndContext>
+                      {/* </SortableContext>
+                      <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
+                        {teamsActiveType === "card" && teamsActiveId
+                          ? renderPersonCard(teamsActiveId)
+                          : teamsActiveType === "column" && activePerson
+                            ? (
+                              <KanbanBoardColumn
+                                columnId={activePerson}
+                                taskIds={getPersonTasks(activePerson).map((t) => t.id)}
+                                cardGhostHeight={175}
+                                header={renderPersonHeader(
+                                  activePerson,
+                                  bgColors[orderedPersons.indexOf(activePerson) % bgColors.length],
+                                  getPersonTasks(activePerson).length,
+                                )}
+                                renderCard={renderPersonCard}
+                                isOverlay
+                              />
+                            )
+                            : null}
+                      </DragOverlay>
+                    </DndContext> */}
+                    </>
                 );
               })()}
               </div>
