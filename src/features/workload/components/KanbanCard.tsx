@@ -26,6 +26,7 @@ interface KanbanCardProps {
   members: any[];
   onDeleteTask?: (taskId: string) => Promise<void>;
   onOpenComments?: (task: Task) => void;
+  disableDrag?: boolean;
 }
 
 export function KanbanCard({
@@ -40,6 +41,7 @@ export function KanbanCard({
   members,
   onDeleteTask,
   onOpenComments,
+  disableDrag = false,
 }: KanbanCardProps) {
   const {
     setNodeRef,
@@ -51,8 +53,7 @@ export function KanbanCard({
     data: {
       type: "card",
       task,
-    },
-    disabled: true,
+    disabled: disableDrag,
   });
 
   const style = overlay
@@ -87,12 +88,21 @@ export function KanbanCard({
       style={style}
       className={
         "bg-card border border-border rounded-lg p-3 transition-shadow group relative" +
-        (overlay ? " shadow-2xl ring-2 ring-primary/20" : " hover:shadow-md")
+        (!disableDrag ? " cursor-grab active:cursor-grabbing hover:shadow-md" : " hover:shadow-md") +
+        (overlay ? " shadow-2xl ring-2 ring-primary/20" : "")
       }
       onClick={onClick}
+      {...(!overlay && !disableDrag ? { ...attributes, ...listeners } : {})}
     >
       <div className="flex items-start gap-2">
-        {/* Grip handle removed to reflect disabled dragging */}
+        {!disableDrag && (
+          <div
+            className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+            {...(!overlay ? { ...attributes } : {})}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+        )}
         <div className="flex-1 min-w-0 pr-5">
           {showGroup && groupName && (
             <div className="flex items-center gap-1.5 mb-1.5 mt-0.5">
