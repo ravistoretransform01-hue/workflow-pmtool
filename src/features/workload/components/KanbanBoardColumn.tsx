@@ -47,39 +47,32 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
   isOverlay = false,
   disableInternalScroll = false,
 }: KanbanBoardColumnProps) {
-  // Removed drag drop comment
-  // const {
-  //   attributes,
-  //   listeners,
-  //   setNodeRef: setSortableRef,
-  //   transform,
-  //   transition,
-  //   isDragging,
-  // } = useSortable({
-  //   id: `column-${columnId}`,
-  //   data: { type: "column", columnId },
-  // });
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: `column-${columnId}`,
+    data: { type: "column", columnId },
+  });
 
-  // const { setNodeRef: setDroppableRef } = useDroppable({
-  //   id: columnId,
-  //   data: { type: "column", columnId },
-  // });
+  const { setNodeRef: setDroppableRef } = useDroppable({
+    id: columnId,
+    data: { type: "column", columnId },
+  });
 
-  // const setNodeRef = (node: HTMLDivElement | null) => {
-  //   setSortableRef(node);
-  //   setDroppableRef(node);
-  // };
+  const setNodeRef = (node: HTMLDivElement | null) => {
+    setSortableRef(node);
+    setDroppableRef(node);
+  };
 
-  // const style = {
-  //   transform: transform && (transform.x !== 0 || transform.y !== 0) ? CSS.Translate.toString(transform) : undefined,
-  //   transition: transform && (transform.x !== 0 || transform.y !== 0) ? transition : undefined,
-  // };
-
-  const isDragging = false;
-  const style = undefined;
-  const setNodeRef = undefined;
-  const attributes = {};
-  const listeners = {};
+  const style = {
+    transform: transform && (transform.x !== 0 || transform.y !== 0) ? CSS.Translate.toString(transform) : undefined,
+    transition: transform && (transform.x !== 0 || transform.y !== 0) ? transition : undefined,
+  };
 
   return (
     <div
@@ -129,11 +122,11 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
             taskIds.slice(0, 3).map((id) => <div key={id}>{renderCard(id)}</div>)
           ) : (
             <>
-              {/* <SortableContext items={taskIds} strategy={verticalListSortingStrategy}> */}
+              <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
               {taskIds.map((id) => (
                 <KanbanBoardCard key={id} taskId={id} renderCard={renderCard} ghostHeight={cardGhostHeight} />
               ))}
-              {/* </SortableContext> */}
+              </SortableContext>
             </>
           )}
         </div>
@@ -151,20 +144,16 @@ function KanbanBoardCard({
   renderCard: (taskId: string) => React.ReactNode;
   ghostHeight: number;
 }) {
-  // const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-  //   id: taskId,
-  //   data: { type: "card", taskId },
-  // });
+  const { setNodeRef, transform, transition, isDragging } = useSortable({
+    id: taskId,
+    data: { type: "card", taskId },
+    disabled: true,
+  });
 
-  // const style = {
-  //   transform: CSS.Translate.toString(transform),
-  //   transition,
-  // };
-  const attributes = {};
-  const listeners = {};
-  const setNodeRef = undefined;
-  const isDragging = false;
-  const style: React.CSSProperties | undefined = undefined;
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
 
   if (isDragging) {
     return (
@@ -177,7 +166,7 @@ function KanbanBoardCard({
   }
 
   return (
-    <div ref={setNodeRef as any} style={style}>
+    <div ref={setNodeRef} style={style}>
       {renderCard(taskId)}
     </div>
   );
