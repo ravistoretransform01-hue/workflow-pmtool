@@ -1,0 +1,10 @@
+﻿cafd779 HEAD@{0}: merge ravi-calendar-new-module: Fast-forward
+d638eb4 HEAD@{1}: checkout: moving from ravi-calendar-new-module to ravi-development
+cafd779 HEAD@{2}: commit: UPDATE : Minor Design Changes
+e21ceda HEAD@{3}: commit: FIXED : Calender Design Issue
+5bb27db HEAD@{4}: commit: UPDATE: add CalendarView component using FullCalendar for task scheduling and resource management
+bdde50f HEAD@{5}: commit: UPDATE: implement CalendarView component using FullCalendar for task visualization and management
+8e79048 HEAD@{6}: commit: feat: complete CalendarView implementation with FullCalendar and Dark Mode integration
+d638eb4 HEAD@{7}: checkout: moving from ravi-development to ravi-calendar-new-module
+d638eb4 HEAD@{8}: commit: feat: implement FullCalendar inside Calendar tab panel
+2db7f1b HEAD@{9}: commit: fix: disable ticket drag drop on all kanban boards

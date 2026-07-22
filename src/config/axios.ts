@@ -1,7 +1,7 @@
 import axios, { AxiosError, type AxiosResponse } from "axios";
 import { debugLog, debugWarn, debugError, getTokenInfo } from "@/utils/debugLog";
 import { toast } from "@/hooks/use-toast";
-
+ 
 declare module "axios" {
   export interface AxiosRequestConfig {
     skipAuth?: boolean;
