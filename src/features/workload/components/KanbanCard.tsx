@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, MoreVertical, Trash2, MessageCircle, MessageCirclePlus } from "lucide-react";
+import { MoreVertical, Trash2, MessageCircle, MessageCirclePlus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,8 +42,6 @@ export function KanbanCard({
   onOpenComments,
 }: KanbanCardProps) {
   const {
-    attributes,
-    listeners,
     setNodeRef,
     transform,
     transition,
@@ -54,6 +52,7 @@ export function KanbanCard({
       type: "card",
       task,
     },
+    disabled: true,
   });
 
   const style = overlay
@@ -87,19 +86,13 @@ export function KanbanCard({
       ref={setNodeRef}
       style={style}
       className={
-        "bg-card border border-border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group relative" +
-        (overlay ? " shadow-2xl ring-2 ring-primary/20" : "")
+        "bg-card border border-border rounded-lg p-3 transition-shadow group relative" +
+        (overlay ? " shadow-2xl ring-2 ring-primary/20" : " hover:shadow-md")
       }
       onClick={onClick}
-      {...(!overlay ? { ...attributes, ...listeners } : {})}
     >
       <div className="flex items-start gap-2">
-        <div
-          className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-          {...(!overlay ? { ...attributes } : {})}
-        >
-          <GripVertical className="h-4 w-4 text-muted-foreground" />
-        </div>
+        {/* Grip handle removed to reflect disabled dragging */}
         <div className="flex-1 min-w-0 pr-5">
           {showGroup && groupName && (
             <div className="flex items-center gap-1.5 mb-1.5 mt-0.5">
