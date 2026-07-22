@@ -7764,7 +7764,7 @@ export function WorkloadBoard({
 
                   return (
                     <>
-                      {/* <DndContext
+                      <DndContext
                         sensors={projectsSensors}
                         collisionDetection={kanbanCollisionDetection}
                         onDragStart={handleProjectsDragStart}
@@ -7774,7 +7774,7 @@ export function WorkloadBoard({
                         <SortableContext
                           items={groupsToRender.map((g) => `column-${g.id}`)}
                           strategy={horizontalListSortingStrategy}
-                        > */}
+                        >
                         {groupsToRender.map((group, index) => {
                           const projectTasks = group.tasks || [];
                           const taskIdList = projectTasks.map((t) => t.id);
@@ -7797,7 +7797,7 @@ export function WorkloadBoard({
                             />
                           );
                         })}
-                      {/* </SortableContext>
+                      </SortableContext>
                       <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
                         {projectsActiveType === "card" && projectsActiveId
                           ? renderProjectCard(projectsActiveId)
@@ -7818,7 +7818,7 @@ export function WorkloadBoard({
                             )
                             : null}
                       </DragOverlay>
-                    </DndContext> */}
+                    </DndContext>
                     </>
                   );
                 })()}
@@ -8020,7 +8020,7 @@ export function WorkloadBoard({
 
                   return (
                     <>
-                      {/* <DndContext
+                      <DndContext
                         sensors={teamsSensors}
                         collisionDetection={kanbanCollisionDetection}
                         onDragStart={handleTeamsDragStart}
@@ -8030,7 +8030,7 @@ export function WorkloadBoard({
                         <SortableContext
                           items={orderedPersons.map((p) => `column-${p}`)}
                           strategy={horizontalListSortingStrategy}
-                        > */}
+                        >
                       {orderedPersons.map((person, index) => {
                         const personTasks = getPersonTasks(person);
                         if (personTasks.length === 0 && person !== "Unassigned") return null;
@@ -8055,7 +8055,7 @@ export function WorkloadBoard({
                           />
                         );
                       })}
-                      {/* </SortableContext>
+                      </SortableContext>
                       <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
                         {teamsActiveType === "card" && teamsActiveId
                           ? renderPersonCard(teamsActiveId)
@@ -8076,7 +8076,7 @@ export function WorkloadBoard({
                             )
                             : null}
                       </DragOverlay>
-                    </DndContext> */}
+                    </DndContext>
                     </>
                 );
               })()}
