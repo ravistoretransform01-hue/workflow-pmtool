@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { MoreVertical, Trash2, MessageCircle, MessageCirclePlus } from "lucide-react";
+import { MoreVertical, Trash2, MessageCircle, MessageCirclePlus, GripVertical } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,11 +48,14 @@ export function KanbanCard({
     transform,
     transition,
     isDragging,
+    attributes,
+    listeners,
   } = useSortable({
     id: task.id,
     data: {
       type: "card",
       task,
+    },
     disabled: disableDrag,
   });
 
