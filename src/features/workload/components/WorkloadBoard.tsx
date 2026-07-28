@@ -6935,14 +6935,11 @@ export function WorkloadBoard({
                                                 <SortableTaskRow
                                                   id={task.id}
                                                   data-task-row={true}
-                                                  onClickCapture={() => setFocusedTaskId(task.id)}
+                                                  onClick={() => setFocusedTaskId(task.id)}
                                                   className={cn(
                                                     "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors",
                                                     isRowActive && "bg-primary/10"
                                                   )}
-                                                  onClick={() => {
-                                                    openTaskCard(task);
-                                                  }}
                                                 >
                                                   {() => (
                                                     <>
@@ -7101,7 +7098,7 @@ export function WorkloadBoard({
                                                         <tr
                                                           key={subtask.id}
                                                           data-task-row={true}
-                                                          onClickCapture={() => setFocusedTaskId(subtask.id)}
+                                                          onClick={() => setFocusedTaskId(subtask.id)}
                                                           className={cn(
                                                             "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors",
                                                             isSubtaskActive && "bg-primary/10"
