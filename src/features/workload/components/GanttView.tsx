@@ -1991,7 +1991,8 @@ export default function GanttView({
           /* Custom styles to match the PM tool aesthetic */
           .pm-gantt-wrapper > div,
           .pm-gantt-wrapper .wx-gantt-theme-willow-dark,
-          .pm-gantt-wrapper .wx-willow-dark-theme {
+          .pm-gantt-wrapper .wx-willow-dark-theme,
+          .pm-gantt-wrapper .wx-willow-theme {
             height: 100%;
             width: 100%;
             display: flex;
@@ -2003,75 +2004,82 @@ export default function GanttView({
             height: 100% !important;
             overflow: auto !important;
 
-            --wx-gantt-border-color: hsl(var(--border));
-            --wx-gantt-border: 1px solid hsl(var(--border));
+            --wx-gantt-border-color: ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"};
+            --wx-gantt-border: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"};
             
-            --wx-background: hsl(var(--background));
-            --wx-background-alt: hsl(var(--muted));
+            --wx-background: ${resolvedTheme === "dark" ? "#1c1f3b" : "#ffffff"};
+            --wx-background-alt: ${resolvedTheme === "dark" ? "#2e3452" : "#f4f5f7"};
             
-            --wx-color-font: hsl(var(--foreground));
-            --wx-color-primary: hsl(var(--primary));
+            --wx-color-font: ${resolvedTheme === "dark" ? "#f5f6f8" : "#172b4d"};
+            --wx-color-primary: #0052cc;
             
-            --wx-gantt-icon-color: hsl(var(--muted-foreground));
-            --wx-gantt-select-color: hsla(var(--primary) / 0.15);
+            --wx-gantt-icon-color: ${resolvedTheme === "dark" ? "#a9aebf" : "#5e6c84"};
+            --wx-gantt-select-color: rgba(0, 82, 204, 0.15);
             
             /* Grid header */
             --wx-grid-header-font: 500 13px 'Inter', sans-serif;
-            --wx-grid-header-font-color: hsl(var(--muted-foreground));
+            --wx-grid-header-font-color: ${resolvedTheme === "dark" ? "#a9aebf" : "#5e6c84"};
             --wx-grid-header-shadow: none;
             
             /* Grid body */
             --wx-grid-body-font: 400 13px 'Inter', sans-serif;
-            --wx-grid-body-font-color: hsl(var(--foreground));
-            --wx-grid-body-row-border: 1px solid hsl(var(--border));
+            --wx-grid-body-font-color: ${resolvedTheme === "dark" ? "#f5f6f8" : "#172b4d"};
+            --wx-grid-body-row-border: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"};
+            --wx-grid-body-cell-border: transparent;
             
             /* Timescale */
             --wx-timescale-font: 500 12px 'Inter', sans-serif;
-            --wx-timescale-font-color: hsl(var(--muted-foreground));
-            --wx-timescale-border: 1px solid hsl(var(--border));
+            --wx-timescale-font-color: ${resolvedTheme === "dark" ? "#a9aebf" : "#5e6c84"};
+            --wx-timescale-border: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"};
             --wx-timescale-shadow: none;
             
             /* Task bar styling */
-            --wx-gantt-task-color: hsl(var(--primary));
-            --wx-gantt-task-fill-color: hsl(var(--primary));
+            --wx-gantt-task-color: #0052cc;
+            --wx-gantt-task-fill-color: #0052cc;
             --wx-gantt-task-border-color: transparent;
-            --wx-gantt-task-font-color: hsl(var(--primary-foreground));
+            --wx-gantt-task-font-color: #ffffff;
             --wx-gantt-bar-border-radius: 6px;
             
             /* Summary task bar styling */
-            --wx-gantt-summary-color: hsl(142, 71%, 45%);
-            --wx-gantt-summary-fill-color: hsl(142, 71%, 40%);
+            --wx-gantt-summary-color: #00875a;
+            --wx-gantt-summary-fill-color: #006644;
             --wx-gantt-summary-border-color: transparent;
             --wx-gantt-summary-font-color: #ffffff;
 
             /* Parent task bar styling (custom type) */
-            --wx-gantt-parent-task-color: hsl(142, 71%, 45%);
-            --wx-gantt-parent-task-fill-color: hsl(142, 71%, 40%);
+            --wx-gantt-parent-task-color: #00875a;
+            --wx-gantt-parent-task-fill-color: #006644;
             --wx-gantt-parent-task-border-color: transparent;
             --wx-gantt-parent-task-font-color: #ffffff;
             
             /* Weekends */
-            --wx-gantt-holiday-background: hsla(var(--muted) / 0.3);
-            --wx-gantt-holiday-color: hsl(var(--muted-foreground));
+            --wx-gantt-holiday-background: ${resolvedTheme === "dark" ? "rgba(46,52,82,0.4)" : "rgba(244,245,247,0.5)"};
+            --wx-gantt-holiday-color: ${resolvedTheme === "dark" ? "#a9aebf" : "#5e6c84"};
           }
 
           /* Adjust row headers and cell borders */
           .pm-gantt-wrapper .wx-table-container {
-            background-color: hsl(var(--background)) !important;
-            border-right: 1px solid hsl(var(--border)) !important;
+            background-color: ${resolvedTheme === "dark" ? "#1c1f3b" : "#ffffff"} !important;
+            border-right: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"} !important;
           }
 
           .pm-gantt-wrapper .wx-scale {
-            background-color: hsl(var(--background)) !important;
-            border-bottom: 1px solid hsl(var(--border)) !important;
+            background-color: ${resolvedTheme === "dark" ? "#1c1f3b" : "#ffffff"} !important;
+            border-bottom: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"} !important;
           }
 
+          /* Remove vertical lines from timeline cells (second type image style) */
           .pm-gantt-wrapper .wx-cell {
-            border-right: 1px solid hsl(var(--border)) !important;
+            border-right: none !important;
+          }
+
+          /* Explicitly add right border back to only the left grid columns if needed, or rely on .wx-table-container border */
+          .pm-gantt-wrapper .wx-grid .wx-cell {
+            border-right: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"} !important;
           }
 
           .pm-gantt-wrapper .wx-row {
-            border-bottom: 1px solid hsl(var(--border)) !important;
+            border-bottom: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"} !important;
           }
 
           .pm-gantt-wrapper .wx-body .wx-row:hover {
