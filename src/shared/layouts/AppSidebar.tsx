@@ -561,7 +561,7 @@ export const AppSidebar = () => {
                         <button
                           onClick={() =>
                             navigate(
-                              `/org/${orgId}/board/${board.id}/view/Main%20Table`,
+                              `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}`,
                             )
                           }
                           className="flex items-center gap-2 flex-1 text-left min-w-0"
@@ -725,7 +725,7 @@ export const AppSidebar = () => {
                       key={board.id}
                       onClick={() => {
                         navigate(
-                          `/org/${orgId}/board/${board.id}/view/Main%20Table`,
+                          `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}`,
                         );
                         setBoardSearchOpen(false);
                         setBoardSearchQuery("");
