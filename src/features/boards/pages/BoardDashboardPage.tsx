@@ -683,7 +683,7 @@ export default function BoardDashboardPage() {
                   </h1>
                   <Button
                     variant="outline"
-                    className="w-full sm:w-auto h-11 text-sm font-semibold rounded-lg bg-[#ffffff05] border-[#ffffff10] text-[#ffffff80] hover:text-[#fff] hover:bg-[#ffffff10] transition-colors"
+                    className="w-full sm:w-auto h-11 text-sm font-semibold rounded-lg transition-colors border-2"
                     onClick={() =>
                       navigate(`/org/${getOrganizationId()}/board/${boardId}/view/Main%20Table`)
                     }

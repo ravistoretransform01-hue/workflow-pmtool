@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, useRef, useEffect, createContext, useContext } from "react";
-import { Gantt, WillowDark, Tooltip } from "@svar-ui/react-gantt";
+import { Gantt, WillowDark, Willow, Tooltip } from "@svar-ui/react-gantt";
+import { useTheme } from "next-themes";
 import "@svar-ui/react-gantt/all.css";
 import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endOfMonth } from "date-fns";
 import type { TaskGroup, Task } from "@/features/workload/types/workload-types";
@@ -81,21 +82,21 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
       : "";
 
   return (
-    <div className="p-4 bg-slate-950/95 border border-slate-800 text-slate-100 rounded-xl shadow-2xl backdrop-blur-md w-[340px] flex flex-col gap-2.5 pointer-events-none select-none font-sans text-xs">
-      <div className="font-semibold text-sm text-white border-b border-slate-800/80 pb-2 leading-snug">
+    <div className="p-4 bg-popover/95 border border-border text-popover-foreground rounded-xl shadow-2xl backdrop-blur-md w-[340px] flex flex-col gap-2.5 pointer-events-none select-none font-sans text-xs">
+      <div className="font-semibold text-sm text-foreground border-b border-border/80 pb-2 leading-snug">
         {data.text}
       </div>
 
-      <div className="flex flex-col gap-1.5 text-slate-400">
+      <div className="flex flex-col gap-1.5 text-muted-foreground">
         <div className="flex items-center justify-between gap-4">
           <span>Schedule:</span>
-          <span className="text-slate-200 font-medium">
+          <span className="text-foreground font-medium">
             {startStr && endStr ? `${startStr} - ${endStr}` : "Unscheduled"}
           </span>
         </div>
         <div className="flex items-center justify-between gap-4">
           <span>Duration:</span>
-          <span className="text-slate-200 font-medium">
+          <span className="text-foreground font-medium">
             {data.duration
               ? `${data.duration} day${data.duration > 1 ? "s" : ""}`
               : "-"}
@@ -104,7 +105,7 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
         {data.estimatedHours && data.estimatedHours !== "-" && (
           <div className="flex items-center justify-between gap-4">
             <span>Est. Hours:</span>
-            <span className="text-slate-200 font-medium">
+            <span className="text-foreground font-medium">
               {data.estimatedHours}
             </span>
           </div>
@@ -148,8 +149,8 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
           </div>
         )}
         {data.assignees && data.assignees.length > 0 && (
-          <div className="flex flex-col gap-1.5 mt-1 border-t border-slate-800/80 pt-2.5">
-            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-0.5">
+          <div className="flex flex-col gap-1.5 mt-1 border-t border-border/80 pt-2.5">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
               Assignees
             </span>
             <div className="flex flex-wrap gap-1.5">
@@ -159,7 +160,7 @@ const CustomTooltipContent = ({ data }: { data: any }) => {
                 return (
                   <div
                     key={i}
-                    className="flex items-center gap-1.5 bg-slate-900/60 border border-slate-800/80 px-2 py-0.5 rounded text-[11px] text-slate-300 font-medium"
+                    className="flex items-center gap-1.5 bg-muted/60 border border-border/80 px-2 py-0.5 rounded text-[11px] text-foreground font-medium"
                   >
                     <div
                       className={cn(
@@ -340,7 +341,7 @@ const GanttEstimatedDateCell = ({ row }: { row: any }) => {
           <Button
             type="button"
             variant="outline"
-            className="estimated-date-trigger w-full bg-[#1e293b] text-slate-200 border-[#334155] hover:bg-[#334155] hover:text-white h-7 px-2 text-xs truncate font-normal"
+            className="estimated-date-trigger w-full bg-background text-foreground border-border hover:bg-accent hover:text-accent-foreground h-7 px-2 text-xs truncate font-normal"
           >
             {estimatedDate === "-" ? "Set Date" : estimatedDate}
           </Button>
@@ -425,6 +426,7 @@ export default function GanttView({
 
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
+  const { resolvedTheme } = useTheme();
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [parentTaskId, setParentTaskId] = useState("none");
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<number[]>([]);
@@ -1945,17 +1947,17 @@ export default function GanttView({
             <Button
               variant="outline"
               size="icon"
-              className="ml-2 h-9 w-9 bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850 hover:text-white"
+              className="ml-2 h-9 w-9 bg-background border-border text-foreground hover:bg-accent hover:text-accent-foreground"
             >
               <Settings className="w-4 h-4" />
             </Button>
           </PopoverTrigger>
           <PopoverContent
             align="end"
-            className="w-48 p-2 bg-slate-900 border-slate-800 text-slate-100 shadow-2xl rounded-lg z-[9999]"
+            className="w-48 p-2 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999]"
           >
-            <div className="px-2 py-1.5 border-b border-slate-800/80 mb-1 select-none">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="px-2 py-1.5 border-b border-border/80 mb-1 select-none">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                 Color Bars By
               </span>
             </div>
@@ -1968,8 +1970,8 @@ export default function GanttView({
                   className={cn(
                     "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-all capitalize",
                     colorBy === option
-                      ? "bg-primary/20 text-white font-semibold"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200",
+                      ? "bg-primary/20 text-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                   )}
                 >
                   <span>{option}</span>
@@ -2001,39 +2003,39 @@ export default function GanttView({
             height: 100% !important;
             overflow: auto !important;
 
-            --wx-gantt-border-color: hsl(215, 28%, 20%);
-            --wx-gantt-border: 1px solid hsl(215, 28%, 20%);
+            --wx-gantt-border-color: hsl(var(--border));
+            --wx-gantt-border: 1px solid hsl(var(--border));
             
-            --wx-background: hsl(222, 47%, 11%);
-            --wx-background-alt: hsl(215, 28%, 17%);
+            --wx-background: hsl(var(--background));
+            --wx-background-alt: hsl(var(--muted));
             
-            --wx-color-font: hsl(210, 40%, 98%);
-            --wx-color-primary: hsl(217, 91%, 60%);
+            --wx-color-font: hsl(var(--foreground));
+            --wx-color-primary: hsl(var(--primary));
             
-            --wx-gantt-icon-color: hsl(217, 10%, 65%);
-            --wx-gantt-select-color: hsla(217, 91%, 60%, 0.15);
+            --wx-gantt-icon-color: hsl(var(--muted-foreground));
+            --wx-gantt-select-color: hsla(var(--primary) / 0.15);
             
             /* Grid header */
             --wx-grid-header-font: 500 13px 'Inter', sans-serif;
-            --wx-grid-header-font-color: hsl(217, 10%, 65%);
+            --wx-grid-header-font-color: hsl(var(--muted-foreground));
             --wx-grid-header-shadow: none;
             
             /* Grid body */
             --wx-grid-body-font: 400 13px 'Inter', sans-serif;
-            --wx-grid-body-font-color: hsl(210, 40%, 98%);
-            --wx-grid-body-row-border: 1px solid hsl(215, 28%, 20%);
+            --wx-grid-body-font-color: hsl(var(--foreground));
+            --wx-grid-body-row-border: 1px solid hsl(var(--border));
             
             /* Timescale */
             --wx-timescale-font: 500 12px 'Inter', sans-serif;
-            --wx-timescale-font-color: hsl(217, 10%, 65%);
-            --wx-timescale-border: 1px solid hsl(215, 28%, 20%);
+            --wx-timescale-font-color: hsl(var(--muted-foreground));
+            --wx-timescale-border: 1px solid hsl(var(--border));
             --wx-timescale-shadow: none;
             
             /* Task bar styling */
-            --wx-gantt-task-color: hsl(217, 91%, 60%);
-            --wx-gantt-task-fill-color: hsl(217, 91%, 50%);
+            --wx-gantt-task-color: hsl(var(--primary));
+            --wx-gantt-task-fill-color: hsl(var(--primary));
             --wx-gantt-task-border-color: transparent;
-            --wx-gantt-task-font-color: #ffffff;
+            --wx-gantt-task-font-color: hsl(var(--primary-foreground));
             --wx-gantt-bar-border-radius: 6px;
             
             /* Summary task bar styling */
@@ -2049,35 +2051,35 @@ export default function GanttView({
             --wx-gantt-parent-task-font-color: #ffffff;
             
             /* Weekends */
-            --wx-gantt-holiday-background: hsla(215, 28%, 17%, 0.3);
-            --wx-gantt-holiday-color: hsl(217, 10%, 50%);
+            --wx-gantt-holiday-background: hsla(var(--muted) / 0.3);
+            --wx-gantt-holiday-color: hsl(var(--muted-foreground));
           }
 
           /* Adjust row headers and cell borders */
           .pm-gantt-wrapper .wx-table-container {
-            background-color: hsl(222, 47%, 11%) !important;
-            border-right: 1px solid hsl(215, 28%, 20%) !important;
+            background-color: hsl(var(--background)) !important;
+            border-right: 1px solid hsl(var(--border)) !important;
           }
 
           .pm-gantt-wrapper .wx-scale {
-            background-color: hsl(222, 47%, 11%) !important;
-            border-bottom: 1px solid hsl(215, 28%, 20%) !important;
+            background-color: hsl(var(--background)) !important;
+            border-bottom: 1px solid hsl(var(--border)) !important;
           }
 
           .pm-gantt-wrapper .wx-cell {
-            border-right: 1px solid hsl(215, 28%, 20%) !important;
+            border-right: 1px solid hsl(var(--border)) !important;
           }
 
           .pm-gantt-wrapper .wx-row {
-            border-bottom: 1px solid hsl(215, 28%, 20%) !important;
+            border-bottom: 1px solid hsl(var(--border)) !important;
           }
 
           .pm-gantt-wrapper .wx-body .wx-row:hover {
-            background-color: hsla(217, 91%, 60%, 0.05) !important;
+            background-color: hsla(var(--primary) / 0.05) !important;
           }
 
           .pm-gantt-wrapper .wx-layout {
-            background-color: hsl(222, 47%, 11%) !important;
+            background-color: hsl(var(--background)) !important;
           }
 
           /* Hide unscheduled task bars in timeline */
@@ -2120,14 +2122,14 @@ export default function GanttView({
             height: 8px;
           }
           .pm-gantt-wrapper ::-webkit-scrollbar-track {
-            background: hsl(222, 47%, 11%);
+            background: hsl(var(--background));
           }
           .pm-gantt-wrapper ::-webkit-scrollbar-thumb {
-            background: hsl(215, 28%, 20%);
+            background: hsl(var(--muted-foreground) / 0.3);
             border-radius: 4px;
           }
           .pm-gantt-wrapper ::-webkit-scrollbar-thumb:hover {
-            background: hsl(217, 91%, 60%);
+            background: hsl(var(--muted-foreground) / 0.6);
           }
           /* Override SVAR Gantt default tooltip wrapper styles */
           .wx-tooltip {
@@ -2160,7 +2162,7 @@ export default function GanttView({
               Try clearing some filters to see tasks in the timeline.
             </p>
           </div>
-        ) : (
+        ) : resolvedTheme === "dark" ? (
           <WillowDark>
             <Tooltip api={ganttApi} content={CustomTooltipContent}>
               <Gantt
@@ -2173,12 +2175,33 @@ export default function GanttView({
                 end={ganttTimeRange.end}
                 cellWidth={timescaleConfig.cellWidth}
                 scales={timescaleConfig.scales}
+                cellHeight={40}
                 autoScale={false}
                 unscheduledTasks={false}
                 taskTypes={ganttTaskTypes}
               />
             </Tooltip>
           </WillowDark>
+        ) : (
+          <Willow>
+            <Tooltip api={ganttApi} content={CustomTooltipContent}>
+              <Gantt
+                init={handleInit}
+                tasks={mappedTasks}
+                links={[]}
+                columns={ganttColumns}
+                zoom={true}
+                start={ganttTimeRange.start}
+                end={ganttTimeRange.end}
+                cellWidth={timescaleConfig.cellWidth}
+                scales={timescaleConfig.scales}
+                cellHeight={40}
+                autoScale={false}
+                unscheduledTasks={false}
+                taskTypes={ganttTaskTypes}
+              />
+            </Tooltip>
+          </Willow>
         )}
       </div>
     </div>
