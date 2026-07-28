@@ -969,7 +969,7 @@ export function TaskCardDialog({
                             <div className="flex items-center justify-between gap-2 p-4 bg-muted/20 border-t border-border/50 shrink-0">
                               <div className="flex-1" />
                               <div className="flex items-center gap-2">
-                                <Button
+                                {/* <Button
                                   variant="ghost"
                                   size="sm"
                                   className="h-9 px-4 text-sm"
@@ -979,7 +979,7 @@ export function TaskCardDialog({
                                   }}
                                 >
                               Cancel
-                            </Button>
+                            </Button> */}
                             <Button
                               variant="default"
                               size="sm"
@@ -1043,7 +1043,7 @@ export function TaskCardDialog({
                           displayTask.description.includes("<img") ||
                           displayTask.description.includes("<iframe")) && (
                           <div
-                            className="text-sm text-foreground/90 prose prose-invert prose-content max-w-none prose-p:my-2 [&_img]:cursor-pointer [&_img]:transition-opacity hover:[&_img]:opacity-90 [&_.file-card]:cursor-default"
+                            className="text-sm text-foreground/90 prose dark:prose-invert prose-content max-w-none prose-p:my-2 [&_img]:cursor-pointer [&_img]:transition-opacity hover:[&_img]:opacity-90 [&_.file-card]:cursor-default"
                             dangerouslySetInnerHTML={{
                               __html: displayTask.description,
                             }}

@@ -117,12 +117,12 @@ All colors MUST be HSL.
 }
 
 .ProseMirror {
-  color: white;
+  color: hsl(var(--foreground));
 }
  
-/* Override pasted black text */
-.ProseMirror span[style*="color: rgb(0, 0, 0)"] {
-  color: white !important;
+/* Override pasted black text so it is visible in dark mode */
+.dark .ProseMirror span[style*="color: rgb(0, 0, 0)"] {
+  color: hsl(var(--foreground)) !important;
 }
  
 /* Keep links as-is */
