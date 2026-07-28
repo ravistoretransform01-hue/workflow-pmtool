@@ -4,19 +4,22 @@ import App from "@/App";
 import { Provider } from "react-redux";
 import { store } from "@/store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "next-themes";
 import "@/index.css";
 
 const queryClient = new QueryClient();
 
-// Apply dark mode class
-document.documentElement.classList.add("dark");
+// Apply dark mode class is handled by next-themes
+// document.documentElement.classList.add("dark");
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <Provider store={store}>
-        <App />
-      </Provider>
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+      <QueryClientProvider client={queryClient}>
+        <Provider store={store}>
+          <App />
+        </Provider>
+      </QueryClientProvider>
+    </ThemeProvider>
   </StrictMode>
 );

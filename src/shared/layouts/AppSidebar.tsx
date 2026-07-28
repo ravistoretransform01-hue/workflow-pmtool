@@ -401,7 +401,7 @@ export const AppSidebar = () => {
           {/* Workspace Selector & Add Menu */}
           <SidebarGroup>
             <div className="flex items-center justify-between px-0">
-              <SidebarGroupLabel className="font-bold text-white text-lg">
+              <SidebarGroupLabel className="font-bold text-foreground text-lg">
                 Projects
               </SidebarGroupLabel>
               <div className="flex items-center gap-1">
@@ -418,13 +418,13 @@ export const AppSidebar = () => {
                           setAddMenuOpen(false);
                           setAddBoardOpen(true);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-white transition-colors text-left cursor-pointer text-white"
+                        className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-foreground transition-colors text-left cursor-pointer text-foreground"
                       >
-                        <LayoutDashboard className="h-4 w-4 text-white" />
+                        <LayoutDashboard className="h-4 w-4" />
                         <span>New Project</span>
                       </button>
-                      <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-white transition-colors text-left cursor-pointer text-white">
-                        <Copy className="h-4 w-4 text-white" />
+                      <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-foreground transition-colors text-left cursor-pointer text-foreground">
+                        <Copy className="h-4 w-4" />
                         <span>Start with template</span>
                       </button>
                     </div>
