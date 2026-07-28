@@ -233,7 +233,7 @@ export function KanbanColumn({
               {tasks.length}
             </span>
           </div>
-          <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center gap-1">
+          <div className="flex items-center gap-1">
             <CreateTaskPopover groups={groups} onAddTask={onAddTask} trigger={
               <Button
                 variant="ghost"
@@ -245,7 +245,9 @@ export function KanbanColumn({
                 <Plus className="h-4 w-4" />
               </Button>
             } />
-            <GripVertical className="h-4 w-4 text-slate-300" />
+            <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center">
+              <GripVertical className="h-4 w-4 text-slate-300" />
+            </div>
           </div>
         </div>
       </div>
