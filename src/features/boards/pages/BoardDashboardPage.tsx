@@ -40,6 +40,7 @@ import {
   TabsTrigger,
 } from "@/shared/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useBoards } from "@/hooks/useBoards";
 import { boardsApi } from "@/features/boards/api/boardsApi";
 import type { Group } from "@/features/groups/types/types";
 import { BoardInviteDialog } from "@/shared/modals/BoardInviteDialog";
@@ -50,22 +51,23 @@ import { getCurrentUserId, getOrganizationId, isClientRole } from "@/utils/utils
 import { debugLog } from "@/utils/debugLog";
 
 const colorOptions = [
-  { name: "Blue", value: "hsl(221, 83%, 53%)" },
-  { name: "Purple", value: "hsl(262, 83%, 58%)" },
-  { name: "Pink", value: "hsl(330, 81%, 60%)" },
-  { name: "Red", value: "hsl(0, 72%, 51%)" },
-  { name: "Orange", value: "hsl(25, 95%, 53%)" },
-  { name: "Yellow", value: "hsl(48, 96%, 53%)" },
-  { name: "Green", value: "hsl(142, 71%, 45%)" },
-  { name: "Teal", value: "hsl(173, 80%, 40%)" },
-  { name: "Cyan", value: "hsl(199, 89%, 48%)" },
-  { name: "Indigo", value: "hsl(239, 84%, 67%)" },
+  { name: "Blue", value: "#2563eb" },
+  { name: "Purple", value: "#7c3bed" },
+  { name: "Pink", value: "#db2777" },
+  { name: "Red", value: "#dc2626" },
+  { name: "Orange", value: "#ea580c" },
+  { name: "Yellow", value: "#eab308" },
+  { name: "Green", value: "#16a34a" },
+  { name: "Teal", value: "#0d9488" },
+  { name: "Cyan", value: "#0284c7" },
+  { name: "Indigo", value: "#6366f1" },
 ];
 
 export default function BoardDashboardPage() {
   const { boardId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { updateBoardLocally } = useBoards();
 
   // State
   const [boardName, setBoardName] = useState("Loading...");
@@ -73,7 +75,7 @@ export default function BoardDashboardPage() {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [currentName, setCurrentName] = useState("");
   const [currentDescription, setCurrentDescription] = useState("");
-  const [iconColor, setIconColor] = useState("hsl(221, 83%, 53%)");
+  const [iconColor, setIconColor] = useState("#2563eb");
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -278,7 +280,7 @@ export default function BoardDashboardPage() {
                 name: creator.name,
                 email: creator.email,
                 role: "Project Owner",
-                avatarColor: board.icon_color || "hsl(221, 83%, 53%)",
+                avatarColor: board.icon_color || "#2563eb",
                 group_ids: [],
               },
             ];
@@ -570,6 +572,7 @@ export default function BoardDashboardPage() {
       try {
         await boardsApi.updateBoard(boardId, { name: currentName });
         setBoardName(currentName);
+        updateBoardLocally(boardId, { name: currentName });
         toast({ title: "Success", description: "Board Name Updated" });
       } catch (error) {
         console.error(error);
@@ -641,6 +644,8 @@ export default function BoardDashboardPage() {
                             await boardsApi.updateBoard(boardId, {
                               icon_color: color.value,
                             });
+                            // Optimistically update board in Redux to avoid loading spinner
+                            updateBoardLocally(boardId, { icon_color: color.value });
                           } catch (e) {
                             console.error(e);
                           }

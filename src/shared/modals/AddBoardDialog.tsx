@@ -67,7 +67,7 @@ interface BoardMember {
 
 const PRESET_COLORS = [
   "#16a249", // green
-  "hsl(var(--primary))", // blue
+  "#2563eb", // blue
   "#a855f7", // purple
   "#dc2828", // red
   "#facc14", // yellow
