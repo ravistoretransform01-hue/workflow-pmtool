@@ -25,6 +25,7 @@ import { TemplatePickerDialog } from "@/shared/modals/TemplatePickerDialog";
 import { GlobalTimer } from "@/shared/components/GlobalTimer";
 import { BoardInviteDialog } from "@/shared/modals/BoardInviteDialog";
 import { ModeToggle } from "@/shared/components/ModeToggle";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,6 +81,7 @@ export function Header() {
       <div className="flex items-center gap-2">
         <GlobalTimer />
         <SavingSpinner />
+
         <ModeToggle />
         <NotificationBell />
         <TrashButton />
