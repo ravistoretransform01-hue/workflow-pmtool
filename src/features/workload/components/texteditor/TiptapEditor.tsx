@@ -1630,7 +1630,7 @@ export function TiptapEditor({
             editor={editor}
             className={cn(
               "flex-1 max-h-[450px] min-h-[100px] p-3 focus:outline-none text-sm text-foreground bg-card relative z-20 overflow-y-auto",
-              "[&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-[100px]",
+              "[&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:min-h-[100px] [&_.ProseMirror]:text-foreground",
               "[&_img]:max-w-full [&_img]:h-auto [&_img]:max-h-[350px] [&_img]:object-contain [&_img]:rounded-lg [&_img]:border [&_img]:border-border [&_img]:cursor-zoom-in",
               "[&_img[style*='text-align: center']]:mx-auto [&_img[style*='text-align: center']]:block",
               "[&_img[style*='text-align: right']]:ml-auto [&_img[style*='text-align: right']]:block",

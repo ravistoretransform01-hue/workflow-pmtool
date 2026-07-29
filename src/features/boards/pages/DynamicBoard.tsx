@@ -33,10 +33,10 @@ const DynamicBoard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+      <div className="h-full w-full flex-1 flex items-center justify-center p-8">
         <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-          <p className="text-gray-400">Loading board...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading board...</p>
         </div>
       </div>
     );
@@ -44,9 +44,9 @@ const DynamicBoard = () => {
 
   if (error || !board) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+      <div className="h-full w-full flex-1 flex items-center justify-center p-8">
         <div className="flex flex-col items-center gap-2">
-          <p className="text-gray-400">No Board Found.</p>
+          <p className="text-muted-foreground">No Board Found.</p>
         </div>
       </div>
     );

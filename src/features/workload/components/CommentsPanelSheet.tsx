@@ -485,8 +485,7 @@ export function CommentsPanelSheet({
         style={{ width: `${sheetWidth}px`, maxWidth: "100vw" }}
         showOverlay={false}
         hideCloseButton={true}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
+        onInteractOutside={() => onOpenChange(false)}
       >
         {/* Resize Handle */}
         <div

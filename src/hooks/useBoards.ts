@@ -2,7 +2,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useCallback } from "react";
 import type { RootState, AppDispatch } from "@/store";
 import { createBoardThunk, fetchBoardsThunk } from "@/features/boards/services/boardsThunks";
-import { clearError, clearCreatedBoard } from "@/features/boards/services/boardsSlice";
+import { clearError, clearCreatedBoard, updateBoardInStore } from "@/features/boards/services/boardsSlice";
 import type { CreateBoardRequest } from "@/features/boards/types/types";
 
 export const useBoards = () => {
@@ -32,6 +32,13 @@ export const useBoards = () => {
     dispatch(clearCreatedBoard());
   }, [dispatch]);
 
+  const updateBoardLocally = useCallback(
+    (id: string | number, updates: any) => {
+      dispatch(updateBoardInStore({ id, updates }));
+    },
+    [dispatch]
+  );
+
   return {
     boards,
     loading,
@@ -42,5 +49,6 @@ export const useBoards = () => {
     createBoard,
     clearBoardError,
     resetCreatedBoard,
+    updateBoardLocally,
   };
 };

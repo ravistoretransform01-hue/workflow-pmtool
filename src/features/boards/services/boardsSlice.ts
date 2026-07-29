@@ -28,6 +28,13 @@ const boardsSlice = createSlice({
     clearCreatedBoard: (state) => {
       state.createdBoard = null;
     },
+    updateBoardInStore: (state, action) => {
+      const { id, updates } = action.payload;
+      const boardIndex = state.boards.findIndex((b) => String(b.id) === String(id));
+      if (boardIndex !== -1) {
+        state.boards[boardIndex] = { ...state.boards[boardIndex], ...updates };
+      }
+    },
   },
   extraReducers: (builder) => {
     // Fetch Boards
@@ -63,5 +70,5 @@ const boardsSlice = createSlice({
   },
 });
 
-export const { clearError, clearCreatedBoard } = boardsSlice.actions;
+export const { clearError, clearCreatedBoard, updateBoardInStore } = boardsSlice.actions;
 export default boardsSlice.reducer;

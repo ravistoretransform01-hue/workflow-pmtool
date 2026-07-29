@@ -289,7 +289,7 @@ export function EstimatedDatePicker({
           {customTrigger ? (
             customTrigger
           ) : (
-            <button className="w-full bg-muted text-white px-3 py-1.5 rounded text-sm hover:bg-accent transition-colors truncate">
+            <button className="w-full bg-muted text-foreground px-3 py-1.5 rounded text-sm hover:bg-accent hover:text-accent-foreground transition-colors truncate">
               {formatDateDisplay()}
             </button>
           )}
@@ -317,9 +317,9 @@ export function EstimatedDatePicker({
           </div>
 
           {showTimeInputs && (
-            <div className="p-4 border-y border-[#334155] space-y-4">
+            <div className="p-4 border-y border-border space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-white">
+                <label className="text-sm font-medium text-foreground">
                   Start Time
                 </label>
                 <TimePickerInput
@@ -331,7 +331,7 @@ export function EstimatedDatePicker({
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-white">
+                <label className="text-sm font-medium text-foreground">
                   End Time
                 </label>
                 <TimePickerInput
@@ -363,8 +363,8 @@ export function EstimatedDatePicker({
               variant="ghost"
               size="icon"
               onClick={() => setShowTimeInputs(!showTimeInputs)}
-              className={`h-8 w-8 p-0 text-white ${
-                showTimeInputs ? "bg-primary" : "hover:bg-[#4b5563]"
+              className={`h-8 w-8 p-0 text-foreground ${
+                showTimeInputs ? "bg-primary text-primary-foreground" : "hover:bg-accent"
               }`}
               title="Toggle time inputs"
             >

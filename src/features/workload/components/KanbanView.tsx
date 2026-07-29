@@ -25,14 +25,18 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/shared/ui/popover";
-import { ChevronDown, Settings } from "lucide-react";
+import { ChevronDown, Settings, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { ColorPickerPopover } from "@/features/workload/components/ColorPickerPopover";
 import { getOrganizationId } from "@/utils/utils";
 import { cmsApi } from "@/features/cms/api/cmsApi";
 import {
   updateStatusesOrderInCache,
   updatePrioritiesOrderInCache,
+  addStatusToCache,
+  addPriorityToCache,
 } from "@/features/cms/services/cmsStorage";
 
 interface KanbanViewProps {
@@ -102,6 +106,12 @@ export function KanbanView({
 
   // Local reordering: statusId -> taskId[]
   const [taskOrders, setTaskOrders] = useState<Record<string, string[]>>({});
+
+  const [showAddColumn, setShowAddColumn] = useState(false);
+  const [newColumnName, setNewColumnName] = useState("");
+  const [newColumnColor, setNewColumnColor] = useState("#16a249"); // first color
+  const [isCreatingColumn, setIsCreatingColumn] = useState(false);
+  const [createColorPickerOpen, setCreateColorPickerOpen] = useState(false);
 
   // Column ordering for both modes
   const [orderedStatusIds, setOrderedStatusIds] = useState<string[]>(() => {
@@ -790,6 +800,71 @@ export function KanbanView({
       return next;
     });
   };
+  const handleAddColumn = async () => {
+    if (!newColumnName.trim()) {
+      toast.error("Column name is required");
+      return;
+    }
+    
+    const orgId = getOrganizationId();
+    if (!orgId || !boardId) {
+      toast.error("Missing board or organization");
+      return;
+    }
+
+    setIsCreatingColumn(true);
+    try {
+      if (groupBy === "status") {
+        const created = await cmsApi.createStatus({
+          name: newColumnName.trim(),
+          color_code: newColumnColor,
+          organization_id: Number(orgId),
+          board_id: Number(boardId),
+        });
+        
+        addStatusToCache(Number(boardId), created);
+        const updated = [...statuses, created];
+        onStatusesUpdated?.(updated);
+        
+        // Ensure new status is visible
+        setVisibleStatuses(prev => {
+          const next = new Set(prev);
+          next.add(String(created.id));
+          persistVisibleIds(next);
+          return next;
+        });
+
+      } else {
+        const created = await cmsApi.createPriority({
+          name: newColumnName.trim(),
+          color_code: newColumnColor,
+          organization_id: Number(orgId),
+          board_id: Number(boardId),
+        });
+        
+        addPriorityToCache(Number(boardId), created);
+        const updated = [...priorities, created];
+        onPrioritiesUpdated?.(updated);
+        
+        // Ensure new priority is visible
+        setVisiblePriorities(prev => {
+          const next = new Set(prev);
+          next.add(String(created.id));
+          persistVisibleIds(next);
+          return next;
+        });
+      }
+      
+      setNewColumnName("");
+      setShowAddColumn(false);
+      toast.success("Column created successfully");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.response?.data?.message || "Failed to create column");
+    } finally {
+      setIsCreatingColumn(false);
+    }
+  };
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-background overflow-hidden relative">
@@ -1047,6 +1122,46 @@ export function KanbanView({
                   );
                 })}
             </SortableContext>
+            
+            <div className="shrink-0 w-80 pt-1 pb-4 flex flex-col justify-start">
+              {!showAddColumn ? (
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start text-muted-foreground bg-muted/50 hover:bg-muted"
+                  onClick={() => setShowAddColumn(true)}
+                >
+                  <Plus className="w-4 h-4 mr-2" /> Add Column
+                </Button>
+              ) : (
+                <div className="p-3 border border-border rounded bg-card flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Add {groupBy === "status" ? "Status" : "Priority"}</span>
+                    <Button variant="ghost" size="sm" onClick={() => setShowAddColumn(false)} className="h-6 w-6 p-0">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      autoFocus
+                      placeholder="Column name"
+                      value={newColumnName}
+                      onChange={e => setNewColumnName(e.target.value)}
+                      className="h-8"
+                    />
+                    <ColorPickerPopover
+                      color={newColumnColor}
+                      onColorChange={setNewColumnColor}
+                      isOpen={createColorPickerOpen}
+                      onOpenChange={setCreateColorPickerOpen}
+                      size="w-8 h-8"
+                    />
+                  </div>
+                  <Button size="sm" onClick={handleAddColumn} disabled={isCreatingColumn}>
+                    Create
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
           <TeamsBoardNavigator 
