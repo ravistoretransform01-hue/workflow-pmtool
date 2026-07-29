@@ -111,7 +111,7 @@ export function CreateTaskPopover({
             onChange={(e) => setNewTaskName(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isLoading}
-            className="h-9 text-sm focus-visible:ring-primary/50 border-slate-200 dark:border-slate-800"
+            className="h-9 text-sm focus-visible:ring-primary/50 border-border"
           />
 
           <div className="flex items-center justify-between px-1">
@@ -124,7 +124,7 @@ export function CreateTaskPopover({
               />
               <Label
                 htmlFor="subtask-mode"
-                className="text-[11px] font-bold uppercase tracking-wider text-slate-500 cursor-pointer flex items-center gap-1.5"
+                className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground cursor-pointer flex items-center gap-1.5"
               >
                 {isSubtask ? (
                   <ListTree className="w-3.5 h-3.5" />
@@ -138,7 +138,7 @@ export function CreateTaskPopover({
 
           <div className="grid gap-2">
             <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-              <SelectTrigger className="h-8 text-xs bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+              <SelectTrigger className="h-8 text-xs bg-background border-border">
                 <SelectValue placeholder="Select Group" />
               </SelectTrigger>
               <SelectContent>
@@ -155,7 +155,7 @@ export function CreateTaskPopover({
                 value={selectedParentId}
                 onValueChange={setSelectedParentId}
               >
-                <SelectTrigger className="h-8 text-xs bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800">
+                <SelectTrigger className="h-8 text-xs bg-background border-border">
                   <SelectValue placeholder="Select Parent Task" />
                 </SelectTrigger>
                 <SelectContent>
@@ -167,7 +167,7 @@ export function CreateTaskPopover({
                         </SelectItem>
                       ))
                     ) : (
-                      <div className="p-3 text-xs text-slate-500 text-center italic">
+                      <div className="p-3 text-xs text-muted-foreground text-center italic">
                         No items in this group
                       </div>
                     )}

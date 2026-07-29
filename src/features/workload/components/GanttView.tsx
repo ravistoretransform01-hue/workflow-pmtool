@@ -1339,7 +1339,7 @@ export default function GanttView({
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-[350px] p-4 bg-slate-900 border-slate-800 text-slate-100 shadow-2xl rounded-lg z-[9999] max-h-[90vh] overflow-y-auto"
+              className="w-[350px] p-4 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999] max-h-[90vh] overflow-y-auto"
               onInteractOutside={(e) => {
                 const target = e.target as HTMLElement;
                 if (
@@ -1353,7 +1353,7 @@ export default function GanttView({
               }}
             >
               <div className="space-y-1 mb-3">
-                <h3 className="font-semibold text-sm text-white leading-none">
+                <h3 className="font-semibold text-sm text-foreground leading-none">
                   Create New Task
                 </h3>
                 <p className="text-xs text-muted-foreground">
@@ -1362,7 +1362,7 @@ export default function GanttView({
               </div>
               <form onSubmit={handleCreateTask} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="taskName" className="text-slate-300">
+                  <Label htmlFor="taskName" className="text-foreground">
                     Task Name
                   </Label>
                   <Input
@@ -1371,11 +1371,11 @@ export default function GanttView({
                     onChange={(e) => setNewTaskName(e.target.value)}
                     placeholder="Enter task name"
                     required
-                    className="bg-slate-950 border-slate-800 focus-visible:ring-primary text-white"
+                    className="bg-background border-border focus-visible:ring-primary text-foreground"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="taskGroup" className="text-slate-300">
+                  <Label htmlFor="taskGroup" className="text-foreground">
                     Group
                   </Label>
                   <Select
@@ -1384,16 +1384,16 @@ export default function GanttView({
                   >
                     <SelectTrigger
                       id="taskGroup"
-                      className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary"
+                      className="w-full bg-background border-border text-foreground focus:ring-primary"
                     >
                       <SelectValue placeholder="Select a group" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000]">
+                    <SelectContent className="bg-popover border-border text-popover-foreground z-[10000]">
                       {groups.map((group) => (
                         <SelectItem
                           key={group.id}
                           value={String(group.id)}
-                          className="text-white focus:bg-[#334155] focus:text-white"
+                          className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                         >
                           {group.name}
                         </SelectItem>
@@ -1402,20 +1402,20 @@ export default function GanttView({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="parentTask" className="text-slate-300">
+                  <Label htmlFor="parentTask" className="text-foreground">
                     Parent Task (Optional)
                   </Label>
                   <Select value={parentTaskId} onValueChange={setParentTaskId}>
                     <SelectTrigger
                       id="parentTask"
-                      className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary"
+                      className="w-full bg-background border-border text-foreground focus:ring-primary"
                     >
                       <SelectValue placeholder="Select a parent task (optional)" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000]">
+                    <SelectContent className="bg-popover border-border text-popover-foreground z-[10000]">
                       <SelectItem
                         value="none"
-                        className="text-white focus:bg-[#334155] focus:text-white"
+                        className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                       >
                         None (Create as Main Task)
                       </SelectItem>
@@ -1423,7 +1423,7 @@ export default function GanttView({
                         <SelectItem
                           key={task.id}
                           value={String(task.id)}
-                          className="text-white focus:bg-[#334155] focus:text-white"
+                          className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                         >
                           {task.name}
                         </SelectItem>
@@ -1432,16 +1432,16 @@ export default function GanttView({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-300">Assignees (Optional)</Label>
+                  <Label className="text-foreground">Assignees (Optional)</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         type="button"
                         variant="outline"
-                        className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary hover:bg-[#2e3e56] hover:text-white h-9 px-3 flex items-center justify-between font-normal text-xs"
+                        className="w-full bg-background border-border text-foreground focus:ring-primary hover:bg-accent hover:text-accent-foreground h-9 px-3 flex items-center justify-between font-normal text-xs"
                       >
                         {selectedAssigneeIds.length === 0 ? (
-                          <span className="text-slate-400">
+                          <span className="text-muted-foreground">
                             Select assignees (optional)
                           </span>
                         ) : (
@@ -1491,12 +1491,12 @@ export default function GanttView({
                             </span>
                           </div>
                         )}
-                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent
                       align="start"
-                      className="w-[318px] p-2 bg-[#1e293b] border-[#334155] text-slate-100 shadow-xl rounded-md z-[10000] flex flex-col"
+                      className="w-[318px] p-2 bg-popover border-border text-popover-foreground shadow-xl rounded-md z-[10000] flex flex-col"
                     >
                       <div className="p-1 shrink-0">
                         <Input
@@ -1505,7 +1505,7 @@ export default function GanttView({
                           onChange={(e) =>
                             setAssigneeSearchQuery(e.target.value)
                           }
-                          className="h-8 bg-slate-950 border-slate-800 text-xs text-white focus-visible:ring-primary mb-2"
+                          className="h-8 bg-background border-border text-xs text-foreground focus-visible:ring-primary mb-2"
                         />
                       </div>
                       <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
@@ -1540,7 +1540,7 @@ export default function GanttView({
                                       : [...prev, memberIdNum],
                                   );
                                 }}
-                                className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-slate-800 text-xs text-left cursor-pointer transition-colors"
+                                className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-accent text-xs text-left cursor-pointer transition-colors"
                               >
                                 <div className="flex items-center gap-2 min-w-0">
                                   <Avatar className="h-6 w-6 shrink-0">
@@ -1569,17 +1569,17 @@ export default function GanttView({
                             .toLowerCase()
                             .includes(assigneeSearchQuery.toLowerCase()),
                         ).length === 0 && (
-                          <div className="text-center py-2 text-xs text-slate-400">
+                          <div className="text-center py-2 text-xs text-muted-foreground">
                             No members found
                           </div>
                         )}
                       </div>
                       {selectedAssigneeIds.length > 0 && (
-                        <div className="pt-2 mt-1 border-t border-slate-800 shrink-0">
+                        <div className="pt-2 mt-1 border-t border-border shrink-0">
                           <button
                             type="button"
                             onClick={() => setSelectedAssigneeIds([])}
-                            className="w-full text-center py-1 rounded-md text-[11px] font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                            className="w-full text-center py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                           >
                             Clear Selection
                           </button>
@@ -1592,7 +1592,7 @@ export default function GanttView({
                   <div className="space-y-1.5 flex flex-col">
                     <Label
                       htmlFor="startDate"
-                      className="text-slate-300 text-xs"
+                      className="text-foreground text-xs"
                     >
                       Start Date (Opt)
                     </Label>
@@ -1612,11 +1612,11 @@ export default function GanttView({
                           id="startDate"
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal bg-slate-950 border-slate-800 hover:bg-slate-900 hover:text-white h-9 px-3 text-xs text-white relative pr-8",
-                            !startDateStr && "text-slate-400",
+                            "w-full justify-start text-left font-normal bg-background border-border hover:bg-accent hover:text-accent-foreground h-9 px-3 text-xs text-foreground relative pr-8",
+                            !startDateStr && "text-muted-foreground",
                           )}
                         >
-                          <CalendarDays className="mr-2 h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <CalendarDays className="mr-2 h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           <span className="truncate">
                             {startDateStr
                               ? format(new Date(startDateStr), "MMM d, yyyy")
@@ -1629,7 +1629,7 @@ export default function GanttView({
                                 e.stopPropagation();
                                 setStartDateStr("");
                               }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded-full hover:bg-slate-800"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-accent"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -1637,7 +1637,7 @@ export default function GanttView({
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent
-                        className="w-auto p-3 bg-slate-900 border-slate-800 z-[10000] flex flex-col gap-3"
+                        className="w-auto p-3 bg-popover border-border z-[10000] flex flex-col gap-3"
                         align="start"
                       >
                         <Calendar
@@ -1663,13 +1663,13 @@ export default function GanttView({
                           }}
                           initialFocus
                         />
-                        <div className="flex justify-end gap-2 border-t border-slate-850 pt-2 shrink-0">
+                        <div className="flex justify-end gap-2 border-t border-border pt-2 shrink-0">
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => setIsStartPopoverOpen(false)}
-                            className="border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white h-7 px-2.5 text-xs font-medium"
+                            className="border-slate-800 text-foreground hover:bg-accent hover:text-accent-foreground h-7 px-2.5 text-xs font-medium"
                           >
                             Cancel
                           </Button>
@@ -1695,7 +1695,7 @@ export default function GanttView({
                     </Popover>
                   </div>
                   <div className="space-y-1.5 flex flex-col">
-                    <Label htmlFor="endDate" className="text-slate-300 text-xs">
+                    <Label htmlFor="endDate" className="text-foreground text-xs">
                       End Date (Opt)
                     </Label>
                     <Popover
@@ -1714,11 +1714,11 @@ export default function GanttView({
                           id="endDate"
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal bg-slate-950 border-slate-800 hover:bg-slate-900 hover:text-white h-9 px-3 text-xs text-white relative pr-8",
-                            !endDateStr && "text-slate-400",
+                            "w-full justify-start text-left font-normal bg-background border-border hover:bg-accent hover:text-accent-foreground h-9 px-3 text-xs text-foreground relative pr-8",
+                            !endDateStr && "text-muted-foreground",
                           )}
                         >
-                          <CalendarDays className="mr-2 h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <CalendarDays className="mr-2 h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           <span className="truncate">
                             {endDateStr
                               ? format(new Date(endDateStr), "MMM d, yyyy")
@@ -1731,7 +1731,7 @@ export default function GanttView({
                                 e.stopPropagation();
                                 setEndDateStr("");
                               }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded-full hover:bg-slate-800"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-accent"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -1739,7 +1739,7 @@ export default function GanttView({
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent
-                        className="w-auto p-3 bg-slate-900 border-slate-800 z-[10000] flex flex-col gap-3"
+                        className="w-auto p-3 bg-popover border-border z-[10000] flex flex-col gap-3"
                         align="start"
                       >
                         <Calendar
@@ -1765,13 +1765,13 @@ export default function GanttView({
                           }}
                           initialFocus
                         />
-                        <div className="flex justify-end gap-2 border-t border-slate-850 pt-2 shrink-0">
+                        <div className="flex justify-end gap-2 border-t border-border pt-2 shrink-0">
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => setIsEndPopoverOpen(false)}
-                            className="border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white h-7 px-2.5 text-xs font-medium"
+                            className="border-slate-800 text-foreground hover:bg-accent hover:text-accent-foreground h-7 px-2.5 text-xs font-medium"
                           >
                             Cancel
                           </Button>
@@ -1797,12 +1797,12 @@ export default function GanttView({
                     </Popover>
                   </div>
                 </div>
-                <div className="pt-3 border-t border-slate-800/60 flex justify-end gap-2">
+                <div className="pt-3 border-t border-border/60 flex justify-end gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setIsAddPopoverOpen(false)}
-                    className="border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white h-8 px-3 text-xs"
+                    className="border-border text-foreground hover:bg-accent hover:text-accent-foreground h-8 px-3 text-xs"
                   >
                     Cancel
                   </Button>
@@ -1846,25 +1846,25 @@ export default function GanttView({
             <Button
               variant="outline"
               size="sm"
-              className="ml-2 h-9 gap-1.5 bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-850 hover:text-white"
+              className="ml-2 h-9 gap-1.5 bg-popover border-border text-foreground hover:bg-accent hover:text-foreground"
             >
-              <CalendarDays className="w-4 h-4 text-slate-400" />
+              <CalendarDays className="w-4 h-4 text-muted-foreground" />
               <span>Jump to...</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent
             align="end"
-            className="w-72 p-3 bg-slate-900 border-slate-800 text-slate-100 shadow-2xl rounded-lg z-[9999]"
+            className="w-72 p-3 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999]"
           >
             <div className="space-y-3">
               <div className="border-b border-slate-800/80 pb-1.5 select-none">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   Jump to Date
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-slate-400 text-[10px] uppercase font-semibold">
+                  <Label className="text-muted-foreground text-[10px] uppercase font-semibold">
                     Month
                   </Label>
                   <Select
@@ -1873,15 +1873,15 @@ export default function GanttView({
                       setJumpMonth(parseInt(val));
                     }}
                   >
-                    <SelectTrigger className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary h-9 text-xs">
+                    <SelectTrigger className="w-full bg-[#1e293b] border-[#334155] text-foreground focus:ring-primary h-9 text-xs">
                       <SelectValue placeholder="Month" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000] max-h-48 overflow-y-auto">
+                    <SelectContent className="bg-[#1e293b] border-[#334155] text-foreground z-[10000] max-h-48 overflow-y-auto">
                       {MONTHS.map((m) => (
                         <SelectItem
                           key={m.value}
                           value={m.value}
-                          className="text-white focus:bg-[#334155] focus:text-white text-xs"
+                          className="text-foreground focus:bg-[#334155] focus:text-foreground text-xs"
                         >
                           {m.label}
                         </SelectItem>
@@ -1890,7 +1890,7 @@ export default function GanttView({
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-slate-400 text-[10px] uppercase font-semibold">
+                  <Label className="text-muted-foreground text-[10px] uppercase font-semibold">
                     Year
                   </Label>
                   <Select
@@ -1899,15 +1899,15 @@ export default function GanttView({
                       setJumpYear(parseInt(val));
                     }}
                   >
-                    <SelectTrigger className="w-full bg-[#1e293b] border-[#334155] text-white focus:ring-primary h-9 text-xs">
+                    <SelectTrigger className="w-full bg-[#1e293b] border-[#334155] text-foreground focus:ring-primary h-9 text-xs">
                       <SelectValue placeholder="Year" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e293b] border-[#334155] text-white z-[10000] max-h-48 overflow-y-auto">
+                    <SelectContent className="bg-[#1e293b] border-[#334155] text-foreground z-[10000] max-h-48 overflow-y-auto">
                       {YEARS.map((y) => (
                         <SelectItem
                           key={y.value}
                           value={y.value}
-                          className="text-white focus:bg-[#334155] focus:text-white text-xs"
+                          className="text-foreground focus:bg-[#334155] focus:text-foreground text-xs"
                         >
                           {y.label}
                         </SelectItem>
@@ -1916,7 +1916,7 @@ export default function GanttView({
                   </Select>
                 </div>
               </div>
-              <div className="border-t border-slate-850 pt-2 flex flex-col gap-1.5">
+              <div className="border-t border-border pt-2 flex flex-col gap-1.5">
                 <Button
                   type="button"
                   size="sm"
@@ -1931,10 +1931,10 @@ export default function GanttView({
                 <button
                   type="button"
                   onClick={handleGoToToday}
-                  className="w-full text-left px-2 py-1.5 rounded text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-between"
+                  className="w-full text-left px-2 py-1.5 rounded text-xs text-foreground hover:bg-accent hover:text-accent-foreground transition-colors flex items-center justify-between"
                 >
                   <span>Go to Today</span>
-                  <span className="text-[10px] text-slate-500 font-mono">
+                  <span className="text-[10px] text-muted-foreground font-mono">
                     Today
                   </span>
                 </button>
