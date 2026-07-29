@@ -400,7 +400,7 @@ export const AppSidebar = () => {
           {/* Workspace Selector & Add Menu */}
           <SidebarGroup>
             <div className="flex items-center justify-between px-0">
-              <SidebarGroupLabel className="font-bold text-white text-lg">
+              <SidebarGroupLabel className="font-bold text-foreground text-lg">
                 Projects
               </SidebarGroupLabel>
               <div className="flex items-center gap-1">
@@ -417,13 +417,13 @@ export const AppSidebar = () => {
                           setAddMenuOpen(false);
                           setAddBoardOpen(true);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-white transition-colors text-left cursor-pointer text-white"
+                        className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-foreground transition-colors text-left cursor-pointer text-foreground"
                       >
-                        <LayoutDashboard className="h-4 w-4 text-white" />
+                        <LayoutDashboard className="h-4 w-4" />
                         <span>New Project</span>
                       </button>
-                      <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-white transition-colors text-left cursor-pointer text-white">
-                        <Copy className="h-4 w-4 text-white" />
+                      <button className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-transparent hover:bg-accent hover:text-foreground transition-colors text-left cursor-pointer text-foreground">
+                        <Copy className="h-4 w-4" />
                         <span>Start with template</span>
                       </button>
                     </div>
@@ -560,13 +560,18 @@ export const AppSidebar = () => {
                         <button
                           onClick={() =>
                             navigate(
-                              `/org/${orgId}/board/${board.id}/view/Main%20Table`,
+                              `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}`,
                             )
                           }
                           className="flex items-center gap-2 flex-1 text-left min-w-0"
                           title={board.name}
                         >
-                          <LayoutDashboard className="h-4 w-4 shrink-0" />
+                          <div
+                            className="h-5 w-5 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                            style={{ backgroundColor: board.icon_color || "hsl(221, 83%, 53%)" }}
+                          >
+                            {board.name.charAt(0).toUpperCase()}
+                          </div>
                           <span className="truncate text-sm overflow-hidden text-ellipsis">
                             {board.name}
                           </span>
@@ -721,7 +726,7 @@ export const AppSidebar = () => {
                       key={board.id}
                       onClick={() => {
                         navigate(
-                          `/org/${orgId}/board/${board.id}/view/Main%20Table`,
+                          `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}`,
                         );
                         setBoardSearchOpen(false);
                         setBoardSearchQuery("");
@@ -730,9 +735,9 @@ export const AppSidebar = () => {
                     >
                       <div
                         className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                        style={{ backgroundColor: board.icon_color }}
+                        style={{ backgroundColor: board.icon_color || "hsl(221, 83%, 53%)" }}
                       >
-                        {board.icon_value || board.name.charAt(0).toUpperCase()}
+                        {board.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <span className="font-medium block truncate">

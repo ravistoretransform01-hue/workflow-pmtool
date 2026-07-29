@@ -67,7 +67,7 @@ interface BoardMember {
 
 const PRESET_COLORS = [
   "#16a249", // green
-  "#3c83f6", // blue
+  "#2563eb", // blue
   "#a855f7", // purple
   "#dc2828", // red
   "#facc14", // yellow
@@ -378,7 +378,7 @@ export function AddBoardDialog({
   const getAvatarColor = (userId: number) => {
     const colors = [
       "#16a249", // green
-      "#3c83f6", // blue
+      "hsl(var(--primary))", // blue
       "#a855f7", // purple
       "#dc2828", // red
       "#facc14", // yellow
@@ -691,7 +691,7 @@ export function AddBoardDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto bg-[#1e293b] border-[#334155] text-white">
+      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto bg-background border-border text-foreground">
         <DialogHeader>
           <DialogTitle className="text-2xl font-normal">
             Add new project
@@ -703,18 +703,18 @@ export function AddBoardDialog({
           <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
             <PopoverTrigger asChild>
               <button
-                className="relative h-32 w-32 rounded-3xl flex items-center justify-center text-white text-6xl font-light transition-transform hover:scale-105 cursor-pointer"
+                className="relative h-32 w-32 rounded-3xl flex items-center justify-center text-foreground text-6xl font-light transition-transform hover:scale-105 cursor-pointer"
                 style={{ backgroundColor: iconColor }}
               >
                 {getInitial()}
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-3 bg-[#1e293b] border-[#334155]">
+            <PopoverContent className="w-auto p-3 bg-background border-border">
               <div className="grid grid-cols-3 gap-2">
                 {PRESET_COLORS.map((color) => (
                   <button
                     key={color}
-                    className="h-10 w-10 rounded-lg transition-transform hover:scale-110 border-2 border-transparent hover:border-white"
+                    className="h-10 w-10 rounded-lg transition-transform hover:scale-110 border-2 border-transparent hover:border-foreground"
                     style={{ backgroundColor: color }}
                     onClick={() => {
                       setIconColor(color);
@@ -728,7 +728,7 @@ export function AddBoardDialog({
 
           {/* Board Name */}
           <div className="w-full space-y-2">
-            <Label htmlFor="board-name" className="text-white text-base">
+            <Label htmlFor="board-name" className="text-foreground text-base">
               Board name
             </Label>
             <Input
@@ -736,14 +736,14 @@ export function AddBoardDialog({
               value={boardName}
               placeholder="New Board"
               onChange={(e) => setBoardName(e.target.value)}
-              className="bg-[#0f172a] border-[#3b82f6] text-white placeholder:text-gray-400 focus-visible:ring-[#3b82f6]"
+              className="bg-muted border-primary text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
             />
           </div>
 
           {/* Permissions Section */}
           <div className="w-full space-y-2">
-            <Label className="text-white text-base">Permissions</Label>
-            <p className="text-gray-400 text-sm">
+            <Label className="text-foreground text-base">Permissions</Label>
+            <p className="text-muted-foreground text-sm">
               Invite team members to this board
             </p>
           </div>
@@ -755,16 +755,16 @@ export function AddBoardDialog({
               onValueChange={setActiveTab}
               className="w-full"
             >
-              <TabsList className="grid w-full grid-cols-2 bg-[#0f172a] border border-[#334155]">
+              <TabsList className="grid w-full grid-cols-2 bg-muted border border-border">
                 <TabsTrigger
                   value="user-management"
-                  className="data-[state=active]:bg-[#1e293b] data-[state=active]:text-white"
+                  className="data-[state=active]:bg-background data-[state=active]:text-foreground"
                 >
                   User management
                 </TabsTrigger>
                 <TabsTrigger
                   value="permissions"
-                  className="data-[state=active]:bg-[#1e293b] data-[state=active]:text-white"
+                  className="data-[state=active]:bg-background data-[state=active]:text-foreground"
                 >
                   Permissions
                 </TabsTrigger>
@@ -779,17 +779,17 @@ export function AddBoardDialog({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search by name or email"
-                    className="pl-10 bg-[#0f172a] border-[#334155] text-white placeholder:text-gray-400"
+                    className="pl-10 bg-muted border-border text-foreground placeholder:text-muted-foreground"
                   />
 
                   {/* Search Results Dropdown */}
                   {searchQuery && filteredAvailableUsers.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-[#1e293b] border border-[#334155] rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
                       {filteredAvailableUsers.map((member) => (
                         <button
                           key={member.user_id}
                           onClick={() => handleAddMember(member.user_id)}
-                          className="w-full px-4 py-2 text-left hover:bg-[#334155] flex items-center gap-3"
+                          className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-3"
                         >
                           <Avatar className="h-8 w-8">
                             <AvatarFallback
@@ -799,7 +799,7 @@ export function AddBoardDialog({
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex flex-col">
-                            <span className="text-white">{member.display_name}</span>
+                            <span className="text-foreground">{member.display_name}</span>
                             <span className="text-xs text-muted-foreground">
                               {member.user_email}
                             </span>
@@ -811,8 +811,8 @@ export function AddBoardDialog({
 
                   {/* Loading state */}
                   {loadingMembers && (
-                    <div className="absolute z-10 w-full mt-1 bg-[#1e293b] border border-[#334155] rounded-md shadow-lg p-4 text-center">
-                      <Loader2 className="h-5 w-5 animate-spin mx-auto text-white" />
+                    <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg p-4 text-center">
+                      <Loader2 className="h-5 w-5 animate-spin mx-auto text-foreground" />
                       <p className="text-sm text-muted-foreground mt-2">Loading members...</p>
                     </div>
                   )}
@@ -821,17 +821,17 @@ export function AddBoardDialog({
                 {/* Current User (Creator) - Always shown as Admin */}
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">Board creator</p>
-                  <div className="flex items-center gap-3 p-3 bg-[#0f172a] rounded-lg border border-[#334155]">
+                  <div className="flex items-center gap-3 p-3 bg-muted rounded-lg border border-border">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback
-                        style={{ backgroundColor: currentUser ? getAvatarColor(currentUser.user_id) : "#3c83f6" }}
+                        style={{ backgroundColor: currentUser ? getAvatarColor(currentUser.user_id) : "hsl(var(--primary))" }}
                       >
                         {currentUser ? getUserInitials(currentUser.name) : "?"}
                       </AvatarFallback>
                     </Avatar>
 
                     <div className="flex-1">
-                      <div className="font-medium text-white">
+                      <div className="font-medium text-foreground">
                         {currentUser?.name || "Unknown User"}
                       </div>
                       <div className="text-sm text-muted-foreground">
@@ -839,7 +839,7 @@ export function AddBoardDialog({
                       </div>
                     </div>
 
-                    <div className="px-3 py-2 bg-[#1e293b] border border-[#334155] rounded-md text-sm text-white">
+                    <div className="px-3 py-2 bg-background border border-border rounded-md text-sm text-foreground">
                       Organization Admin
                     </div>
 
@@ -863,7 +863,7 @@ export function AddBoardDialog({
                       return (
                         <div
                           key={member.user_id}
-                          className="flex items-center gap-3 p-3 bg-[#0f172a] rounded-lg"
+                          className="flex items-center gap-3 p-3 bg-muted rounded-lg"
                         >
                           <Avatar className="h-10 w-10">
                             <AvatarFallback
@@ -874,7 +874,7 @@ export function AddBoardDialog({
                           </Avatar>
 
                           <div className="flex-1">
-                            <div className="font-medium text-white">
+                            <div className="font-medium text-foreground">
                               {memberData.display_name}
                             </div>
                             <div className="text-sm text-muted-foreground">
@@ -889,7 +889,7 @@ export function AddBoardDialog({
                             }
                             disabled={loadingRoles || roles.length === 0}
                           >
-                            <SelectTrigger className="w-48 bg-[#1e293b] border-[#334155]">
+                            <SelectTrigger className="w-48 bg-background border-border">
                               <SelectValue placeholder="Select role" />
                             </SelectTrigger>
                             <SelectContent>
@@ -907,7 +907,7 @@ export function AddBoardDialog({
                             onClick={() =>
                               handleRemoveMember(member.user_id)
                             }
-                            className="h-8 w-8 text-muted-foreground hover:text-white"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -925,15 +925,15 @@ export function AddBoardDialog({
                   <div className="w-72 space-y-6">
                     {/* Default Account Roles */}
                     <div className="space-y-2">
-                      <h3 className="text-base font-medium text-white mb-3">
+                      <h3 className="text-base font-medium text-foreground mb-3">
                         Default account roles
                       </h3>
                       <button
                         onClick={() => setSelectedRole("owner")}
                         className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                           selectedRole === "owner"
-                            ? "bg-[#1e293b] text-white"
-                            : "text-muted-foreground hover:bg-[#0f172a]"
+                            ? "bg-background text-foreground"
+                            : "text-muted-foreground hover:bg-muted"
                         }`}
                       >
                         Project Owner
@@ -942,8 +942,8 @@ export function AddBoardDialog({
                         onClick={() => setSelectedRole("admin")}
                         className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                           selectedRole === "admin"
-                            ? "bg-[#1e293b] text-white"
-                            : "text-muted-foreground hover:bg-[#0f172a]"
+                            ? "bg-background text-foreground"
+                            : "text-muted-foreground hover:bg-muted"
                         }`}
                       >
                         Project Architect
@@ -952,8 +952,8 @@ export function AddBoardDialog({
                         onClick={() => setSelectedRole("projectmanager")}
                         className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                           selectedRole === "projectmanager"
-                            ? "bg-[#1e293b] text-white"
-                            : "text-muted-foreground hover:bg-[#0f172a]"
+                            ? "bg-background text-foreground"
+                            : "text-muted-foreground hover:bg-muted"
                         }`}
                       >
                         Project Manager
@@ -962,8 +962,8 @@ export function AddBoardDialog({
                         onClick={() => setSelectedRole("client")}
                         className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                           selectedRole === "client"
-                            ? "bg-[#1e293b] text-white"
-                            : "text-muted-foreground hover:bg-[#0f172a]"
+                            ? "bg-background text-foreground"
+                            : "text-muted-foreground hover:bg-muted"
                         }`}
                       >
                         Project Client
@@ -972,8 +972,8 @@ export function AddBoardDialog({
                         onClick={() => setSelectedRole("developer")}
                         className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                           selectedRole === "developer"
-                            ? "bg-[#1e293b] text-white"
-                            : "text-muted-foreground hover:bg-[#0f172a]"
+                            ? "bg-background text-foreground"
+                            : "text-muted-foreground hover:bg-muted"
                         }`}
                       >
                         Project Developer
@@ -982,8 +982,8 @@ export function AddBoardDialog({
                         onClick={() => setSelectedRole("viewer")}
                         className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                           selectedRole === "viewer"
-                            ? "bg-[#1e293b] text-white"
-                            : "text-muted-foreground hover:bg-[#0f172a]"
+                            ? "bg-background text-foreground"
+                            : "text-muted-foreground hover:bg-muted"
                         }`}
                       >
                         Project Viewer
@@ -995,7 +995,7 @@ export function AddBoardDialog({
                       <h3 className="text-base font-medium text-muted-foreground mb-3">
                         Custom account roles
                       </h3>
-                      <p className="text-sm text-muted-foreground px-4 py-3 bg-[#0f172a] rounded-lg">
+                      <p className="text-sm text-muted-foreground px-4 py-3 bg-muted rounded-lg">
                         Custom roles can be created after the board is set up in
                         the board settings.
                       </p>
@@ -1005,7 +1005,7 @@ export function AddBoardDialog({
                   {/* Right Content - Role Permissions */}
                   <div className="flex-1 space-y-6 max-h-[500px] overflow-y-auto pr-2">
                     <div>
-                      <h3 className="text-xl font-medium text-white mb-2">
+                      <h3 className="text-xl font-medium text-foreground mb-2">
                         {selectedRole === "owner"
                           ? "Project Owner"
                           : selectedRole === "projectmanager"
@@ -1030,14 +1030,14 @@ export function AddBoardDialog({
 
                     {BOARD_PERMISSION_CATEGORIES.map((category) => (
                       <div key={category.title} className="space-y-3">
-                        <h4 className="text-base font-medium text-white">
+                        <h4 className="text-base font-medium text-foreground">
                           {category.title}
                         </h4>
                         <div className="space-y-2">
                           {category.permissions.map((permission) => (
                             <div
                               key={permission.id}
-                              className="flex items-center gap-3 p-3 bg-[#0f172a] rounded-lg"
+                              className="flex items-center gap-3 p-3 bg-muted rounded-lg"
                             >
                               <Checkbox
                                 checked={
@@ -1050,7 +1050,7 @@ export function AddBoardDialog({
                                   )
                                 }
                               />
-                              <span className="text-white text-sm">
+                              <span className="text-foreground text-sm">
                                 {permission.label}
                               </span>
                             </div>
@@ -1061,7 +1061,7 @@ export function AddBoardDialog({
 
                     {/* Default Hidden Section */}
                     <div className="space-y-3">
-                      <h4 className="text-base font-medium text-white">
+                      <h4 className="text-base font-medium text-foreground">
                         Default Hidden
                       </h4>
                       <div className="space-y-2">
@@ -1070,7 +1070,7 @@ export function AddBoardDialog({
                           return (
                             <div
                               key={item.id}
-                              className={`flex items-center gap-3 p-3 bg-[#0f172a] rounded-lg ${
+                              className={`flex items-center gap-3 p-3 bg-muted rounded-lg ${
                                 isDisabled
                                   ? "cursor-not-allowed opacity-60"
                                   : ""
@@ -1089,7 +1089,7 @@ export function AddBoardDialog({
                                 }
                               />
                               <span
-                                className={`text-white text-sm ${
+                                className={`text-foreground text-sm ${
                                   isDisabled ? "cursor-not-allowed" : ""
                                 }`}
                               >
@@ -1103,7 +1103,7 @@ export function AddBoardDialog({
 
                     {/* Default View Only Section */}
                     <div className="space-y-3">
-                      <h4 className="text-base font-medium text-white">
+                      <h4 className="text-base font-medium text-foreground">
                         Default View Only
                       </h4>
                       <div className="space-y-2">
@@ -1112,7 +1112,7 @@ export function AddBoardDialog({
                           return (
                             <div
                               key={item.id}
-                              className={`flex items-center gap-3 p-3 bg-[#0f172a] rounded-lg ${
+                              className={`flex items-center gap-3 p-3 bg-muted rounded-lg ${
                                 isDisabled
                                   ? "cursor-not-allowed opacity-60"
                                   : ""
@@ -1131,7 +1131,7 @@ export function AddBoardDialog({
                                 }
                               />
                               <span
-                                className={`text-white text-sm ${
+                                className={`text-foreground text-sm ${
                                   isDisabled ? "cursor-not-allowed" : ""
                                 }`}
                               >
@@ -1145,7 +1145,7 @@ export function AddBoardDialog({
 
                     {/* Default View & Edit Access Section */}
                     <div className="space-y-3">
-                      <h4 className="text-base font-medium text-white">
+                      <h4 className="text-base font-medium text-foreground">
                         Default View & Edit Access
                       </h4>
                       <div className="space-y-2">
@@ -1154,7 +1154,7 @@ export function AddBoardDialog({
                           return (
                             <div
                               key={item.id}
-                              className={`flex items-center gap-3 p-3 bg-[#0f172a] rounded-lg ${
+                              className={`flex items-center gap-3 p-3 bg-muted rounded-lg ${
                                 isDisabled
                                   ? "cursor-not-allowed opacity-60"
                                   : ""
@@ -1173,7 +1173,7 @@ export function AddBoardDialog({
                                 }
                               />
                               <span
-                                className={`text-white text-sm ${
+                                className={`text-foreground text-sm ${
                                   isDisabled ? "cursor-not-allowed" : ""
                                 }`}
                               >
@@ -1185,10 +1185,10 @@ export function AddBoardDialog({
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-[#334155]">
+                    <div className="pt-4 border-t border-border">
                       <Button
                         onClick={handleSavePermissions}
-                        className="bg-[#3b82f6] hover:bg-[#2563eb] text-white"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         Save
                       </Button>
@@ -1201,18 +1201,18 @@ export function AddBoardDialog({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-[#334155]">
+        <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <Button
             variant="ghost"
             onClick={handleCancel}
-            className="text-white hover:bg-[#334155]"
+            className="text-foreground hover:bg-accent"
             disabled={loading}
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            className="bg-[#3b82f6] text-white hover:bg-[#2563eb]"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             disabled={loading}
           >
             {loading ? (
@@ -1232,12 +1232,12 @@ export function AddBoardDialog({
         open={createRoleDialogOpen}
         onOpenChange={setCreateRoleDialogOpen}
       >
-        <AlertDialogContent className="bg-[#1e293b] border-[#334155] text-white">
+        <AlertDialogContent className="bg-background border-border text-foreground">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-2xl">
               Create new role
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400">
+            <AlertDialogDescription className="text-muted-foreground">
               Enter a name for the new custom role.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1246,16 +1246,16 @@ export function AddBoardDialog({
               placeholder="Role name"
               value={newRoleName}
               onChange={(e) => setNewRoleName(e.target.value)}
-              className="bg-[#0f172a] border-[#334155] text-white placeholder:text-gray-500"
+              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-transparent border-[#334155] text-white hover:bg-[#334155]">
+            <AlertDialogCancel className="bg-transparent border-border text-foreground hover:bg-accent">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCreateCustomRole}
-              className="bg-[#3b82f6] text-white hover:bg-[#2563eb]"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Create
             </AlertDialogAction>

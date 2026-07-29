@@ -737,8 +737,9 @@ export function WorkloadBoard({
     // Handle view redirection if necessary
     if (!viewName || !TAB_TO_VIEW_KEY[decodedViewName]) {
       const orgPrefix = orgId ? `/org/${orgId}` : "";
+      const defaultView = String(orgId) === "27" ? "Kanban" : "Main%20Table";
       navigate(
-        `${orgPrefix}/board/${boardId}/view/Main%20Table${window.location.search}`,
+        `${orgPrefix}/board/${boardId}/view/${defaultView}${window.location.search}`,
         {
           replace: true,
         },
@@ -5593,29 +5594,37 @@ export function WorkloadBoard({
         </div>
 
         {/* View Tabs */}
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleViewTabDragEnd}
-        >
-          <div className="flex items-center gap-2 overflow-x-auto">
-            <SortableContext
-              items={columnState.viewTabs}
-              strategy={horizontalListSortingStrategy}
+        {(() => {
+          const orderedTabs = String(orgId) === "27"
+            ? ["Kanban", ...columnState.viewTabs.filter((t: string) => t !== "Kanban")]
+            : columnState.viewTabs;
+
+          return (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleViewTabDragEnd}
             >
-              {columnState.viewTabs
-                .filter((tab: string) => tab !== "Teams" || orgId === "31")
-                .map((tab: string) => (
-                  <SortableViewTab
-                    key={tab}
-                    tab={tab}
-                    activeTab={activeTab}
-                    onTabClick={handleTabChange}
-                  />
-                ))}
-            </SortableContext>
-          </div>
-        </DndContext>
+              <div className="flex items-center gap-2 overflow-x-auto">
+                <SortableContext
+                  items={orderedTabs}
+                  strategy={horizontalListSortingStrategy}
+                >
+                  {orderedTabs
+                    .filter((tab: string) => tab !== "Teams" || orgId === "31")
+                    .map((tab: string) => (
+                      <SortableViewTab
+                        key={tab}
+                        tab={tab}
+                        activeTab={activeTab}
+                        onTabClick={handleTabChange}
+                      />
+                    ))}
+                </SortableContext>
+              </div>
+            </DndContext>
+          );
+        })()}
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -6936,14 +6945,11 @@ export function WorkloadBoard({
                                                 <SortableTaskRow
                                                   id={task.id}
                                                   data-task-row={true}
-                                                  onClickCapture={() => setFocusedTaskId(task.id)}
+                                                  onClick={() => setFocusedTaskId(task.id)}
                                                   className={cn(
                                                     "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors",
                                                     isRowActive && "bg-primary/10"
                                                   )}
-                                                  onClick={() => {
-                                                    openTaskCard(task);
-                                                  }}
                                                 >
                                                   {() => (
                                                     <>
@@ -7102,7 +7108,7 @@ export function WorkloadBoard({
                                                         <tr
                                                           key={subtask.id}
                                                           data-task-row={true}
-                                                          onClickCapture={() => setFocusedTaskId(subtask.id)}
+                                                          onClick={() => setFocusedTaskId(subtask.id)}
                                                           className={cn(
                                                             "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors",
                                                             isSubtaskActive && "bg-primary/10"

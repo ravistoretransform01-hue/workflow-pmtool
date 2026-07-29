@@ -924,51 +924,62 @@ export function TaskCardDialog({
                 value="description"
                 className="flex-1 overflow-auto m-0 p-0"
               >
-                <div className="h-full flex flex-col">
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/10">
-                    <div className="flex items-center gap-2 text-foreground font-medium">
-                      <AlignLeft className="h-4 w-4 text-muted-foreground" />
-                      <span>Task Description</span>
-                    </div>
-                    {!isEditingDescription && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs gap-1.5"
-                        onClick={() => {
-                          setTempDescription(displayTask?.description || "");
-                          setIsEditingDescription(true);
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit
-                      </Button>
-                    )}
-                  </div>
+                {(() => {
+                  const hasDescription = displayTask?.description &&
+                        (displayTask.description.replace(/<[^>]*>/g, "").trim().length > 0 ||
+                          displayTask.description.includes("<img") ||
+                          displayTask.description.includes("<iframe"));
+                  const showEditor = isEditingDescription || !hasDescription;
 
-                  <div className="flex-1 overflow-auto">
-                    {isEditingDescription ? (
-                      <div className="flex flex-col h-full">
-                        <div className="flex-1 p-6">
-                          <TiptapEditor
-                            value={tempDescription}
-                            onChange={setTempDescription}
-                            placeholder="Add a detailed description..."
-                            boardId={boardId}
-                            key="dialog-description-editor-tab"
-                          />
+                  return (
+                    <div className="h-full flex flex-col">
+                      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/10">
+                        <div className="flex items-center gap-2 text-foreground font-medium">
+                          <AlignLeft className="h-4 w-4 text-muted-foreground" />
+                          <span>Task Description</span>
                         </div>
-                        <div className="flex items-center justify-between gap-2 p-4 bg-muted/20 border-t border-border/50 shrink-0">
-                          <div className="flex-1" />
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-9 px-4 text-sm"
-                              onClick={() => setIsEditingDescription(false)}
-                            >
+                        {!showEditor && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs gap-1.5"
+                            onClick={() => {
+                              setTempDescription(displayTask?.description || "");
+                              setIsEditingDescription(true);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="flex-1 overflow-auto">
+                        {showEditor ? (
+                          <div className="flex flex-col h-full">
+                            <div className="flex-1 p-6">
+                              <TiptapEditor
+                                value={tempDescription}
+                                onChange={setTempDescription}
+                                placeholder="Add a detailed description..."
+                                boardId={boardId}
+                                key="dialog-description-editor-tab"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between gap-2 p-4 bg-muted/20 border-t border-border/50 shrink-0">
+                              <div className="flex-1" />
+                              <div className="flex items-center gap-2">
+                                {/* <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-9 px-4 text-sm"
+                                  onClick={() => {
+                                    setIsEditingDescription(false);
+                                    setTempDescription(displayTask?.description || "");
+                                  }}
+                                >
                               Cancel
-                            </Button>
+                            </Button> */}
                             <Button
                               variant="default"
                               size="sm"
@@ -1030,27 +1041,21 @@ export function TaskCardDialog({
                         (displayTask.description.replace(/<[^>]*>/g, "").trim()
                           .length > 0 ||
                           displayTask.description.includes("<img") ||
-                          displayTask.description.includes("<iframe")) ? (
+                          displayTask.description.includes("<iframe")) && (
                           <div
-                            className="text-sm text-foreground/90 prose prose-invert prose-content max-w-none prose-p:my-2 [&_img]:cursor-pointer [&_img]:transition-opacity hover:[&_img]:opacity-90 [&_.file-card]:cursor-default"
+                            className="text-sm text-foreground/90 prose dark:prose-invert prose-content max-w-none prose-p:my-2 [&_img]:cursor-pointer [&_img]:transition-opacity hover:[&_img]:opacity-90 [&_.file-card]:cursor-default"
                             dangerouslySetInnerHTML={{
                               __html: displayTask.description,
                             }}
                           />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground italic text-center">
-                            <AlignLeft className="h-12 w-12 mb-4 opacity-20" />
-                            <p>No description provided yet.</p>
-                            <p className="text-sm mt-1 not-italic opacity-70 max-w-[200px]">
-                              Hit the 'Edit' button to add more details.
-                            </p>
-                          </div>
                         )}
                       </div>
                     )}
                   </div>
                 </div>
-              </TabsContent>
+              );
+            })()}
+            </TabsContent>
 
               <TabsContent
                 value="dev-updates"

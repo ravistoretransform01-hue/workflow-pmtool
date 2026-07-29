@@ -179,7 +179,7 @@ export const getWorkloadColumns = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onOpenTaskCard?.(task);
+                    onOpenTaskCard?.(task, true);
                   }}
                   className="p-1 rounded"
                 >
@@ -272,7 +272,7 @@ export const getWorkloadColumns = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onOpenTaskCard?.(task);
+                  onOpenTaskCard?.(task, true);
                 }}
                 className="p-1 rounded"
               >

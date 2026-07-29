@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
+import { CreateTaskPopover } from "@/shared/modals/CreateTaskPopover";
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -9,26 +10,9 @@ import type { Status, Priority } from "@/features/cms/types/types";
 import type { Task } from "@/features/workload/components/WorkloadBoard";
 import { KanbanCard } from "@/features/workload/components/KanbanCard";
 import { useDroppable } from "@dnd-kit/core";
-import {
-  Plus,
-  X,
-  ListTree,
-  Layers,
-  // MoreHorizontal,
-  GripVertical,
-} from "lucide-react";
+import { Plus, GripVertical } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
-import { Switch } from "@/shared/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
-import { ScrollArea } from "@/shared/ui/scroll-area";
 import { cn, getOrganizationId } from "@/utils/utils";
 import { cmsApi } from "@/features/cms/api/cmsApi";
 import {
@@ -86,17 +70,9 @@ export function KanbanColumn({
   onDeleteTask,
   onOpenComments,
 }: KanbanColumnProps) {
-  const [isAdding, setIsAdding] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingName, setEditingName] = useState(category.name);
   const [isSavingName, setIsSavingName] = useState(false);
-  const [newTaskName, setNewTaskName] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSubtask, setIsSubtask] = useState(false);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
-  const [selectedParentId, setSelectedParentId] = useState<string>("");
-
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const {
     attributes,
@@ -131,54 +107,6 @@ export function KanbanColumn({
     transform: CSS.Translate.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
-  };
-
-  useEffect(() => {
-    if (isAdding) {
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
-      if (!selectedGroupId && groups.length > 0) {
-        setSelectedGroupId(groups[0].id);
-      }
-    }
-  }, [isAdding, groups, selectedGroupId]);
-
-  const handleCreateTask = async () => {
-    if (!newTaskName.trim()) {
-      setIsAdding(false);
-      return;
-    }
-    if (!selectedGroupId) return;
-    if (isSubtask && !selectedParentId) return;
-
-    setIsLoading(true);
-    try {
-      await onAddTask(
-        newTaskName.trim(),
-        selectedGroupId,
-        isSubtask ? selectedParentId : undefined,
-      );
-      setNewTaskName("");
-      setIsAdding(false);
-      setIsSubtask(false);
-      setSelectedParentId("");
-    } catch (error) {
-      console.error("Failed to create task from Kanban:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleCreateTask();
-    } else if (e.key === "Escape") {
-      setIsAdding(false);
-      setNewTaskName("");
-      setIsSubtask(false);
-      setSelectedParentId("");
-    }
   };
 
   const handleSaveName = async () => {
@@ -247,8 +175,6 @@ export function KanbanColumn({
     }
   };
 
-  const groupTasks = groups.find((g) => g.id === selectedGroupId)?.tasks || [];
-
   return (
     <div
       ref={setNodeRef}
@@ -307,15 +233,21 @@ export function KanbanColumn({
               {tasks.length}
             </span>
           </div>
-          <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center gap-1">
-            {/* <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-slate-400 hover:text-slate-600"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </Button> */}
-            <GripVertical className="h-4 w-4 text-slate-300" />
+          <div className="flex items-center gap-1">
+            <CreateTaskPopover groups={groups} onAddTask={onAddTask} trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Add Task"
+                className="h-7 w-7 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            } />
+            <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center">
+              <GripVertical className="h-4 w-4 text-slate-300" />
+            </div>
           </div>
         </div>
       </div>
@@ -350,117 +282,9 @@ export function KanbanColumn({
           })}
         </SortableContext>
 
-        {isAdding ? (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-primary/50 p-4 shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="space-y-3">
-              <Input
-                ref={inputRef}
-                placeholder={
-                  isSubtask ? "Subtask name..." : "What needs to be done?"
-                }
-                value={newTaskName}
-                onChange={(e) => setNewTaskName(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isLoading}
-                className="h-9 text-sm focus-visible:ring-primary/50 border-slate-200 dark:border-slate-800"
-              />
-
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="subtask-mode"
-                    checked={isSubtask}
-                    onCheckedChange={setIsSubtask}
-                    className="scale-75 origin-left data-[state=checked]:bg-primary"
-                  />
-                  <Label
-                    htmlFor="subtask-mode"
-                    className="text-[11px] font-bold uppercase tracking-wider text-slate-500 cursor-pointer flex items-center gap-1.5"
-                  >
-                    {isSubtask ? (
-                      <ListTree className="w-3.5 h-3.5" />
-                    ) : (
-                      <Layers className="w-3.5 h-3.5" />
-                    )}
-                    {isSubtask ? "Subtask" : "Task"}
-                  </Label>
-                </div>
-              </div>
-
-              <div className="grid gap-2">
-                <Select
-                  value={selectedGroupId}
-                  onValueChange={setSelectedGroupId}
-                >
-                  <SelectTrigger className="h-8 text-xs bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800">
-                    <SelectValue placeholder="Select Group" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {isSubtask && (
-                  <Select
-                    value={selectedParentId}
-                    onValueChange={setSelectedParentId}
-                  >
-                    <SelectTrigger className="h-8 text-xs bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800">
-                      <SelectValue placeholder="Select Parent Task" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <ScrollArea className="h-40">
-                        {groupTasks.length > 0 ? (
-                          groupTasks.map((task) => (
-                            <SelectItem key={task.id} value={task.id}>
-                              {task.name}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <div className="p-3 text-xs text-slate-500 text-center italic">
-                            No items in this group
-                          </div>
-                        )}
-                      </ScrollArea>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-1">
-              <Button
-                size="sm"
-                className="h-8 flex-1 text-xs font-bold uppercase tracking-wide shadow-sm"
-                onClick={handleCreateTask}
-                disabled={isLoading || (isSubtask && !selectedParentId)}
-              >
-                {isLoading ? "Adding..." : "Add Item"}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                onClick={() => {
-                  setIsAdding(false);
-                  setNewTaskName("");
-                  setIsSubtask(false);
-                  setSelectedParentId("");
-                }}
-                disabled={isLoading}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        ) : (
+        <CreateTaskPopover groups={groups} onAddTask={onAddTask} trigger={
           <button
-            onClick={() => setIsAdding(true)}
-            className="w-full flex items-center gap-2.5 p-3 rounded-xl text-slate-500 hover:text-primary hover:bg-white dark:hover:bg-slate-900 transition-all duration-200 group border border-dashed border-slate-300 dark:border-slate-800 hover:border-primary/50 hover:shadow-sm"
+            className="w-full flex items-center gap-2.5 p-3 rounded-xl text-slate-500 hover:text-primary hover:bg-white dark:hover:bg-slate-900 transition-all duration-200 group border border-dashed border-slate-300 dark:border-slate-800 hover:border-primary/50 hover:shadow-sm mt-3"
           >
             <div className="bg-slate-100 dark:bg-slate-800 group-hover:bg-primary/10 rounded-lg p-1.5 transition-colors">
               <Plus className="h-3.5 w-3.5" />
@@ -469,7 +293,7 @@ export function KanbanColumn({
               Add Item
             </span>
           </button>
-        )}
+        } />
       </div>
     </div>
   );

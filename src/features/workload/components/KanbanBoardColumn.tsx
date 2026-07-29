@@ -14,6 +14,7 @@ import React from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Plus } from "lucide-react";
 
 export interface KanbanBoardColumnProps {
   /** Unique key used to identify this column in DnD state */
@@ -34,6 +35,8 @@ export interface KanbanBoardColumnProps {
   isOverlay?: boolean;
   /** Disable internal scrolling to allow sticky header against the window/outer container */
   disableInternalScroll?: boolean;
+  /** Callback for when the Add Item button is clicked */
+  onAddTaskClick?: () => void;
 }
 
 export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
@@ -46,6 +49,7 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
   isColumnActive = false,
   isOverlay = false,
   disableInternalScroll = false,
+  onAddTaskClick,
 }: KanbanBoardColumnProps) {
   const {
     attributes,
@@ -128,6 +132,20 @@ export const KanbanBoardColumn = React.memo(function KanbanBoardColumn({
               ))}
               </SortableContext>
             </>
+          )}
+
+          {!isOverlay && onAddTaskClick && (
+            <button
+              onClick={onAddTaskClick}
+              className="w-full flex items-center gap-2.5 p-3 rounded-xl text-slate-500 hover:text-primary hover:bg-white dark:hover:bg-slate-900 transition-all duration-200 group border border-dashed border-slate-300 dark:border-slate-800 hover:border-primary/50 hover:shadow-sm mt-3"
+            >
+              <div className="bg-slate-100 dark:bg-slate-800 group-hover:bg-primary/10 rounded-lg p-1.5 transition-colors">
+                <Plus className="h-3.5 w-3.5" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Add Item
+              </span>
+            </button>
           )}
         </div>
       </div>
