@@ -6689,7 +6689,7 @@ export function WorkloadBoard({
                                       <div className="flex-1 max-w-[250px]">
                                         <Progress
                                           value={progress.percentage}
-                                          className="h-2"
+                                          className="h-2 border border-[#3e4360] bg-[#3e4360]"
                                         />
                                       </div>
                                       <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
