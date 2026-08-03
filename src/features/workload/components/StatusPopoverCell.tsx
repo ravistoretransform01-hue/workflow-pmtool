@@ -62,6 +62,7 @@ interface EditableStatus {
   name: string;
   color_code: string;
   required_rating: number | string;
+  is_editable?: number | boolean;
 }
 
 interface StatusPopoverCellProps {
@@ -112,6 +113,8 @@ function SortableStatusItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const canEdit = status.is_editable === 1 || status.is_editable === true || String(status.is_editable) === "1";
+
   return (
     <div
       ref={setNodeRef}
@@ -119,39 +122,46 @@ function SortableStatusItem({
       className="flex gap-2 items-center p-2 border border-border rounded bg-card group"
     >
       <div
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 -ml-1 transition-colors"
+        {...(canEdit ? attributes : {})}
+        {...(canEdit ? listeners : {})}
+        className={`p-1 -ml-1 transition-colors ${
+          canEdit
+            ? "cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+            : "cursor-not-allowed text-muted-foreground/50"
+        }`}
       >
         <GripVertical className="h-4 w-4" />
       </div>
       <ColorPickerPopover
         color={status.color_code}
         onColorChange={(c) => {
+          if (!canEdit) return;
           const copy = [...editableStatuses];
           copy[index].color_code = c;
           setEditableStatuses(copy);
         }}
         isOpen={colorPickerOpen === status.id}
-        onOpenChange={(o) => setColorPickerOpen(o ? status.id : null)}
+        onOpenChange={(o) => canEdit && setColorPickerOpen(o ? status.id : null)}
       />
       <Input
         value={status.name}
         onChange={(e) => {
+          if (!canEdit) return;
           const copy = [...editableStatuses];
           copy[index].name = e.target.value;
           setEditableStatuses(copy);
         }}
-        className="h-8 text-sm flex-1"
+        disabled={!canEdit}
+        className="h-8 text-sm flex-1 disabled:opacity-80 disabled:cursor-not-allowed"
       />
       <Trash
-        className={`h-4 w-4 cursor-pointer hover:text-destructive transition-colors ${
-          status.required_rating === 1
+        className={`h-4 w-4 transition-colors ${
+          status.required_rating === 1 || !canEdit
             ? "text-muted-foreground cursor-not-allowed opacity-50"
-            : "text-destructive/70"
+            : "text-destructive/70 cursor-pointer hover:text-destructive"
         }`}
         onClick={() => {
-          if (status.required_rating === 1) return;
+          if (status.required_rating === 1 || !canEdit) return;
           handleDeleteStatus(status.id);
         }}
       />
@@ -300,6 +310,7 @@ export default function StatusPopoverCell({
           name: s.name,
           color_code: s.color_code,
           required_rating: s.required_rating || 0,
+          is_editable: s.is_editable,
         })),
       );
     }

@@ -60,6 +60,7 @@ interface EditablePriority {
   id: string;
   name: string;
   color_code: string;
+  is_editable?: number | boolean;
 }
 
 interface PriorityPopoverCellProps {
@@ -110,6 +111,8 @@ function SortablePriorityItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const canEdit = priority.is_editable === 1 || priority.is_editable === true || String(priority.is_editable) === "1";
+
   return (
     <div
       ref={setNodeRef}
@@ -117,34 +120,48 @@ function SortablePriorityItem({
       className="flex gap-2 items-center p-2 border border-border rounded bg-card group"
     >
       <div
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 -ml-1 transition-colors"
+        {...(canEdit ? attributes : {})}
+        {...(canEdit ? listeners : {})}
+        className={`p-1 -ml-1 transition-colors ${
+          canEdit
+            ? "cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+            : "cursor-not-allowed text-muted-foreground/50"
+        }`}
       >
         <GripVertical className="h-4 w-4" />
       </div>
       <ColorPickerPopover
         color={priority.color_code}
         onColorChange={(c) => {
+          if (!canEdit) return;
           const copy = [...editablePriorities];
           copy[index].color_code = c;
           setEditablePriorities(copy);
         }}
         isOpen={colorPickerOpen === priority.id}
-        onOpenChange={(o) => setColorPickerOpen(o ? priority.id : null)}
+        onOpenChange={(o) => canEdit && setColorPickerOpen(o ? priority.id : null)}
       />
       <Input
         value={priority.name}
         onChange={(e) => {
+          if (!canEdit) return;
           const copy = [...editablePriorities];
           copy[index].name = e.target.value;
           setEditablePriorities(copy);
         }}
-        className="h-8 text-sm flex-1"
+        disabled={!canEdit}
+        className="h-8 text-sm flex-1 disabled:opacity-80 disabled:cursor-not-allowed"
       />
       <Trash
-        className="h-4 w-4 text-destructive/70 cursor-pointer hover:text-destructive transition-colors"
-        onClick={() => handleDeletePriority(priority.id)}
+        className={`h-4 w-4 transition-colors ${
+          canEdit
+            ? "text-destructive/70 cursor-pointer hover:text-destructive"
+            : "text-muted-foreground cursor-not-allowed opacity-50"
+        }`}
+        onClick={() => {
+          if (!canEdit) return;
+          handleDeletePriority(priority.id);
+        }}
       />
     </div>
   );
@@ -290,6 +307,7 @@ export function PriorityPopoverCell({
           id: String(p.id),
           name: p.name,
           color_code: p.color_code,
+          is_editable: p.is_editable,
         })),
       );
     }

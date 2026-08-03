@@ -53,12 +53,14 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
         color_code: s.color_code,
         status_order: String(s.status_order),
         required_rating: s.required_rating,
+        is_editable: s.is_editable,
       })),
       priorities: (apiResponse.priorities || []).map((p) => ({
         id: String(p.id),
         name: p.name,
         color_code: p.color_code,
         priority_order: String(p.priority_order),
+        is_editable: p.is_editable,
       })),
       members: (apiResponse.members || []).map((m) => ({
         user_id: String(m.user_id),
