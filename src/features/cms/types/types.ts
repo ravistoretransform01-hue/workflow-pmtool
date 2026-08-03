@@ -108,6 +108,8 @@ export interface CMSResponse {
   default_columns?: any;
   all_board_groups?: BoardGroup[];
   groups?: Group[];
+  ord_logo?: string;
+  org_logo?: string;
 }
 
 export interface CMSRequest {

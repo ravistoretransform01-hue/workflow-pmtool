@@ -54,7 +54,7 @@ import { useBoards } from "@/hooks/useBoards";
 import { boardsApi } from "@/features/boards/api/boardsApi";
 import { useAppSelector } from "@/hooks";
 import { appName } from "@/constants";
-
+import { cmsApi } from "@/features/cms/api/cmsApi";
 
 
 export const AppSidebar = () => {
@@ -65,6 +65,28 @@ export const AppSidebar = () => {
   const { boardId } = useParams();
   const { open } = useSidebar();
   const { boards, fetchLoading, fetchBoards } = useBoards();
+
+  const [dynamicLogo, setDynamicLogo] = useState<string | null>(null);
+
+  // Fetch dynamic logo from CMS
+  useEffect(() => {
+    const fetchLogo = async () => {
+      if (orgId) {
+        try {
+          const res = await cmsApi.getCMSData({
+            organization_id: Number(orgId),
+            board_id: Number(boardId) || 0,
+            user_id: user?.user_id ? Number(user.user_id) : null,
+          });
+          const logo = res.ord_logo || res.org_logo;
+          if (logo) setDynamicLogo(logo);
+        } catch (error) {
+          console.error("Failed to fetch dynamic logo from CMS:", error);
+        }
+      }
+    };
+    fetchLogo();
+  }, [orgId, boardId, user?.user_id]);
 
   // Resize logic
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -318,7 +340,15 @@ export const AppSidebar = () => {
         <SidebarHeader className="h-16 flex items-center justify-center">
           <div className="flex items-center justify-between gap-2 w-full px-6">
             <div className="flex items-center gap-2 w-full">
-              <img src="/favicon/apple-touch-icon.png" alt="Logo" className="w-8 h-8 rounded-md bg-white object-contain shadow-sm" style={{ padding: "2px" }} />
+              <img 
+                src={dynamicLogo || user?.organizations?.find(o => String(o.organization_id) === String(user?.organization_id))?.org_logo || user?.org_logo || "/favicon/apple-touch-icon.png"} 
+                alt="Logo" 
+                className="w-8 h-8 rounded-md bg-white object-contain shadow-sm" 
+                style={{ padding: "2px" }}
+                onError={(e) => {
+                  e.currentTarget.src = "/favicon/apple-touch-icon.png";
+                }}
+              />
               {open && <h1 className="text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap">{appName}</h1>}
             </div>
           </div>
