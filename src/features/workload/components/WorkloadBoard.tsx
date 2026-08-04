@@ -882,11 +882,8 @@ export function WorkloadBoard({
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   
   // Tracking modal state
-  // @ts-ignore
   const [trackingModalOpen, setTrackingModalOpen] = useState(false);
-  // @ts-ignore
-  const [trackingGroupId, setTrackingGroupId] = useState<string | number | null>(null);
-  // @ts-ignore
+  const [trackingGroupId, setTrackingGroupId] = useState<string | null>(null);
   const [trackingGroupName, setTrackingGroupName] = useState("");
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [addingItemToGroup, setAddingItemToGroup] = useState<string | null>(
