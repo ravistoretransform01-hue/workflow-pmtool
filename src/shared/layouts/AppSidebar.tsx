@@ -60,6 +60,9 @@ import { cmsApi } from "@/features/cms/api/cmsApi";
 export const AppSidebar = () => {
   const user = useAppSelector((state) => state.auth.user);
   const orgId = user?.organization_id;
+  
+  const currentOrg = user?.organizations?.find(o => String(o.organization_id) === String(orgId));
+  const displayName = currentOrg?.organization_name || appName;
 
   const navigate = useNavigate();
   const { boardId } = useParams();
@@ -349,7 +352,7 @@ export const AppSidebar = () => {
                   e.currentTarget.src = "/favicon/apple-touch-icon.png";
                 }}
               />
-              {open && <h1 className="text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap">{appName}</h1>}
+              {open && <h1 className="text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap" title={displayName}>{displayName}</h1>}
             </div>
           </div>
         </SidebarHeader>
