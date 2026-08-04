@@ -172,4 +172,27 @@ export const groupsApi = {
       throw error;
     }
   },
+
+  /**
+   * Layout Tracking API
+   */
+  getTrackingLayout: async (groupId: string | number): Promise<any> => {
+    try {
+      const response = await api.get(`https://outskillmarketing.com/wp-json/wp-platform/v1/group-tracking?group_id=${groupId}`);
+      return response.data?.data || response.data;
+    } catch (error) {
+      console.error("Get tracking layout error:", error);
+      return null;
+    }
+  },
+
+  saveTrackingLayout: async (payload: any): Promise<any> => {
+    try {
+      const response = await api.post("https://outskillmarketing.com/wp-json/wp-platform/v1/group-tracking", payload);
+      return response.data;
+    } catch (error) {
+      console.error("Save tracking layout error:", error);
+      throw error;
+    }
+  }
 };

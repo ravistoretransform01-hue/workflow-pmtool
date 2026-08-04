@@ -1,4 +1,5 @@
 import React from "react";
+import { TrackingLayoutBuilderModal } from "./tracking/TrackingLayoutBuilderModal";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { format, parseISO } from "date-fns";
 
@@ -879,6 +880,11 @@ export function WorkloadBoard({
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  
+  // Tracking modal state
+  const [trackingModalOpen, setTrackingModalOpen] = useState(false);
+  const [trackingGroupId, setTrackingGroupId] = useState<string | null>(null);
+  const [trackingGroupName, setTrackingGroupName] = useState("");
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [addingItemToGroup, setAddingItemToGroup] = useState<string | null>(
     null,
@@ -6675,6 +6681,18 @@ export function WorkloadBoard({
                                       </div>
                                     </PopoverContent>
                                   </Popover>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setTrackingGroupId(group.id);
+                                      setTrackingGroupName(groupNames[group.id] || group.name);
+                                      setTrackingModalOpen(true);
+                                    }}
+                                    className="ml-2 h-7 px-2 text-xs"
+                                  >
+                                    Tracking
+                                  </Button>
                                 </div>
 
                                 {/* Group Progress Bar - Time Spent vs Estimated Time */}
@@ -9053,6 +9071,17 @@ export function WorkloadBoard({
           </DialogContent>
         </Dialog>
       </div>
+
+      {trackingGroupId && (
+        <TrackingLayoutBuilderModal
+          open={trackingModalOpen}
+          onOpenChange={setTrackingModalOpen}
+          groupId={trackingGroupId}
+          groupName={trackingGroupName}
+          boardId={boardId}
+          organizationId={getOrganizationId() || ""}
+        />
+      )}
     </div>
   );
 }
