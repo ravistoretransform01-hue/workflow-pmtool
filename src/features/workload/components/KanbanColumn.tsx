@@ -7,6 +7,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Status, Priority } from "@/features/cms/types/types";
+import { useParams } from "react-router-dom";
 import type { Task } from "@/features/workload/components/WorkloadBoard";
 import { KanbanCard } from "@/features/workload/components/KanbanCard";
 import { useDroppable } from "@dnd-kit/core";
@@ -175,6 +176,9 @@ export function KanbanColumn({
     }
   };
 
+  const { orgId } = useParams<{ orgId?: string }>();
+  const canEditCategory = Number(orgId) === 31 || category.is_editable === 1 || category.is_editable === true || String(category.is_editable) === "1";
+
   return (
     <div
       ref={setNodeRef}
@@ -220,10 +224,16 @@ export function KanbanColumn({
               />
             ) : (
               <h3
-                className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 cursor-text hover:text-primary transition-colors"
+                className={`font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 transition-colors ${
+                  canEditCategory
+                    ? "cursor-text hover:text-primary"
+                    : "cursor-default"
+                }`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsEditingName(true);
+                  if (canEditCategory) {
+                    setIsEditingName(true);
+                  }
                 }}
               >
                 {category.name}

@@ -529,8 +529,6 @@ export const getWorkloadColumns = ({
       width: "180px",
       align: "center",
       render: (task: Task) => {
-        const hasAssignee =
-          task.assigned_to_ids && task.assigned_to_ids.length > 0;
         const estimatedHours = task.estimatedHours ?? "-";
         const estimatedDate = task.estimatedDate ?? "-";
         return (
@@ -542,10 +540,8 @@ export const getWorkloadColumns = ({
             onTimerStart={onTimerStart || (() => {})}
             onTimerConflict={onTimerConflict || (() => {})}
             onTimeUpdate={onTimeUpdate}
-            hasAssignee={hasAssignee}
             estimatedHours={estimatedHours}
             taskName={task.name}
-            assignedToIds={task.assigned_to_ids || []}
             estimatedDate={estimatedDate}
           />
         );
