@@ -5630,7 +5630,7 @@ export function WorkloadBoard({
         {/* Global Toolbar for all views */}
         {activeTab !== "SOP" && (
           <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
-            {activeTab === "Main Table" && (
+            {activeTab === "Main Table" && Number(orgId) === 31 && (
               <Button
                 variant="default"
                 size="sm"

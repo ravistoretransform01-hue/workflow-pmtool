@@ -18,6 +18,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useParams } from "react-router-dom";
 
 import {
   Popover,
@@ -113,8 +114,8 @@ function SortableStatusItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const orgId = getOrganizationId();
-  const canEdit = orgId === 31 || status.is_editable === 1 || status.is_editable === true || String(status.is_editable) === "1";
+  const { orgId } = useParams<{ orgId?: string }>();
+  const canEdit = Number(orgId) === 31 || status.is_editable === 1 || status.is_editable === true || String(status.is_editable) === "1";
 
   return (
     <div

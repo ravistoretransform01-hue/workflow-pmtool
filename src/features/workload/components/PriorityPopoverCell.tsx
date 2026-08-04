@@ -17,6 +17,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useParams } from "react-router-dom";
 import type { Priority } from "@/features/cms/types/types";
 import { cmsApi } from "@/features/cms/api/cmsApi";
 import {
@@ -111,8 +112,8 @@ function SortablePriorityItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const orgId = getOrganizationId();
-  const canEdit = orgId === 31 || priority.is_editable === 1 || priority.is_editable === true || String(priority.is_editable) === "1";
+  const { orgId } = useParams<{ orgId?: string }>();
+  const canEdit = Number(orgId) === 31 || priority.is_editable === 1 || priority.is_editable === true || String(priority.is_editable) === "1";
 
   return (
     <div

@@ -7,6 +7,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Status, Priority } from "@/features/cms/types/types";
+import { useParams } from "react-router-dom";
 import type { Task } from "@/features/workload/components/WorkloadBoard";
 import { KanbanCard } from "@/features/workload/components/KanbanCard";
 import { useDroppable } from "@dnd-kit/core";
@@ -175,8 +176,8 @@ export function KanbanColumn({
     }
   };
 
-  const currentOrgId = getOrganizationId();
-  const canEditCategory = currentOrgId === 31 || category.is_editable === 1 || category.is_editable === true || String(category.is_editable) === "1";
+  const { orgId } = useParams<{ orgId?: string }>();
+  const canEditCategory = Number(orgId) === 31 || category.is_editable === 1 || category.is_editable === true || String(category.is_editable) === "1";
 
   return (
     <div
