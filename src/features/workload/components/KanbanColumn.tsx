@@ -175,6 +175,9 @@ export function KanbanColumn({
     }
   };
 
+  const currentOrgId = getOrganizationId();
+  const canEditCategory = currentOrgId === 31 || category.is_editable === 1 || category.is_editable === true || String(category.is_editable) === "1";
+
   return (
     <div
       ref={setNodeRef}
@@ -220,10 +223,16 @@ export function KanbanColumn({
               />
             ) : (
               <h3
-                className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 cursor-text hover:text-primary transition-colors"
+                className={`font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 transition-colors ${
+                  canEditCategory
+                    ? "cursor-text hover:text-primary"
+                    : "cursor-default"
+                }`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsEditingName(true);
+                  if (canEditCategory) {
+                    setIsEditingName(true);
+                  }
                 }}
               >
                 {category.name}

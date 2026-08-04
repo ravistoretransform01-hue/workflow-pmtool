@@ -111,7 +111,8 @@ function SortablePriorityItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const canEdit = priority.is_editable === 1 || priority.is_editable === true || String(priority.is_editable) === "1";
+  const orgId = getOrganizationId();
+  const canEdit = orgId === 31 || priority.is_editable === 1 || priority.is_editable === true || String(priority.is_editable) === "1";
 
   return (
     <div
