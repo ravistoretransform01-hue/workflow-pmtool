@@ -86,11 +86,9 @@ export function TrackingLayoutBuilderModal({
       if (layoutData && rawLayout) {
         let parsedLayoutJson = rawLayout;
         
-        // If the backend returns it as a string rather than an object, parse it.
         if (typeof parsedLayoutJson === 'string') {
           try {
             parsedLayoutJson = JSON.parse(parsedLayoutJson);
-            // Sometimes it's double serialized in WP depending on how it was saved
             if (typeof parsedLayoutJson === 'string') {
                parsedLayoutJson = JSON.parse(parsedLayoutJson);
             }
@@ -100,35 +98,66 @@ export function TrackingLayoutBuilderModal({
         }
 
         if (parsedLayoutJson && parsedLayoutJson.tabs) {
-          const parsedTabs = parsedLayoutJson.tabs.map((tabName: string, i: number) => {
-            let tabCols: TrackingLayoutColumn[] = [];
-            
-            if (Array.isArray(parsedLayoutJson.columns)) {
-              tabCols = parsedLayoutJson.columns.map((c: any) => ({
-                id: c.id || `col_${generateId()}`,
-                name: c.name || "",
-                rows: Array.isArray(c.rows) ? c.rows : []
-              }));
-            } else if (Array.isArray(parsedLayoutJson.rows)) {
-              tabCols = [
-                {
-                  id: `col_legacy_${i}`,
-                  name: "Main Column",
-                  rows: parsedLayoutJson.rows.map((r: any) => ({ id: r.id || `row_${generateId()}`, name: r.name || "" }))
-                }
-              ];
-            }
+          if (Array.isArray(parsedLayoutJson.tabs) && parsedLayoutJson.tabs.length > 0 && typeof parsedLayoutJson.tabs[0] === 'object') {
+            // Parses specific payload: tabs[] -> rows[] -> columns[]
+            const parsedTabs = parsedLayoutJson.tabs.map((tab: any, i: number) => {
+              // Extract all columns from all rows in this tab
+              let allColumns: TrackingLayoutColumn[] = [];
+              if (Array.isArray(tab.rows)) {
+                tab.rows.forEach((row: any) => {
+                  if (Array.isArray(row.columns)) {
+                     const rowCols = row.columns.map((c: any) => ({
+                       id: c.id || `col_${generateId()}`,
+                       name: c.name || "",
+                       rows: Array.isArray(c.rows) ? c.rows.map((r: any) => ({ id: r.id || `row_${generateId()}`, name: r.name || "" })) : []
+                     }));
+                     allColumns = [...allColumns, ...rowCols];
+                  }
+                });
+              }
 
-            return {
-              id: `tab_${i}`,
-              name: tabName || "Tab",
-              columns: tabCols
-            };
-          });
-          setTabs(parsedTabs);
-          if (parsedTabs.length > 0) setActiveTabId(parsedTabs[0].id);
-          setLoading(false);
-          return;
+              return {
+                id: `tab_${i}_${generateId()}`,
+                name: tab.name || "Tab",
+                columns: allColumns
+              };
+            });
+            setTabs(parsedTabs);
+            if (parsedTabs.length > 0) setActiveTabId(parsedTabs[0].id);
+            setLoading(false);
+            return;
+          } else {
+            // Legacy string array parser
+            const parsedTabs = parsedLayoutJson.tabs.map((tabName: string, i: number) => {
+              let tabCols: TrackingLayoutColumn[] = [];
+              
+              if (Array.isArray(parsedLayoutJson.columns)) {
+                tabCols = parsedLayoutJson.columns.map((c: any) => ({
+                  id: c.id || `col_${generateId()}`,
+                  name: c.name || "",
+                  rows: Array.isArray(c.rows) ? c.rows : []
+                }));
+              } else if (Array.isArray(parsedLayoutJson.rows)) {
+                tabCols = [
+                  {
+                    id: `col_legacy_${i}`,
+                    name: "Main Column",
+                    rows: parsedLayoutJson.rows.map((r: any) => ({ id: r.id || `row_${generateId()}`, name: r.name || "" }))
+                  }
+                ];
+              }
+
+              return {
+                id: `tab_${i}`,
+                name: tabName || "Tab",
+                columns: i === 0 ? tabCols : [] // only apply legacy rows to first tab
+              };
+            });
+            setTabs(parsedTabs);
+            if (parsedTabs.length > 0) setActiveTabId(parsedTabs[0].id);
+            setLoading(false);
+            return;
+          }
         }
       }
       
@@ -149,31 +178,31 @@ export function TrackingLayoutBuilderModal({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payloadColumns = tabs.flatMap(t => t.columns).map(col => {
-        const payloadCol: any = { id: col.id, rows: [] };
-        if (col.name) payloadCol.name = col.name;
-        
-        payloadCol.rows = col.rows.map(row => {
-          const payloadRow: any = { id: row.id };
-          if (row.name) payloadRow.name = row.name;
-          return payloadRow;
-        });
-        
-        return payloadCol;
+      // Build payload matching strict backend schema: tabs -> rows -> columns
+      const tabsPayload = tabs.map(tab => {
+        const rowId = `row_${generateId()}`;
+        return {
+          name: tab.name,
+          rows: [
+            {
+              id: rowId,
+              columns: tab.columns.map(col => ({
+                id: col.id,
+                name: col.name || "",
+                width: "50%", // Satisfy layout_json defaults
+                widget: "tasks_list", // Satisfy layout_json defaults
+                rows: col.rows.map(r => ({ id: r.id, name: r.name || "" })) // Keep UI rows if backed accepts them
+              }))
+            }
+          ]
+        };
       });
 
       const payload: any = {
         group_id: groupId,
         organization_id: organizationId,
         board_id: boardId,
-        layout_json: {
-          columns: payloadColumns,
-          tabs: tabs.map(t => t.name)
-        },
-        layout_data: {
-          columns: payloadColumns,
-          tabs: tabs.map(t => t.name)
-        }
+        layout_json: { tabs: tabsPayload }
       };
 
       if (existingLayoutId) {
