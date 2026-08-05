@@ -44,6 +44,7 @@ interface TrackingLayoutBuilderModalProps {
   groupId: string | number;
   groupName: string;
   boardId: string | number;
+  boardName: string;
   organizationId: string | number;
 }
 
@@ -53,6 +54,7 @@ export function TrackingLayoutBuilderModal({
   groupId,
   groupName,
   boardId,
+  boardName,
   organizationId
 }: TrackingLayoutBuilderModalProps) {
   const [loading, setLoading] = useState(false);
@@ -60,6 +62,7 @@ export function TrackingLayoutBuilderModal({
   
   const [tabs, setTabs] = useState<TrackingLayoutTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>("");
+  const [existingLayoutId, setExistingLayoutId] = useState<number | string | null>(null);
 
   useEffect(() => {
     if (open && groupId) {
@@ -71,10 +74,17 @@ export function TrackingLayoutBuilderModal({
 
   const fetchLayout = async () => {
     setLoading(true);
+    setExistingLayoutId(null);
     try {
       const data = await groupsApi.getTrackingLayout(groupId);
       // Data might be an array or single layout. Use the first one or object itself.
       const layoutData = Array.isArray(data) ? data[0] : data;
+      
+      if (layoutData) {
+         if (layoutData.id) {
+           setExistingLayoutId(layoutData.id);
+         }
+      }
       
       if (layoutData && layoutData.layout_json && layoutData.layout_json.tabs && layoutData.layout_json.rows) {
         const parsedTabs = layoutData.layout_json.tabs.map((tabName: string, i: number) => {
@@ -109,7 +119,8 @@ export function TrackingLayoutBuilderModal({
         if (row.name) payloadRow.name = row.name;
         
         payloadRow.columns = row.columns.map(col => {
-          const payloadCol: any = { id: col.id, width: col.width, widget: col.widget };
+          const payloadCol: any = { id: col.id, width: col.width };
+          if (col.widget) payloadCol.widget = col.widget;
           if (col.name) payloadCol.name = col.name;
           return payloadCol;
         });
@@ -117,7 +128,7 @@ export function TrackingLayoutBuilderModal({
         return payloadRow;
       });
 
-      const payload = {
+      const payload: any = {
         group_id: groupId,
         organization_id: organizationId,
         board_id: boardId,
@@ -127,12 +138,17 @@ export function TrackingLayoutBuilderModal({
         }
       };
 
+      if (existingLayoutId) {
+        payload.id = existingLayoutId;
+      }
+
       await groupsApi.saveTrackingLayout(payload);
       toast.success("Layout saved successfully!");
       onOpenChange(false);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast.error("Failed to save layout");
+      const errMsg = e.response?.data?.message || e.message || "Failed to save layout";
+      toast.error(errMsg);
     } finally {
       setSaving(false);
     }
@@ -300,7 +316,7 @@ export function TrackingLayoutBuilderModal({
         <DialogHeader className="p-4 border-b">
           <DialogTitle className="flex items-center justify-between">
             <div>
-              <span className="text-xl">Tracking Layout</span>
+              <span className="text-xl">{boardName}</span>
               <div className="text-sm text-muted-foreground mt-1">Group: {groupName}</div>
             </div>
             <div className="flex items-center gap-2 pr-6">
@@ -417,17 +433,6 @@ export function TrackingLayoutBuilderModal({
                               >
                                 <div className="flex items-center justify-between gap-2 mb-2">
                                   <div className="flex items-center flex-1 gap-2">
-                                    <select 
-                                      className="text-xs border rounded p-1.5 flex-1 bg-background max-w-[140px] font-medium"
-                                      value={col.widget}
-                                      onChange={(e) => updateColumn(activeTab.id, row.id, col.id, { widget: e.target.value as WidgetType })}
-                                    >
-                                      <option value="tasks_list">Tasks List</option>
-                                      <option value="calendar_view">Calendar</option>
-                                      <option value="chart">Chart</option>
-                                      <option value="notes">Notes</option>
-                                    </select>
-                                    
                                     <Input 
                                       className="h-7 text-xs flex-1 min-w-[100px]"
                                       placeholder="Column Name..."

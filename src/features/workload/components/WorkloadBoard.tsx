@@ -6684,7 +6684,7 @@ export function WorkloadBoard({
                                       </div>
                                     </PopoverContent>
                                   </Popover>
-                                  {/* <Button
+                                  <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => {
@@ -6695,7 +6695,7 @@ export function WorkloadBoard({
                                     className="ml-2 h-7 px-2 text-xs"
                                   >
                                     Tracking
-                                  </Button> */}
+                                  </Button>
                                 </div>
 
                                 {/* Group Progress Bar - Time Spent vs Estimated Time */}
@@ -9082,6 +9082,7 @@ export function WorkloadBoard({
           groupId={trackingGroupId}
           groupName={trackingGroupName}
           boardId={boardId}
+          boardName={boardName}
           organizationId={getOrganizationId() || ""}
         />
       )}

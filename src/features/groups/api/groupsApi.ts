@@ -188,7 +188,12 @@ export const groupsApi = {
 
   saveTrackingLayout: async (payload: any): Promise<any> => {
     try {
-      const response = await api.post("https://outskillmarketing.com/wp-json/wp-platform/v1/group-tracking", payload);
+      let response;
+      if (payload.id) {
+        response = await api.put(`https://outskillmarketing.com/wp-json/wp-platform/v1/group-tracking/${payload.id}`, payload);
+      } else {
+        response = await api.post("https://outskillmarketing.com/wp-json/wp-platform/v1/group-tracking", payload);
+      }
       return response.data;
     } catch (error) {
       console.error("Save tracking layout error:", error);
