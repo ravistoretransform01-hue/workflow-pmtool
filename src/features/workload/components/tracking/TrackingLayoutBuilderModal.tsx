@@ -17,25 +17,22 @@ import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/api/groupsApi";
 
 export type WidgetType = "tasks_list" | "calendar_view" | "chart" | "notes";
-export type ColumnWidth = "25%" | "33%" | "50%" | "75%" | "100%";
-
-export interface TrackingLayoutColumn {
-  id: string;
-  name?: string;
-  width: ColumnWidth;
-  widget: WidgetType;
-}
 
 export interface TrackingLayoutRow {
   id: string;
   name?: string;
-  columns: TrackingLayoutColumn[];
+}
+
+export interface TrackingLayoutColumn {
+  id: string;
+  name?: string;
+  rows: TrackingLayoutRow[];
 }
 
 export interface TrackingLayoutTab {
   id: string;
   name: string;
-  rows: TrackingLayoutRow[];
+  columns: TrackingLayoutColumn[];
 }
 
 interface TrackingLayoutBuilderModalProps {
@@ -77,7 +74,6 @@ export function TrackingLayoutBuilderModal({
     setExistingLayoutId(null);
     try {
       const data = await groupsApi.getTrackingLayout(groupId);
-      // Data might be an array or single layout. Use the first one or object itself.
       const layoutData = Array.isArray(data) ? data[0] : data;
       
       if (layoutData) {
@@ -86,25 +82,64 @@ export function TrackingLayoutBuilderModal({
          }
       }
       
-      if (layoutData && layoutData.layout_json && layoutData.layout_json.tabs && layoutData.layout_json.rows) {
-        const parsedTabs = layoutData.layout_json.tabs.map((tabName: string, i: number) => {
-          return {
-            id: `tab_${i}`,
-            name: tabName,
-            rows: layoutData.layout_json.rows
-          };
-        });
-        setTabs(parsedTabs);
-        if (parsedTabs.length > 0) setActiveTabId(parsedTabs[0].id);
-      } else {
-        const initialTabId = generateId();
-        setTabs([{ id: initialTabId, name: "Overview", rows: [] }]);
-        setActiveTabId(initialTabId);
+      const rawLayout = layoutData?.layout_data || layoutData?.layout_json;
+      if (layoutData && rawLayout) {
+        let parsedLayoutJson = rawLayout;
+        
+        // If the backend returns it as a string rather than an object, parse it.
+        if (typeof parsedLayoutJson === 'string') {
+          try {
+            parsedLayoutJson = JSON.parse(parsedLayoutJson);
+            // Sometimes it's double serialized in WP depending on how it was saved
+            if (typeof parsedLayoutJson === 'string') {
+               parsedLayoutJson = JSON.parse(parsedLayoutJson);
+            }
+          } catch (e) {
+            console.error("Failed to parse layout string:", e);
+          }
+        }
+
+        if (parsedLayoutJson && parsedLayoutJson.tabs) {
+          const parsedTabs = parsedLayoutJson.tabs.map((tabName: string, i: number) => {
+            let tabCols: TrackingLayoutColumn[] = [];
+            
+            if (Array.isArray(parsedLayoutJson.columns)) {
+              tabCols = parsedLayoutJson.columns.map((c: any) => ({
+                id: c.id || `col_${generateId()}`,
+                name: c.name || "",
+                rows: Array.isArray(c.rows) ? c.rows : []
+              }));
+            } else if (Array.isArray(parsedLayoutJson.rows)) {
+              tabCols = [
+                {
+                  id: `col_legacy_${i}`,
+                  name: "Main Column",
+                  rows: parsedLayoutJson.rows.map((r: any) => ({ id: r.id || `row_${generateId()}`, name: r.name || "" }))
+                }
+              ];
+            }
+
+            return {
+              id: `tab_${i}`,
+              name: tabName || "Tab",
+              columns: tabCols
+            };
+          });
+          setTabs(parsedTabs);
+          if (parsedTabs.length > 0) setActiveTabId(parsedTabs[0].id);
+          setLoading(false);
+          return;
+        }
       }
+      
+      // Fallback
+      const initialTabId = generateId();
+      setTabs([{ id: initialTabId, name: "Overview", columns: [] }]);
+      setActiveTabId(initialTabId);
     } catch (e) {
       console.error(e);
       const initialTabId = generateId();
-      setTabs([{ id: initialTabId, name: "Overview", rows: [] }]);
+      setTabs([{ id: initialTabId, name: "Overview", columns: [] }]);
       setActiveTabId(initialTabId);
     } finally {
       setLoading(false);
@@ -114,18 +149,17 @@ export function TrackingLayoutBuilderModal({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payloadRows = tabs.flatMap(t => t.rows).map(row => {
-        const payloadRow: any = { id: row.id, columns: [] };
-        if (row.name) payloadRow.name = row.name;
+      const payloadColumns = tabs.flatMap(t => t.columns).map(col => {
+        const payloadCol: any = { id: col.id, rows: [] };
+        if (col.name) payloadCol.name = col.name;
         
-        payloadRow.columns = row.columns.map(col => {
-          const payloadCol: any = { id: col.id, width: col.width };
-          if (col.widget) payloadCol.widget = col.widget;
-          if (col.name) payloadCol.name = col.name;
-          return payloadCol;
+        payloadCol.rows = col.rows.map(row => {
+          const payloadRow: any = { id: row.id };
+          if (row.name) payloadRow.name = row.name;
+          return payloadRow;
         });
         
-        return payloadRow;
+        return payloadCol;
       });
 
       const payload: any = {
@@ -133,7 +167,11 @@ export function TrackingLayoutBuilderModal({
         organization_id: organizationId,
         board_id: boardId,
         layout_json: {
-          rows: payloadRows,
+          columns: payloadColumns,
+          tabs: tabs.map(t => t.name)
+        },
+        layout_data: {
+          columns: payloadColumns,
           tabs: tabs.map(t => t.name)
         }
       };
@@ -156,7 +194,7 @@ export function TrackingLayoutBuilderModal({
 
   const addTab = () => {
     const newId = generateId();
-    setTabs([...tabs, { id: newId, name: "New Tab", rows: [] }]);
+    setTabs([...tabs, { id: newId, name: "New Tab", columns: [] }]);
     setActiveTabId(newId);
   };
 
@@ -168,57 +206,14 @@ export function TrackingLayoutBuilderModal({
     }
   };
 
-  const addRow = (tabId: string) => {
-    const newRowId = `row_${generateId()}`;
-    setTabs((prev) => 
-      prev.map((t) => {
-        if (t.id === tabId) {
-          return {
-            ...t,
-            rows: [...t.rows, { id: newRowId, columns: [] }]
-          };
-        }
-        return t;
-      })
-    );
-  };
-
-  const updateRowName = (tabId: string, rowId: string, name: string) => {
-    setTabs((prev) => 
-      prev.map(t => t.id === tabId ? {
-        ...t, 
-        rows: t.rows.map(r => r.id === rowId ? { ...r, name } : r)
-      } : t)
-    );
-  };
-
-  const removeRow = (tabId: string, rowId: string) => {
-    setTabs((prev) => 
-      prev.map((t) => {
-        if (t.id === tabId) {
-          return { ...t, rows: t.rows.filter((r) => r.id !== rowId) };
-        }
-        return t;
-      })
-    );
-  };
-
-  const addColumn = (tabId: string, rowId: string) => {
+  const addColumn = (tabId: string) => {
     const newColId = `col_${generateId()}`;
     setTabs((prev) => 
       prev.map((t) => {
         if (t.id === tabId) {
           return {
             ...t,
-            rows: t.rows.map((r) => {
-              if (r.id === rowId) {
-                return {
-                  ...r,
-                  columns: [...r.columns, { id: newColId, width: "50%", widget: "tasks_list" }]
-                }
-              }
-              return r;
-            })
+            columns: [...t.columns, { id: newColId, name: "New Column", rows: [] }]
           };
         }
         return t;
@@ -226,20 +221,41 @@ export function TrackingLayoutBuilderModal({
     );
   };
 
-  const updateColumn = (tabId: string, rowId: string, colId: string, updates: Partial<TrackingLayoutColumn>) => {
+  const updateColumnName = (tabId: string, colId: string, name: string) => {
+    setTabs((prev) => 
+      prev.map(t => t.id === tabId ? {
+        ...t, 
+        columns: t.columns.map(c => c.id === colId ? { ...c, name } : c)
+      } : t)
+    );
+  };
+
+  const removeColumn = (tabId: string, colId: string) => {
+    setTabs((prev) => 
+      prev.map((t) => {
+        if (t.id === tabId) {
+          return { ...t, columns: t.columns.filter((c) => c.id !== colId) };
+        }
+        return t;
+      })
+    );
+  };
+
+  const addRow = (tabId: string, colId: string) => {
+    const newRowId = `row_${generateId()}`;
     setTabs((prev) => 
       prev.map((t) => {
         if (t.id === tabId) {
           return {
             ...t,
-            rows: t.rows.map((r) => {
-              if (r.id === rowId) {
+            columns: t.columns.map((c) => {
+              if (c.id === colId) {
                 return {
-                  ...r,
-                  columns: r.columns.map((c) => c.id === colId ? { ...c, ...updates } : c)
+                  ...c,
+                  rows: [...c.rows, { id: newRowId }]
                 }
               }
-              return r;
+              return c;
             })
           };
         }
@@ -248,20 +264,20 @@ export function TrackingLayoutBuilderModal({
     );
   };
 
-  const removeColumn = (tabId: string, rowId: string, colId: string) => {
+  const updateRow = (tabId: string, colId: string, rowId: string, name: string) => {
     setTabs((prev) => 
       prev.map((t) => {
         if (t.id === tabId) {
           return {
             ...t,
-            rows: t.rows.map((r) => {
-              if (r.id === rowId) {
+            columns: t.columns.map((c) => {
+              if (c.id === colId) {
                 return {
-                  ...r,
-                  columns: r.columns.filter((c) => c.id !== colId)
+                  ...c,
+                  rows: c.rows.map((r) => r.id === rowId ? { ...r, name } : r)
                 }
               }
-              return r;
+              return c;
             })
           };
         }
@@ -270,17 +286,38 @@ export function TrackingLayoutBuilderModal({
     );
   };
 
-  // Drag and Drop State Native
-  const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
+  const removeRow = (tabId: string, colId: string, rowId: string) => {
+    setTabs((prev) => 
+      prev.map((t) => {
+        if (t.id === tabId) {
+          return {
+            ...t,
+            columns: t.columns.map((c) => {
+              if (c.id === colId) {
+                return {
+                  ...c,
+                  rows: c.rows.filter((r) => r.id !== rowId)
+                }
+              }
+              return c;
+            })
+          };
+        }
+        return t;
+      })
+    );
+  };
 
-  const handleRowDragStart = (e: React.DragEvent, rowId: string) => {
-    setDraggedRowId(rowId);
+  const [draggedColId, setDraggedColId] = useState<string | null>(null);
+
+  const handleColDragStart = (e: React.DragEvent, colId: string) => {
+    setDraggedColId(colId);
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleRowDragOver = (e: React.DragEvent, targetRowId: string, tabId: string) => {
+  const handleColDragOver = (e: React.DragEvent, targetColId: string, tabId: string) => {
     e.preventDefault();
-    if (!draggedRowId || draggedRowId === targetRowId) return;
+    if (!draggedColId || draggedColId === targetColId) return;
 
     setTabs((prev) => {
       const newTabs = [...prev];
@@ -288,31 +325,31 @@ export function TrackingLayoutBuilderModal({
       if (tabIndex === -1) return prev;
 
       const tab = { ...newTabs[tabIndex] };
-      const rows = [...tab.rows];
+      const columns = [...tab.columns];
       
-      const draggedIndex = rows.findIndex(r => r.id === draggedRowId);
-      const targetIndex = rows.findIndex(r => r.id === targetRowId);
+      const draggedIndex = columns.findIndex(c => c.id === draggedColId);
+      const targetIndex = columns.findIndex(c => c.id === targetColId);
       
       if (draggedIndex === -1 || targetIndex === -1) return prev;
 
-      const [draggedRow] = rows.splice(draggedIndex, 1);
-      rows.splice(targetIndex, 0, draggedRow);
+      const [draggedCol] = columns.splice(draggedIndex, 1);
+      columns.splice(targetIndex, 0, draggedCol);
 
-      tab.rows = rows;
+      tab.columns = columns;
       newTabs[tabIndex] = tab;
       return newTabs;
     });
   };
 
-  const handleRowDragEnd = () => {
-    setDraggedRowId(null);
+  const handleColDragEnd = () => {
+    setDraggedColId(null);
   };
 
   const activeTab = tabs.find(t => t.id === activeTabId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl w-full h-[85vh] flex flex-col p-0">
+      <DialogContent className="max-w-[70vw] w-full h-[85vh] flex flex-col p-0">
         <DialogHeader className="p-4 border-b">
           <DialogTitle className="flex items-center justify-between">
             <div>
@@ -332,8 +369,7 @@ export function TrackingLayoutBuilderModal({
           <div className="flex-1 flex items-center justify-center">Loading layout...</div>
         ) : (
           <div className="flex-1 flex overflow-hidden">
-            {/* Tabs Sidebar */}
-            <div className="w-64 border-r bg-muted/20 flex flex-col">
+            <div className="w-64 border-r bg-muted/20 flex flex-col shrink-0">
               <div className="p-3 border-b flex items-center justify-between">
                 <span className="font-medium text-sm">Layout Tabs</span>
                 <Button variant="ghost" size="icon" onClick={addTab} className="h-7 w-7">
@@ -369,113 +405,89 @@ export function TrackingLayoutBuilderModal({
               </div>
             </div>
 
-            {/* Layout Canvas */}
-            <div className="flex-1 overflow-y-auto p-6 bg-background">
+            <div className="flex-1 overflow-x-auto overflow-y-hidden bg-background">
               {activeTab ? (
-                <div className="space-y-6 max-w-5xl mx-auto">
-                  <div className="flex items-center justify-between pb-4 border-b">
-                    <h3 className="font-semibold text-lg">{activeTab.name} Dashboard Layout</h3>
-                    <Button onClick={() => addRow(activeTab.id)} size="sm" variant="secondary">
+                <div className="h-full flex flex-col p-4">
+                  <div className="flex items-center justify-between mb-4 shrink-0">
+                    <h3 className="font-semibold text-lg">{activeTab.name} Dashboard</h3>
+                    <Button onClick={() => addColumn(activeTab.id)} size="sm" variant="secondary">
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Row
+                      Add Column
                     </Button>
                   </div>
 
-                  <div className="space-y-4">
-                    {activeTab.rows.map((row) => (
+                  <div className="flex-1 overflow-x-auto overflow-y-hidden flex items-start gap-4 pb-2">
+                    {(activeTab.columns || []).map((col) => (
                       <div 
-                        key={row.id}
+                        key={col.id}
                         draggable
-                        onDragStart={(e) => handleRowDragStart(e, row.id)}
-                        onDragOver={(e) => handleRowDragOver(e, row.id, activeTab.id)}
-                        onDragEnd={handleRowDragEnd}
-                        className={`border rounded-lg p-3 bg-card shadow-sm transition-all relative group ${draggedRowId === row.id ? 'opacity-50 border-primary border-dashed' : 'border-border'}`}
+                        onDragStart={(e) => handleColDragStart(e, col.id)}
+                        onDragOver={(e) => handleColDragOver(e, col.id, activeTab.id)}
+                        onDragEnd={handleColDragEnd}
+                        className={`w-80 shrink-0 h-full flex flex-col border rounded-lg bg-card shadow-sm transition-all group ${draggedColId === col.id ? 'opacity-50 border-primary border-dashed' : 'border-border'}`}
                       >
-                        <div className="absolute left-[-12px] top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 cursor-grab z-10 bg-background border rounded-md shadow-sm p-1">
-                          <GripVertical className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        
-                        <div className="flex items-center justify-between mb-3 border-b pb-3 pt-1">
-                          <div className="flex items-center gap-3 flex-1">
-                             <div className="text-xs font-medium text-muted-foreground uppercase bg-muted py-1 px-2 rounded">
-                                Row
-                             </div>
-                             <Input 
-                               placeholder="Optional Row Name..."
-                               value={row.name || ""}
-                               onChange={(e) => updateRowName(activeTab.id, row.id, e.target.value)}
-                               className="max-w-[200px] h-7 text-sm"
-                             />
+                        <div className="p-3 border-b flex items-center justify-between bg-muted/30">
+                          <div className="flex items-center gap-2 flex-1 relative">
+                            <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0 hidden group-hover:block absolute -left-2" />
+                            <Input 
+                              placeholder="Column Name..."
+                              value={col.name || ""}
+                              onChange={(e) => updateColumnName(activeTab.id, col.id, e.target.value)}
+                              className="h-8 text-sm font-medium border-transparent hover:border-border focus:border-border ml-3"
+                            />
                           </div>
                           
-                          <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => addColumn(activeTab.id, row.id)}>
-                              <Plus className="h-3 w-3 mr-1" /> Add Column
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeRow(activeTab.id, row.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0 ml-1" onClick={() => removeColumn(activeTab.id, col.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
 
-                        <div className="flex flex-wrap gap-3">
-                          {row.columns.length === 0 ? (
-                            <div className="flex-1 border border-dashed rounded-md flex items-center justify-center text-muted-foreground p-4 bg-muted/10 min-h-[50px]">
-                              <span className="text-xs mr-3">Empty Row</span>
-                              <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => addColumn(activeTab.id, row.id)}>Add Column</Button>
+                        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                          {(!col.rows || col.rows.length === 0) ? (
+                            <div className="border border-dashed rounded-md flex flex-col items-center justify-center text-muted-foreground p-6 bg-muted/10 h-32">
+                              <span className="text-xs mb-3">Empty Column</span>
+                              <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => addRow(activeTab.id, col.id)}>Add Row</Button>
                             </div>
                           ) : (
-                            row.columns.map((col) => (
+                            col.rows.map((row) => (
                               <div 
-                                key={col.id} 
-                                style={{ flexBasis: `calc(${col.width} - 12px)` }}
-                                className="border rounded-md bg-muted/40 p-2 flex flex-col relative group/col transition-all overflow-hidden"
+                                key={row.id} 
+                                className="border rounded-md bg-background p-2 flex flex-col relative group/row transition-all shadow-sm"
                               >
-                                <div className="flex items-center justify-between gap-2 mb-2">
-                                  <div className="flex items-center flex-1 gap-2">
-                                    <Input 
-                                      className="h-7 text-xs flex-1 min-w-[100px]"
-                                      placeholder="Column Name..."
-                                      value={col.name || ""}
-                                      onChange={(e) => updateColumn(activeTab.id, row.id, col.id, { name: e.target.value })}
-                                    />
-                                  </div>
-                                  
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <select 
-                                      className="text-xs border rounded p-1.5 w-[65px] bg-background"
-                                      value={col.width}
-                                      onChange={(e) => updateColumn(activeTab.id, row.id, col.id, { width: e.target.value as ColumnWidth })}
-                                    >
-                                      <option value="25%">25%</option>
-                                      <option value="33%">33%</option>
-                                      <option value="50%">50%</option>
-                                      <option value="75%">75%</option>
-                                      <option value="100%">100%</option>
-                                    </select>
-                                    
-                                    <Button 
-                                      size="icon" 
-                                      variant="ghost" 
-                                      className="h-7 w-7 text-destructive hover:bg-destructive/10" 
-                                      onClick={() => removeColumn(activeTab.id, row.id, col.id)}
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <Input 
+                                    className="h-7 text-xs flex-1"
+                                    placeholder="Row Name..."
+                                    value={row.name || ""}
+                                    onChange={(e) => updateRow(activeTab.id, col.id, row.id, e.target.value)}
+                                  />
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost" 
+                                    className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0" 
+                                    onClick={() => removeRow(activeTab.id, col.id, row.id)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
                                 </div>
                               </div>
                             ))
                           )}
                         </div>
+
+                        <div className="p-3 border-t bg-muted/10 shrink-0">
+                          <Button size="sm" variant="ghost" className="w-full text-xs hover:bg-secondary justify-start" onClick={() => addRow(activeTab.id, col.id)}>
+                            <Plus className="h-3.5 w-3.5 mr-2" /> Add another row
+                          </Button>
+                        </div>
                       </div>
                     ))}
                     
-                    {activeTab.rows.length === 0 && (
-                      <div className="border border-dashed rounded-xl p-12 flex flex-col items-center justify-center text-muted-foreground">
+                    {(!activeTab.columns || activeTab.columns.length === 0) && (
+                      <div className="w-full h-full border border-dashed rounded-xl p-12 flex flex-col items-center justify-center text-muted-foreground m-4">
                          <Layout className="h-10 w-10 mb-4 opacity-30" />
-                         <p className="mb-4">This tab is currently empty</p>
-                         <Button onClick={() => addRow(activeTab.id)}>Create First Row</Button>
+                         <p className="mb-4">This dashboard has no columns yet</p>
+                         <Button onClick={() => addColumn(activeTab.id)}>Add First Column</Button>
                       </div>
                     )}
                   </div>

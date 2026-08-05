@@ -178,7 +178,7 @@ export const groupsApi = {
    */
   getTrackingLayout: async (groupId: string | number): Promise<any> => {
     try {
-      const response = await api.get(`https://outskillmarketing.com/wp-json/wp-platform/v1/group-tracking?group_id=${groupId}`);
+      const response = await api.get(`https://outskillmarketing.com/wp-json/wp-platform/v1/group-tracking/?group_id=${groupId}`);
       return response.data?.data || response.data;
     } catch (error) {
       console.error("Get tracking layout error:", error);
@@ -192,7 +192,7 @@ export const groupsApi = {
       if (payload.id) {
         response = await api.put(`https://outskillmarketing.com/wp-json/wp-platform/v1/group-tracking/${payload.id}`, payload);
       } else {
-        response = await api.post("https://outskillmarketing.com/wp-json/wp-platform/v1/group-tracking", payload);
+        response = await api.post("https://outskillmarketing.com/wp-json/wp-platform/v1/group-tracking/", payload);
       }
       return response.data;
     } catch (error) {
