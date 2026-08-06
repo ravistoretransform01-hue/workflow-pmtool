@@ -5244,9 +5244,12 @@ export function WorkloadBoard({
   // Synchronized horizontal scrolling for all group tables
   const tableScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tableHeaderScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const unifiedScrollbarRef = useRef<HTMLDivElement | null>(null);
   const isSyncingScroll = useRef(false);
   const [maxScrollWidth, setMaxScrollWidth] = useState(0);
   const groupsContainerRef = useRef<HTMLDivElement | null>(null);
+
+
 
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [moveToGroupId, setMoveToGroupId] = useState<string>("");
@@ -7490,6 +7493,7 @@ export function WorkloadBoard({
               className="h-5 overflow-x-scroll border-t border-border bg-muted flex-shrink-0 custom-scrollbar"
               data-unified-scrollbar
               ref={(el) => {
+                unifiedScrollbarRef.current = el;
                 if (el && Object.keys(tableScrollRefs.current).length > 0) {
                   // Sync scrollbar position with first table on mount/update (proportional)
                   const firstTableRef = Object.values(
