@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { switchOrganization } from "@/features/auth/services/authSlice";
@@ -63,17 +63,34 @@ export function NotificationBell() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const refreshCounter = useSelector(
     (state: RootState) => state.ui.refreshCounter,
   );
   const user = useSelector((state: RootState) => state.auth.user);
 
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const lastElementRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (loading || loadingMore) return;
+      if (observerRef.current) observerRef.current.disconnect();
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          setPage((prevPage) => prevPage + 1);
+        }
+      });
+      if (node) observerRef.current.observe(node);
+    },
+    [loading, loadingMore, hasMore]
+  );
+
   useEffect(() => {
     if (user?.organization_id) {
+      // Just seed first page for the bell icon dot on mount
       setPage(1);
-      loadNotifications(user.organization_id, false, 1);
+      loadNotifications(user.organization_id, false, false, 1);
     }
   }, [user?.organization_id]);
 
@@ -81,49 +98,47 @@ export function NotificationBell() {
     if (open || refreshCounter > 0) {
       if (user?.organization_id) {
         setPage(1);
-        loadNotifications(user.organization_id, showUnreadOnly, 1);
+        loadNotifications(user.organization_id, false, showUnreadOnly, 1);
       }
     }
   }, [open, refreshCounter, showUnreadOnly]);
 
   useEffect(() => {
     if (page > 1 && user?.organization_id) {
-      loadNotifications(user.organization_id, showUnreadOnly, page);
+      loadNotifications(user.organization_id, true, showUnreadOnly, page);
     }
   }, [page]);
 
   const loadNotifications = async (
     orgId: string | number,
+    isLoadMore = false,
     unread = false,
     currentPage = 1
   ) => {
-    setLoading(true);
+    if (isLoadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
     
     try {
       const limit = 20;
       const apiFn = unread ? notificationsApi.getUnreadNotifications : notificationsApi.getAllNotifications;
       const response = await apiFn(orgId, currentPage, limit);
       
-      if (response.success || response.data) {
-        let newData = [];
-        let count = 0;
-
-        // Handle Laravel paginator formats correctly
-        if (response.data && Array.isArray((response.data as any).data)) {
-          newData = (response.data as any).data;
-          count = (response.data as any).total || newData.length;
-        } else if (Array.isArray(response.data)) {
-          newData = response.data;
-          count = response.count || (response as any).total || newData.length;
-        }
-
-        setNotifications(newData);
-        setTotalCount(count);
+      if (response.success) {
+        const newData = response.data || [];
+        setNotifications((prev) => (isLoadMore ? [...prev, ...newData] : newData));
+        setHasMore(newData.length === limit);
       }
     } catch (error) {
       console.error("Error loading notifications:", error);
     } finally {
-      setLoading(false);
+      if (isLoadMore) {
+        setLoadingMore(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
 
@@ -255,9 +270,10 @@ export function NotificationBell() {
 
     return (
       <div className="space-y-1 px-2 pb-4">
-        {list.map((notification) => (
+        {list.map((notification, index) => (
           <div
             key={notification.id}
+            ref={index === list.length - 1 ? lastElementRef : null}
             onClick={() => handleNotificationClick(notification)}
             className={cn(
               "group flex items-start gap-4 p-4 rounded-xl cursor-pointer transition-all duration-200 border border-transparent",
@@ -367,6 +383,11 @@ export function NotificationBell() {
             </div>
           </div>
         ))}
+        {loadingMore && (
+          <div className="flex justify-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
       </div>
     );
   };
@@ -508,32 +529,6 @@ export function NotificationBell() {
                       : "No assignments",
                 )}
               </ScrollArea>
-
-              {totalCount > 0 && (
-                <div className="flex items-center justify-between px-6 py-4 border-t border-border/50 bg-card/80 backdrop-blur shrink-0 shadow-sm mt-auto">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page <= 1}
-                    className="h-8 transition-all hover:bg-primary hover:text-white"
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-foreground/80 font-medium">
-                    Page {page} of {Math.max(1, Math.ceil(totalCount / 20))}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => p + 1)}
-                    disabled={page >= Math.ceil(totalCount / 20)}
-                    className="h-8 transition-all hover:bg-primary hover:text-white"
-                  >
-                    Next
-                  </Button>
-                </div>
-              )}
             </div>
           </div>
         </SheetContent>
