@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState, useRef, useEffect, createContext, useContext } from "react";
-import { Gantt, WillowDark, Willow, Tooltip } from "@svar-ui/react-gantt";
-import { useTheme } from "next-themes";
+import { Gantt, WillowDark, Tooltip } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
 import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endOfMonth } from "date-fns";
 import type { TaskGroup, Task } from "@/features/workload/types/workload-types";
@@ -426,7 +425,6 @@ export default function GanttView({
 
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
-  const { resolvedTheme } = useTheme();
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [parentTaskId, setParentTaskId] = useState("none");
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<number[]>([]);
@@ -2004,33 +2002,33 @@ export default function GanttView({
             height: 100% !important;
             overflow: auto !important;
 
-            --wx-gantt-border-color: ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"};
-            --wx-gantt-border: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"};
+            --wx-gantt-border-color: #3f4460;
+            --wx-gantt-border: 1px solid #3f4460;
             
-            --wx-background: ${resolvedTheme === "dark" ? "#1c1f3b" : "#ffffff"};
-            --wx-background-alt: ${resolvedTheme === "dark" ? "#2e3452" : "#f4f5f7"};
+            --wx-background: #1c1f3b;
+            --wx-background-alt: #2e3452;
             
-            --wx-color-font: ${resolvedTheme === "dark" ? "#f5f6f8" : "#172b4d"};
+            --wx-color-font: #f5f6f8;
             --wx-color-primary: #0052cc;
             
-            --wx-gantt-icon-color: ${resolvedTheme === "dark" ? "#a9aebf" : "#5e6c84"};
+            --wx-gantt-icon-color: #a9aebf;
             --wx-gantt-select-color: rgba(0, 82, 204, 0.15);
             
             /* Grid header */
             --wx-grid-header-font: 500 13px 'Inter', sans-serif;
-            --wx-grid-header-font-color: ${resolvedTheme === "dark" ? "#a9aebf" : "#5e6c84"};
+            --wx-grid-header-font-color: #a9aebf;
             --wx-grid-header-shadow: none;
             
             /* Grid body */
             --wx-grid-body-font: 400 13px 'Inter', sans-serif;
-            --wx-grid-body-font-color: ${resolvedTheme === "dark" ? "#f5f6f8" : "#172b4d"};
-            --wx-grid-body-row-border: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"};
+            --wx-grid-body-font-color: #f5f6f8;
+            --wx-grid-body-row-border: 1px solid #3f4460;
             --wx-grid-body-cell-border: transparent;
             
             /* Timescale */
             --wx-timescale-font: 500 12px 'Inter', sans-serif;
-            --wx-timescale-font-color: ${resolvedTheme === "dark" ? "#a9aebf" : "#5e6c84"};
-            --wx-timescale-border: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"};
+            --wx-timescale-font-color: #a9aebf;
+            --wx-timescale-border: 1px solid #3f4460;
             --wx-timescale-shadow: none;
             
             /* Task bar styling */
@@ -2053,19 +2051,19 @@ export default function GanttView({
             --wx-gantt-parent-task-font-color: #ffffff;
             
             /* Weekends */
-            --wx-gantt-holiday-background: ${resolvedTheme === "dark" ? "rgba(46,52,82,0.4)" : "rgba(244,245,247,0.5)"};
-            --wx-gantt-holiday-color: ${resolvedTheme === "dark" ? "#a9aebf" : "#5e6c84"};
+            --wx-gantt-holiday-background: rgba(46,52,82,0.4);
+            --wx-gantt-holiday-color: #a9aebf;
           }
 
           /* Adjust row headers and cell borders */
           .pm-gantt-wrapper .wx-table-container {
-            background-color: ${resolvedTheme === "dark" ? "#1c1f3b" : "#ffffff"} !important;
-            border-right: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"} !important;
+            background-color: #1c1f3b !important;
+            border-right: 1px solid #3f4460 !important;
           }
 
           .pm-gantt-wrapper .wx-scale {
-            background-color: ${resolvedTheme === "dark" ? "#1c1f3b" : "#ffffff"} !important;
-            border-bottom: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"} !important;
+            background-color: #1c1f3b !important;
+            border-bottom: 1px solid #3f4460 !important;
           }
 
           /* Remove vertical lines from timeline cells (second type image style) */
@@ -2075,11 +2073,11 @@ export default function GanttView({
 
           /* Explicitly add right border back to only the left grid columns if needed, or rely on .wx-table-container border */
           .pm-gantt-wrapper .wx-grid .wx-cell {
-            border-right: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"} !important;
+            border-right: 1px solid #3f4460 !important;
           }
 
           .pm-gantt-wrapper .wx-row {
-            border-bottom: 1px solid ${resolvedTheme === "dark" ? "#3f4460" : "#dfe1e6"} !important;
+            border-bottom: 1px solid #3f4460 !important;
           }
 
           .pm-gantt-wrapper .wx-body .wx-row:hover {
@@ -2170,7 +2168,7 @@ export default function GanttView({
               Try clearing some filters to see tasks in the timeline.
             </p>
           </div>
-        ) : resolvedTheme === "dark" ? (
+        ) : (
           <WillowDark>
             <Tooltip api={ganttApi} content={CustomTooltipContent}>
               <Gantt
@@ -2190,26 +2188,6 @@ export default function GanttView({
               />
             </Tooltip>
           </WillowDark>
-        ) : (
-          <Willow>
-            <Tooltip api={ganttApi} content={CustomTooltipContent}>
-              <Gantt
-                init={handleInit}
-                tasks={mappedTasks}
-                links={[]}
-                columns={ganttColumns}
-                zoom={true}
-                start={ganttTimeRange.start}
-                end={ganttTimeRange.end}
-                cellWidth={timescaleConfig.cellWidth}
-                scales={timescaleConfig.scales}
-                cellHeight={40}
-                autoScale={false}
-                unscheduledTasks={false}
-                taskTypes={ganttTaskTypes}
-              />
-            </Tooltip>
-          </Willow>
         )}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React from "react";
+import { TrackingLayoutBuilderModal } from "./tracking/TrackingLayoutBuilderModal";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { format, parseISO } from "date-fns";
 
@@ -122,6 +123,42 @@ import { SOPView } from "@/features/workload/components/SOPView";
 import GanttView from "@/features/workload/components/GanttView";
 import { TeamsBoardNavigator } from "@/features/workload/components/TeamsBoardNavigator";
 import { KanbanBoardColumn } from "@/features/workload/components/KanbanBoardColumn";
+
+function DebouncedSearchInput({
+  value,
+  onChange,
+  placeholder,
+  className
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    if (value !== localValue) {
+      setLocalValue(value);
+    }
+  }, [value]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      onChange(localValue);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [localValue, onChange]);
+
+  return (
+    <Input
+      placeholder={placeholder}
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      className={className}
+    />
+  );
+}
 
 interface WorkloadBoardProps {
   boardId: string;
@@ -879,6 +916,14 @@ export function WorkloadBoard({
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  
+  // Tracking modal state
+  // @ts-ignore
+  const [trackingModalOpen, setTrackingModalOpen] = useState(false);
+  // @ts-ignore
+  const [trackingGroupId, setTrackingGroupId] = useState<string | number | null>(null);
+  // @ts-ignore
+  const [trackingGroupName, setTrackingGroupName] = useState("");
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [addingItemToGroup, setAddingItemToGroup] = useState<string | null>(
     null,
@@ -3822,11 +3867,6 @@ export function WorkloadBoard({
             const matchesSearchQuery = (item: any) => {
               if (!query) return true;
 
-              // Check if query matches the group name itself
-              if (group.name && group.name.toLowerCase().includes(query)) {
-                return true;
-              }
-
               // Resolve readable names dynamically for better search accuracy
               const statusName = statusNameMap.get(item.status_id || "") || "";
               const priorityName =
@@ -5205,9 +5245,12 @@ export function WorkloadBoard({
   // Synchronized horizontal scrolling for all group tables
   const tableScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const tableHeaderScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const unifiedScrollbarRef = useRef<HTMLDivElement | null>(null);
   const isSyncingScroll = useRef(false);
   const [maxScrollWidth, setMaxScrollWidth] = useState(0);
   const groupsContainerRef = useRef<HTMLDivElement | null>(null);
+
+
 
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [moveToGroupId, setMoveToGroupId] = useState<string>("");
@@ -5631,7 +5674,7 @@ export function WorkloadBoard({
         {/* Global Toolbar for all views */}
         {activeTab !== "SOP" && (
           <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
-            {activeTab === "Main Table" && (
+            {activeTab === "Main Table" && Number(orgId) === 31 && (
               <Button
                 variant="default"
                 size="sm"
@@ -5655,10 +5698,10 @@ export function WorkloadBoard({
               {/* Search */}
               <div className="relative max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
-                <Input
+                <DebouncedSearchInput
                   placeholder="Search items..."
                   value={mainTableSearchQuery}
-                  onChange={(e) => setMainTableSearchQuery(e.target.value)}
+                  onChange={setMainTableSearchQuery}
                   className="pl-9 h-8 bg-background border-border w-48"
                 />
               </div>
@@ -6676,6 +6719,18 @@ export function WorkloadBoard({
                                       </div>
                                     </PopoverContent>
                                   </Popover>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setTrackingGroupId(group.id);
+                                      setTrackingGroupName(groupNames[group.id] || group.name);
+                                      setTrackingModalOpen(true);
+                                    }}
+                                    className="ml-2 h-7 px-2 text-xs"
+                                  >
+                                    Tracking
+                                  </Button>
                                 </div>
 
                                 {/* Group Progress Bar - Time Spent vs Estimated Time */}
@@ -7439,6 +7494,7 @@ export function WorkloadBoard({
               className="h-5 overflow-x-scroll border-t border-border bg-muted flex-shrink-0 custom-scrollbar"
               data-unified-scrollbar
               ref={(el) => {
+                unifiedScrollbarRef.current = el;
                 if (el && Object.keys(tableScrollRefs.current).length > 0) {
                   // Sync scrollbar position with first table on mount/update (proportional)
                   const firstTableRef = Object.values(
@@ -9054,6 +9110,18 @@ export function WorkloadBoard({
           </DialogContent>
         </Dialog>
       </div>
+
+      {trackingGroupId && (
+        <TrackingLayoutBuilderModal
+          open={trackingModalOpen}
+          onOpenChange={setTrackingModalOpen}
+          groupId={trackingGroupId}
+          groupName={trackingGroupName}
+          boardId={boardId}
+          boardName={boardName}
+          organizationId={getOrganizationId() || ""}
+        />
+      )}
     </div>
   );
 }
