@@ -11,7 +11,8 @@ import {
   Plus, 
   Trash2, 
   GripVertical, 
-  Layout
+  Layout,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/api/groupsApi";
@@ -211,7 +212,6 @@ export function TrackingLayoutBuilderModal({
 
       await groupsApi.saveTrackingLayout(payload);
       toast.success("Layout saved successfully!");
-      onOpenChange(false);
     } catch (e: any) {
       console.error(e);
       const errMsg = e.response?.data?.message || e.message || "Failed to save layout";
@@ -387,7 +387,8 @@ export function TrackingLayoutBuilderModal({
             </div>
             <div className="flex items-center gap-2 pr-6">
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {saving ? "Saving..." : "Save Layout"}
               </Button>
             </div>
