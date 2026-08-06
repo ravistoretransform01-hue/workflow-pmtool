@@ -3830,11 +3830,6 @@ export function WorkloadBoard({
             const matchesSearchQuery = (item: any) => {
               if (!query) return true;
 
-              // Check if query matches the group name itself
-              if (group.name && group.name.toLowerCase().includes(query)) {
-                return true;
-              }
-
               // Resolve readable names dynamically for better search accuracy
               const statusName = statusNameMap.get(item.status_id || "") || "";
               const priorityName =
