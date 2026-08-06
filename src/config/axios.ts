@@ -1,6 +1,5 @@
 import axios, { AxiosError, type AxiosResponse } from "axios";
 import { debugLog, debugWarn, debugError, getTokenInfo } from "@/utils/debugLog";
-import { toast } from "@/hooks/use-toast";
  
 declare module "axios" {
   export interface AxiosRequestConfig {
@@ -146,13 +145,6 @@ api.interceptors.response.use(
         debugLog(`[ERROR] Step 7: ❌ Permission denied error detected`);
         debugLog(`[ERROR] Step 8: Error message: ${errorData?.message}`);
         
-        // Show toast notification for permission errors
-        toast({
-          title: "Permission Denied",
-          description: errorData?.message || "You don't have permission to perform this action",
-          variant: "destructive",
-          duration: 4000,
-        });
         
         // Don't retry, just reject the error
         return Promise.reject(error);

@@ -247,9 +247,9 @@ export const AppSidebar = () => {
 
       // Refresh boards list to reflect the change in UI
       fetchBoards();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Rename board error:", error);
-      toast.error("Failed to rename board");
+      toast.error(error?.response?.data?.message || "Failed to rename board");
     }
   };
 
@@ -270,7 +270,7 @@ export const AppSidebar = () => {
       }
     } catch (error: any) {
       console.error("Duplicate board error:", error);
-      toast.error("An error occurred while duplicating the board", {
+      toast.error(error?.response?.data?.message || "An error occurred while duplicating the board", {
         id: toastId,
       });
     } finally {
