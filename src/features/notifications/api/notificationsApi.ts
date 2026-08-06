@@ -42,18 +42,18 @@ export interface NotificationsResponse {
 }
 
 export const notificationsApi = {
-  getAllNotifications: async (organizationId?: string | number): Promise<NotificationsResponse> => {
-    const url = organizationId 
-      ? `/notifications/all?status=all&organization_id=${organizationId}`
-      : "/notifications/all?status=all";
+  getAllNotifications: async (organizationId?: string | number, page: number = 1, limit: number = 20): Promise<NotificationsResponse> => {
+    let url = organizationId 
+      ? `/notifications/all?status=all&organization_id=${organizationId}&page=${page}&limit=${limit}`
+      : `/notifications/all?status=all&page=${page}&limit=${limit}`;
     const response = await api.get<NotificationsResponse>(url);
     return response.data;
   },
 
-  getUnreadNotifications: async (organizationId?: string | number): Promise<NotificationsResponse> => {
-    const url = organizationId 
-      ? `/notifications/all?status=unread&organization_id=${organizationId}`
-      : "/notifications/all?status=unread";
+  getUnreadNotifications: async (organizationId?: string | number, page: number = 1, limit: number = 20): Promise<NotificationsResponse> => {
+    let url = organizationId 
+      ? `/notifications/all?status=unread&organization_id=${organizationId}&page=${page}&limit=${limit}`
+      : `/notifications/all?status=unread&page=${page}&limit=${limit}`;
     const response = await api.get<NotificationsResponse>(url);
     return response.data;
   },

@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { tasksApi } from "@/features/tasks/api/tasksApi";
 import { TimeTrackingLogDialog } from "@/features/workload/components/TimeTrackingLogDialog";
-import { getCurrentUserId } from "@/utils/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -24,10 +23,8 @@ interface TimerCellProps {
   ) => void;
   onTimerConflict?: (taskId: string) => void;
   onTimeUpdate?: (taskId: string, seconds: number) => void;
-  hasAssignee?: boolean;
   estimatedHours?: string | number;
   taskName?: string;
-  assignedToIds?: string[];
   estimatedDate?: string;
 }
 
@@ -39,21 +36,13 @@ export function TimerCell({
   onTimerStart,
   onTimerConflict,
   onTimeUpdate,
-  hasAssignee = false,
   estimatedHours = "-",
   taskName = "Task",
-  assignedToIds = [],
   estimatedDate = "-",
 }: TimerCellProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showTimeLog, setShowTimeLog] = useState(false);
   const isRunning = activeTimerId === taskId;
-  const currentUserId = getCurrentUserId();
-
-  // Check if current user is assigned to this task
-  const isAssignedToCurrentUser = assignedToIds.some(
-    (id) => String(id) === String(currentUserId),
-  );
 
   // Check if estimated date is overdue (past today)
   const isOverdue = (() => {
@@ -159,25 +148,7 @@ export function TimerCell({
     bgColor = "bg-red-600"; // Red (> 100%)
   }
 
-  const hasEstimation = estimatedHours && estimatedHours !== "-";
-
   const handlePlayPause = async () => {
-    // Check if estimation exists
-    if (!isRunning && !hasEstimation) {
-      toast.error("Task needs an estimation to track time");
-      return;
-    }
-
-    // Check if current user is assigned to this task before starting timer
-    if (!isRunning && !isAssignedToCurrentUser) {
-      if (hasAssignee) {
-        toast.error("You can only track time for tasks assigned to you");
-      } else {
-        toast.error("Task needs an assignee to track time");
-      }
-      return;
-    }
-
     setIsLoading(true);
     try {
       if (isRunning) {
@@ -218,14 +189,12 @@ export function TimerCell({
             <TooltipTrigger asChild>
               <button
                 onClick={handlePlayPause}
-                disabled={
-                  isLoading ||
-                  (!isAssignedToCurrentUser && !isRunning) ||
-                  (!isRunning && !hasEstimation)
-                }
-                className="p-2 hover:bg-muted rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading}
+                className="p-2 hover:bg-muted rounded transition-colors disabled:opacity-50"
               >
-                {isRunning ? (
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 text-white animate-spin" />
+                ) : isRunning ? (
                   <Pause className="h-4 w-4 text-white" />
                 ) : (
                   <Play className="h-4 w-4 text-white" />
@@ -233,15 +202,7 @@ export function TimerCell({
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              {!isRunning && !hasEstimation
-                ? "Task needs an estimation to track time"
-                : !isAssignedToCurrentUser && !isRunning
-                  ? hasAssignee
-                    ? "You can only track time for tasks assigned to you"
-                    : "Task needs an assignee to track time"
-                  : isRunning
-                    ? "Pause"
-                    : "Start"}
+              {isRunning ? "Pause" : "Start"}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

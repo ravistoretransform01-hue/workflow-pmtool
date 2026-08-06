@@ -18,7 +18,6 @@ import { authApi } from "@/features/auth/api/authApi";
 import { debugLog } from "@/utils/debugLog";
 import { appName } from "@/constants";
 
-import loginLogo from "@/assets/login-logo.png";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -139,11 +138,6 @@ const LoginPage = () => {
       <div className="w-full max-w-md space-y-8 animate-slide-up">
         {/* Logo and Title */}
         <div className="text-center space-y-4">
-          <img
-            src={loginLogo}
-            alt={`${appName} Logo`}
-            className="w-16 h-16 mx-auto rounded-xl bg-white shadow-sm object-contain p-1 border border-white/10"
-          />
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
               {appName}

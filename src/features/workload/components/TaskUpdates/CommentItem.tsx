@@ -25,6 +25,7 @@ import {
   Reply,
   FileText,
   Share2,
+  Link,
   Send,
 } from "lucide-react";
 import { TiptapEditor } from "@/features/workload/components/texteditor/TiptapEditor";
@@ -194,6 +195,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 <span className={cn("font-semibold text-foreground", isReply ? "text-xs" : "text-sm")}>
                   {comment.user?.name || "Unknown User"}
                 </span>
+
                 <span
                   className={cn(
                     "text-muted-foreground tracking-wider cursor-pointer",
@@ -246,10 +248,30 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               </div>
             </div>
 
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center transition-opacity">
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShareComment(comment.id);
+                      }}
+                    >
+                      <Link className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <span className="text-xs">Copy link</span>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-primary">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>

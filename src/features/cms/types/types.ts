@@ -4,6 +4,7 @@ export interface Status {
   color_code: string;
   status_order: string;
   required_rating: number | string;
+  is_editable?: number | boolean;
 }
 
 export interface Priority {
@@ -11,6 +12,7 @@ export interface Priority {
   name: string;
   color_code: string;
   priority_order: string;
+  is_editable?: number | boolean;
 }
 
 export interface Role {
@@ -71,6 +73,7 @@ export interface RawStatus {
   color_code: string;
   status_order: string | number;
   required_rating: number | string;
+  is_editable?: number | boolean;
 }
 
 export interface RawPriority {
@@ -78,6 +81,7 @@ export interface RawPriority {
   name: string;
   color_code: string;
   priority_order: string | number;
+  is_editable?: number | boolean;
 }
 
 export interface RawRole {
@@ -108,6 +112,8 @@ export interface CMSResponse {
   default_columns?: any;
   all_board_groups?: BoardGroup[];
   groups?: Group[];
+  ord_logo?: string;
+  org_logo?: string;
 }
 
 export interface CMSRequest {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { switchOrganization } from "@/features/auth/services/authSlice";
@@ -62,35 +62,83 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const refreshCounter = useSelector(
     (state: RootState) => state.ui.refreshCounter,
   );
   const user = useSelector((state: RootState) => state.auth.user);
 
-  // Load once on mount so the red-dot badge is visible right away
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const lastElementRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (loading || loadingMore) return;
+      if (observerRef.current) observerRef.current.disconnect();
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          setPage((prevPage) => prevPage + 1);
+        }
+      });
+      if (node) observerRef.current.observe(node);
+    },
+    [loading, loadingMore, hasMore]
+  );
+
   useEffect(() => {
     if (user?.organization_id) {
-      loadNotifications(user.organization_id);
+      // Just seed first page for the bell icon dot on mount
+      setPage(1);
+      loadNotifications(user.organization_id, false, false, 1);
     }
   }, [user?.organization_id]);
 
   useEffect(() => {
-    if ((open || refreshCounter > 0) && user?.organization_id) {
-      loadNotifications(user.organization_id);
+    if (open || refreshCounter > 0) {
+      if (user?.organization_id) {
+        setPage(1);
+        loadNotifications(user.organization_id, false, showUnreadOnly, 1);
+      }
     }
-  }, [open, refreshCounter, user?.organization_id]);
+  }, [open, refreshCounter, showUnreadOnly]);
 
-  const loadNotifications = async (orgId?: string | number) => {
-    setLoading(true);
+  useEffect(() => {
+    if (page > 1 && user?.organization_id) {
+      loadNotifications(user.organization_id, true, showUnreadOnly, page);
+    }
+  }, [page]);
+
+  const loadNotifications = async (
+    orgId: string | number,
+    isLoadMore = false,
+    unread = false,
+    currentPage = 1
+  ) => {
+    if (isLoadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+    
     try {
-      const response = await notificationsApi.getAllNotifications(orgId);
+      const limit = 20;
+      const apiFn = unread ? notificationsApi.getUnreadNotifications : notificationsApi.getAllNotifications;
+      const response = await apiFn(orgId, currentPage, limit);
+      
       if (response.success) {
-        setNotifications(response.data || []);
+        const newData = response.data || [];
+        setNotifications((prev) => (isLoadMore ? [...prev, ...newData] : newData));
+        setHasMore(newData.length === limit);
       }
     } catch (error) {
       console.error("Error loading notifications:", error);
     } finally {
-      setLoading(false);
+      if (isLoadMore) {
+        setLoadingMore(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
 
@@ -169,7 +217,8 @@ export function NotificationBell() {
   const [filterTab, setFilterTab] = useState("all");
 
   const filteredNotifications = notifications.filter((n) => {
-    if (showUnreadOnly && n.is_read !== "0") return false;
+    // If showUnreadOnly is true, only include if is_read implies false/0
+    if (showUnreadOnly && String(n.is_read) !== "0" && String(n.is_read) !== "false") return false;
 
     const matchesSearch =
       searchQuery === "" ||
@@ -221,13 +270,14 @@ export function NotificationBell() {
 
     return (
       <div className="space-y-1 px-2 pb-4">
-        {list.map((notification) => (
+        {list.map((notification, index) => (
           <div
             key={notification.id}
+            ref={index === list.length - 1 ? lastElementRef : null}
             onClick={() => handleNotificationClick(notification)}
             className={cn(
               "group flex items-start gap-4 p-4 rounded-xl cursor-pointer transition-all duration-200 border border-transparent",
-              notification.is_read === "0"
+              String(notification.is_read) === "0" || String(notification.is_read) === "false"
                 ? "bg-primary/[0.2] hover:bg-primary/[0.25] border-primary/30 shadow-md"
                 : "hover:bg-muted/50",
             )}
@@ -316,7 +366,7 @@ export function NotificationBell() {
                       </TooltipProvider>
                     )}
                 </div>
-                {notification.is_read === "0" && (
+                {(String(notification.is_read) === "0" || String(notification.is_read) === "false") && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -333,6 +383,11 @@ export function NotificationBell() {
             </div>
           </div>
         ))}
+        {loadingMore && (
+          <div className="flex justify-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
       </div>
     );
   };

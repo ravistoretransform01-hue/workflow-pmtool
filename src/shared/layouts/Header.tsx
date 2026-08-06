@@ -24,7 +24,7 @@ import { SavingSpinner } from "@/shared/components/SavingSpinner";
 import { TemplatePickerDialog } from "@/shared/modals/TemplatePickerDialog";
 import { GlobalTimer } from "@/shared/components/GlobalTimer";
 import { BoardInviteDialog } from "@/shared/modals/BoardInviteDialog";
-// import { ModeToggle } from "@/shared/components/ModeToggle";
+
 
 import {
   DropdownMenu,
@@ -82,7 +82,6 @@ export function Header() {
         <GlobalTimer />
         <SavingSpinner />
 
-        {/* <ModeToggle /> */}
         <NotificationBell />
         <TrashButton />
 

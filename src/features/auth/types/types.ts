@@ -56,6 +56,7 @@ export interface User {
   organizations?: {
     organization_id: number;
     organization_name: string;
+    org_logo?: string;
     role_id: number;
     role_label: string;
   }[];
@@ -63,6 +64,7 @@ export interface User {
   phone?: string;
   mobile_phone?: string;
   location?: string;
+  org_logo?: string;
 }
 
 export interface AuthResponse {
@@ -87,6 +89,7 @@ export interface AuthState {
 export interface Organization {
   organization_id: number;
   organization_name: string;
+  org_logo?: string;
   role_id: number;
   role_label: string;
   is_owner: boolean;
