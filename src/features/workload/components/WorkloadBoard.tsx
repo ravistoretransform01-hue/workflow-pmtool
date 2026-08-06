@@ -124,6 +124,42 @@ import GanttView from "@/features/workload/components/GanttView";
 import { TeamsBoardNavigator } from "@/features/workload/components/TeamsBoardNavigator";
 import { KanbanBoardColumn } from "@/features/workload/components/KanbanBoardColumn";
 
+function DebouncedSearchInput({
+  value,
+  onChange,
+  placeholder,
+  className
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    if (value !== localValue) {
+      setLocalValue(value);
+    }
+  }, [value]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      onChange(localValue);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [localValue, onChange]);
+
+  return (
+    <Input
+      placeholder={placeholder}
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      className={className}
+    />
+  );
+}
+
 interface WorkloadBoardProps {
   boardId: string;
   boardName: string;
@@ -5658,10 +5694,10 @@ export function WorkloadBoard({
               {/* Search */}
               <div className="relative max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
-                <Input
+                <DebouncedSearchInput
                   placeholder="Search items..."
                   value={mainTableSearchQuery}
-                  onChange={(e) => setMainTableSearchQuery(e.target.value)}
+                  onChange={setMainTableSearchQuery}
                   className="pl-9 h-8 bg-background border-border w-48"
                 />
               </div>
