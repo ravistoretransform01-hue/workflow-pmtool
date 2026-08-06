@@ -479,37 +479,42 @@ export function TrackingLayoutBuilderModal({
                               <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => addRow(activeTab.id, col.id)}>Add Row</Button>
                             </div>
                           ) : (
-                            col.rows.map((row) => (
-                              <div 
-                                key={row.id} 
-                                className="border rounded-md bg-background p-2 flex flex-col relative group/row transition-all shadow-sm"
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <Input 
-                                    className="h-7 text-xs flex-1"
-                                    placeholder="Row Name..."
-                                    value={row.name || ""}
-                                    onChange={(e) => updateRow(activeTab.id, col.id, row.id, e.target.value)}
-                                  />
-                                  <Button 
-                                    size="icon" 
-                                    variant="ghost" 
-                                    className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0" 
-                                    onClick={() => removeRow(activeTab.id, col.id, row.id)}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
+                            <>
+                              {col.rows.map((row) => (
+                                <div 
+                                  key={row.id} 
+                                  className="border rounded-md bg-background p-2 flex flex-col relative group/row transition-all shadow-sm"
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <Input 
+                                      className="h-7 text-xs flex-1"
+                                      placeholder="Row Name..."
+                                      value={row.name || ""}
+                                      onChange={(e) => updateRow(activeTab.id, col.id, row.id, e.target.value)}
+                                    />
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost" 
+                                      className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0" 
+                                      onClick={() => removeRow(activeTab.id, col.id, row.id)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
                                 </div>
-                              </div>
-                            ))
+                              ))}
+                              
+                              <button
+                                onClick={() => addRow(activeTab.id, col.id)}
+                                className="w-full h-[46px] border border-dashed border-border rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/30 hover:border-primary/40 hover:text-primary transition-all bg-card/10 shadow-sm"
+                                title="Add a new row"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </button>
+                            </>
                           )}
                         </div>
 
-                        <div className="p-3 border-t bg-muted/10 shrink-0">
-                          <Button size="sm" variant="ghost" className="w-full text-xs hover:bg-secondary justify-start" onClick={() => addRow(activeTab.id, col.id)}>
-                            <Plus className="h-3.5 w-3.5 mr-2" /> Add another row
-                          </Button>
-                        </div>
                       </div>
                     ))}
                     
