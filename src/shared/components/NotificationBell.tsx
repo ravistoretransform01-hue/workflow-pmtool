@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { switchOrganization } from "@/features/auth/services/authSlice";
@@ -17,6 +17,8 @@ import {
   MoreVertical,
   X as CloseIcon,
   Check,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import {
@@ -29,6 +31,13 @@ import { Input } from "@/shared/ui/input";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
 import { stringToHslColor } from "@/features/workload/utils/workload-utils";
 
 const stripHtml = (html: string) => {
@@ -63,34 +72,20 @@ export function NotificationBell() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [limit, setLimit] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [serverUnreadCount, setServerUnreadCount] = useState(0);
 
   const refreshCounter = useSelector(
     (state: RootState) => state.ui.refreshCounter,
   );
   const user = useSelector((state: RootState) => state.auth.user);
 
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const lastElementRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (loading || loadingMore) return;
-      if (observerRef.current) observerRef.current.disconnect();
-      observerRef.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMore) {
-          setPage((prevPage) => prevPage + 1);
-        }
-      });
-      if (node) observerRef.current.observe(node);
-    },
-    [loading, loadingMore, hasMore]
-  );
-
   useEffect(() => {
     if (user?.organization_id) {
       // Just seed first page for the bell icon dot on mount
       setPage(1);
-      loadNotifications(user.organization_id, false, false, 1);
+      loadNotifications(user.organization_id, false, 1);
     }
   }, [user?.organization_id]);
 
@@ -98,59 +93,61 @@ export function NotificationBell() {
     if (open || refreshCounter > 0) {
       if (user?.organization_id) {
         setPage(1);
-        loadNotifications(user.organization_id, false, showUnreadOnly, 1);
+        loadNotifications(user.organization_id, showUnreadOnly, 1);
       }
     }
   }, [open, refreshCounter, showUnreadOnly]);
 
   useEffect(() => {
-    if (page > 1 && user?.organization_id) {
-      loadNotifications(user.organization_id, true, showUnreadOnly, page);
+    if (open && user?.organization_id) {
+      loadNotifications(user.organization_id, showUnreadOnly, page, limit);
     }
-  }, [page]);
+  }, [page, limit]);
 
   const loadNotifications = async (
     orgId: string | number,
-    isLoadMore = false,
     unread = false,
-    currentPage = 1
+    currentPage = 1,
+    currentLimit = 20
   ) => {
-    if (isLoadMore) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-    }
+    setLoading(true);
     
     try {
-      const limit = 20;
       const apiFn = unread ? notificationsApi.getUnreadNotifications : notificationsApi.getAllNotifications;
-      const response = await apiFn(orgId, currentPage, limit);
+      const response = await apiFn(orgId, currentPage, currentLimit);
       
       if (response.success) {
         const newData = response.data || [];
-        setNotifications((prev) => (isLoadMore ? [...prev, ...newData] : newData));
-        setHasMore(newData.length === limit);
+        setNotifications(newData);
+        
+        const metaObj = response.meta || response.pagination || response;
+        if (metaObj.total_pages !== undefined) setTotalPages(metaObj.total_pages);
+        else setTotalPages(newData.length === currentLimit ? currentPage + 1 : currentPage);
+
+        if (metaObj.total_unread !== undefined) setServerUnreadCount(metaObj.total_unread);
       }
     } catch (error) {
       console.error("Error loading notifications:", error);
     } finally {
-      if (isLoadMore) {
-        setLoadingMore(false);
-      } else {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
-  const unreadCount = notifications.filter((n) => n.is_read === "0").length;
+  const unreadCount = serverUnreadCount !== undefined && serverUnreadCount > 0 
+    ? serverUnreadCount 
+    : notifications.filter((n) => String(n.is_read) === "0" || String(n.is_read) === "false").length;
 
   const markAsRead = async (notificationId: string) => {
     if (!notificationId) return;
 
     // Optimistic UI update
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, is_read: "1" } : n)),
-    );
+    setNotifications((prev) => {
+      const wasUnread = prev.find(n => n.id === notificationId && (String(n.is_read) === "0" || String(n.is_read) === "false"));
+      if (wasUnread) {
+        setServerUnreadCount(prev => Math.max(0, prev - 1));
+      }
+      return prev.map((n) => (n.id === notificationId ? { ...n, is_read: "1" } : n));
+    });
 
     try {
       await notificationsApi.markAsRead({ notificationId });
@@ -164,6 +161,7 @@ export function NotificationBell() {
 
     // Optimistic UI update
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: "1" })));
+    setServerUnreadCount(0);
 
     try {
       await notificationsApi.markAsRead({
@@ -243,6 +241,63 @@ export function NotificationBell() {
     return true;
   });
 
+  const renderPageNumbers = () => {
+    const pages = [];
+    let startPage = Math.max(1, page - 1);
+    let endPage = Math.min(totalPages, page + 1);
+
+    if (page <= 2) {
+      endPage = Math.min(totalPages, 3);
+      startPage = 1;
+    }
+    if (page >= totalPages - 1) {
+      startPage = Math.max(1, totalPages - 2);
+      endPage = totalPages;
+    }
+
+    const Ellipsis = () => (
+      <span className="relative inline-flex h-8 w-8 items-center justify-center border border-border bg-transparent text-[13px] font-medium text-blue-500 -ml-px">
+        ...
+      </span>
+    );
+
+    const PageBtn = ({ i }: { i: number }) => (
+      <button
+        onClick={() => setPage(i)}
+        className={cn(
+          "relative inline-flex h-8 w-8 items-center justify-center border text-[13px] font-medium -ml-px transition-colors hover:bg-muted/50",
+          page === i
+            ? "z-10 border-blue-500 bg-blue-50/50 text-blue-600"
+            : "border-border bg-transparent text-blue-500"
+        )}
+      >
+        {i}
+      </button>
+    );
+
+    for (let i = startPage; i <= endPage; i++) {
+        pages.push(<PageBtn key={i} i={i} />);
+    }
+
+    return (
+        <>
+            {startPage > 1 && (
+                <>
+                    <PageBtn i={1} />
+                    {startPage > 2 && <Ellipsis />}
+                </>
+            )}
+            {pages}
+            {endPage < totalPages && (
+                <>
+                    {endPage < totalPages - 1 && <Ellipsis />}
+                    <PageBtn i={totalPages} />
+                </>
+            )}
+        </>
+    );
+  };
+
   const renderNotificationList = (
     list: Notification[],
     emptyMessage: string,
@@ -270,10 +325,9 @@ export function NotificationBell() {
 
     return (
       <div className="space-y-1 px-2 pb-4">
-        {list.map((notification, index) => (
+        {list.map((notification) => (
           <div
             key={notification.id}
-            ref={index === list.length - 1 ? lastElementRef : null}
             onClick={() => handleNotificationClick(notification)}
             className={cn(
               "group flex items-start gap-4 p-4 rounded-xl cursor-pointer transition-all duration-200 border border-transparent",
@@ -383,11 +437,6 @@ export function NotificationBell() {
             </div>
           </div>
         ))}
-        {loadingMore && (
-          <div className="flex justify-center py-4">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        )}
       </div>
     );
   };
@@ -530,6 +579,57 @@ export function NotificationBell() {
                 )}
               </ScrollArea>
             </div>
+
+            {/* Sticky Pagination Controls Footer */}
+            {!loading && filteredNotifications.length > 0 && (
+              <div className="shrink-0 flex items-center justify-end py-4 px-6 border-t border-border bg-card shadow-[0_-4px_6px_-4px_rgba(0,0,0,0.1)] gap-4">
+                
+                <div className="flex flex-col sm:flex-row items-center justify-center xl:justify-end gap-4 lg:gap-6 w-full sm:w-auto">
+                  {/* Show Limit Dropdown */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] text-muted-foreground sm:inline hidden">Show</span>
+                    <Select
+                      value={String(limit)}
+                      onValueChange={(val) => {
+                        setLimit(Number(val));
+                        setPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-[70px] text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <span className="text-[13px] text-muted-foreground sm:inline hidden">entries per page</span>
+                  </div>
+
+                  {/* Pagination Steps */}
+                  <div className="inline-flex items-center overflow-x-auto pb-1 sm:pb-0 hide-scroll rounded-md shadow-sm">
+                    <button
+                      className="relative inline-flex h-8 w-8 items-center justify-center rounded-l-md border border-border bg-transparent text-blue-500 transition-colors hover:bg-muted/50 disabled:opacity-50 disabled:pointer-events-none"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    
+                    {renderPageNumbers()}
+                    
+                    <button
+                      className="relative inline-flex h-8 w-8 items-center justify-center rounded-r-md border border-border bg-transparent text-blue-500 transition-colors hover:bg-muted/50 disabled:opacity-50 disabled:pointer-events-none -ml-px"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page >= totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>

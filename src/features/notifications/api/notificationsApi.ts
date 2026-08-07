@@ -34,11 +34,26 @@ export interface Notification {
   };
 }
 
+export interface PaginationMeta {
+  total_items: number;
+  total_pages: number;
+  current_page: number;
+  per_page: number;
+  total_unread: number;
+}
+
 export interface NotificationsResponse {
   success: boolean;
-  status_filter: string;
+  status_filter?: string;
   data: Notification[];
-  count: number;
+  count?: number;
+  pagination?: PaginationMeta;
+  meta?: PaginationMeta;
+  total_items?: number;
+  total_pages?: number;
+  current_page?: number;
+  per_page?: number;
+  total_unread?: number;
 }
 
 export const notificationsApi = {
