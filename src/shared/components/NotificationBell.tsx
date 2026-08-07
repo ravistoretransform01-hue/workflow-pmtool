@@ -582,9 +582,9 @@ export function NotificationBell() {
 
             {/* Sticky Pagination Controls Footer */}
             {!loading && filteredNotifications.length > 0 && (
-              <div className="shrink-0 flex items-center justify-end py-4 px-6 border-t border-border bg-card shadow-[0_-4px_6px_-4px_rgba(0,0,0,0.1)] gap-4">
+              <div className="shrink-0 flex items-center justify-between py-4 px-6 border-t border-border bg-card shadow-[0_-4px_6px_-4px_rgba(0,0,0,0.1)] gap-4">
                 
-                <div className="flex flex-col sm:flex-row items-center justify-center xl:justify-end gap-4 lg:gap-6 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-4">
                   {/* Show Limit Dropdown */}
                   <div className="flex items-center gap-2">
                     <span className="text-[13px] text-muted-foreground sm:inline hidden">Show</span>
