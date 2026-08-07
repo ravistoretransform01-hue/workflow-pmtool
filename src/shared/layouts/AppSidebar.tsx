@@ -19,11 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,12 +52,13 @@ import { useAppSelector } from "@/hooks";
 import { appName } from "@/constants";
 import { cmsApi } from "@/features/cms/api/cmsApi";
 
-
 export const AppSidebar = () => {
   const user = useAppSelector((state) => state.auth.user);
   const orgId = user?.organization_id;
-  
-  const currentOrg = user?.organizations?.find(o => String(o.organization_id) === String(orgId));
+
+  const currentOrg = user?.organizations?.find(
+    (o) => String(o.organization_id) === String(orgId),
+  );
   const displayName = currentOrg?.organization_name || appName;
 
   const navigate = useNavigate();
@@ -270,9 +267,13 @@ export const AppSidebar = () => {
       }
     } catch (error: any) {
       console.error("Duplicate board error:", error);
-      toast.error(error?.response?.data?.message || "An error occurred while duplicating the board", {
-        id: toastId,
-      });
+      toast.error(
+        error?.response?.data?.message ||
+          "An error occurred while duplicating the board",
+        {
+          id: toastId,
+        },
+      );
     } finally {
       setIsDuplicating(false);
     }
@@ -343,16 +344,32 @@ export const AppSidebar = () => {
         <SidebarHeader className="h-16 flex items-center justify-center">
           <div className="flex items-center justify-between gap-2 w-full px-6">
             <div className="flex items-center gap-2 w-full">
-              <img 
-                src={dynamicLogo || user?.organizations?.find(o => String(o.organization_id) === String(user?.organization_id))?.org_logo || user?.org_logo || "/favicon/apple-touch-icon.png"} 
-                alt="Logo" 
-                className="w-8 h-8 rounded-md bg-white object-contain shadow-sm" 
+              <img
+                src={
+                  dynamicLogo ||
+                  user?.organizations?.find(
+                    (o) =>
+                      String(o.organization_id) ===
+                      String(user?.organization_id),
+                  )?.org_logo ||
+                  user?.org_logo ||
+                  "/favicon/apple-touch-icon.png"
+                }
+                alt="Logo"
+                className="w-8 h-8 rounded-md object-contain"
                 style={{ padding: "2px" }}
                 onError={(e) => {
                   e.currentTarget.src = "/favicon/apple-touch-icon.png";
                 }}
               />
-              {open && <h1 className="text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap" title={displayName}>{displayName}</h1>}
+              {open && (
+                <h1
+                  className="text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap"
+                  title={displayName}
+                >
+                  {displayName}
+                </h1>
+              )}
             </div>
           </div>
         </SidebarHeader>
@@ -602,7 +619,10 @@ export const AppSidebar = () => {
                         >
                           <div
                             className="h-5 w-5 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                            style={{ backgroundColor: board.icon_color || "hsl(221, 83%, 53%)" }}
+                            style={{
+                              backgroundColor:
+                                board.icon_color || "hsl(221, 83%, 53%)",
+                            }}
                           >
                             {board.name.charAt(0).toUpperCase()}
                           </div>
@@ -772,7 +792,10 @@ export const AppSidebar = () => {
                     >
                       <div
                         className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                        style={{ backgroundColor: board.icon_color || "hsl(221, 83%, 53%)" }}
+                        style={{
+                          backgroundColor:
+                            board.icon_color || "hsl(221, 83%, 53%)",
+                        }}
                       >
                         {board.name.charAt(0).toUpperCase()}
                       </div>
