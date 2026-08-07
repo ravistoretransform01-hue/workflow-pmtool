@@ -20,11 +20,7 @@ import type { Task } from "@/features/workload/components/WorkloadBoard";
 import { KanbanColumn } from "@/features/workload/components/KanbanColumn";
 import { KanbanCard } from "@/features/workload/components/KanbanCard";
 import { TeamsBoardNavigator } from "@/features/workload/components/TeamsBoardNavigator";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/shared/ui/popover";
+import { Popover, PopoverTrigger, PopoverContent } from "@/shared/ui/popover";
 import { ChevronDown, Settings, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/shared/ui/button";
@@ -184,7 +180,9 @@ export function KanbanView({
     setVisibleStatuses((prev) => {
       if (prev.size === 0 && statuses.length > 0) {
         // Check if we already have a saved preference in localStorage
-        const saved = localStorage.getItem(`kanban-visible-statuses-${boardId}`);
+        const saved = localStorage.getItem(
+          `kanban-visible-statuses-${boardId}`,
+        );
         if (!saved) {
           return new Set(statuses.map((s) => String(s.id)));
         }
@@ -805,7 +803,7 @@ export function KanbanView({
       toast.error("Column name is required");
       return;
     }
-    
+
     const orgId = getOrganizationId();
     if (!orgId || !boardId) {
       toast.error("Missing board or organization");
@@ -821,19 +819,18 @@ export function KanbanView({
           organization_id: Number(orgId),
           board_id: Number(boardId),
         });
-        
+
         addStatusToCache(Number(boardId), created);
         const updated = [...statuses, created];
         onStatusesUpdated?.(updated);
-        
+
         // Ensure new status is visible
-        setVisibleStatuses(prev => {
+        setVisibleStatuses((prev) => {
           const next = new Set(prev);
           next.add(String(created.id));
           persistVisibleIds(next);
           return next;
         });
-
       } else {
         const created = await cmsApi.createPriority({
           name: newColumnName.trim(),
@@ -841,20 +838,20 @@ export function KanbanView({
           organization_id: Number(orgId),
           board_id: Number(boardId),
         });
-        
+
         addPriorityToCache(Number(boardId), created);
         const updated = [...priorities, created];
         onPrioritiesUpdated?.(updated);
-        
+
         // Ensure new priority is visible
-        setVisiblePriorities(prev => {
+        setVisiblePriorities((prev) => {
           const next = new Set(prev);
           next.add(String(created.id));
           persistVisibleIds(next);
           return next;
         });
       }
-      
+
       setNewColumnName("");
       setShowAddColumn(false);
       toast.success("Column created successfully");
@@ -1049,9 +1046,9 @@ export function KanbanView({
             </div>
           </div>
 
-          <div 
+          <div
             ref={setBoardNode}
-            className="flex-1 flex gap-4 overflow-x-auto pt-4 px-6 pb-2 min-h-0 custom-scrollbar scrollbar-visible scroll-shadows-x"
+            className="flex-1 flex gap-4 overflow-x-auto overflow-y-hidden pt-4 px-6 pb-2 min-h-0 items-stretch custom-scrollbar scrollbar-visible scroll-shadows-x"
           >
             <SortableContext
               items={activeOrderedIds.map((id) => `column-${id}`)}
@@ -1122,11 +1119,11 @@ export function KanbanView({
                   );
                 })}
             </SortableContext>
-            
+
             <div className="shrink-0 w-80 pt-1 pb-4 flex flex-col justify-start">
               {!showAddColumn ? (
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   className="w-full justify-start text-muted-foreground bg-muted/50 hover:bg-muted"
                   onClick={() => setShowAddColumn(true)}
                 >
@@ -1135,17 +1132,24 @@ export function KanbanView({
               ) : (
                 <div className="p-3 border border-border rounded bg-card flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Add {groupBy === "status" ? "Status" : "Priority"}</span>
-                    <Button variant="ghost" size="sm" onClick={() => setShowAddColumn(false)} className="h-6 w-6 p-0">
+                    <span className="text-sm font-medium">
+                      Add {groupBy === "status" ? "Status" : "Priority"}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAddColumn(false)}
+                      className="h-6 w-6 p-0"
+                    >
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Input 
+                    <Input
                       autoFocus
                       placeholder="Column name"
                       value={newColumnName}
-                      onChange={e => setNewColumnName(e.target.value)}
+                      onChange={(e) => setNewColumnName(e.target.value)}
                       className="h-8"
                     />
                     <ColorPickerPopover
@@ -1156,7 +1160,11 @@ export function KanbanView({
                       size="w-8 h-8"
                     />
                   </div>
-                  <Button size="sm" onClick={handleAddColumn} disabled={isCreatingColumn}>
+                  <Button
+                    size="sm"
+                    onClick={handleAddColumn}
+                    disabled={isCreatingColumn}
+                  >
                     Create
                   </Button>
                 </div>
@@ -1164,9 +1172,11 @@ export function KanbanView({
             </div>
           </div>
 
-          <TeamsBoardNavigator 
-            containerNode={boardNode} 
-            columnsCount={activeOrderedIds.filter((id) => activeVisibleIds.has(id)).length} 
+          <TeamsBoardNavigator
+            containerNode={boardNode}
+            columnsCount={
+              activeOrderedIds.filter((id) => activeVisibleIds.has(id)).length
+            }
           />
 
           <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
