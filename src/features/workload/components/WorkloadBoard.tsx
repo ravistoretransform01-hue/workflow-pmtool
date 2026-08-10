@@ -2864,6 +2864,7 @@ export function WorkloadBoard({
   };
 
 
+
   const handlePersonChange = async (taskId: string, memberIds: string[], skipToast?: boolean) => {
     try {
       // Find the reference task to identify which member was added or removed
