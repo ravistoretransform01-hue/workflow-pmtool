@@ -23,7 +23,10 @@ import { AppSidebar } from "@/shared/layouts/AppSidebar";
 import { Header } from "@/shared/layouts/Header";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { setUser, switchOrganization } from "@/features/auth/services/authSlice";
+import {
+  setUser,
+  switchOrganization,
+} from "@/features/auth/services/authSlice";
 import type { AppDispatch } from "@/store";
 import type { User } from "@/features/auth/types/types";
 
@@ -55,7 +58,7 @@ function ProtectedRoute() {
       if (!isNaN(urlOrgId) && user.organization_id !== urlOrgId) {
         // Verify if user is actually a member of this organization
         const isMember = user.organizations?.some(
-          (org) => org.organization_id === urlOrgId
+          (org) => org.organization_id === urlOrgId,
         );
 
         if (isMember) {
@@ -76,10 +79,14 @@ function ProtectedRoute() {
           if (user && parsedUser.user_id === user.user_id) {
             // Check if we need to force a re-sync with our URL
             const urlOrgId = orgId ? parseInt(orgId, 10) : null;
-            if (urlOrgId && !isNaN(urlOrgId) && parsedUser.organization_id !== urlOrgId) {
-               // The storage changed but it doesn't match THIS tab's URL
-               // The URL sync effect above will handle switching it back to what THIS tab needs
-               return;
+            if (
+              urlOrgId &&
+              !isNaN(urlOrgId) &&
+              parsedUser.organization_id !== urlOrgId
+            ) {
+              // The storage changed but it doesn't match THIS tab's URL
+              // The URL sync effect above will handle switching it back to what THIS tab needs
+              return;
             }
             dispatch(setUser(parsedUser));
           }
@@ -100,14 +107,14 @@ function ProtectedRoute() {
   return <Outlet />;
 }
 
- function ProtectedLayout() {
+function ProtectedLayout() {
   return (
     <SidebarProvider defaultOpen className="flex h-screen overflow-hidden">
       <div className="flex w-full h-full overflow-hidden">
         <AppSidebar />
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-y-auto custom-scrollbar">
+          <main className="flex-1 overflow-hidden h-full">
             <Outlet />
           </main>
         </div>
