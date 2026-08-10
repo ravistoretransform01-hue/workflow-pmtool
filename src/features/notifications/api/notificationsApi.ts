@@ -34,34 +34,57 @@ export interface Notification {
   };
 }
 
+export interface PaginationMeta {
+  total_items: number;
+  total_pages: number;
+  current_page: number;
+  per_page: number;
+  total_unread: number;
+}
+
 export interface NotificationsResponse {
   success: boolean;
-  status_filter: string;
+  status_filter?: string;
   data: Notification[];
-  count: number;
+  count?: number;
+  pagination?: PaginationMeta;
+  meta?: PaginationMeta;
+  total_items?: number;
+  total_pages?: number;
+  current_page?: number;
+  per_page?: number;
+  total_unread?: number;
 }
 
 export const notificationsApi = {
-  getAllNotifications: async (organizationId?: string | number, page: number = 1, limit: number = 20): Promise<NotificationsResponse> => {
-    let url = organizationId 
-      ? `/notifications/all?status=all&organization_id=${organizationId}&page=${page}&limit=${limit}`
-      : `/notifications/all?status=all&page=${page}&limit=${limit}`;
+  getAllNotifications: async (
+    organizationId?: string | number,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<NotificationsResponse> => {
+    let url = organizationId
+      ? `/notifications/all?status=all&organization_id=${organizationId}&page=${page}&per_page=${limit}`
+      : `/notifications/all?status=all&page=${page}&per_page=${limit}`;
     const response = await api.get<NotificationsResponse>(url);
     return response.data;
   },
 
-  getUnreadNotifications: async (organizationId?: string | number, page: number = 1, limit: number = 20): Promise<NotificationsResponse> => {
-    let url = organizationId 
-      ? `/notifications/all?status=unread&organization_id=${organizationId}&page=${page}&limit=${limit}`
-      : `/notifications/all?status=unread&page=${page}&limit=${limit}`;
+  getUnreadNotifications: async (
+    organizationId?: string | number,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<NotificationsResponse> => {
+    let url = organizationId
+      ? `/notifications/all?status=unread&organization_id=${organizationId}&page=${page}&per_page=${limit}`
+      : `/notifications/all?status=unread&page=${page}&per_page=${limit}`;
     const response = await api.get<NotificationsResponse>(url);
     return response.data;
   },
 
-  markAsRead: async (params: { 
-    notificationId?: string | number; 
-    markAll?: boolean; 
-    organizationId?: string | number; 
+  markAsRead: async (params: {
+    notificationId?: string | number;
+    markAll?: boolean;
+    organizationId?: string | number;
   }): Promise<{ success: boolean; message: string; unread_count: number }> => {
     const body: any = {};
     if (params.notificationId) body.notification_id = params.notificationId;

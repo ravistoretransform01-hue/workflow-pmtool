@@ -142,7 +142,9 @@ export function KanbanColumn({
         // Trigger global update if handler is provided
         if (onStatusesUpdated && statuses) {
           onStatusesUpdated(
-            statuses.map((s) => (String(s.id) === String(category.id) ? updated : s)),
+            statuses.map((s) =>
+              String(s.id) === String(category.id) ? updated : s,
+            ),
           );
         }
       } else {
@@ -159,7 +161,9 @@ export function KanbanColumn({
         // Trigger global update if handler is provided
         if (onPrioritiesUpdated && priorities) {
           onPrioritiesUpdated(
-            priorities.map((p) => (String(p.id) === String(category.id) ? updated : p)),
+            priorities.map((p) =>
+              String(p.id) === String(category.id) ? updated : p,
+            ),
           );
         }
       }
@@ -177,14 +181,18 @@ export function KanbanColumn({
   };
 
   const { orgId } = useParams<{ orgId?: string }>();
-  const canEditCategory = Number(orgId) === 31 || category.is_editable === 1 || category.is_editable === true || String(category.is_editable) === "1";
+  const canEditCategory =
+    Number(orgId) === 31 ||
+    category.is_editable === 1 ||
+    category.is_editable === true ||
+    String(category.is_editable) === "1";
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 min-h-full",
+        "flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 h-full",
         isOver && !isDragging
           ? "bg-primary/5 border-primary/30 ring-2 ring-primary/10 shadow-lg"
           : isDraggingOver
@@ -244,17 +252,21 @@ export function KanbanColumn({
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <CreateTaskPopover groups={groups} onAddTask={onAddTask} trigger={
-              <Button
-                variant="ghost"
-                size="icon"
-                title="Add Task"
-                className="h-7 w-7 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            } />
+            <CreateTaskPopover
+              groups={groups}
+              onAddTask={onAddTask}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Add Task"
+                  className="h-7 w-7 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              }
+            />
             <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center">
               <GripVertical className="h-4 w-4 text-slate-300" />
             </div>
@@ -262,7 +274,7 @@ export function KanbanColumn({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar min-h-[200px]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar min-h-0">
         <SortableContext
           items={tasks.map((t) => t.id)}
           strategy={verticalListSortingStrategy}
@@ -292,18 +304,20 @@ export function KanbanColumn({
           })}
         </SortableContext>
 
-        <CreateTaskPopover groups={groups} onAddTask={onAddTask} trigger={
-          <button
-            className="w-full flex items-center gap-2.5 p-3 rounded-xl text-slate-500 hover:text-primary hover:bg-white dark:hover:bg-slate-900 transition-all duration-200 group border border-dashed border-slate-300 dark:border-slate-800 hover:border-primary/50 hover:shadow-sm mt-3"
-          >
-            <div className="bg-slate-100 dark:bg-slate-800 group-hover:bg-primary/10 rounded-lg p-1.5 transition-colors">
-              <Plus className="h-3.5 w-3.5" />
-            </div>
-            <span className="text-xs font-bold uppercase tracking-wider">
-              Add Item
-            </span>
-          </button>
-        } />
+        <CreateTaskPopover
+          groups={groups}
+          onAddTask={onAddTask}
+          trigger={
+            <button className="w-full flex items-center gap-2.5 p-3 rounded-xl text-slate-500 hover:text-primary hover:bg-white dark:hover:bg-slate-900 transition-all duration-200 group border border-dashed border-slate-300 dark:border-slate-800 hover:border-primary/50 hover:shadow-sm mt-3">
+              <div className="bg-slate-100 dark:bg-slate-800 group-hover:bg-primary/10 rounded-lg p-1.5 transition-colors">
+                <Plus className="h-3.5 w-3.5" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Add Item
+              </span>
+            </button>
+          }
+        />
       </div>
     </div>
   );

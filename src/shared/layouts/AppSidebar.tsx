@@ -10,6 +10,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuAction,
   SidebarSeparator,
   useSidebar,
 } from "@/shared/ui/sidebar";
@@ -19,11 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,7 +43,7 @@ import {
   ExternalLink,
   Pencil,
   Trash2,
-  // User,
+  ChevronsLeft,
 } from "lucide-react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -59,13 +56,15 @@ import { cmsApi } from "@/features/cms/api/cmsApi";
 export const AppSidebar = () => {
   const user = useAppSelector((state) => state.auth.user);
   const orgId = user?.organization_id;
-  
-  const currentOrg = user?.organizations?.find(o => String(o.organization_id) === String(orgId));
+
+  const currentOrg = user?.organizations?.find(
+    (o) => String(o.organization_id) === String(orgId),
+  );
   const displayName = currentOrg?.organization_name || appName;
 
   const navigate = useNavigate();
   const { boardId } = useParams();
-  const { open } = useSidebar();
+  const { toggleSidebar } = useSidebar();
   const { boards, fetchLoading, fetchBoards } = useBoards();
 
   const [dynamicLogo, setDynamicLogo] = useState<string | null>(null);
@@ -269,9 +268,13 @@ export const AppSidebar = () => {
       }
     } catch (error: any) {
       console.error("Duplicate board error:", error);
-      toast.error(error?.response?.data?.message || "An error occurred while duplicating the board", {
-        id: toastId,
-      });
+      toast.error(
+        error?.response?.data?.message ||
+          "An error occurred while duplicating the board",
+        {
+          id: toastId,
+        },
+      );
     } finally {
       setIsDuplicating(false);
     }
@@ -319,6 +322,7 @@ export const AppSidebar = () => {
         </style>
       )}
       <Sidebar
+        collapsible="icon"
         className={cn("z-20", isResizing && "transition-none")}
         style={
           { "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties
@@ -339,26 +343,50 @@ export const AppSidebar = () => {
             )}
           />
         </div>
-        <SidebarHeader className="h-16 flex items-center justify-center">
-          <div className="flex items-center justify-between gap-2 w-full px-6">
-            <div className="flex items-center gap-2 w-full">
-              <img 
-                src={dynamicLogo || user?.organizations?.find(o => String(o.organization_id) === String(user?.organization_id))?.org_logo || user?.org_logo || "/favicon/apple-touch-icon.png"} 
-                alt="Logo" 
-                className="w-8 h-8 rounded-md bg-white object-contain shadow-sm" 
+        <SidebarHeader className="h-16 flex items-center justify-center p-0 border-b border-sidebar-border">
+          <div className="flex items-center justify-between w-full h-full px-4 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
+            <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+              <img
+                src={
+                  dynamicLogo ||
+                  user?.organizations?.find(
+                    (o) =>
+                      String(o.organization_id) ===
+                      String(user?.organization_id),
+                  )?.org_logo ||
+                  user?.org_logo ||
+                  "/favicon/apple-touch-icon.png"
+                }
+                alt="Logo"
+                className="w-8 h-8 rounded-md object-contain shrink-0"
                 style={{ padding: "2px" }}
                 onError={(e) => {
                   e.currentTarget.src = "/favicon/apple-touch-icon.png";
                 }}
               />
-              {open && <h1 className="text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap" title={displayName}>{displayName}</h1>}
+              <h1
+                className="text-lg font-semibold overflow-hidden text-ellipsis whitespace-nowrap group-data-[collapsible=icon]:hidden"
+                title={displayName}
+              >
+                {displayName}
+              </h1>
             </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              className="h-8 w-8 text-muted-foreground transition-all shrink-0 group-data-[collapsible=icon]:hidden"
+              title="Toggle Sidebar"
+            >
+              <ChevronsLeft className="h-5 w-5" />
+            </Button>
           </div>
         </SidebarHeader>
 
         <SidebarSeparator />
 
-        <SidebarContent className="p-4">
+        <SidebarContent className="gap-0 py-2">
           {/* Main Navigation */}
           <SidebarGroup>
             {/* <SidebarGroupLabel>Navigation</SidebarGroupLabel> */}
@@ -586,9 +614,11 @@ export const AppSidebar = () => {
                 {/* Boards from API */}
                 {!fetchLoading && boards.length > 0 ? (
                   boards.map((board) => (
-                    <SidebarMenuItem key={board.id} className="p-0">
-                      <div
-                        className={`flex items-center gap-1 w-full group px-2 py-1.5 rounded-md ${boardId === board.id ? "bg-accent" : "hover:bg-hover"}`}
+                    <SidebarMenuItem key={board.id}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={boardId === board.id}
+                        tooltip={board.name}
                       >
                         <button
                           onClick={() =>
@@ -596,67 +626,70 @@ export const AppSidebar = () => {
                               `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}`,
                             )
                           }
-                          className="flex items-center gap-2 flex-1 text-left min-w-0"
-                          title={board.name}
+                          className="flex items-center gap-2"
                         >
                           <div
-                            className="h-5 w-5 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                            style={{ backgroundColor: board.icon_color || "hsl(221, 83%, 53%)" }}
+                            className="h-5 w-5 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:w-4 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 transition-all"
+                            style={{
+                              backgroundColor:
+                                board.icon_color || "hsl(221, 83%, 53%)",
+                            }}
                           >
                             {board.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="truncate text-sm overflow-hidden text-ellipsis">
-                            {board.name}
-                          </span>
+                          <span>{board.name}</span>
                         </button>
+                      </SidebarMenuButton>
 
-                        {/* Dropdown Menu */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded-md flex-shrink-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-48">
-                            <DropdownMenuItem
-                              onClick={() => handleOpenBoardInNewTab(board.id)}
-                            >
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              <span>Open in new tab</span>
-                            </DropdownMenuItem>
-
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleRenameBoard(board.id, board.name)
-                              }
-                            >
-                              <Pencil className="h-4 w-4 mr-2" />
-                              <span>Rename</span>
-                            </DropdownMenuItem>
+                      {/* Dropdown Menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <SidebarMenuAction showOnHover>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </SidebarMenuAction>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48">
+                          <DropdownMenuItem
+                            onClick={() => handleOpenBoardInNewTab(board.id)}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            <span>Open in new tab</span>
+                          </DropdownMenuItem>
 
                           <DropdownMenuItem
-                            className="hidden"
+                            onClick={() =>
+                              handleRenameBoard(board.id, board.name)
+                            }
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            <span>Rename</span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
                             onClick={() =>
                               handleDuplicateBoard(board.id, board.name)
                             }
                             disabled={isDuplicating}
                           >
-                            <Copy className="h-4 w-4 mr-2" />
+                            {isDuplicating ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Copy className="h-4 w-4 mr-2" />
+                            )}
                             <span>Duplicate</span>
                           </DropdownMenuItem>
 
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleDeleteBoard(board.id, board.name)
-                              }
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              <span>Delete Project</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleDeleteBoard(board.id, board.name)
+                            }
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            <span>Delete Project</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </SidebarMenuItem>
                   ))
                 ) : !fetchLoading && boards.length === 0 ? (
@@ -768,7 +801,10 @@ export const AppSidebar = () => {
                     >
                       <div
                         className="h-6 w-6 rounded flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                        style={{ backgroundColor: board.icon_color || "hsl(221, 83%, 53%)" }}
+                        style={{
+                          backgroundColor:
+                            board.icon_color || "hsl(221, 83%, 53%)",
+                        }}
                       >
                         {board.name.charAt(0).toUpperCase()}
                       </div>
