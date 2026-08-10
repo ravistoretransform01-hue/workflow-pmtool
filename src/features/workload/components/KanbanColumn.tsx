@@ -192,14 +192,14 @@ export function KanbanColumn({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 h-full",
+        "flex-shrink-0 w-80 rounded-xl border flex flex-col transition-all duration-200 h-auto min-h-[300px] max-h-[110vh] lg:max-h-[1000px]",
         isOver && !isDragging
           ? "bg-primary/5 border-primary/30 ring-2 ring-primary/10 shadow-lg"
           : isDraggingOver
             ? "bg-primary/5 border-primary/40 ring-2 ring-primary/10"
             : "bg-[#f8fafc] dark:bg-[#0f172a] border-slate-200 dark:border-slate-800",
         isOverlay &&
-          "shadow-2xl border-primary/50 ring-2 ring-primary/20 rotate-[2deg]",
+          "shadow-2xl border-primary/50 ring-2 ring-primary/20 rotate-[2deg] max-h-[70vh] overflow-hidden",
         isDragging && !isOverlay && "opacity-40",
       )}
     >
