@@ -24,7 +24,6 @@ import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { FilePreviewModal } from "@/features/workload/components/texteditor/FilePreviewModal";
 // import { TruncatedTaskName } from "@/features/workload/components/TruncatedTaskName";
 import {
-  Activity,
   Home,
   RefreshCcw,
   Pencil,
@@ -32,6 +31,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Activity,
 } from "lucide-react";
 import type { TaskComment } from "@/features/tasks/types/types";
 import { tasksApi } from "@/features/tasks/api/tasksApi";
@@ -116,6 +116,8 @@ export function CommentsPanelSheet({
   isLoadingComments,
   updateText,
   onUpdateTextChange,
+  // updateFiles,
+  // onUpdateFilesChange,
   // updateFiles,
   // onUpdateFilesChange,
   onSaveUpdate,
