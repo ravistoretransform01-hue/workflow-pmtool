@@ -11,7 +11,10 @@ import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/hooks";
 import type { RootState } from "@/store";
 import { groupsApi } from "@/features/groups/api/groupsApi";
-import type { CreateGroupRequest, UpdateGroupRequest } from "@/features/groups/types/types";
+import type {
+  CreateGroupRequest,
+  UpdateGroupRequest,
+} from "@/features/groups/types/types";
 import { tasksApi } from "@/features/tasks/api/tasksApi";
 import { attachmentsApi } from "@/features/tasks/api/attachmentsApi";
 import { cmsApi } from "@/features/cms/api/cmsApi";
@@ -41,7 +44,7 @@ import {
   Save,
   Pencil,
   FolderSymlink,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { cn, getCurrentUserId, copyToClipboard } from "@/utils/utils";
 import { sortBy } from "@/utils/sorting";
@@ -72,11 +75,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/shared/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import {
   DndContext,
   DragOverlay,
@@ -101,7 +100,11 @@ import { getOrganizationId } from "@/utils/utils";
 import { getWorkloadColumns } from "@/features/workload/components/WorkloadColumns";
 import { TaskCardDialog } from "@/features/workload/components/TaskCardDialog";
 import { CommentsPanelSheet } from "@/features/workload/components/CommentsPanelSheet";
-import type { TaskResponse, TaskComment, UpdateCommentRequest } from "@/features/tasks/types/types";
+import type {
+  TaskResponse,
+  TaskComment,
+  UpdateCommentRequest,
+} from "@/features/tasks/types/types";
 import { ProfileDialog } from "@/shared/modals/ProfileDialog";
 import {
   useTaskState,
@@ -128,7 +131,7 @@ function DebouncedSearchInput({
   value,
   onChange,
   placeholder,
-  className
+  className,
 }: {
   value: string;
   onChange: (val: string) => void;
@@ -495,7 +498,14 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     },
   });
 
-  const implementedTabs = ["Main Table", "List", "Kanban", "SOP", "Gantt", "Teams"];
+  const implementedTabs = [
+    "Main Table",
+    "List",
+    "Kanban",
+    "SOP",
+    "Gantt",
+    "Teams",
+  ];
   const isImplemented = implementedTabs.includes(tab);
 
   // Restrict transform to horizontal only (remove Y axis)
@@ -672,7 +682,9 @@ export function WorkloadBoard({
   const mainFlexContainerRef = useRef<HTMLDivElement>(null);
 
   // State to hold actual DOM node for Teams Board container
-  const [teamsBoardNode, setTeamsBoardNode] = useState<HTMLDivElement | null>(null);
+  const [teamsBoardNode, setTeamsBoardNode] = useState<HTMLDivElement | null>(
+    null,
+  );
   const [teamsSubTab, setTeamsSubTab] = useState<"Projects" | "Tasks">("Tasks");
 
   // ── Kanban DnD (dnd-kit) – Projects tab ────────────────────────────────
@@ -680,8 +692,12 @@ export function WorkloadBoard({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
   const [projectsActiveId, setProjectsActiveId] = useState<string | null>(null);
-  const [projectsActiveType, setProjectsActiveType] = useState<"card" | "column" | null>(null);
-  const [projectsOverColumnId, setProjectsOverColumnId] = useState<string | null>(null);
+  const [projectsActiveType, setProjectsActiveType] = useState<
+    "card" | "column" | null
+  >(null);
+  const [projectsOverColumnId, setProjectsOverColumnId] = useState<
+    string | null
+  >(null);
   const projectsDragSnapshotRef = useRef<TaskGroup[] | null>(null);
 
   // ── Kanban DnD (dnd-kit) – Teams tab ────────────────────────────────────
@@ -689,8 +705,12 @@ export function WorkloadBoard({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
   const [teamsActiveId, setTeamsActiveId] = useState<string | null>(null);
-  const [teamsActiveType, setTeamsActiveType] = useState<"card" | "column" | null>(null);
-  const [teamsOverColumnId, setTeamsOverColumnId] = useState<string | null>(null);
+  const [teamsActiveType, setTeamsActiveType] = useState<
+    "card" | "column" | null
+  >(null);
+  const [teamsOverColumnId, setTeamsOverColumnId] = useState<string | null>(
+    null,
+  );
   // Session-local card order override for the Teams (person) columns.
   // Tasks in a person column can span multiple project groups, so there is
   // no single persisted "position" that orders them relative to one
@@ -709,7 +729,10 @@ export function WorkloadBoard({
       return [];
     }
   });
-  const teamsDragSnapshotRef = useRef<{ groups: TaskGroup[]; teamsOrder: Record<string, string[]> } | null>(null);
+  const teamsDragSnapshotRef = useRef<{
+    groups: TaskGroup[];
+    teamsOrder: Record<string, string[]>;
+  } | null>(null);
 
   // Local state for task card and comments
   const [commentsPanelOpen, setCommentsPanelOpen] = useState(false);
@@ -822,37 +845,40 @@ export function WorkloadBoard({
   // Handle horizontal scrolling on Teams board using wheel
   const teamsBoardRefInstance = useRef<HTMLDivElement | null>(null);
 
-  const teamsBoardRef = useCallback((node: HTMLDivElement | null) => {
-    teamsBoardRefInstance.current = node;
-    setTeamsBoardNode(node);
+  const teamsBoardRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      teamsBoardRefInstance.current = node;
+      setTeamsBoardNode(node);
 
-    if (node) {
-      // Restore previous scroll position if available from sessionStorage
-      const savedScroll = sessionStorage.getItem(`teams-scroll-${boardId}`);
-      if (savedScroll) {
-        // use setTimeout to ensure layout has settled before scrolling
-        setTimeout(() => {
-          node.scrollLeft = parseInt(savedScroll, 10);
-        }, 50);
+      if (node) {
+        // Restore previous scroll position if available from sessionStorage
+        const savedScroll = sessionStorage.getItem(`teams-scroll-${boardId}`);
+        if (savedScroll) {
+          // use setTimeout to ensure layout has settled before scrolling
+          setTimeout(() => {
+            node.scrollLeft = parseInt(savedScroll, 10);
+          }, 50);
+        }
+
+        // Persist scroll position on scroll
+        const handleNativeScroll = () => {
+          sessionStorage.setItem(
+            `teams-scroll-${boardId}`,
+            node.scrollLeft.toString(),
+          );
+        };
+        node.addEventListener("scroll", handleNativeScroll, { passive: true });
+        node.style.scrollBehavior = "smooth"; // Requirement: CSS smooth scroll
+
+        const prevCleanup = (node as any)._scrollCleanup;
+        if (prevCleanup) prevCleanup();
+        (node as any)._scrollCleanup = () => {
+          node.removeEventListener("scroll", handleNativeScroll);
+        };
       }
-      
-      // Persist scroll position on scroll
-      const handleNativeScroll = () => {
-        sessionStorage.setItem(`teams-scroll-${boardId}`, node.scrollLeft.toString());
-      };
-      node.addEventListener('scroll', handleNativeScroll, { passive: true });
-      node.style.scrollBehavior = 'smooth'; // Requirement: CSS smooth scroll
-      
-      const prevCleanup = (node as any)._scrollCleanup;
-      if (prevCleanup) prevCleanup();
-      (node as any)._scrollCleanup = () => {
-         node.removeEventListener('scroll', handleNativeScroll);
-      };
-    }
-  }, [boardId]);
-
-
-
+    },
+    [boardId],
+  );
 
   const [updateText, setUpdateText] = useState("");
   const [updateFiles, setUpdateFiles] = useState<
@@ -894,8 +920,11 @@ export function WorkloadBoard({
 
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupNameInput, setNewGroupNameInput] = useState("");
-  const [newGroupAbbreviationInput, setNewGroupAbbreviationInput] = useState("");
-  const [newGroupCompletionDate, setNewGroupCompletionDate] = useState<Date | undefined>(undefined);
+  const [newGroupAbbreviationInput, setNewGroupAbbreviationInput] =
+    useState("");
+  const [newGroupCompletionDate, setNewGroupCompletionDate] = useState<
+    Date | undefined
+  >(undefined);
   const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
   const [editGroupNameInput, setEditGroupNameInput] = useState("");
   const [editGroupColorInput, setEditGroupColorInput] = useState("#3b82f6");
@@ -905,8 +934,11 @@ export function WorkloadBoard({
   const [editGroupLabelInput, setEditGroupLabelInput] = useState<string>("");
   const [editGroupLabelColorInput, setEditGroupLabelColorInput] =
     useState<string>("#3b82f6");
-  const [editGroupAbbreviationInput, setEditGroupAbbreviationInput] = useState("");
-  const [editGroupCompletionDate, setEditGroupCompletionDate] = useState<Date | undefined>(undefined);
+  const [editGroupAbbreviationInput, setEditGroupAbbreviationInput] =
+    useState("");
+  const [editGroupCompletionDate, setEditGroupCompletionDate] = useState<
+    Date | undefined
+  >(undefined);
   const [newGroupColorInput, setNewGroupColorInput] = useState("#3b82f6");
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<string | null>(
     null,
@@ -916,12 +948,14 @@ export function WorkloadBoard({
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
-  
+
   // Tracking modal state
   // @ts-ignore
   const [trackingModalOpen, setTrackingModalOpen] = useState(false);
   // @ts-ignore
-  const [trackingGroupId, setTrackingGroupId] = useState<string | number | null>(null);
+  const [trackingGroupId, setTrackingGroupId] = useState<
+    string | number | null
+  >(null);
   // @ts-ignore
   const [trackingGroupName, setTrackingGroupName] = useState("");
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
@@ -938,7 +972,9 @@ export function WorkloadBoard({
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [replyingTo, setReplyingTo] = useState<TaskComment | null>(null);
   const [activeCommentsTab, setActiveCommentsTab] = useState("updates");
-  const [loadedCommentsTaskId, setLoadedCommentsTaskId] = useState<string | null>(null);
+  const [loadedCommentsTaskId, setLoadedCommentsTaskId] = useState<
+    string | null
+  >(null);
 
   // Timer conflict dialog state
   const [timerConflictDialogOpen, setTimerConflictDialogOpen] = useState(false);
@@ -980,7 +1016,9 @@ export function WorkloadBoard({
           // Check subitems
           if (task.subitems?.length) {
             const updatedSubitems = task.subitems.map((subitem) =>
-              String(subitem.id) === String(taskId) ? { ...subitem, ...updates } : subitem,
+              String(subitem.id) === String(taskId)
+                ? { ...subitem, ...updates }
+                : subitem,
             );
             if (updatedSubitems.some((s, i) => s !== task.subitems![i])) {
               return { ...task, subitems: updatedSubitems };
@@ -1799,7 +1837,6 @@ export function WorkloadBoard({
 
   const openCommentsPanel = useCallback(
     (task: Task) => {
-
       const next = new URLSearchParams(searchParams);
       next.delete("task");
       next.delete("comment");
@@ -2519,8 +2556,10 @@ export function WorkloadBoard({
         name: name.trim(),
         board_id: boardIdNum,
         parent_id: parentId ? parseInt(parentId, 10) : null,
-        status_id: statuses.length > 0 ? parseInt(statuses[0].id, 10) : undefined,
-        task_priority_id: priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
+        status_id:
+          statuses.length > 0 ? parseInt(statuses[0].id, 10) : undefined,
+        task_priority_id:
+          priorities.length > 0 ? parseInt(priorities[0].id, 10) : undefined,
       };
 
       if (fromDate) {
@@ -2547,7 +2586,8 @@ export function WorkloadBoard({
       }
 
       // Transform API response to Task format
-      const resFromDate = newTaskResponse.estimation?.estimated_date_from || fromDate;
+      const resFromDate =
+        newTaskResponse.estimation?.estimated_date_from || fromDate;
       const resToDate = newTaskResponse.estimation?.estimated_date_to || toDate;
 
       const newTask: Task = {
@@ -2558,7 +2598,9 @@ export function WorkloadBoard({
         status_id: String(newTaskResponse.status_id),
         priority: newTaskResponse.priority_label,
         priority_id: String(newTaskResponse.task_priority_id),
-        estimatedDate: resFromDate ? formatDateRange(resFromDate, resToDate || undefined) : "-",
+        estimatedDate: resFromDate
+          ? formatDateRange(resFromDate, resToDate || undefined)
+          : "-",
         estimatedDateEnd: resToDate || null,
         estimatedDateRaw: resFromDate || undefined,
         person:
@@ -2863,8 +2905,11 @@ export function WorkloadBoard({
     }
   };
 
-
-  const handlePersonChange = async (taskId: string, memberIds: string[], skipToast?: boolean) => {
+  const handlePersonChange = async (
+    taskId: string,
+    memberIds: string[],
+    skipToast?: boolean,
+  ) => {
     try {
       // Find the reference task to identify which member was added or removed
       let referenceTask: any = null;
@@ -2886,11 +2931,15 @@ export function WorkloadBoard({
 
       const previousAssigneeIds = referenceTask
         ? ((referenceTask.assigned_to_ids ||
-            (referenceTask.assigned_to_id ? [String(referenceTask.assigned_to_id)] : [])) as string[])
+            (referenceTask.assigned_to_id
+              ? [String(referenceTask.assigned_to_id)]
+              : [])) as string[])
         : [];
 
       const added = memberIds.filter((id) => !previousAssigneeIds.includes(id));
-      const removed = previousAssigneeIds.filter((id) => !memberIds.includes(id));
+      const removed = previousAssigneeIds.filter(
+        (id) => !memberIds.includes(id),
+      );
       const isClearAction = memberIds.length === 0;
 
       // Check if taskId is one of the checked tasks
@@ -2905,44 +2954,46 @@ export function WorkloadBoard({
       const updatedResults = await Promise.all(
         tasksToUpdate.map(async (id) => {
           let latestTaskStatus: any = null;
-          
+
           if (added.length > 0) {
-            const addedUsers = added.filter(uId => uId && uId !== "null" && uId !== "undefined").map(Number);
+            const addedUsers = added
+              .filter((uId) => uId && uId !== "null" && uId !== "undefined")
+              .map(Number);
             if (addedUsers.length > 0) {
-                latestTaskStatus = await tasksApi.updateTaskAssignees({
-                  taskId: id,
-                  action: "add",
-                  users: addedUsers,
-                });
+              latestTaskStatus = await tasksApi.updateTaskAssignees({
+                taskId: id,
+                action: "add",
+                users: addedUsers,
+              });
             }
           }
-          
+
           if (removed.length > 0) {
-            const removedUsers = removed.filter(uId => uId && uId !== "null" && uId !== "undefined").map(Number);
+            const removedUsers = removed
+              .filter((uId) => uId && uId !== "null" && uId !== "undefined")
+              .map(Number);
             if (removedUsers.length > 0) {
-                latestTaskStatus = await tasksApi.updateTaskAssignees({
-                  taskId: id,
-                  action: "remove",
-                  users: removedUsers,
-                });
+              latestTaskStatus = await tasksApi.updateTaskAssignees({
+                taskId: id,
+                action: "remove",
+                users: removedUsers,
+              });
             }
           }
 
           // In case nothing changed but we clicked somehow (e.g. clear action on an already empty task)
           if (!latestTaskStatus && isClearAction) {
-              // Technically if it's already empty we don't need to do anything, 
-              // but we can return mock structure so the map doesn't break
-              return { id: Number(id), assignees: [] };
+            // Technically if it's already empty we don't need to do anything,
+            // but we can return mock structure so the map doesn't break
+            return { id: Number(id), assignees: [] };
           }
 
           return latestTaskStatus || { id: Number(id), assignees: [] };
-        })
+        }),
       );
 
       // Map task ID to its updated assignee information
-      const updatedMap = new Map(
-        updatedResults.map((t) => [String(t.id), t])
-      );
+      const updatedMap = new Map(updatedResults.map((t) => [String(t.id), t]));
 
       setGroups((prevGroups) =>
         prevGroups.map((group) => ({
@@ -2951,17 +3002,18 @@ export function WorkloadBoard({
             let updatedTask = task;
             const match = updatedMap.get(task.id);
             if (match) {
-              const assigneeIds = match.assignees?.map((a: any) => String(a.user_id)) || [];
+              const assigneeIds =
+                match.assignees?.map((a: any) => String(a.user_id)) || [];
               updatedTask = {
                 ...task,
                 person: match.assignees?.[0]?.name || match.assignee?.name,
                 assigned_to_id:
-                  match.assignees?.[0]?.user_id ||
-                  String(match.assigned_to),
+                  match.assignees?.[0]?.user_id || String(match.assigned_to),
                 assigned_to_ids: assigneeIds,
                 assignee_names:
-                  match.assignees?.map((a: any) => a.name || a.username || "") ||
-                  (match.assignee?.name ? [match.assignee.name] : []),
+                  match.assignees?.map(
+                    (a: any) => a.name || a.username || "",
+                  ) || (match.assignee?.name ? [match.assignee.name] : []),
               };
             }
 
@@ -2971,17 +3023,25 @@ export function WorkloadBoard({
                 subitems: task.subitems.map((sub) => {
                   const subMatch = updatedMap.get(sub.id);
                   if (subMatch) {
-                    const assigneeIds = subMatch.assignees?.map((a: any) => String(a.user_id)) || [];
+                    const assigneeIds =
+                      subMatch.assignees?.map((a: any) => String(a.user_id)) ||
+                      [];
                     return {
                       ...sub,
-                      person: subMatch.assignees?.[0]?.name || subMatch.assignee?.name,
+                      person:
+                        subMatch.assignees?.[0]?.name ||
+                        subMatch.assignee?.name,
                       assigned_to_id:
                         subMatch.assignees?.[0]?.user_id ||
                         String(subMatch.assigned_to),
                       assigned_to_ids: assigneeIds,
                       assignee_names:
-                        subMatch.assignees?.map((a: any) => a.name || a.username || "") ||
-                        (subMatch.assignee?.name ? [subMatch.assignee.name] : []),
+                        subMatch.assignees?.map(
+                          (a: any) => a.name || a.username || "",
+                        ) ||
+                        (subMatch.assignee?.name
+                          ? [subMatch.assignee.name]
+                          : []),
                     };
                   }
                   return sub;
@@ -2997,7 +3057,7 @@ export function WorkloadBoard({
         toast.success(
           tasksToUpdate.length > 1
             ? `${tasksToUpdate.length} Tasks Assignees Updated`
-            : "Member Updated."
+            : "Member Updated.",
         );
       }
     } catch (err) {
@@ -3072,7 +3132,8 @@ export function WorkloadBoard({
     try {
       if (fromDate) {
         const task = getTaskById(taskId);
-        const hasEstimation = task?.estimation && task.estimation.estimated_date_from;
+        const hasEstimation =
+          task?.estimation && task.estimation.estimated_date_from;
 
         if (hasEstimation) {
           await tasksApi.updateEstimatedDate({
@@ -3226,7 +3287,7 @@ export function WorkloadBoard({
                 id,
                 tag_id: Number(cmsTag.id),
               });
-              
+
               // Return updated task tags by filtering out the removed tag
               const newTags = targetTask.tags.filter(
                 (t: any) => String(t.tag_id) !== tagIdStr,
@@ -3302,6 +3363,84 @@ export function WorkloadBoard({
     }
   };
 
+  const handleGroupChange = async (taskId: string, groupId: string) => {
+    try {
+      const boardIdNum = Number(boardId);
+
+      // Update task via API
+      await tasksApi.updateTask({
+        id: taskId,
+        board_id: boardIdNum,
+        group_id: Number(groupId),
+      });
+
+      // Local state update: we have to move the task from its old group to the new group
+      setGroups((prevGroups) => {
+        let taskToMove: Task | null = null;
+        let oldGroupId: string | null = null;
+
+        // Find the task and remove it from the old group
+        const newGroups = prevGroups.map((group) => {
+          const taskIndex = group.tasks.findIndex(
+            (t) => String(t.id) === taskId,
+          );
+          if (taskIndex !== -1) {
+            taskToMove = group.tasks[taskIndex];
+            oldGroupId = group.id;
+            return {
+              ...group,
+              tasks: group.tasks.filter((t) => String(t.id) !== taskId),
+            };
+          }
+          // Also handle subitems if we want to change a subitem's group (though usually group is only for main items)
+          let foundInSub = false;
+          const newTasks = group.tasks.map((t) => {
+            if (t.subitems) {
+              const subIndex = t.subitems.findIndex(
+                (s) => String(s.id) === taskId,
+              );
+              if (subIndex !== -1) {
+                taskToMove = t.subitems[subIndex];
+                oldGroupId = group.id;
+                foundInSub = true;
+                return {
+                  ...t,
+                  subitems: t.subitems.filter((s) => String(s.id) !== taskId),
+                };
+              }
+            }
+            return t;
+          });
+          if (foundInSub) {
+            return { ...group, tasks: newTasks };
+          }
+
+          return group;
+        });
+
+        if (taskToMove && String(oldGroupId) !== String(groupId)) {
+          // Add to new group
+          return newGroups.map((group) => {
+            if (String(group.id) === String(groupId)) {
+              return {
+                ...group,
+                tasks: [...group.tasks, { ...taskToMove!, group_id: groupId }],
+              };
+            }
+            return group;
+          });
+        }
+
+        return prevGroups;
+      });
+
+      toast.success("Task moved successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to move task");
+    }
+  };
+
   const handleStatusChange = async (taskId: string, statusId: string) => {
     try {
       const boardIdNum = Number(boardId);
@@ -3322,13 +3461,11 @@ export function WorkloadBoard({
             board_id: boardIdNum,
             status_id: Number(statusId),
           });
-        })
+        }),
       );
 
       // Map task ID to its updated status information
-      const updatedMap = new Map(
-        updatedResults.map((t) => [String(t.id), t])
-      );
+      const updatedMap = new Map(updatedResults.map((t) => [String(t.id), t]));
 
       setGroups((prevGroups) =>
         prevGroups.map((group) => ({
@@ -3373,18 +3510,18 @@ export function WorkloadBoard({
       toast.success(
         tasksToUpdate.length > 1
           ? `${tasksToUpdate.length} Tasks Status Updated Successfully`
-          : "Status Updated Successfully"
+          : "Status Updated Successfully",
       );
 
       // Refresh task data from the server to ensure consistency
       try {
         const orgId = getOrganizationId();
         const refreshedResults = await Promise.all(
-          tasksToUpdate.map((id) => tasksApi.getSingleTasks(id, orgId))
+          tasksToUpdate.map((id) => tasksApi.getSingleTasks(id, orgId)),
         );
 
         const refreshedMap = new Map(
-          refreshedResults.map((t) => [String(t.id), t])
+          refreshedResults.map((t) => [String(t.id), t]),
         );
 
         setGroups((prevGroups) =>
@@ -3427,7 +3564,10 @@ export function WorkloadBoard({
         );
       } catch (refreshError) {
         // Silent fail on refresh — optimistic update already applied
-        console.warn("Failed to refresh task data after status update:", refreshError);
+        console.warn(
+          "Failed to refresh task data after status update:",
+          refreshError,
+        );
       }
     } catch (err) {
       console.error(err);
@@ -3523,13 +3663,11 @@ export function WorkloadBoard({
             board_id: boardIdNum,
             priority_id: Number(priorityId),
           });
-        })
+        }),
       );
 
       // Map task ID to its updated priority information
-      const updatedMap = new Map(
-        updatedResults.map((t) => [String(t.id), t])
-      );
+      const updatedMap = new Map(updatedResults.map((t) => [String(t.id), t]));
 
       setGroups((prevGroups) =>
         prevGroups.map((group) => ({
@@ -3574,7 +3712,7 @@ export function WorkloadBoard({
       toast.success(
         tasksToUpdate.length > 1
           ? `${tasksToUpdate.length} Tasks Priority Updated Successfully`
-          : "Priority Updated Successfully"
+          : "Priority Updated Successfully",
       );
     } catch (err) {
       console.error(err);
@@ -3786,7 +3924,8 @@ export function WorkloadBoard({
         if (showOverbudgetOnly) {
           const parsedDate = parseGroupCompletionDate(group.completion_date);
           if (!parsedDate) return false;
-          const isPastDate = parsedDate < new Date(new Date().setHours(0, 0, 0, 0));
+          const isPastDate =
+            parsedDate < new Date(new Date().setHours(0, 0, 0, 0));
           if (!isPastDate) return false;
         }
 
@@ -3801,7 +3940,7 @@ export function WorkloadBoard({
           const activeLabel =
             groupLabels[group.id] !== undefined
               ? groupLabels[group.id]
-              : (group.label_id || "");
+              : group.label_id || "";
 
           // Match by name or ID
           const hasMatch =
@@ -4021,7 +4160,8 @@ export function WorkloadBoard({
     const personsSet = new Set<string>();
     allTasks.forEach((t) => {
       const assignees = t.assignee_names || (t.person ? [t.person] : []);
-      if (assignees.length > 0) assignees.forEach((p: string) => personsSet.add(p));
+      if (assignees.length > 0)
+        assignees.forEach((p: string) => personsSet.add(p));
     });
     if (personsSet.size === 0) personsSet.add("Unassigned");
     return Array.from(personsSet).sort();
@@ -4036,7 +4176,10 @@ export function WorkloadBoard({
   const persistTeamsColumnOrder = useCallback(
     (order: string[]) => {
       try {
-        localStorage.setItem(`teams-column-order-${boardId}`, JSON.stringify(order));
+        localStorage.setItem(
+          `teams-column-order-${boardId}`,
+          JSON.stringify(order),
+        );
       } catch {
         /* ignore storage errors */
       }
@@ -4059,7 +4202,9 @@ export function WorkloadBoard({
       return closestCorners({ ...args, droppableContainers: columnContainers });
     }
 
-    const cardContainers = args.droppableContainers.filter((c) => c.data.current?.type === "card");
+    const cardContainers = args.droppableContainers.filter(
+      (c) => c.data.current?.type === "card",
+    );
     for (const container of cardContainers) {
       const rect = container.rect.current;
       if (!rect) continue;
@@ -4073,7 +4218,9 @@ export function WorkloadBoard({
       }
     }
 
-    const columnContainers = args.droppableContainers.filter((c) => c.data.current?.type === "column");
+    const columnContainers = args.droppableContainers.filter(
+      (c) => c.data.current?.type === "column",
+    );
     for (const container of columnContainers) {
       const rect = container.rect.current;
       if (!rect) continue;
@@ -4095,7 +4242,10 @@ export function WorkloadBoard({
   const handleProjectsDragStart = useCallback(
     (event: DragStartEvent) => {
       projectsDragSnapshotRef.current = groups;
-      const type = event.active.data.current?.type as "card" | "column" | undefined;
+      const type = event.active.data.current?.type as
+        | "card"
+        | "column"
+        | undefined;
       setProjectsActiveType(type ?? null);
       setProjectsActiveId(String(event.active.id));
     },
@@ -4113,7 +4263,9 @@ export function WorkloadBoard({
 
     const overData = over.data.current;
     const toGroupId: string | undefined =
-      overData?.type === "column" || overData?.type === "card" ? overData.columnId : undefined;
+      overData?.type === "column" || overData?.type === "card"
+        ? overData.columnId
+        : undefined;
     setProjectsOverColumnId(toGroupId ?? null);
     if (!toGroupId) return;
 
@@ -4135,15 +4287,22 @@ export function WorkloadBoard({
       if (!movedTask || !fromGroupId) return prev;
 
       const withoutTask = prev.map((g) =>
-        g.id === fromGroupId ? { ...g, tasks: g.tasks.filter((t) => t.id !== taskId) } : g,
+        g.id === fromGroupId
+          ? { ...g, tasks: g.tasks.filter((t) => t.id !== taskId) }
+          : g,
       );
 
       return withoutTask.map((g) => {
         if (g.id !== toGroupId) return g;
         const newTasks = [...g.tasks];
-        const rawIdx = overTaskId ? newTasks.findIndex((t) => t.id === overTaskId) : -1;
+        const rawIdx = overTaskId
+          ? newTasks.findIndex((t) => t.id === overTaskId)
+          : -1;
         const idx = rawIdx === -1 ? newTasks.length : rawIdx;
-        newTasks.splice(idx, 0, { ...(movedTask as Task), group_id: toGroupId });
+        newTasks.splice(idx, 0, {
+          ...(movedTask as Task),
+          group_id: toGroupId,
+        });
         return { ...g, tasks: newTasks };
       });
     });
@@ -4161,7 +4320,9 @@ export function WorkloadBoard({
       if (activeData?.type === "column") {
         const oldGroupId = String(active.id).replace("column-", "");
         const overIdRaw = String(over.id);
-        const newGroupId = overIdRaw.startsWith("column-") ? overIdRaw.replace("column-", "") : overIdRaw;
+        const newGroupId = overIdRaw.startsWith("column-")
+          ? overIdRaw.replace("column-", "")
+          : overIdRaw;
         if (oldGroupId === newGroupId) return;
 
         const oldIdx = groups.findIndex((g) => g.id === oldGroupId);
@@ -4171,15 +4332,22 @@ export function WorkloadBoard({
         const snapshot = groups;
         const reordered = arrayMove(groups, oldIdx, newIdx);
         const newPosition = calculateNewTaskPosition(reordered, newIdx);
-        const updated = reordered.map((g, i) => (i === newIdx ? { ...g, position: newPosition } : g));
+        const updated = reordered.map((g, i) =>
+          i === newIdx ? { ...g, position: newPosition } : g,
+        );
         setGroups(updated);
 
         try {
           await groupsApi.updateGroup(oldGroupId, { position: newPosition });
         } catch (err) {
-          console.error("handleProjectsDragEnd: failed to persist column order, rolling back", err);
+          console.error(
+            "handleProjectsDragEnd: failed to persist column order, rolling back",
+            err,
+          );
           setGroups(snapshot);
-          toast.error("Failed to save project order – restored original position");
+          toast.error(
+            "Failed to save project order – restored original position",
+          );
         }
         return;
       }
@@ -4199,7 +4367,10 @@ export function WorkloadBoard({
       if (!finalGroupId || finalIndex === -1) return;
 
       const finalGroup = groups.find((g) => g.id === finalGroupId)!;
-      const newPosition = calculateNewTaskPosition(finalGroup.tasks, finalIndex);
+      const newPosition = calculateNewTaskPosition(
+        finalGroup.tasks,
+        finalIndex,
+      );
 
       setGroups((prev) =>
         prev.map((g) =>
@@ -4207,7 +4378,9 @@ export function WorkloadBoard({
             ? g
             : {
                 ...g,
-                tasks: g.tasks.map((t) => (t.id === taskId ? { ...t, position: String(newPosition) } : t)),
+                tasks: g.tasks.map((t) =>
+                  t.id === taskId ? { ...t, position: String(newPosition) } : t,
+                ),
               },
         ),
       );
@@ -4247,7 +4420,10 @@ export function WorkloadBoard({
   const handleTeamsDragStart = useCallback(
     (event: DragStartEvent) => {
       teamsDragSnapshotRef.current = { groups, teamsOrder };
-      const type = event.active.data.current?.type as "card" | "column" | undefined;
+      const type = event.active.data.current?.type as
+        | "card"
+        | "column"
+        | undefined;
       setTeamsActiveType(type ?? null);
       setTeamsActiveId(String(event.active.id));
     },
@@ -4266,7 +4442,9 @@ export function WorkloadBoard({
 
       const overData = over.data.current;
       const toPerson: string | undefined =
-        overData?.type === "column" || overData?.type === "card" ? overData.columnId : undefined;
+        overData?.type === "column" || overData?.type === "card"
+          ? overData.columnId
+          : undefined;
       setTeamsOverColumnId(toPerson ?? null);
       if (!toPerson) return;
 
@@ -4280,8 +4458,11 @@ export function WorkloadBoard({
           prev[person] ??
           allTasksNow
             .filter((t) => {
-              const assignees = t.assignee_names || (t.person ? [t.person] : []);
-              return person === "Unassigned" ? assignees.length === 0 : assignees.includes(person);
+              const assignees =
+                t.assignee_names || (t.person ? [t.person] : []);
+              return person === "Unassigned"
+                ? assignees.length === 0
+                : assignees.includes(person);
             })
             .map((t) => t.id);
 
@@ -4295,7 +4476,10 @@ export function WorkloadBoard({
         if (!fromPerson) return prev;
 
         const fromOrder = orderFor(fromPerson).filter((id) => id !== taskId);
-        const toOrderBase = fromPerson === toPerson ? fromOrder : orderFor(toPerson).filter((id) => id !== taskId);
+        const toOrderBase =
+          fromPerson === toPerson
+            ? fromOrder
+            : orderFor(toPerson).filter((id) => id !== taskId);
         const rawIdx = overTaskId ? toOrderBase.indexOf(overTaskId) : -1;
         const idx = rawIdx === -1 ? toOrderBase.length : rawIdx;
         const toOrder = [...toOrderBase];
@@ -4319,7 +4503,9 @@ export function WorkloadBoard({
       if (activeData?.type === "column") {
         const oldPerson = String(active.id).replace("column-", "");
         const overIdRaw = String(over.id);
-        const newPerson = overIdRaw.startsWith("column-") ? overIdRaw.replace("column-", "") : overIdRaw;
+        const newPerson = overIdRaw.startsWith("column-")
+          ? overIdRaw.replace("column-", "")
+          : overIdRaw;
         if (oldPerson === newPerson) return;
         const oldIdx = orderedPersons.indexOf(oldPerson);
         const newIdx = orderedPersons.indexOf(newPerson);
@@ -4351,9 +4537,12 @@ export function WorkloadBoard({
           }
         }
         if (!fromPerson) {
-          const task = snapshot.groups.flatMap((g) => g.tasks).find((t) => t.id === taskId);
+          const task = snapshot.groups
+            .flatMap((g) => g.tasks)
+            .find((t) => t.id === taskId);
           if (task) {
-            const assignees = task.assignee_names || (task.person ? [task.person] : []);
+            const assignees =
+              task.assignee_names || (task.person ? [task.person] : []);
             fromPerson = assignees.length > 0 ? assignees[0] : "Unassigned";
           }
         }
@@ -4372,22 +4561,29 @@ export function WorkloadBoard({
 
       const prevIds: string[] = (
         (draggedTask as any).assigned_to_ids ||
-        ((draggedTask as any).assigned_to_id ? [String((draggedTask as any).assigned_to_id)] : [])
+        ((draggedTask as any).assigned_to_id
+          ? [String((draggedTask as any).assigned_to_id)]
+          : [])
       ).map(String);
       let nextIds = [...prevIds];
 
       if (!isSameColumn) {
         if (fromPerson && fromPerson !== "Unassigned") {
-          const old = members.find((m: any) => m.name === fromPerson || m.username === fromPerson);
+          const old = members.find(
+            (m: any) => m.name === fromPerson || m.username === fromPerson,
+          );
           if (old) nextIds = nextIds.filter((id) => id !== String(old.user_id));
         }
         if (toPerson !== "Unassigned") {
-          const newMem = members.find((m: any) => m.name === toPerson || m.username === toPerson);
+          const newMem = members.find(
+            (m: any) => m.name === toPerson || m.username === toPerson,
+          );
           if (!newMem) {
             toast.error(`Cannot resolve member: ${toPerson}`);
             return;
           }
-          if (!nextIds.includes(String(newMem.user_id))) nextIds.push(String(newMem.user_id));
+          if (!nextIds.includes(String(newMem.user_id)))
+            nextIds.push(String(newMem.user_id));
         }
 
         setGroups((prev) =>
@@ -4401,7 +4597,9 @@ export function WorkloadBoard({
               return {
                 ...t,
                 assigned_to_ids: nextIds,
-                assignee_names: nextMembers.map((m: any) => m.name || m.username || ""),
+                assignee_names: nextMembers.map(
+                  (m: any) => m.name || m.username || "",
+                ),
                 person: nextMembers[0]?.name || nextMembers[0]?.username || "",
               };
             }),
@@ -4412,7 +4610,11 @@ export function WorkloadBoard({
       try {
         if (!isSameColumn) {
           const validIds = nextIds.filter(Boolean).map(Number);
-          await tasksApi.updateTask({ id: taskId, board_id: Number(boardId), assignees: validIds } as any);
+          await tasksApi.updateTask({
+            id: taskId,
+            board_id: Number(boardId),
+            assignees: validIds,
+          } as any);
           toast.success(`Reassigned to ${toPerson}`);
         }
       } catch (err) {
@@ -4424,7 +4626,15 @@ export function WorkloadBoard({
         toast.error("Failed to reassign – restored original position");
       }
     },
-    [groups, teamsOrder, teamsPersons, orderedPersons, members, boardId, persistTeamsColumnOrder],
+    [
+      groups,
+      teamsOrder,
+      teamsPersons,
+      orderedPersons,
+      members,
+      boardId,
+      persistTeamsColumnOrder,
+    ],
   );
 
   const saveUpdate = async (isClientOnly?: boolean | number) => {
@@ -5243,13 +5453,13 @@ export function WorkloadBoard({
 
   // Synchronized horizontal scrolling for all group tables
   const tableScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const tableHeaderScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const tableHeaderScrollRefs = useRef<Record<string, HTMLDivElement | null>>(
+    {},
+  );
   const unifiedScrollbarRef = useRef<HTMLDivElement | null>(null);
   const isSyncingScroll = useRef(false);
   const [maxScrollWidth, setMaxScrollWidth] = useState(0);
   const groupsContainerRef = useRef<HTMLDivElement | null>(null);
-
-
 
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [moveToGroupId, setMoveToGroupId] = useState<string>("");
@@ -5259,13 +5469,18 @@ export function WorkloadBoard({
   useEffect(() => {
     if (isMoveDialogOpen) {
       const firstCheckedId = Object.keys(taskState.checkedTasks).find(
-        (id) => taskState.checkedTasks[id]
+        (id) => taskState.checkedTasks[id],
       );
       if (firstCheckedId) {
         const task = getTaskById(firstCheckedId);
         if (task) {
-          const group = groups.find((g) => 
-            g.tasks.some((t) => String(t.id) === String(task.id) || (t.subitems && t.subitems.some((sub) => String(sub.id) === String(task.id))))
+          const group = groups.find((g) =>
+            g.tasks.some(
+              (t) =>
+                String(t.id) === String(task.id) ||
+                (t.subitems &&
+                  t.subitems.some((sub) => String(sub.id) === String(task.id))),
+            ),
           );
           if (group) {
             setMoveToGroupId(String(group.id));
@@ -5280,19 +5495,19 @@ export function WorkloadBoard({
     if (!moveToGroupId) return [];
     const group = groups.find((g) => String(g.id) === String(moveToGroupId));
     if (!group) return [];
-    
+
     const checkedTaskIds = Object.keys(taskState.checkedTasks).filter(
-      (id) => taskState.checkedTasks[id]
+      (id) => taskState.checkedTasks[id],
     );
 
     return group.tasks.filter(
-      (t) => !t.parent_id && !checkedTaskIds.includes(String(t.id))
+      (t) => !t.parent_id && !checkedTaskIds.includes(String(t.id)),
     );
   }, [groups, moveToGroupId, taskState.checkedTasks]);
 
   const moveCheckedTasks = async () => {
     const checkedTaskIds = Object.keys(taskState.checkedTasks).filter(
-      (id) => taskState.checkedTasks[id]
+      (id) => taskState.checkedTasks[id],
     );
 
     if (checkedTaskIds.length === 0) {
@@ -5303,7 +5518,8 @@ export function WorkloadBoard({
     try {
       const boardIdNum = parseInt(boardId, 10);
       const targetGroupId = moveToGroupId ? parseInt(moveToGroupId, 10) : null;
-      const targetParentId = moveToParentId === "none" ? null : parseInt(moveToParentId, 10);
+      const targetParentId =
+        moveToParentId === "none" ? null : parseInt(moveToParentId, 10);
 
       // Call API for each selected task
       await Promise.all(
@@ -5318,19 +5534,18 @@ export function WorkloadBoard({
           payload.parent_id = targetParentId;
 
           return tasksApi.updateTask(payload);
-        })
+        }),
       );
 
       // Locally update groups state to reflect moves
       setGroups((prevGroups) => {
         const movedTasksMap: Record<string, Task> = {};
-        
+
         const cleanGroups = prevGroups.map((group) => {
           const filteredTasks: Task[] = [];
-          
+
           group.tasks.forEach((task) => {
             const isTaskMoved = checkedTaskIds.includes(String(task.id));
-            
 
             const remainingSubitems = (task.subitems || []).filter((sub) => {
               const isSubMoved = checkedTaskIds.includes(String(sub.id));
@@ -5364,19 +5579,21 @@ export function WorkloadBoard({
         });
 
         const finalGroups = cleanGroups.map((group) => {
-          const isTargetGroup = targetGroupId !== null 
-            ? String(group.id) === String(targetGroupId)
-            : false;
-            
+          const isTargetGroup =
+            targetGroupId !== null
+              ? String(group.id) === String(targetGroupId)
+              : false;
+
           let updatedTasks = [...group.tasks];
 
           checkedTaskIds.forEach((taskId) => {
             const task = movedTasksMap[taskId];
             if (!task) return;
 
-            const belongsToThisGroup = targetGroupId !== null 
-              ? isTargetGroup 
-              : String(task.group_id) === String(group.id);
+            const belongsToThisGroup =
+              targetGroupId !== null
+                ? isTargetGroup
+                : String(task.group_id) === String(group.id);
 
             if (!belongsToThisGroup) return;
 
@@ -5384,13 +5601,20 @@ export function WorkloadBoard({
               updatedTasks = updatedTasks.map((t) => {
                 if (String(t.id) === String(targetParentId)) {
                   const existingSubitems = t.subitems || [];
-                  if (!existingSubitems.some((sub) => String(sub.id) === String(task.id))) {
+                  if (
+                    !existingSubitems.some(
+                      (sub) => String(sub.id) === String(task.id),
+                    )
+                  ) {
                     return {
                       ...t,
-                      subitems: [...existingSubitems, {
-                        ...task,
-                        parent_id: String(targetParentId),
-                      }],
+                      subitems: [
+                        ...existingSubitems,
+                        {
+                          ...task,
+                          parent_id: String(targetParentId),
+                        },
+                      ],
                     };
                   }
                 }
@@ -5427,7 +5651,11 @@ export function WorkloadBoard({
     }
   };
 
-  const handleTableScroll = (groupId: string, scrollLeft: number, isHeader: boolean = false) => {
+  const handleTableScroll = (
+    groupId: string,
+    scrollLeft: number,
+    isHeader: boolean = false,
+  ) => {
     if (isSyncingScroll.current) return;
 
     // Scroll the corresponding body or header table of this group
@@ -5514,8 +5742,6 @@ export function WorkloadBoard({
       setMaxScrollWidth(maxWidth);
     }
   }, [workloadColumns, groups]);
-
-
 
   const handleOpenProfile = () => {
     setProfileDialogOpen(true);
@@ -5637,9 +5863,13 @@ export function WorkloadBoard({
 
         {/* View Tabs */}
         {(() => {
-          const orderedTabs = String(orgId) === "27"
-            ? ["Kanban", ...columnState.viewTabs.filter((t: string) => t !== "Kanban")]
-            : columnState.viewTabs;
+          const orderedTabs =
+            String(orgId) === "27"
+              ? [
+                  "Kanban",
+                  ...columnState.viewTabs.filter((t: string) => t !== "Kanban"),
+                ]
+              : columnState.viewTabs;
 
           return (
             <DndContext
@@ -5723,9 +5953,7 @@ export function WorkloadBoard({
                 <input
                   type="checkbox"
                   checked={showOverbudgetOnly}
-                  onChange={(e) =>
-                    setShowOverbudgetOnly(e.target.checked)
-                  }
+                  onChange={(e) => setShowOverbudgetOnly(e.target.checked)}
                   className="cursor-pointer"
                 />
                 <span className="text-sm font-medium">Overbudget</span>
@@ -6458,7 +6686,8 @@ export function WorkloadBoard({
                                   }}
                                 >
                                   {groupNames[group.id] || group.name}
-                                  {group.abbreviation && ` (${group.abbreviation})`}
+                                  {group.abbreviation &&
+                                    ` (${group.abbreviation})`}
                                 </span>
 
                                 {/* Label Chip (optional) */}
@@ -6634,14 +6863,21 @@ export function WorkloadBoard({
 
                                         {/* Abbreviation & Completion Date */}
                                         <div className="grid gap-2">
-                                          <label htmlFor="edit-group-abbreviation" className="text-sm font-medium">
+                                          <label
+                                            htmlFor="edit-group-abbreviation"
+                                            className="text-sm font-medium"
+                                          >
                                             Abbreviation
                                           </label>
                                           <Input
                                             id="edit-group-abbreviation"
                                             placeholder="Enter abbreviation (e.g. ABS)..."
                                             value={editGroupAbbreviationInput}
-                                            onChange={(e) => setEditGroupAbbreviationInput(e.target.value)}
+                                            onChange={(e) =>
+                                              setEditGroupAbbreviationInput(
+                                                e.target.value,
+                                              )
+                                            }
                                             onKeyDown={(e) => {
                                               if (e.key === "Enter") {
                                                 handleUpdateGroup();
@@ -6660,24 +6896,46 @@ export function WorkloadBoard({
                                                 variant="outline"
                                                 className={cn(
                                                   "w-full justify-start text-left font-normal h-10 bg-background border-input",
-                                                  !editGroupCompletionDate && "text-muted-foreground"
+                                                  !editGroupCompletionDate &&
+                                                    "text-muted-foreground",
                                                 )}
                                               >
                                                 <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                                                {editGroupCompletionDate && !isNaN(editGroupCompletionDate.getTime()) ? (
-                                                  format(editGroupCompletionDate, "PPP")
+                                                {editGroupCompletionDate &&
+                                                !isNaN(
+                                                  editGroupCompletionDate.getTime(),
+                                                ) ? (
+                                                  format(
+                                                    editGroupCompletionDate,
+                                                    "PPP",
+                                                  )
                                                 ) : (
                                                   <span>Pick a date</span>
                                                 )}
                                               </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <PopoverContent
+                                              className="w-auto p-0"
+                                              align="start"
+                                            >
                                               <Calendar
                                                 mode="single"
-                                                selected={editGroupCompletionDate}
-                                                onSelect={setEditGroupCompletionDate}
+                                                selected={
+                                                  editGroupCompletionDate
+                                                }
+                                                onSelect={
+                                                  setEditGroupCompletionDate
+                                                }
                                                 disabled={(date) =>
-                                                  date < new Date(new Date().setHours(0, 0, 0, 0))
+                                                  date <
+                                                  new Date(
+                                                    new Date().setHours(
+                                                      0,
+                                                      0,
+                                                      0,
+                                                      0,
+                                                    ),
+                                                  )
                                                 }
                                                 initialFocus
                                               />
@@ -6700,7 +6958,9 @@ export function WorkloadBoard({
                                                 "#3b82f6",
                                               );
                                               setEditGroupAbbreviationInput("");
-                                              setEditGroupCompletionDate(undefined);
+                                              setEditGroupCompletionDate(
+                                                undefined,
+                                              );
                                             }}
                                           >
                                             Cancel
@@ -6723,7 +6983,9 @@ export function WorkloadBoard({
                                     size="sm"
                                     onClick={() => {
                                       setTrackingGroupId(group.id);
-                                      setTrackingGroupName(groupNames[group.id] || group.name);
+                                      setTrackingGroupName(
+                                        groupNames[group.id] || group.name,
+                                      );
                                       setTrackingModalOpen(true);
                                     }}
                                     className="ml-2 h-7 px-2 text-xs"
@@ -6764,25 +7026,37 @@ export function WorkloadBoard({
                                   );
                                 })()}
 
-                                 {(() => {
-                                   const parsedDate = parseGroupCompletionDate(group.completion_date);
-                                   if (!parsedDate) return null;
-                                   const isPastDate = parsedDate < new Date(new Date().setHours(0, 0, 0, 0));
-                                   return (
-                                     <div className={cn(
-                                       "ml-auto text-xs font-semibold flex items-center gap-1.5 px-3 py-1 rounded-md border shadow-sm shrink-0",
-                                       isPastDate
-                                         ? "bg-destructive/10 text-destructive border-destructive/25"
-                                         : "bg-background text-muted-foreground border-border"
-                                     )}>
-                                       <CalendarIcon className={cn(
-                                         "h-3.5 w-3.5",
-                                         isPastDate ? "text-destructive" : "text-muted-foreground"
-                                       )} />
-                                       <span>Due: {format(parsedDate, "PP")}</span>
-                                     </div>
-                                   );
-                                 })()}
+                                {(() => {
+                                  const parsedDate = parseGroupCompletionDate(
+                                    group.completion_date,
+                                  );
+                                  if (!parsedDate) return null;
+                                  const isPastDate =
+                                    parsedDate <
+                                    new Date(new Date().setHours(0, 0, 0, 0));
+                                  return (
+                                    <div
+                                      className={cn(
+                                        "ml-auto text-xs font-semibold flex items-center gap-1.5 px-3 py-1 rounded-md border shadow-sm shrink-0",
+                                        isPastDate
+                                          ? "bg-destructive/10 text-destructive border-destructive/25"
+                                          : "bg-background text-muted-foreground border-border",
+                                      )}
+                                    >
+                                      <CalendarIcon
+                                        className={cn(
+                                          "h-3.5 w-3.5",
+                                          isPastDate
+                                            ? "text-destructive"
+                                            : "text-muted-foreground",
+                                        )}
+                                      />
+                                      <span>
+                                        Due: {format(parsedDate, "PP")}
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
                               </div>
 
                               {/* Task Table */}
@@ -6793,7 +7067,9 @@ export function WorkloadBoard({
                                     className="overflow-x-auto w-full scrollbar-hide sticky top-[56px] z-40 bg-card border-b border-border"
                                     ref={(el) => {
                                       if (el)
-                                        tableHeaderScrollRefs.current[group.id] = el;
+                                        tableHeaderScrollRefs.current[
+                                          group.id
+                                        ] = el;
                                     }}
                                     onScroll={(e) => {
                                       const target =
@@ -6819,14 +7095,22 @@ export function WorkloadBoard({
                                         }}
                                       >
                                         <colgroup>
-                                          <col style={{ width: "48px", minWidth: "48px", maxWidth: "48px" }} />
+                                          <col
+                                            style={{
+                                              width: "48px",
+                                              minWidth: "48px",
+                                              maxWidth: "48px",
+                                            }}
+                                          />
                                           {workloadColumns.map((col) => (
                                             <col
                                               key={col.id}
                                               style={{
                                                 width: col.width,
-                                                minWidth: col.minWidth || col.width,
-                                                maxWidth: col.maxWidth || col.width,
+                                                minWidth:
+                                                  col.minWidth || col.width,
+                                                maxWidth:
+                                                  col.maxWidth || col.width,
                                               }}
                                             />
                                           ))}
@@ -6956,14 +7240,22 @@ export function WorkloadBoard({
                                         }}
                                       >
                                         <colgroup>
-                                          <col style={{ width: "48px", minWidth: "48px", maxWidth: "48px" }} />
+                                          <col
+                                            style={{
+                                              width: "48px",
+                                              minWidth: "48px",
+                                              maxWidth: "48px",
+                                            }}
+                                          />
                                           {workloadColumns.map((col) => (
                                             <col
                                               key={col.id}
                                               style={{
                                                 width: col.width,
-                                                minWidth: col.minWidth || col.width,
-                                                maxWidth: col.maxWidth || col.width,
+                                                minWidth:
+                                                  col.minWidth || col.width,
+                                                maxWidth:
+                                                  col.maxWidth || col.width,
                                               }}
                                             />
                                           ))}
@@ -6971,247 +7263,103 @@ export function WorkloadBoard({
                                         </colgroup>
                                         {/* Table Body */}
                                         <tbody>
-                                        <SortableContext
-                                          items={group.tasks.map((t) => t.id)}
-                                          strategy={verticalListSortingStrategy}
-                                        >
-                                          {group.tasks.map((task) => {
-                                            const taskWithProps = {
-                                              ...task,
-                                            boardId: boardId,
-                                              activeTimerId:
-                                                timerState.activeTimerId,
-                                              onTimerStart: handleTimerStart,
-                                              onTimerConflict:
-                                                handleTimerConflict,
-                                            };
-                                            const isRowActive =
-                                              (popoverState.openPopoverId &&
-                                                popoverState.openPopoverId.endsWith("-" + task.id)) ||
-                                              taskState.inlineEditingTaskId === task.id ||
-                                              taskState.checkedTasks[task.id] ||
-                                              (commentsPanelOpen && selectedCommentsId === task.id) ||
-                                              focusedTaskId === task.id;
-
-                                            return (
-                                              <React.Fragment key={task.id}>
-                                                {/* ================= TASK ROW ================= */}
-                                                <SortableTaskRow
-                                                  id={task.id}
-                                                  data-task-row={true}
-                                                  onClick={() => setFocusedTaskId(task.id)}
-                                                  className={cn(
-                                                    "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors",
-                                                    isRowActive && "bg-primary/10"
-                                                  )}
-                                                >
-                                                  {() => (
-                                                    <>
-                                                      <td
-                                                        className={cn(
-                                                          "p-4 text-center border-b border-border border-r sticky left-0 z-30"
-                                                        )}
-                                                        style={{
-                                                          backgroundColor: isRowActive
-                                                            ? "color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--card)))"
-                                                            : "hsl(var(--card))",
-                                                        }}
-                                                        onClick={(e) =>
-                                                          e.stopPropagation()
-                                                        }
-                                                      >
-                                                        <input
-                                                          type="checkbox"
-                                                          checked={
-                                                            taskState
-                                                              .checkedTasks[
-                                                              task.id
-                                                            ] || false
-                                                          }
-                                                          onChange={(e) =>
-                                                            handleTaskCheckChange(
-                                                              task.id,
-                                                              e.target.checked,
-                                                            )
-                                                          }
-                                                        />
-                                                      </td>
-
-                                                      {workloadColumns.map(
-                                                        (col) => {
-                                                          const isBulkHighlighted =
-                                                            col.id === hoveredColumnId &&
-                                                            hoveredTaskId &&
-                                                            taskState.checkedTasks[task.id] &&
-                                                            taskState.checkedTasks[hoveredTaskId];
-
-                                                          return (
-                                                            <td
-                                                              key={col.id}
-                                                              className={cn(
-                                                                "p-4 border-r border-b border-border last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
-                                                                col.align ===
-                                                                  "center" &&
-                                                                  "text-center",
-                                                                col.align ===
-                                                                  "left" &&
-                                                                  "text-left",
-                                                                col.id ===
-                                                                  "item"
-                                                                  ? "sticky left-12 z-30 hover:bg-secondary"
-                                                                  : "hover:bg-muted/30 hover:relative",
-                                                                isBulkHighlighted && (
-                                                                  col.id === "item"
-                                                                    ? "bg-secondary ring-1 ring-inset ring-primary/40 z-20"
-                                                                    : "bg-muted/30 ring-1 ring-inset ring-primary/40 z-20 relative"
-                                                                )
-                                                              )}
-                                                              onMouseEnter={() => {
-                                                                setHoveredColumnId(col.id);
-                                                                setHoveredTaskId(task.id);
-                                                              }}
-                                                              onMouseLeave={() => {
-                                                                setHoveredColumnId(null);
-                                                                setHoveredTaskId(null);
-                                                              }}
-                                                              style={{
-                                                                width: col.width,
-                                                                minWidth:
-                                                                  col.minWidth ||
-                                                                  col.width,
-                                                                maxWidth:
-                                                                  col.maxWidth ||
-                                                                  col.width,
-                                                                backgroundColor:
-                                                                  col.id === "item"
-                                                                    ? isRowActive
-                                                                      ? "color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--card)))"
-                                                                      : "hsl(var(--card))"
-                                                                    : undefined,
-                                                              }}
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (col.id === "item") {
-                                                                  openCommentsPanel(task);
-                                                                }
-                                                              }}
-                                                            >
-                                                            {col.collapsed ? (
-                                                              <div className="flex items-center justify-center">
-                                                                <button
-                                                                  className="h-6 w-6 rounded-sm   flex items-center justify-center"
-                                                                  onClick={(
-                                                                    e,
-                                                                  ) => {
-                                                                    e.stopPropagation();
-                                                                    toggleCollapseColumn(
-                                                                      col.id,
-                                                                    );
-                                                                  }}
-                                                                  aria-label={`Expand ${col.label}`}
-                                                                  title={`Expand ${col.label}`}
-                                                                >
-                                                                  <MoreHorizontal className="h-3 w-3" />
-                                                                </button>
-                                                              </div>
-                                                            ) : (
-                                                              col.render(
-                                                                taskWithProps,
-                                                              )
-                                                            )}
-                                                          </td>
-                                                        );
-                                                      }
-                                                    )}
-                                                      {/* Filler column to absorb extra space and prevent stretching */}
-                                                      <td
-                                                        className="p-0 border-b border-border"
-                                                        style={{
-                                                          width: "auto",
-                                                        }}
-                                                      />
-                                                    </>
-                                                  )}
-                                                </SortableTaskRow>
-
-                                                {/* ================= SUBITEM ROWS ================= */}
-                                                {effectiveExpandedTasks[
+                                          <SortableContext
+                                            items={group.tasks.map((t) => t.id)}
+                                            strategy={
+                                              verticalListSortingStrategy
+                                            }
+                                          >
+                                            {group.tasks.map((task) => {
+                                              const taskWithProps = {
+                                                ...task,
+                                                boardId: boardId,
+                                                activeTimerId:
+                                                  timerState.activeTimerId,
+                                                onTimerStart: handleTimerStart,
+                                                onTimerConflict:
+                                                  handleTimerConflict,
+                                              };
+                                              const isRowActive =
+                                                (popoverState.openPopoverId &&
+                                                  popoverState.openPopoverId.endsWith(
+                                                    "-" + task.id,
+                                                  )) ||
+                                                taskState.inlineEditingTaskId ===
+                                                  task.id ||
+                                                taskState.checkedTasks[
                                                   task.id
-                                                ] &&
-                                                  task.subitems?.map(
-                                                    (subtask) => {
-                                                      const subtaskWithProps = {
-                                                        ...subtask,
-                                                        boardId: boardId,
-                                                        activeTimerId:
-                                                          timerState.activeTimerId,
-                                                        onTimerStart:
-                                                          handleTimerStart,
-                                                        onTimerConflict:
-                                                          handleTimerConflict,
-                                                      };
-                                                      const isSubtaskActive =
-                                                        (popoverState.openPopoverId &&
-                                                          popoverState.openPopoverId.endsWith("-" + subtask.id)) ||
-                                                        taskState.inlineEditingTaskId === subtask.id ||
-                                                        taskState.checkedTasks[subtask.id] ||
-                                                        (commentsPanelOpen && selectedCommentsId === subtask.id) ||
-                                                        focusedTaskId === subtask.id;
+                                                ] ||
+                                                (commentsPanelOpen &&
+                                                  selectedCommentsId ===
+                                                    task.id) ||
+                                                focusedTaskId === task.id;
 
-                                                      return (
-                                                        <tr
-                                                          key={subtask.id}
-                                                          data-task-row={true}
-                                                          onClick={() => setFocusedTaskId(subtask.id)}
+                                              return (
+                                                <React.Fragment key={task.id}>
+                                                  {/* ================= TASK ROW ================= */}
+                                                  <SortableTaskRow
+                                                    id={task.id}
+                                                    data-task-row={true}
+                                                    onClick={() =>
+                                                      setFocusedTaskId(task.id)
+                                                    }
+                                                    className={cn(
+                                                      "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 cursor-pointer transition-colors",
+                                                      isRowActive &&
+                                                        "bg-primary/10",
+                                                    )}
+                                                  >
+                                                    {() => (
+                                                      <>
+                                                        <td
                                                           className={cn(
-                                                            "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors",
-                                                            isSubtaskActive && "bg-primary/10"
+                                                            "p-4 text-center border-b border-border border-r sticky left-0 z-30",
                                                           )}
-                                                        >
-                                                          <td
-                                                            className={cn(
-                                                              "p-4 text-center border-b border-r border-border sticky left-0 z-30"
-                                                            )}
-                                                            style={{
-                                                              width: "48px",
-                                                              minWidth: "48px",
-                                                              maxWidth: "48px",
-                                                              backgroundColor: isSubtaskActive
+                                                          style={{
+                                                            backgroundColor:
+                                                              isRowActive
                                                                 ? "color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--card)))"
                                                                 : "hsl(var(--card))",
-                                                            }}
-                                                            onClick={(e) =>
-                                                              e.stopPropagation()
+                                                          }}
+                                                          onClick={(e) =>
+                                                            e.stopPropagation()
+                                                          }
+                                                        >
+                                                          <input
+                                                            type="checkbox"
+                                                            checked={
+                                                              taskState
+                                                                .checkedTasks[
+                                                                task.id
+                                                              ] || false
                                                             }
-                                                          >
-                                                            <input
-                                                              type="checkbox"
-                                                              checked={
-                                                                taskState
-                                                                  .checkedTasks[
-                                                                  subtask.id
-                                                                ] || false
-                                                              }
-                                                              onChange={(e) =>
-                                                                handleTaskCheckChange(
-                                                                  subtask.id,
-                                                                  e.target
-                                                                    .checked,
-                                                                )
-                                                              }
-                                                            />
-                                                          </td>
+                                                            onChange={(e) =>
+                                                              handleTaskCheckChange(
+                                                                task.id,
+                                                                e.target
+                                                                  .checked,
+                                                              )
+                                                            }
+                                                          />
+                                                        </td>
 
-                                                          {workloadColumns.map(
-                                                            (col) => {
-                                                              const isBulkHighlighted =
-                                                                col.id === hoveredColumnId &&
-                                                                hoveredTaskId &&
-                                                                taskState.checkedTasks[subtask.id] &&
-                                                                taskState.checkedTasks[hoveredTaskId];
+                                                        {workloadColumns.map(
+                                                          (col) => {
+                                                            const isBulkHighlighted =
+                                                              col.id ===
+                                                                hoveredColumnId &&
+                                                              hoveredTaskId &&
+                                                              taskState
+                                                                .checkedTasks[
+                                                                task.id
+                                                              ] &&
+                                                              taskState
+                                                                .checkedTasks[
+                                                                hoveredTaskId
+                                                              ];
 
-                                                              return (
-                                                                <td
+                                                            return (
+                                                              <td
                                                                 key={col.id}
                                                                 className={cn(
                                                                   "p-4 border-r border-b border-border last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
@@ -7225,19 +7373,27 @@ export function WorkloadBoard({
                                                                     "item"
                                                                     ? "sticky left-12 z-30 hover:bg-secondary"
                                                                     : "hover:bg-muted/30 hover:relative",
-                                                                  isBulkHighlighted && (
-                                                                    col.id === "item"
+                                                                  isBulkHighlighted &&
+                                                                    (col.id ===
+                                                                    "item"
                                                                       ? "bg-secondary ring-1 ring-inset ring-primary/40 z-20"
-                                                                      : "bg-muted/30 ring-1 ring-inset ring-primary/40 z-20 relative"
-                                                                  )
+                                                                      : "bg-muted/30 ring-1 ring-inset ring-primary/40 z-20 relative"),
                                                                 )}
                                                                 onMouseEnter={() => {
-                                                                  setHoveredColumnId(col.id);
-                                                                  setHoveredTaskId(subtask.id);
+                                                                  setHoveredColumnId(
+                                                                    col.id,
+                                                                  );
+                                                                  setHoveredTaskId(
+                                                                    task.id,
+                                                                  );
                                                                 }}
                                                                 onMouseLeave={() => {
-                                                                  setHoveredColumnId(null);
-                                                                  setHoveredTaskId(null);
+                                                                  setHoveredColumnId(
+                                                                    null,
+                                                                  );
+                                                                  setHoveredTaskId(
+                                                                    null,
+                                                                  );
                                                                 }}
                                                                 style={{
                                                                   width:
@@ -7249,23 +7405,31 @@ export function WorkloadBoard({
                                                                     col.maxWidth ||
                                                                     col.width,
                                                                   backgroundColor:
-                                                                    col.id === "item"
-                                                                      ? isSubtaskActive
+                                                                    col.id ===
+                                                                    "item"
+                                                                      ? isRowActive
                                                                         ? "color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--card)))"
                                                                         : "hsl(var(--card))"
                                                                       : undefined,
                                                                 }}
-                                                                onClick={(e) => {
+                                                                onClick={(
+                                                                  e,
+                                                                ) => {
                                                                   e.stopPropagation();
-                                                                  if (col.id === "item") {
-                                                                    openCommentsPanel(subtask);
+                                                                  if (
+                                                                    col.id ===
+                                                                    "item"
+                                                                  ) {
+                                                                    openCommentsPanel(
+                                                                      task,
+                                                                    );
                                                                   }
                                                                 }}
                                                               >
                                                                 {col.collapsed ? (
                                                                   <div className="flex items-center justify-center">
                                                                     <button
-                                                                      className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
+                                                                      className="h-6 w-6 rounded-sm   flex items-center justify-center"
                                                                       onClick={(
                                                                         e,
                                                                       ) => {
@@ -7277,207 +7441,423 @@ export function WorkloadBoard({
                                                                       aria-label={`Expand ${col.label}`}
                                                                       title={`Expand ${col.label}`}
                                                                     >
-                                                                      <ChevronRight className="h-3 w-3" />
+                                                                      <MoreHorizontal className="h-3 w-3" />
                                                                     </button>
                                                                   </div>
                                                                 ) : (
                                                                   col.render(
-                                                                    subtaskWithProps,
-                                                                    true,
+                                                                    taskWithProps,
                                                                   )
                                                                 )}
                                                               </td>
                                                             );
-                                                          }
+                                                          },
                                                         )}
-                                                          {/* Filler column to absorb extra space and prevent stretching */}
-                                                          <td
-                                                            className="p-0 border-b border-border"
-                                                            style={{
-                                                              width: "auto",
-                                                            }}
-                                                          />
-                                                        </tr>
-                                                      );
-                                                    },
-                                                  )}
+                                                        {/* Filler column to absorb extra space and prevent stretching */}
+                                                        <td
+                                                          className="p-0 border-b border-border"
+                                                          style={{
+                                                            width: "auto",
+                                                          }}
+                                                        />
+                                                      </>
+                                                    )}
+                                                  </SortableTaskRow>
 
-                                                {/* ================= ADD SUBITEM ================= */}
-                                                {effectiveExpandedTasks[
-                                                  task.id
-                                                ] && (
-                                                  <tr>
-                                                    <td
-                                                      className="p-4 text-center border-b border-r border-border sticky left-0 z-30 bg-card"
-                                                      style={{
-                                                        width: "48px",
-                                                        minWidth: "48px",
-                                                        maxWidth: "48px",
-                                                      }}
-                                                    >
-                                                      {/* Empty Cell */}
-                                                    </td>
-                                                    <td
-                                                      colSpan={2}
-                                                      className="p-4 border-t border-border sticky left-12 z-30 bg-card"
-                                                    >
-                                                      {addingSubitemToTask ===
-                                                      task.id ? (
-                                                        <div className="flex items-center gap-2 pl-8">
-                                                          <span className="text-muted-foreground">
-                                                            └
-                                                          </span>
-                                                          <Input
-                                                            className="h-8 flex-1"
-                                                            autoFocus
-                                                            placeholder="Enter subitem name"
-                                                            value={
-                                                              newSubitemName
-                                                            }
-                                                            onChange={(e) =>
-                                                              setNewSubitemName(
-                                                                e.target.value,
+                                                  {/* ================= SUBITEM ROWS ================= */}
+                                                  {effectiveExpandedTasks[
+                                                    task.id
+                                                  ] &&
+                                                    task.subitems?.map(
+                                                      (subtask) => {
+                                                        const subtaskWithProps =
+                                                          {
+                                                            ...subtask,
+                                                            boardId: boardId,
+                                                            activeTimerId:
+                                                              timerState.activeTimerId,
+                                                            onTimerStart:
+                                                              handleTimerStart,
+                                                            onTimerConflict:
+                                                              handleTimerConflict,
+                                                          };
+                                                        const isSubtaskActive =
+                                                          (popoverState.openPopoverId &&
+                                                            popoverState.openPopoverId.endsWith(
+                                                              "-" + subtask.id,
+                                                            )) ||
+                                                          taskState.inlineEditingTaskId ===
+                                                            subtask.id ||
+                                                          taskState
+                                                            .checkedTasks[
+                                                            subtask.id
+                                                          ] ||
+                                                          (commentsPanelOpen &&
+                                                            selectedCommentsId ===
+                                                              subtask.id) ||
+                                                          focusedTaskId ===
+                                                            subtask.id;
+
+                                                        return (
+                                                          <tr
+                                                            key={subtask.id}
+                                                            data-task-row={true}
+                                                            onClick={() =>
+                                                              setFocusedTaskId(
+                                                                subtask.id,
                                                               )
                                                             }
-                                                            onKeyDown={(e) => {
-                                                              if (
-                                                                (e.key ===
-                                                                  "Enter" ||
-                                                                  e.key ===
-                                                                    "Tab") &&
-                                                                newSubitemName.trim()
-                                                              ) {
-                                                                addSubitem(
-                                                                  group.id,
-                                                                  task.id,
-                                                                );
+                                                            className={cn(
+                                                              "hover:bg-primary/5 focus-within:bg-primary/10 focus-within:ring-2 focus-within:ring-primary/20 transition-colors",
+                                                              isSubtaskActive &&
+                                                                "bg-primary/10",
+                                                            )}
+                                                          >
+                                                            <td
+                                                              className={cn(
+                                                                "p-4 text-center border-b border-r border-border sticky left-0 z-30",
+                                                              )}
+                                                              style={{
+                                                                width: "48px",
+                                                                minWidth:
+                                                                  "48px",
+                                                                maxWidth:
+                                                                  "48px",
+                                                                backgroundColor:
+                                                                  isSubtaskActive
+                                                                    ? "color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--card)))"
+                                                                    : "hsl(var(--card))",
+                                                              }}
+                                                              onClick={(e) =>
+                                                                e.stopPropagation()
                                                               }
-                                                              if (
-                                                                e.key ===
-                                                                "Escape"
-                                                              ) {
+                                                            >
+                                                              <input
+                                                                type="checkbox"
+                                                                checked={
+                                                                  taskState
+                                                                    .checkedTasks[
+                                                                    subtask.id
+                                                                  ] || false
+                                                                }
+                                                                onChange={(e) =>
+                                                                  handleTaskCheckChange(
+                                                                    subtask.id,
+                                                                    e.target
+                                                                      .checked,
+                                                                  )
+                                                                }
+                                                              />
+                                                            </td>
+
+                                                            {workloadColumns.map(
+                                                              (col) => {
+                                                                const isBulkHighlighted =
+                                                                  col.id ===
+                                                                    hoveredColumnId &&
+                                                                  hoveredTaskId &&
+                                                                  taskState
+                                                                    .checkedTasks[
+                                                                    subtask.id
+                                                                  ] &&
+                                                                  taskState
+                                                                    .checkedTasks[
+                                                                    hoveredTaskId
+                                                                  ];
+
+                                                                return (
+                                                                  <td
+                                                                    key={col.id}
+                                                                    className={cn(
+                                                                      "p-4 border-r border-b border-border last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
+                                                                      col.align ===
+                                                                        "center" &&
+                                                                        "text-center",
+                                                                      col.align ===
+                                                                        "left" &&
+                                                                        "text-left",
+                                                                      col.id ===
+                                                                        "item"
+                                                                        ? "sticky left-12 z-30 hover:bg-secondary"
+                                                                        : "hover:bg-muted/30 hover:relative",
+                                                                      isBulkHighlighted &&
+                                                                        (col.id ===
+                                                                        "item"
+                                                                          ? "bg-secondary ring-1 ring-inset ring-primary/40 z-20"
+                                                                          : "bg-muted/30 ring-1 ring-inset ring-primary/40 z-20 relative"),
+                                                                    )}
+                                                                    onMouseEnter={() => {
+                                                                      setHoveredColumnId(
+                                                                        col.id,
+                                                                      );
+                                                                      setHoveredTaskId(
+                                                                        subtask.id,
+                                                                      );
+                                                                    }}
+                                                                    onMouseLeave={() => {
+                                                                      setHoveredColumnId(
+                                                                        null,
+                                                                      );
+                                                                      setHoveredTaskId(
+                                                                        null,
+                                                                      );
+                                                                    }}
+                                                                    style={{
+                                                                      width:
+                                                                        col.width,
+                                                                      minWidth:
+                                                                        col.minWidth ||
+                                                                        col.width,
+                                                                      maxWidth:
+                                                                        col.maxWidth ||
+                                                                        col.width,
+                                                                      backgroundColor:
+                                                                        col.id ===
+                                                                        "item"
+                                                                          ? isSubtaskActive
+                                                                            ? "color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--card)))"
+                                                                            : "hsl(var(--card))"
+                                                                          : undefined,
+                                                                    }}
+                                                                    onClick={(
+                                                                      e,
+                                                                    ) => {
+                                                                      e.stopPropagation();
+                                                                      if (
+                                                                        col.id ===
+                                                                        "item"
+                                                                      ) {
+                                                                        openCommentsPanel(
+                                                                          subtask,
+                                                                        );
+                                                                      }
+                                                                    }}
+                                                                  >
+                                                                    {col.collapsed ? (
+                                                                      <div className="flex items-center justify-center">
+                                                                        <button
+                                                                          className="h-6 w-6 rounded-sm border border-border flex items-center justify-center"
+                                                                          onClick={(
+                                                                            e,
+                                                                          ) => {
+                                                                            e.stopPropagation();
+                                                                            toggleCollapseColumn(
+                                                                              col.id,
+                                                                            );
+                                                                          }}
+                                                                          aria-label={`Expand ${col.label}`}
+                                                                          title={`Expand ${col.label}`}
+                                                                        >
+                                                                          <ChevronRight className="h-3 w-3" />
+                                                                        </button>
+                                                                      </div>
+                                                                    ) : (
+                                                                      col.render(
+                                                                        subtaskWithProps,
+                                                                        true,
+                                                                      )
+                                                                    )}
+                                                                  </td>
+                                                                );
+                                                              },
+                                                            )}
+                                                            {/* Filler column to absorb extra space and prevent stretching */}
+                                                            <td
+                                                              className="p-0 border-b border-border"
+                                                              style={{
+                                                                width: "auto",
+                                                              }}
+                                                            />
+                                                          </tr>
+                                                        );
+                                                      },
+                                                    )}
+
+                                                  {/* ================= ADD SUBITEM ================= */}
+                                                  {effectiveExpandedTasks[
+                                                    task.id
+                                                  ] && (
+                                                    <tr>
+                                                      <td
+                                                        className="p-4 text-center border-b border-r border-border sticky left-0 z-30 bg-card"
+                                                        style={{
+                                                          width: "48px",
+                                                          minWidth: "48px",
+                                                          maxWidth: "48px",
+                                                        }}
+                                                      >
+                                                        {/* Empty Cell */}
+                                                      </td>
+                                                      <td
+                                                        colSpan={2}
+                                                        className="p-4 border-t border-border sticky left-12 z-30 bg-card"
+                                                      >
+                                                        {addingSubitemToTask ===
+                                                        task.id ? (
+                                                          <div className="flex items-center gap-2 pl-8">
+                                                            <span className="text-muted-foreground">
+                                                              └
+                                                            </span>
+                                                            <Input
+                                                              className="h-8 flex-1"
+                                                              autoFocus
+                                                              placeholder="Enter subitem name"
+                                                              value={
+                                                                newSubitemName
+                                                              }
+                                                              onChange={(e) =>
+                                                                setNewSubitemName(
+                                                                  e.target
+                                                                    .value,
+                                                                )
+                                                              }
+                                                              onKeyDown={(
+                                                                e,
+                                                              ) => {
+                                                                if (
+                                                                  (e.key ===
+                                                                    "Enter" ||
+                                                                    e.key ===
+                                                                      "Tab") &&
+                                                                  newSubitemName.trim()
+                                                                ) {
+                                                                  addSubitem(
+                                                                    group.id,
+                                                                    task.id,
+                                                                  );
+                                                                }
+                                                                if (
+                                                                  e.key ===
+                                                                  "Escape"
+                                                                ) {
+                                                                  setAddingSubitemToTask(
+                                                                    null,
+                                                                  );
+                                                                  setNewSubitemName(
+                                                                    "",
+                                                                  );
+                                                                }
+                                                              }}
+                                                              onBlur={() => {
                                                                 setAddingSubitemToTask(
                                                                   null,
                                                                 );
                                                                 setNewSubitemName(
                                                                   "",
                                                                 );
-                                                              }
-                                                            }}
-                                                            onBlur={() => {
+                                                              }}
+                                                            />
+                                                          </div>
+                                                        ) : (
+                                                          <button
+                                                            onClick={() => {
+                                                              taskState.setExpandedTasks(
+                                                                (prev) => ({
+                                                                  ...prev,
+                                                                  [task.id]: true,
+                                                                }),
+                                                              );
                                                               setAddingSubitemToTask(
-                                                                null,
-                                                              );
-                                                              setNewSubitemName(
-                                                                "",
+                                                                task.id,
                                                               );
                                                             }}
-                                                          />
-                                                        </div>
-                                                      ) : (
-                                                        <button
-                                                          onClick={() => {
-                                                            taskState.setExpandedTasks(
-                                                              (prev) => ({
-                                                                ...prev,
-                                                                [task.id]: true,
-                                                              }),
-                                                            );
-                                                            setAddingSubitemToTask(
-                                                              task.id,
-                                                            );
-                                                          }}
-                                                          className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 pl-8"
-                                                        >
-                                                          <span className="text-muted-foreground">
-                                                            {"└"}
-                                                            {/* ├ */}
-                                                          </span>
-                                                          <span className="text-lg">
-                                                            +
-                                                          </span>{" "}
-                                                          Add subitem
-                                                        </button>
-                                                      )}
-                                                    </td>
-                                                  </tr>
-                                                )}
-                                              </React.Fragment>
-                                            );
-                                          })}
-                                        </SortableContext>
+                                                            className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 pl-8"
+                                                          >
+                                                            <span className="text-muted-foreground">
+                                                              {"└"}
+                                                              {/* ├ */}
+                                                            </span>
+                                                            <span className="text-lg">
+                                                              +
+                                                            </span>{" "}
+                                                            Add subitem
+                                                          </button>
+                                                        )}
+                                                      </td>
+                                                    </tr>
+                                                  )}
+                                                </React.Fragment>
+                                              );
+                                            })}
+                                          </SortableContext>
 
-                                        {/* ================= ADD ITEM ROW ================= */}
-                                        <tr>
-                                          <td
-                                            className="p-4 text-center border-r border-border sticky left-0 z-30 bg-card"
-                                            style={{
-                                              width: "48px",
-                                              minWidth: "48px",
-                                              maxWidth: "48px",
-                                            }}
-                                          >
-                                            {/* Empty Cell */}
-                                          </td>
-                                          <td
-                                            colSpan={2}
-                                            className="p-4 border-t border-border sticky left-12 z-30 bg-card"
-                                          >
-                                            {addingItemToGroup === group.id ? (
-                                              <Input
-                                                className="h-8 max-w"
-                                                autoFocus
-                                                placeholder="Enter item name..."
-                                                value={newItemName}
-                                                onChange={(e) =>
-                                                  setNewItemName(e.target.value)
-                                                }
-                                                onKeyDown={(e) => {
-                                                  if (
-                                                    (e.key === "Enter" ||
-                                                      e.key === "Tab") &&
-                                                    newItemName.trim()
-                                                  ) {
-                                                    addNewItem(group.id);
+                                          {/* ================= ADD ITEM ROW ================= */}
+                                          <tr>
+                                            <td
+                                              className="p-4 text-center border-r border-border sticky left-0 z-30 bg-card"
+                                              style={{
+                                                width: "48px",
+                                                minWidth: "48px",
+                                                maxWidth: "48px",
+                                              }}
+                                            >
+                                              {/* Empty Cell */}
+                                            </td>
+                                            <td
+                                              colSpan={2}
+                                              className="p-4 border-t border-border sticky left-12 z-30 bg-card"
+                                            >
+                                              {addingItemToGroup ===
+                                              group.id ? (
+                                                <Input
+                                                  className="h-8 max-w"
+                                                  autoFocus
+                                                  placeholder="Enter item name..."
+                                                  value={newItemName}
+                                                  onChange={(e) =>
+                                                    setNewItemName(
+                                                      e.target.value,
+                                                    )
                                                   }
-                                                  if (e.key === "Escape") {
+                                                  onKeyDown={(e) => {
+                                                    if (
+                                                      (e.key === "Enter" ||
+                                                        e.key === "Tab") &&
+                                                      newItemName.trim()
+                                                    ) {
+                                                      addNewItem(group.id);
+                                                    }
+                                                    if (e.key === "Escape") {
+                                                      setAddingItemToGroup(
+                                                        null,
+                                                      );
+                                                      setNewItemName("");
+                                                    }
+                                                  }}
+                                                  onBlur={() => {
                                                     setAddingItemToGroup(null);
                                                     setNewItemName("");
-                                                  }
-                                                }}
-                                                onBlur={() => {
-                                                  setAddingItemToGroup(null);
-                                                  setNewItemName("");
-                                                }}
-                                              />
-                                            ) : (
-                                              <button
-                                                onClick={() => {
-                                                  setAddingItemToGroup(
-                                                    group.id,
-                                                  );
-                                                  // Scroll the main flex container to the right
-                                                  if (
-                                                    mainFlexContainerRef.current
-                                                  ) {
-                                                    mainFlexContainerRef.current.scrollLeft =
-                                                      mainFlexContainerRef.current.scrollWidth;
-                                                  }
-                                                }}
-                                                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
-                                              >
-                                                <span className="text-md">
-                                                  + Add Item
-                                                </span>{" "}
-                                              </button>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      </tbody>
-                                    </table>
-                                  </DndContext>
-                                </div>
-                              </>)}
+                                                  }}
+                                                />
+                                              ) : (
+                                                <button
+                                                  onClick={() => {
+                                                    setAddingItemToGroup(
+                                                      group.id,
+                                                    );
+                                                    // Scroll the main flex container to the right
+                                                    if (
+                                                      mainFlexContainerRef.current
+                                                    ) {
+                                                      mainFlexContainerRef.current.scrollLeft =
+                                                        mainFlexContainerRef.current.scrollWidth;
+                                                    }
+                                                  }}
+                                                  className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                                                >
+                                                  <span className="text-md">
+                                                    + Add Item
+                                                  </span>{" "}
+                                                </button>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </DndContext>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           )}
                         </SortableGroupCard>
@@ -7527,24 +7907,26 @@ export function WorkloadBoard({
                 );
 
                 isSyncingScroll.current = true;
-                Object.entries(tableScrollRefs.current).forEach(([groupId, ref]) => {
-                  if (ref) {
-                    const tableMax = Math.max(
-                      0,
-                      ref.scrollWidth - ref.clientWidth,
-                    );
-                    const mapped =
-                      unifiedMax > 0 && tableMax > 0
-                        ? (unifiedLeft / unifiedMax) * tableMax
-                        : unifiedLeft;
-                    if (ref.scrollLeft !== mapped) ref.scrollLeft = mapped;
+                Object.entries(tableScrollRefs.current).forEach(
+                  ([groupId, ref]) => {
+                    if (ref) {
+                      const tableMax = Math.max(
+                        0,
+                        ref.scrollWidth - ref.clientWidth,
+                      );
+                      const mapped =
+                        unifiedMax > 0 && tableMax > 0
+                          ? (unifiedLeft / unifiedMax) * tableMax
+                          : unifiedLeft;
+                      if (ref.scrollLeft !== mapped) ref.scrollLeft = mapped;
 
-                    const headerRef = tableHeaderScrollRefs.current[groupId];
-                    if (headerRef && headerRef.scrollLeft !== mapped) {
-                      headerRef.scrollLeft = mapped;
+                      const headerRef = tableHeaderScrollRefs.current[groupId];
+                      if (headerRef && headerRef.scrollLeft !== mapped) {
+                        headerRef.scrollLeft = mapped;
+                      }
                     }
-                  }
-                });
+                  },
+                );
                 window.requestAnimationFrame(() => {
                   isSyncingScroll.current = false;
                 });
@@ -7655,501 +8037,704 @@ export function WorkloadBoard({
           <div className="flex-1 flex flex-col min-h-0 relative">
             {/* Nested Tabs for Teams View */}
             <div className="flex items-center gap-8 px-6 pt-3 shadow-sm sticky top-0 z-20 bg-background shrink-0 border-b border-border">
-              <button 
+              <button
                 className={`pb-3 border-b-2 font-semibold text-sm transition-colors whitespace-nowrap ${
-                  teamsSubTab === "Tasks" 
-                    ? "border-primary text-primary" 
+                  teamsSubTab === "Tasks"
+                    ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
                 onClick={() => setTeamsSubTab("Tasks")}
               >
                 Tasks
               </button>
-              <button 
+              <button
                 className={`pb-3 border-b-2 font-semibold text-sm transition-colors whitespace-nowrap ${
-                  teamsSubTab === "Projects" 
-                    ? "border-primary text-primary" 
+                  teamsSubTab === "Projects"
+                    ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
                 onClick={() => setTeamsSubTab("Projects")}
               >
                 Projects
               </button>
-              
             </div>
             {teamsSubTab === "Projects" ? (
               <>
-              <div
-                ref={teamsBoardRef}
-                className="flex-1 min-h-0 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
-              >
-                {/* Kanban by Project Name */}
-                <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
-                {(() => {
-                  const groupsToRender = teamKanbanGroups;
-                  const allProjectTasks = groupsToRender.flatMap((g) => g.tasks);
-                  const bgColors = ["#3b82f6", "#10b981", "#ef4444", "#f59e0b", "#8b5cf6", "#ec4899"];
+                <div
+                  ref={teamsBoardRef}
+                  className="flex-1 min-h-0 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
+                >
+                  {/* Kanban by Project Name */}
+                  <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
+                    {(() => {
+                      const groupsToRender = teamKanbanGroups;
+                      const allProjectTasks = groupsToRender.flatMap(
+                        (g) => g.tasks,
+                      );
+                      const bgColors = [
+                        "#3b82f6",
+                        "#10b981",
+                        "#ef4444",
+                        "#f59e0b",
+                        "#8b5cf6",
+                        "#ec4899",
+                      ];
 
-                  const renderProjectHeader = (group: TaskGroup, headerColor: string, count: number) => (
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-3.5 h-3.5 rounded-full shadow-sm shrink-0" style={{ backgroundColor: headerColor }} />
-                        <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate" title={group.name}>{group.name}</h3>
-                        <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">{count}</span>
-                      </div>
-                      <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
-                        <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
-                        <GripVertical className="h-4 w-4 text-slate-300" />
-                      </div>
-                    </div>
-                  );
-
-                  const renderProjectCard = (taskId: string) => {
-                    const task = allProjectTasks.find((t) => t.id === taskId);
-                    if (!task) return null;
-                    const parentGroup = groupsToRender.find((g) => g.tasks.some((t) => t.id === taskId));
-                    if (!parentGroup) return null;
-
-                    const groupColor = parentGroup.color || "#3b82f6";
-                    const groupName = parentGroup.name || "Group";
-                    const statusName = statuses.find(s => String(s.id) === String(task.status_id))?.name || task.status || "Working";
-                    const priorityInfo = priorities.find(p => String(p.id) === String(task.priority_id));
-                    const taskDisplayId = parentGroup.abbreviation ? `${parentGroup.abbreviation}-${(task as any).number || task.id}` : `#${(task as any).number || task.id}`;
-                    const assigneeNames = task.assignee_names || (task.person ? [task.person] : []);
-                    const tooltipAssigneesText = assigneeNames.join(", ");
-                    const visibleAssignees = assigneeNames.slice(0, 3);
-                    const extraAssigneesCount = assigneeNames.length - 3;
-
-                    let dueDateText = "-";
-                    try {
-                      if (task.estimatedDateRaw) dueDateText = format(new Date(task.estimatedDateRaw), "dd MMM yyyy");
-                      else if (task.estimatedDate) dueDateText = task.estimatedDate;
-                    } catch (e) {}
-
-                    return (
-                      <div
-                        onClick={() => openTaskCard(task)}
-                        className="bg-card border border-border rounded-lg p-3 hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
-                      >
-                        {/* 1. Project ID & Name */}
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                            <span className="text-primary font-mono">{taskDisplayId}</span>
-                            {groupName && (
-                              <div className="flex items-center gap-1">
-                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
-                                <span className="truncate max-w-[125px]">{groupName}</span>
-                              </div>
-                            )}
-                          </div>
-                          <h4 className="text-sm font-bold text-foreground line-clamp-2 mt-1" title={task.name}>
-                            {task.name}
-                          </h4>
-                        </div>
-
-                        {/* 2. Tags/Labels */}
-                        {Array.isArray(task.tags) && task.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {task.tags.map((tag: any, idx: number) => {
-                              const tColor = tag.color || "var(--muted-foreground)";
-                              return (
-                                <span
-                                  key={idx}
-                                  className="px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center justify-center"
-                                  style={{ borderColor: `${tColor}30`, color: tColor, backgroundColor: `${tColor}12` }}
-                                >
-                                  {tag.tag_name || tag.name}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {/* 3. Due Date */}
-                        <div className="text-xs text-muted-foreground grid grid-cols-1 gap-1">
-                          <span className="truncate">Due: {dueDateText}</span>
-                        </div>
-
-                        {/* 4. Status and Priority */}
-                        <div className="flex flex-wrap gap-2 items-center">
-                          <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
-                            {statusName}
-                          </span>
-                          {priorityInfo && (
-                            <span
-                              className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center"
-                              style={{
-                                borderColor: priorityInfo.color_code || 'var(--border)',
-                                color: priorityInfo.color_code || 'inherit',
-                                backgroundColor: priorityInfo.color_code ? `${priorityInfo.color_code}15` : 'var(--muted)'
-                              }}
-                            >
-                              {priorityInfo.name}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* 5. Assigned Members */}
-                        <div className="mt-auto pt-2 border-t border-border flex flex-col gap-1.5">
-                          <div className="flex flex-wrap items-center gap-1" title={tooltipAssigneesText}>
-                            {visibleAssignees.length === 0 && (
-                              <span className="text-[10px] text-muted-foreground italic">Unassigned</span>
-                            )}
-                            {visibleAssignees.map((name: string, i: number) => (
-                              <div key={i} className="flex items-center gap-1 bg-muted/40 rounded-full pr-1.5 p-0.5 border border-border/80">
-                                <Avatar className="w-4 h-4 border border-background">
-                                  <AvatarFallback className="text-[8px] bg-primary/10 text-primary uppercase font-bold">
-                                    {name.charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-[9px] font-medium truncate max-w-[50px] text-foreground">{name}</span>
-                              </div>
-                            ))}
-                            {extraAssigneesCount > 0 && (
-                              <div className="flex items-center justify-center h-4 px-1 rounded-full bg-muted border border-border text-[8px] font-medium text-muted-foreground">
-                                +{extraAssigneesCount}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  };
-
-                  const activeGroup =
-                    projectsActiveType === "column" && projectsActiveId
-                      ? groupsToRender.find((g) => g.id === projectsActiveId.replace("column-", ""))
-                      : null;
-
-                  return (
-                    <>
-                      <DndContext
-                        sensors={projectsSensors}
-                        collisionDetection={kanbanCollisionDetection}
-                        onDragStart={handleProjectsDragStart}
-                        onDragOver={handleProjectsDragOver}
-                        onDragEnd={handleProjectsDragEnd}
-                      >
-                        <SortableContext
-                          items={groupsToRender.map((g) => `column-${g.id}`)}
-                          strategy={horizontalListSortingStrategy}
-                        >
-                        {groupsToRender.map((group, index) => {
-                          const projectTasks = group.tasks || [];
-                          const taskIdList = projectTasks.map((t) => t.id);
-                          const headerColor = group.color || bgColors[index % bgColors.length];
-
-                          return (
-                            <KanbanBoardColumn
-                              key={group.id}
-                              columnId={String(group.id)}
-                              taskIds={taskIdList}
-                              isColumnActive={projectsOverColumnId === String(group.id)}
-                              cardGhostHeight={175}
-                              header={renderProjectHeader(group, headerColor, projectTasks.length)}
-                              emptyContent={
-                                <div className="flex-grow flex flex-col items-center justify-center py-12 text-center text-sm text-slate-400 dark:text-slate-500 italic">
-                                  No Tasks Available
-                                </div>
-                              }
-                              renderCard={renderProjectCard}
+                      const renderProjectHeader = (
+                        group: TaskGroup,
+                        headerColor: string,
+                        count: number,
+                      ) => (
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className="w-3.5 h-3.5 rounded-full shadow-sm shrink-0"
+                              style={{ backgroundColor: headerColor }}
                             />
-                          );
-                        })}
-                      </SortableContext>
-                      <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
-                        {projectsActiveType === "card" && projectsActiveId
-                          ? renderProjectCard(projectsActiveId)
-                          : projectsActiveType === "column" && activeGroup
-                            ? (
-                              <KanbanBoardColumn
-                                columnId={String(activeGroup.id)}
-                                taskIds={activeGroup.tasks.map((t) => t.id)}
-                                cardGhostHeight={175}
-                                header={renderProjectHeader(
-                                  activeGroup,
-                                  activeGroup.color || bgColors[groupsToRender.indexOf(activeGroup) % bgColors.length],
-                                  activeGroup.tasks.length,
-                                )}
-                                renderCard={renderProjectCard}
-                                isOverlay
-                              />
-                            )
-                            : null}
-                      </DragOverlay>
-                    </DndContext>
-                    </>
-                  );
-                })()}
-                </div>
-              </div>
-              
-              {/* Jira-style Mini Scroll Map */}
-              <TeamsBoardNavigator 
-                containerNode={teamsBoardNode} 
-                columnsCount={memoizedFilteredData.groups.length} 
-              />
-              </>
-
-            ) : (
-            <>
-            <div
-              ref={teamsBoardRef}
-              className="flex-1 min-h-0 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
-            >
-              {/* Kanban by Team Member */}
-              <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
-              {(() => {
-                const allTasks = teamKanbanGroups.flatMap(g => g.tasks);
-                const bgColors = ["#22c55e", "#ef4444", "#f97316", "#3b82f6", "#a855f7", "#eab308"];
-
-                const getPersonTasks = (person: string) => {
-                  let personTasks = allTasks.filter(t => {
-                    const assignees = t.assignee_names || (t.person ? [t.person] : []);
-                    if (person === "Unassigned") return assignees.length === 0;
-                    return assignees.includes(person);
-                  });
-
-                  // Apply session-local drag-and-drop reorder override, if any
-                  const orderOverride = teamsOrder[person];
-                  if (orderOverride) {
-                    const rank = new Map(orderOverride.map((id, i) => [id, i]));
-                    personTasks = [...personTasks].sort((a, b) => {
-                      const ra = rank.has(a.id) ? rank.get(a.id)! : Number.MAX_SAFE_INTEGER;
-                      const rb = rank.has(b.id) ? rank.get(b.id)! : Number.MAX_SAFE_INTEGER;
-                      return ra - rb;
-                    });
-                  }
-                  return personTasks;
-                };
-
-                const renderPersonHeader = (person: string, headerColor: string, count: number) => {
-                  const abbreviation = person !== "Unassigned" && person.length > 0 ? person.substring(0, 2).toUpperCase() : "?";
-                  return (
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {person === "Unassigned" ? (
-                        <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center bg-muted border border-border shadow-sm">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase">{abbreviation}</span>
+                            <h3
+                              className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate"
+                              title={group.name}
+                            >
+                              {group.name}
+                            </h3>
+                            <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">
+                              {count}
+                            </span>
+                          </div>
+                          <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
+                            <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                            <GripVertical className="h-4 w-4 text-slate-300" />
+                          </div>
                         </div>
-                      ) : (
-                        <Avatar className="w-6 h-6 border border-border/50 shadow-sm">
-                          <AvatarFallback 
-                            className="text-[10px] font-bold uppercase transition-colors"
-                            style={{ 
-                              backgroundColor: `${headerColor}20`, 
-                              color: headerColor, 
-                            }}
-                          >
-                            {abbreviation}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <h3 className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate" title={person}>{person}</h3>
-                      <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">{count}</span>
-                    </div>
-                    <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
-                      <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors flex items-center gap-1">
-                        <span className="sr-only">More Actions</span>
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                      <GripVertical className="h-4 w-4 text-slate-300" />
-                    </div>
-                  </div>
-                  );
-                };
+                      );
 
-                const renderPersonCard = (taskId: string) => {
-                  const task = allTasks.find((t) => t.id === taskId);
-                  if (!task) return null;
+                      const renderProjectCard = (taskId: string) => {
+                        const task = allProjectTasks.find(
+                          (t) => t.id === taskId,
+                        );
+                        if (!task) return null;
+                        const parentGroup = groupsToRender.find((g) =>
+                          g.tasks.some((t) => t.id === taskId),
+                        );
+                        if (!parentGroup) return null;
 
-                  const parentGroup = teamKanbanGroups.find(g => g.tasks.find(t => t.id === task.id) || g.tasks.find(t => t.subitems?.find((s: any) => s.id === task.id)));
-                  if (!parentGroup) return null;
+                        const groupColor = parentGroup.color || "#3b82f6";
+                        const groupName = parentGroup.name || "Group";
+                        const statusName =
+                          statuses.find(
+                            (s) => String(s.id) === String(task.status_id),
+                          )?.name ||
+                          task.status ||
+                          "Working";
+                        const priorityInfo = priorities.find(
+                          (p) => String(p.id) === String(task.priority_id),
+                        );
+                        const taskDisplayId = parentGroup.abbreviation
+                          ? `${parentGroup.abbreviation}-${(task as any).number || task.id}`
+                          : `#${(task as any).number || task.id}`;
+                        const assigneeNames =
+                          task.assignee_names ||
+                          (task.person ? [task.person] : []);
+                        const tooltipAssigneesText = assigneeNames.join(", ");
+                        const visibleAssignees = assigneeNames.slice(0, 3);
+                        const extraAssigneesCount = assigneeNames.length - 3;
 
-                  const groupColor = parentGroup.color || "#3b82f6";
-                  const groupName = parentGroup.name || "Group";
-                  const statusName = statuses.find(s => String(s.id) === String(task.status_id))?.name || task.status || "Working";
-                  const priorityInfo = priorities.find(p => String(p.id) === String(task.priority_id));
-                  const taskDisplayId = parentGroup.abbreviation ? `${parentGroup.abbreviation}-${(task as any).number || task.id}` : `#${(task as any).number || task.id}`;
-                  const assigneeNames = task.assignee_names || (task.person ? [task.person] : []);
-                  const tooltipAssigneesText = assigneeNames.join(", ");
-                  const visibleAssignees = assigneeNames.slice(0, 3);
-                  const extraAssigneesCount = assigneeNames.length - 3;
-
-                  let dueDateText = "-";
-                  try {
-                    if (task.estimatedDateRaw) dueDateText = format(new Date(task.estimatedDateRaw), "dd MMM yyyy");
-                    else if (task.estimatedDate) dueDateText = task.estimatedDate;
-                  } catch (e) {}
-
-                  return (
-                    <div
-                      onClick={() => openTaskCard(task)}
-                      className="bg-card border border-border rounded-lg p-3 hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
-                    >
-                      {/* 1. Project ID & Name */}
-                      <div className="flex flex-col gap-1 shrink-0">
-                        <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                          <span className="text-primary font-mono">{taskDisplayId}</span>
-                          {groupName && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: groupColor }} />
-                              <span className="truncate max-w-[125px]">{groupName}</span>
-                            </div>
-                          )}
-                        </div>
-                        <h4 className="text-sm font-bold text-foreground line-clamp-2 mt-1" title={task.name}>
-                          {task.name}
-                        </h4>
-                      </div>
-
-                      {/* 2. Tags/Labels */}
-                      {Array.isArray(task.tags) && task.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-0.5">
-                          {task.tags.map((tag: any, idx: number) => {
-                            const tColor = tag.color || "var(--muted-foreground)";
-                            return (
-                              <span
-                                key={idx}
-                                className="px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center justify-center"
-                                style={{ borderColor: `${tColor}30`, color: tColor, backgroundColor: `${tColor}12` }}
-                              >
-                                {tag.tag_name || tag.name}
-                              </span>
+                        let dueDateText = "-";
+                        try {
+                          if (task.estimatedDateRaw)
+                            dueDateText = format(
+                              new Date(task.estimatedDateRaw),
+                              "dd MMM yyyy",
                             );
-                          })}
-                        </div>
-                      )}
-
-                      {/* 3. Due Date */}
-                      <div className="text-xs text-muted-foreground grid grid-cols-1 gap-1">
-                        <span className="truncate">Due: {dueDateText}</span>
-                      </div>
-
-                      {/* 4. Status and Priority */}
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
-                          {statusName}
-                        </span>
-                        {priorityInfo && (
-                          <span
-                            className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center"
-                            style={{
-                              borderColor: priorityInfo.color_code || 'var(--border)',
-                              color: priorityInfo.color_code || 'inherit',
-                              backgroundColor: priorityInfo.color_code ? `${priorityInfo.color_code}15` : 'var(--muted)'
-                            }}
-                          >
-                            {priorityInfo.name}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* 5. Assigned Members */}
-                      <div className="mt-auto pt-2 border-t border-border flex flex-col gap-1.5">
-                        <div className="flex flex-wrap items-center gap-1" title={tooltipAssigneesText}>
-                          {visibleAssignees.length === 0 && (
-                            <span className="text-[10px] text-muted-foreground italic">Unassigned</span>
-                          )}
-                          {visibleAssignees.map((name: string, i: number) => (
-                            <div key={i} className="flex items-center gap-1 bg-muted/40 rounded-full pr-1.5 p-0.5 border border-border/80">
-                              <Avatar className="w-4 h-4 border border-background">
-                                <AvatarFallback className="text-[8px] bg-primary/10 text-primary uppercase font-bold">
-                                  {name.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-[9px] font-medium truncate max-w-[50px] text-foreground">{name}</span>
-                            </div>
-                          ))}
-                          {extraAssigneesCount > 0 && (
-                            <div className="flex items-center justify-center h-4 px-1 rounded-full bg-muted border border-border text-[8px] font-medium text-muted-foreground">
-                              +{extraAssigneesCount}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                };
-
-                const activePerson =
-                  teamsActiveType === "column" && teamsActiveId
-                    ? teamsActiveId.replace("column-", "")
-                    : null;
-
-                  return (
-                    <>
-                      <DndContext
-                        sensors={teamsSensors}
-                        collisionDetection={kanbanCollisionDetection}
-                        onDragStart={handleTeamsDragStart}
-                        onDragOver={handleTeamsDragOver}
-                        onDragEnd={handleTeamsDragEnd}
-                      >
-                        <SortableContext
-                          items={orderedPersons.map((p) => `column-${p}`)}
-                          strategy={horizontalListSortingStrategy}
-                        >
-                      {orderedPersons.map((person, index) => {
-                        const personTasks = getPersonTasks(person);
-                        if (personTasks.length === 0 && person !== "Unassigned") return null;
-
-                        const taskIdList = personTasks.map((t) => t.id);
-                        const headerColor = bgColors[index % bgColors.length];
+                          else if (task.estimatedDate)
+                            dueDateText = task.estimatedDate;
+                        } catch (e) {}
 
                         return (
-                          <KanbanBoardColumn
-                            key={person}
-                            columnId={person}
-                            taskIds={taskIdList}
-                            isColumnActive={teamsOverColumnId === person}
-                            cardGhostHeight={175}
-                            header={renderPersonHeader(person, headerColor, personTasks.length)}
-                            emptyContent={
-                              <div className="py-8 text-center text-sm text-muted-foreground italic">
-                                No tasks assigned
-                              </div>
-                            }
-                            renderCard={renderPersonCard}
-                          />
-                        );
-                      })}
-                      </SortableContext>
-                      <DragOverlay adjustScale={false} dropAnimation={{ duration: 150 }}>
-                        {teamsActiveType === "card" && teamsActiveId
-                          ? renderPersonCard(teamsActiveId)
-                          : teamsActiveType === "column" && activePerson
-                            ? (
-                              <KanbanBoardColumn
-                                columnId={activePerson}
-                                taskIds={getPersonTasks(activePerson).map((t) => t.id)}
-                                cardGhostHeight={175}
-                                header={renderPersonHeader(
-                                  activePerson,
-                                  bgColors[orderedPersons.indexOf(activePerson) % bgColors.length],
-                                  getPersonTasks(activePerson).length,
+                          <div
+                            onClick={() => openTaskCard(task)}
+                            className="bg-card border border-border rounded-lg p-3 hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
+                          >
+                            {/* 1. Project ID & Name */}
+                            <div className="flex flex-col gap-1 shrink-0">
+                              <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                <span className="text-primary font-mono">
+                                  {taskDisplayId}
+                                </span>
+                                {groupName && (
+                                  <div className="flex items-center gap-1">
+                                    <div
+                                      className="w-1.5 h-1.5 rounded-full"
+                                      style={{ backgroundColor: groupColor }}
+                                    />
+                                    <span className="truncate max-w-[125px]">
+                                      {groupName}
+                                    </span>
+                                  </div>
                                 )}
-                                renderCard={renderPersonCard}
-                                isOverlay
-                              />
+                              </div>
+                              <h4
+                                className="text-sm font-bold text-foreground line-clamp-2 mt-1"
+                                title={task.name}
+                              >
+                                {task.name}
+                              </h4>
+                            </div>
+
+                            {/* 2. Tags/Labels */}
+                            {Array.isArray(task.tags) &&
+                              task.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                  {task.tags.map((tag: any, idx: number) => {
+                                    const tColor =
+                                      tag.color || "var(--muted-foreground)";
+                                    return (
+                                      <span
+                                        key={idx}
+                                        className="px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center justify-center"
+                                        style={{
+                                          borderColor: `${tColor}30`,
+                                          color: tColor,
+                                          backgroundColor: `${tColor}12`,
+                                        }}
+                                      >
+                                        {tag.tag_name || tag.name}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                            {/* 3. Due Date */}
+                            <div className="text-xs text-muted-foreground grid grid-cols-1 gap-1">
+                              <span className="truncate">
+                                Due: {dueDateText}
+                              </span>
+                            </div>
+
+                            {/* 4. Status and Priority */}
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
+                                {statusName}
+                              </span>
+                              {priorityInfo && (
+                                <span
+                                  className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center"
+                                  style={{
+                                    borderColor:
+                                      priorityInfo.color_code ||
+                                      "var(--border)",
+                                    color: priorityInfo.color_code || "inherit",
+                                    backgroundColor: priorityInfo.color_code
+                                      ? `${priorityInfo.color_code}15`
+                                      : "var(--muted)",
+                                  }}
+                                >
+                                  {priorityInfo.name}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* 5. Assigned Members */}
+                            <div className="mt-auto pt-2 border-t border-border flex flex-col gap-1.5">
+                              <div
+                                className="flex flex-wrap items-center gap-1"
+                                title={tooltipAssigneesText}
+                              >
+                                {visibleAssignees.length === 0 && (
+                                  <span className="text-[10px] text-muted-foreground italic">
+                                    Unassigned
+                                  </span>
+                                )}
+                                {visibleAssignees.map(
+                                  (name: string, i: number) => (
+                                    <div
+                                      key={i}
+                                      className="flex items-center gap-1 bg-muted/40 rounded-full pr-1.5 p-0.5 border border-border/80"
+                                    >
+                                      <Avatar className="w-4 h-4 border border-background">
+                                        <AvatarFallback className="text-[8px] bg-primary/10 text-primary uppercase font-bold">
+                                          {name.charAt(0)}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <span className="text-[9px] font-medium truncate max-w-[50px] text-foreground">
+                                        {name}
+                                      </span>
+                                    </div>
+                                  ),
+                                )}
+                                {extraAssigneesCount > 0 && (
+                                  <div className="flex items-center justify-center h-4 px-1 rounded-full bg-muted border border-border text-[8px] font-medium text-muted-foreground">
+                                    +{extraAssigneesCount}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      const activeGroup =
+                        projectsActiveType === "column" && projectsActiveId
+                          ? groupsToRender.find(
+                              (g) =>
+                                g.id ===
+                                projectsActiveId.replace("column-", ""),
                             )
-                            : null}
-                      </DragOverlay>
-                    </DndContext>
-                    </>
-                );
-              })()}
-              </div>
-            </div>
-            
-            {/* Jira-style Mini Scroll Map */}
-            <TeamsBoardNavigator
-              containerNode={teamsBoardNode}
-              columnsCount={orderedPersons.length}
-            />
-            </>
+                          : null;
+
+                      return (
+                        <>
+                          <DndContext
+                            sensors={projectsSensors}
+                            collisionDetection={kanbanCollisionDetection}
+                            onDragStart={handleProjectsDragStart}
+                            onDragOver={handleProjectsDragOver}
+                            onDragEnd={handleProjectsDragEnd}
+                          >
+                            <SortableContext
+                              items={groupsToRender.map(
+                                (g) => `column-${g.id}`,
+                              )}
+                              strategy={horizontalListSortingStrategy}
+                            >
+                              {groupsToRender.map((group, index) => {
+                                const projectTasks = group.tasks || [];
+                                const taskIdList = projectTasks.map(
+                                  (t) => t.id,
+                                );
+                                const headerColor =
+                                  group.color ||
+                                  bgColors[index % bgColors.length];
+
+                                return (
+                                  <KanbanBoardColumn
+                                    key={group.id}
+                                    columnId={String(group.id)}
+                                    taskIds={taskIdList}
+                                    isColumnActive={
+                                      projectsOverColumnId === String(group.id)
+                                    }
+                                    cardGhostHeight={175}
+                                    header={renderProjectHeader(
+                                      group,
+                                      headerColor,
+                                      projectTasks.length,
+                                    )}
+                                    emptyContent={
+                                      <div className="flex-grow flex flex-col items-center justify-center py-12 text-center text-sm text-slate-400 dark:text-slate-500 italic">
+                                        No Tasks Available
+                                      </div>
+                                    }
+                                    renderCard={renderProjectCard}
+                                  />
+                                );
+                              })}
+                            </SortableContext>
+                            <DragOverlay
+                              adjustScale={false}
+                              dropAnimation={{ duration: 150 }}
+                            >
+                              {projectsActiveType === "card" &&
+                              projectsActiveId ? (
+                                renderProjectCard(projectsActiveId)
+                              ) : projectsActiveType === "column" &&
+                                activeGroup ? (
+                                <KanbanBoardColumn
+                                  columnId={String(activeGroup.id)}
+                                  taskIds={activeGroup.tasks.map((t) => t.id)}
+                                  cardGhostHeight={175}
+                                  header={renderProjectHeader(
+                                    activeGroup,
+                                    activeGroup.color ||
+                                      bgColors[
+                                        groupsToRender.indexOf(activeGroup) %
+                                          bgColors.length
+                                      ],
+                                    activeGroup.tasks.length,
+                                  )}
+                                  renderCard={renderProjectCard}
+                                  isOverlay
+                                />
+                              ) : null}
+                            </DragOverlay>
+                          </DndContext>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Jira-style Mini Scroll Map */}
+                <TeamsBoardNavigator
+                  containerNode={teamsBoardNode}
+                  columnsCount={memoizedFilteredData.groups.length}
+                />
+              </>
+            ) : (
+              <>
+                <div
+                  ref={teamsBoardRef}
+                  className="flex-1 min-h-0 overflow-auto pt-6 px-6 pb-2 bg-muted/10 custom-scrollbar scrollbar-visible scroll-shadows-x"
+                >
+                  {/* Kanban by Team Member */}
+                  <div className="flex w-max h-fit gap-6 pb-4 items-stretch">
+                    {(() => {
+                      const allTasks = teamKanbanGroups.flatMap((g) => g.tasks);
+                      const bgColors = [
+                        "#22c55e",
+                        "#ef4444",
+                        "#f97316",
+                        "#3b82f6",
+                        "#a855f7",
+                        "#eab308",
+                      ];
+
+                      const getPersonTasks = (person: string) => {
+                        let personTasks = allTasks.filter((t) => {
+                          const assignees =
+                            t.assignee_names || (t.person ? [t.person] : []);
+                          if (person === "Unassigned")
+                            return assignees.length === 0;
+                          return assignees.includes(person);
+                        });
+
+                        // Apply session-local drag-and-drop reorder override, if any
+                        const orderOverride = teamsOrder[person];
+                        if (orderOverride) {
+                          const rank = new Map(
+                            orderOverride.map((id, i) => [id, i]),
+                          );
+                          personTasks = [...personTasks].sort((a, b) => {
+                            const ra = rank.has(a.id)
+                              ? rank.get(a.id)!
+                              : Number.MAX_SAFE_INTEGER;
+                            const rb = rank.has(b.id)
+                              ? rank.get(b.id)!
+                              : Number.MAX_SAFE_INTEGER;
+                            return ra - rb;
+                          });
+                        }
+                        return personTasks;
+                      };
+
+                      const renderPersonHeader = (
+                        person: string,
+                        headerColor: string,
+                        count: number,
+                      ) => {
+                        const abbreviation =
+                          person !== "Unassigned" && person.length > 0
+                            ? person.substring(0, 2).toUpperCase()
+                            : "?";
+                        return (
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {person === "Unassigned" ? (
+                                <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center bg-muted border border-border shadow-sm">
+                                  <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                                    {abbreviation}
+                                  </span>
+                                </div>
+                              ) : (
+                                <Avatar className="w-6 h-6 border border-border/50 shadow-sm">
+                                  <AvatarFallback
+                                    className="text-[10px] font-bold uppercase transition-colors"
+                                    style={{
+                                      backgroundColor: `${headerColor}20`,
+                                      color: headerColor,
+                                    }}
+                                  >
+                                    {abbreviation}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+                              <h3
+                                className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100 truncate"
+                                title={person}
+                              >
+                                {person}
+                              </h3>
+                              <span className="text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full min-w-[20px] text-center shrink-0">
+                                {count}
+                              </span>
+                            </div>
+                            <div className="opacity-0 group-hover/header:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
+                              <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-250 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors flex items-center gap-1">
+                                <span className="sr-only">More Actions</span>
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                              <GripVertical className="h-4 w-4 text-slate-300" />
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      const renderPersonCard = (taskId: string) => {
+                        const task = allTasks.find((t) => t.id === taskId);
+                        if (!task) return null;
+
+                        const parentGroup = teamKanbanGroups.find(
+                          (g) =>
+                            g.tasks.find((t) => t.id === task.id) ||
+                            g.tasks.find((t) =>
+                              t.subitems?.find((s: any) => s.id === task.id),
+                            ),
+                        );
+                        if (!parentGroup) return null;
+
+                        const groupColor = parentGroup.color || "#3b82f6";
+                        const groupName = parentGroup.name || "Group";
+                        const statusName =
+                          statuses.find(
+                            (s) => String(s.id) === String(task.status_id),
+                          )?.name ||
+                          task.status ||
+                          "Working";
+                        const priorityInfo = priorities.find(
+                          (p) => String(p.id) === String(task.priority_id),
+                        );
+                        const taskDisplayId = parentGroup.abbreviation
+                          ? `${parentGroup.abbreviation}-${(task as any).number || task.id}`
+                          : `#${(task as any).number || task.id}`;
+                        const assigneeNames =
+                          task.assignee_names ||
+                          (task.person ? [task.person] : []);
+                        const tooltipAssigneesText = assigneeNames.join(", ");
+                        const visibleAssignees = assigneeNames.slice(0, 3);
+                        const extraAssigneesCount = assigneeNames.length - 3;
+
+                        let dueDateText = "-";
+                        try {
+                          if (task.estimatedDateRaw)
+                            dueDateText = format(
+                              new Date(task.estimatedDateRaw),
+                              "dd MMM yyyy",
+                            );
+                          else if (task.estimatedDate)
+                            dueDateText = task.estimatedDate;
+                        } catch (e) {}
+
+                        return (
+                          <div
+                            onClick={() => openTaskCard(task)}
+                            className="bg-card border border-border rounded-lg p-3 hover:shadow-md transition-shadow group flex flex-col gap-3 min-h-[175px]"
+                          >
+                            {/* 1. Project ID & Name */}
+                            <div className="flex flex-col gap-1 shrink-0">
+                              <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                <span className="text-primary font-mono">
+                                  {taskDisplayId}
+                                </span>
+                                {groupName && (
+                                  <div className="flex items-center gap-1">
+                                    <div
+                                      className="w-1.5 h-1.5 rounded-full"
+                                      style={{ backgroundColor: groupColor }}
+                                    />
+                                    <span className="truncate max-w-[125px]">
+                                      {groupName}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <h4
+                                className="text-sm font-bold text-foreground line-clamp-2 mt-1"
+                                title={task.name}
+                              >
+                                {task.name}
+                              </h4>
+                            </div>
+
+                            {/* 2. Tags/Labels */}
+                            {Array.isArray(task.tags) &&
+                              task.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                  {task.tags.map((tag: any, idx: number) => {
+                                    const tColor =
+                                      tag.color || "var(--muted-foreground)";
+                                    return (
+                                      <span
+                                        key={idx}
+                                        className="px-1.5 py-0.5 rounded text-[9px] font-bold border flex items-center justify-center"
+                                        style={{
+                                          borderColor: `${tColor}30`,
+                                          color: tColor,
+                                          backgroundColor: `${tColor}12`,
+                                        }}
+                                      >
+                                        {tag.tag_name || tag.name}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                            {/* 3. Due Date */}
+                            <div className="text-xs text-muted-foreground grid grid-cols-1 gap-1">
+                              <span className="truncate">
+                                Due: {dueDateText}
+                              </span>
+                            </div>
+
+                            {/* 4. Status and Priority */}
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-medium border border-border flex items-center justify-center">
+                                {statusName}
+                              </span>
+                              {priorityInfo && (
+                                <span
+                                  className="px-2 py-0.5 rounded-md text-[10px] font-medium border flex items-center justify-center"
+                                  style={{
+                                    borderColor:
+                                      priorityInfo.color_code ||
+                                      "var(--border)",
+                                    color: priorityInfo.color_code || "inherit",
+                                    backgroundColor: priorityInfo.color_code
+                                      ? `${priorityInfo.color_code}15`
+                                      : "var(--muted)",
+                                  }}
+                                >
+                                  {priorityInfo.name}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* 5. Assigned Members */}
+                            <div className="mt-auto pt-2 border-t border-border flex flex-col gap-1.5">
+                              <div
+                                className="flex flex-wrap items-center gap-1"
+                                title={tooltipAssigneesText}
+                              >
+                                {visibleAssignees.length === 0 && (
+                                  <span className="text-[10px] text-muted-foreground italic">
+                                    Unassigned
+                                  </span>
+                                )}
+                                {visibleAssignees.map(
+                                  (name: string, i: number) => (
+                                    <div
+                                      key={i}
+                                      className="flex items-center gap-1 bg-muted/40 rounded-full pr-1.5 p-0.5 border border-border/80"
+                                    >
+                                      <Avatar className="w-4 h-4 border border-background">
+                                        <AvatarFallback className="text-[8px] bg-primary/10 text-primary uppercase font-bold">
+                                          {name.charAt(0)}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <span className="text-[9px] font-medium truncate max-w-[50px] text-foreground">
+                                        {name}
+                                      </span>
+                                    </div>
+                                  ),
+                                )}
+                                {extraAssigneesCount > 0 && (
+                                  <div className="flex items-center justify-center h-4 px-1 rounded-full bg-muted border border-border text-[8px] font-medium text-muted-foreground">
+                                    +{extraAssigneesCount}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      const activePerson =
+                        teamsActiveType === "column" && teamsActiveId
+                          ? teamsActiveId.replace("column-", "")
+                          : null;
+
+                      return (
+                        <>
+                          <DndContext
+                            sensors={teamsSensors}
+                            collisionDetection={kanbanCollisionDetection}
+                            onDragStart={handleTeamsDragStart}
+                            onDragOver={handleTeamsDragOver}
+                            onDragEnd={handleTeamsDragEnd}
+                          >
+                            <SortableContext
+                              items={orderedPersons.map((p) => `column-${p}`)}
+                              strategy={horizontalListSortingStrategy}
+                            >
+                              {orderedPersons.map((person, index) => {
+                                const personTasks = getPersonTasks(person);
+                                if (
+                                  personTasks.length === 0 &&
+                                  person !== "Unassigned"
+                                )
+                                  return null;
+
+                                const taskIdList = personTasks.map((t) => t.id);
+                                const headerColor =
+                                  bgColors[index % bgColors.length];
+
+                                return (
+                                  <KanbanBoardColumn
+                                    key={person}
+                                    columnId={person}
+                                    taskIds={taskIdList}
+                                    isColumnActive={
+                                      teamsOverColumnId === person
+                                    }
+                                    cardGhostHeight={175}
+                                    header={renderPersonHeader(
+                                      person,
+                                      headerColor,
+                                      personTasks.length,
+                                    )}
+                                    emptyContent={
+                                      <div className="py-8 text-center text-sm text-muted-foreground italic">
+                                        No tasks assigned
+                                      </div>
+                                    }
+                                    renderCard={renderPersonCard}
+                                  />
+                                );
+                              })}
+                            </SortableContext>
+                            <DragOverlay
+                              adjustScale={false}
+                              dropAnimation={{ duration: 150 }}
+                            >
+                              {teamsActiveType === "card" && teamsActiveId ? (
+                                renderPersonCard(teamsActiveId)
+                              ) : teamsActiveType === "column" &&
+                                activePerson ? (
+                                <KanbanBoardColumn
+                                  columnId={activePerson}
+                                  taskIds={getPersonTasks(activePerson).map(
+                                    (t) => t.id,
+                                  )}
+                                  cardGhostHeight={175}
+                                  header={renderPersonHeader(
+                                    activePerson,
+                                    bgColors[
+                                      orderedPersons.indexOf(activePerson) %
+                                        bgColors.length
+                                    ],
+                                    getPersonTasks(activePerson).length,
+                                  )}
+                                  renderCard={renderPersonCard}
+                                  isOverlay
+                                />
+                              ) : null}
+                            </DragOverlay>
+                          </DndContext>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Jira-style Mini Scroll Map */}
+                <TeamsBoardNavigator
+                  containerNode={teamsBoardNode}
+                  columnsCount={orderedPersons.length}
+                />
+              </>
             )}
           </div>
         )}
@@ -8217,7 +8802,10 @@ export function WorkloadBoard({
                 />
               </div>
               <div className="grid gap-2">
-                <label htmlFor="group-abbreviation" className="text-sm font-medium">
+                <label
+                  htmlFor="group-abbreviation"
+                  className="text-sm font-medium"
+                >
                   Abbreviation
                 </label>
                 <Input
@@ -8233,16 +8821,14 @@ export function WorkloadBoard({
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium">
-                  Completion Date
-                </label>
+                <label className="text-sm font-medium">Completion Date</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal h-10 bg-background border-input",
-                        !newGroupCompletionDate && "text-muted-foreground"
+                        !newGroupCompletionDate && "text-muted-foreground",
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -8446,17 +9032,26 @@ export function WorkloadBoard({
                     <span className="text-xs">Archive</span>
                   </button>
 
-                  <Popover open={isMoveDialogOpen} onOpenChange={setIsMoveDialogOpen}>
+                  <Popover
+                    open={isMoveDialogOpen}
+                    onOpenChange={setIsMoveDialogOpen}
+                  >
                     <PopoverTrigger asChild>
                       <button className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
                         <FolderSymlink className="h-5 w-5" />
                         <span className="text-xs">Move to</span>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-80 p-4" align="center" side="top">
+                    <PopoverContent
+                      className="w-80 p-4"
+                      align="center"
+                      side="top"
+                    >
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <h4 className="font-medium leading-none text-foreground">Move Selected Tasks</h4>
+                          <h4 className="font-medium leading-none text-foreground">
+                            Move Selected Tasks
+                          </h4>
                           <p className="text-xs text-muted-foreground">
                             Select a group and/or parent task to move items to.
                           </p>
@@ -8489,12 +9084,19 @@ export function WorkloadBoard({
                             </label>
                             <select
                               value={moveToParentId}
-                              onChange={(e) => setMoveToParentId(e.target.value)}
+                              onChange={(e) =>
+                                setMoveToParentId(e.target.value)
+                              }
                               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             >
-                              <option value="none">None (Move as main task)</option>
+                              <option value="none">
+                                None (Move as main task)
+                              </option>
                               {availableParentTasks.map((parentTask) => (
-                                <option key={parentTask.id} value={parentTask.id}>
+                                <option
+                                  key={parentTask.id}
+                                  value={parentTask.id}
+                                >
                                   {parentTask.name}
                                 </option>
                               ))}
@@ -8510,10 +9112,10 @@ export function WorkloadBoard({
                             >
                               Cancel
                             </Button>
-                            <Button 
+                            <Button
                               size="sm"
                               className="h-8 text-xs"
-                              onClick={moveCheckedTasks} 
+                              onClick={moveCheckedTasks}
                               disabled={!moveToGroupId}
                             >
                               Move Tasks
@@ -8574,6 +9176,8 @@ export function WorkloadBoard({
                 ),
               )?.color
             }
+            groups={groups}
+            onGroupChange={handleGroupChange}
             onInlineEditTaskName={handleInlineEditTaskName}
             tags={tags}
             onTagChange={handleTagChange}
@@ -8581,7 +9185,10 @@ export function WorkloadBoard({
               const t = getTaskById(taskId);
               if (t) {
                 updateTaskInGroups(taskId, {
-                  comment_count: Math.max(0, (t.comment_count || 0) + incrementBy),
+                  comment_count: Math.max(
+                    0,
+                    (t.comment_count || 0) + incrementBy,
+                  ),
                 });
               }
             }}
