@@ -1,11 +1,34 @@
-import { useCallback, useMemo, useState, useRef, useEffect, createContext, useContext } from "react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+  useRef,
+  useEffect,
+  createContext,
+  useContext,
+} from "react";
 import { Gantt, WillowDark, Tooltip } from "@svar-ui/react-gantt";
 import "@svar-ui/react-gantt/all.css";
-import { format, addDays, parseISO, differenceInCalendarDays, startOfMonth, endOfMonth } from "date-fns";
+import {
+  format,
+  addDays,
+  parseISO,
+  differenceInCalendarDays,
+  startOfMonth,
+  endOfMonth,
+} from "date-fns";
 import type { TaskGroup, Task } from "@/features/workload/types/workload-types";
 import type { Status, Priority } from "@/features/cms/types/types";
 import { cn } from "@/utils/utils";
-import { Plus, Loader2, Settings, Check, CalendarDays, ChevronDown, X } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  Settings,
+  Check,
+  CalendarDays,
+  ChevronDown,
+  X,
+} from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -191,7 +214,7 @@ const GanttStatusCell = ({ row }: { row: any }) => {
   const setOpenPopoverId = context?.setOpenPopoverId ?? (() => {});
 
   const statusObj = context?.statuses?.find(
-    (s) => String(s.id) === String(task.status_id)
+    (s) => String(s.id) === String(task.status_id),
   );
 
   return (
@@ -228,7 +251,7 @@ const GanttPriorityCell = ({ row }: { row: any }) => {
   const setOpenPopoverId = context?.setOpenPopoverId ?? (() => {});
 
   const priorityObj = context?.priorities?.find(
-    (p) => String(p.id) === String(task.priority_id)
+    (p) => String(p.id) === String(task.priority_id),
   );
 
   return (
@@ -265,9 +288,7 @@ const GanttPersonCell = ({ row }: { row: any }) => {
   const setOpenPopoverId = context?.setOpenPopoverId ?? (() => {});
 
   const selectedMemberIds = (task.assigned_to_ids ||
-    (task.assigned_to_id
-      ? [String(task.assigned_to_id)]
-      : [])) as string[];
+    (task.assigned_to_id ? [String(task.assigned_to_id)] : [])) as string[];
 
   return (
     <div
@@ -336,7 +357,7 @@ const GanttEstimatedDateCell = ({ row }: { row: any }) => {
         openPopoverId={openPopoverId}
         setOpenPopoverId={setOpenPopoverId}
         onEstimatedDateChange={onEstimatedDateChange}
-        customTrigger={ 
+        customTrigger={
           <Button
             type="button"
             variant="outline"
@@ -1324,668 +1345,683 @@ export default function GanttView({
 
   return (
     <GanttCellContext.Provider value={cellContextValue}>
-      <div className="flex-1 w-[calc(100%-1.5rem)] h-[calc(100vh-220px)] min-h-[500px] flex flex-col mt-4 ml-6">
-      {/* Customized View / Horizontal Toolbar for Scale Control and Future Filters */}
-      <div className="flex items-center justify-end mb-4 pr-6 select-none">
-        {onAddTask && (
-          <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button className="mr-3 h-9 px-4 text-xs font-semibold rounded-md shadow-sm gap-1.5 flex items-center bg-primary hover:bg-primary/95 text-primary-foreground">
-                <Plus className="w-3.5 h-3.5" />
-                Add Task
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              className="w-[350px] p-4 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999] max-h-[90vh] overflow-y-auto"
-              onInteractOutside={(e) => {
-                const target = e.target as HTMLElement;
-                if (
-                  target.closest('[role="listbox"]') ||
-                  target.closest("[data-radix-select-viewport]") ||
-                  target.closest(".SelectContent") ||
-                  target.closest("[data-radix-portal]")
-                ) {
-                  e.preventDefault();
-                }
-              }}
-            >
-              <div className="space-y-1 mb-3">
-                <h3 className="font-semibold text-sm text-foreground leading-none">
-                  Create New Task
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Add a new task or subtask to the board
-                </p>
-              </div>
-              <form onSubmit={handleCreateTask} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="taskName" className="text-foreground">
-                    Task Name
-                  </Label>
-                  <Input
-                    id="taskName"
-                    value={newTaskName}
-                    onChange={(e) => setNewTaskName(e.target.value)}
-                    placeholder="Enter task name"
-                    required
-                    className="bg-background border-border focus-visible:ring-primary text-foreground"
-                  />
+      <div className="flex-1 w-full min-w-0 h-[calc(100vh-180px)] md:h-[calc(100vh-220px)] min-h-[300px] flex flex-col mt-4 px-2 sm:px-6 relative pb-4">
+        {/* Customized View / Horizontal Toolbar for Scale Control and Future Filters */}
+        <div className="flex flex-wrap flex-col sm:flex-row items-stretch sm:items-center justify-start md:justify-end mb-4 select-none gap-3 sm:gap-2">
+          {onAddTask && (
+            <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button className="w-full sm:w-auto h-9 px-4 text-xs font-semibold rounded-md shadow-sm gap-1.5 flex items-center bg-primary hover:bg-primary/95 text-primary-foreground">
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Task
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-[350px] p-4 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999] max-h-[90vh] overflow-y-auto"
+                onInteractOutside={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (
+                    target.closest('[role="listbox"]') ||
+                    target.closest("[data-radix-select-viewport]") ||
+                    target.closest(".SelectContent") ||
+                    target.closest("[data-radix-portal]")
+                  ) {
+                    e.preventDefault();
+                  }
+                }}
+              >
+                <div className="space-y-1 mb-3">
+                  <h3 className="font-semibold text-sm text-foreground leading-none">
+                    Create New Task
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Add a new task or subtask to the board
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="taskGroup" className="text-foreground">
-                    Group
-                  </Label>
-                  <Select
-                    value={selectedGroupId}
-                    onValueChange={setSelectedGroupId}
-                  >
-                    <SelectTrigger
-                      id="taskGroup"
-                      className="w-full bg-background border-border text-foreground focus:ring-primary"
+                <form onSubmit={handleCreateTask} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="taskName" className="text-foreground">
+                      Task Name
+                    </Label>
+                    <Input
+                      id="taskName"
+                      value={newTaskName}
+                      onChange={(e) => setNewTaskName(e.target.value)}
+                      placeholder="Enter task name"
+                      required
+                      className="bg-background border-border focus-visible:ring-primary text-foreground"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="taskGroup" className="text-foreground">
+                      Group
+                    </Label>
+                    <Select
+                      value={selectedGroupId}
+                      onValueChange={setSelectedGroupId}
                     >
-                      <SelectValue placeholder="Select a group" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-popover-foreground z-[10000]">
-                      {groups.map((group) => (
+                      <SelectTrigger
+                        id="taskGroup"
+                        className="w-full bg-background border-border text-foreground focus:ring-primary"
+                      >
+                        <SelectValue placeholder="Select a group" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border text-popover-foreground z-[10000]">
+                        {groups.map((group) => (
+                          <SelectItem
+                            key={group.id}
+                            value={String(group.id)}
+                            className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+                          >
+                            {group.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="parentTask" className="text-foreground">
+                      Parent Task (Optional)
+                    </Label>
+                    <Select
+                      value={parentTaskId}
+                      onValueChange={setParentTaskId}
+                    >
+                      <SelectTrigger
+                        id="parentTask"
+                        className="w-full bg-background border-border text-foreground focus:ring-primary"
+                      >
+                        <SelectValue placeholder="Select a parent task (optional)" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border text-popover-foreground z-[10000]">
                         <SelectItem
-                          key={group.id}
-                          value={String(group.id)}
+                          value="none"
                           className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                         >
-                          {group.name}
+                          None (Create as Main Task)
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="parentTask" className="text-foreground">
-                    Parent Task (Optional)
-                  </Label>
-                  <Select value={parentTaskId} onValueChange={setParentTaskId}>
-                    <SelectTrigger
-                      id="parentTask"
-                      className="w-full bg-background border-border text-foreground focus:ring-primary"
-                    >
-                      <SelectValue placeholder="Select a parent task (optional)" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover border-border text-popover-foreground z-[10000]">
-                      <SelectItem
-                        value="none"
-                        className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                      >
-                        None (Create as Main Task)
-                      </SelectItem>
-                      {parentTaskOptions.map((task) => (
-                        <SelectItem
-                          key={task.id}
-                          value={String(task.id)}
-                          className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+                        {parentTaskOptions.map((task) => (
+                          <SelectItem
+                            key={task.id}
+                            value={String(task.id)}
+                            className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+                          >
+                            {task.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-foreground">
+                      Assignees (Optional)
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full bg-background border-border text-foreground focus:ring-primary hover:bg-accent hover:text-accent-foreground h-9 px-3 flex items-center justify-between font-normal text-xs"
                         >
-                          {task.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-foreground">Assignees (Optional)</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full bg-background border-border text-foreground focus:ring-primary hover:bg-accent hover:text-accent-foreground h-9 px-3 flex items-center justify-between font-normal text-xs"
-                      >
-                        {selectedAssigneeIds.length === 0 ? (
-                          <span className="text-muted-foreground">
-                            Select assignees (optional)
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-1.5 overflow-hidden">
-                            <div className="flex -space-x-1.5 overflow-hidden">
-                              {selectedAssigneeIds.slice(0, 3).map((id) => {
-                                const member = members.find(
-                                  (m) => Number(m.user_id) === id,
-                                );
-                                if (!member) return null;
-                                const initials = (member.name || "")
-                                  .split(/\s+/)
-                                  .map((n: string) => n[0])
-                                  .filter(Boolean)
-                                  .slice(0, 2)
-                                  .join("")
-                                  .toUpperCase();
-                                const bgColor = stringToHslColor(
-                                  member.name || String(id),
-                                );
-                                return (
-                                  <Avatar
-                                    key={id}
-                                    className="h-5 w-5 border border-slate-900 shrink-0"
-                                  >
-                                    <AvatarFallback
-                                      style={{
-                                        background: bgColor,
-                                        color: "white",
-                                      }}
-                                      className="text-[8px] font-semibold flex items-center justify-center"
-                                    >
-                                      {initials || "U"}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                );
-                              })}
-                            </div>
-                            <span className="truncate text-xs">
-                              {selectedAssigneeIds.length === 1
-                                ? members.find(
-                                    (m) =>
-                                      Number(m.user_id) ===
-                                      selectedAssigneeIds[0],
-                                  )?.name
-                                : `${selectedAssigneeIds.length} assignees selected`}
+                          {selectedAssigneeIds.length === 0 ? (
+                            <span className="text-muted-foreground">
+                              Select assignees (optional)
                             </span>
-                          </div>
-                        )}
-                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      align="start"
-                      className="w-[318px] p-2 bg-popover border-border text-popover-foreground shadow-xl rounded-md z-[10000] flex flex-col"
-                    >
-                      <div className="p-1 shrink-0">
-                        <Input
-                          placeholder="Search members..."
-                          value={assigneeSearchQuery}
-                          onChange={(e) =>
-                            setAssigneeSearchQuery(e.target.value)
-                          }
-                          className="h-8 bg-background border-border text-xs text-foreground focus-visible:ring-primary mb-2"
-                        />
-                      </div>
-                      <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
-                        {members
-                          .filter((m) =>
+                          ) : (
+                            <div className="flex items-center gap-1.5 overflow-hidden">
+                              <div className="flex -space-x-1.5 overflow-hidden">
+                                {selectedAssigneeIds.slice(0, 3).map((id) => {
+                                  const member = members.find(
+                                    (m) => Number(m.user_id) === id,
+                                  );
+                                  if (!member) return null;
+                                  const initials = (member.name || "")
+                                    .split(/\s+/)
+                                    .map((n: string) => n[0])
+                                    .filter(Boolean)
+                                    .slice(0, 2)
+                                    .join("")
+                                    .toUpperCase();
+                                  const bgColor = stringToHslColor(
+                                    member.name || String(id),
+                                  );
+                                  return (
+                                    <Avatar
+                                      key={id}
+                                      className="h-5 w-5 border border-slate-900 shrink-0"
+                                    >
+                                      <AvatarFallback
+                                        style={{
+                                          background: bgColor,
+                                          color: "white",
+                                        }}
+                                        className="text-[8px] font-semibold flex items-center justify-center"
+                                      >
+                                        {initials || "U"}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  );
+                                })}
+                              </div>
+                              <span className="truncate text-xs">
+                                {selectedAssigneeIds.length === 1
+                                  ? members.find(
+                                      (m) =>
+                                        Number(m.user_id) ===
+                                        selectedAssigneeIds[0],
+                                    )?.name
+                                  : `${selectedAssigneeIds.length} assignees selected`}
+                              </span>
+                            </div>
+                          )}
+                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="start"
+                        className="w-[318px] p-2 bg-popover border-border text-popover-foreground shadow-xl rounded-md z-[10000] flex flex-col"
+                      >
+                        <div className="p-1 shrink-0">
+                          <Input
+                            placeholder="Search members..."
+                            value={assigneeSearchQuery}
+                            onChange={(e) =>
+                              setAssigneeSearchQuery(e.target.value)
+                            }
+                            className="h-8 bg-background border-border text-xs text-foreground focus-visible:ring-primary mb-2"
+                          />
+                        </div>
+                        <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+                          {members
+                            .filter((m) =>
+                              (m.name || "")
+                                .toLowerCase()
+                                .includes(assigneeSearchQuery.toLowerCase()),
+                            )
+                            .map((member) => {
+                              const memberIdNum = Number(member.user_id);
+                              const isSelected =
+                                selectedAssigneeIds.includes(memberIdNum);
+                              const initials = (member.name || "")
+                                .split(/\s+/)
+                                .map((n: string) => n[0])
+                                .filter(Boolean)
+                                .slice(0, 2)
+                                .join("")
+                                .toUpperCase();
+                              const bgColor = stringToHslColor(
+                                member.name || String(member.user_id),
+                              );
+                              return (
+                                <button
+                                  key={member.user_id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedAssigneeIds((prev) =>
+                                      isSelected
+                                        ? prev.filter(
+                                            (id) => id !== memberIdNum,
+                                          )
+                                        : [...prev, memberIdNum],
+                                    );
+                                  }}
+                                  className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-accent text-xs text-left cursor-pointer transition-colors"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <Avatar className="h-6 w-6 shrink-0">
+                                      <AvatarFallback
+                                        style={{
+                                          background: bgColor,
+                                          color: "white",
+                                        }}
+                                        className="text-[10px] font-semibold flex items-center justify-center"
+                                      >
+                                        {initials || "U"}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="truncate">
+                                      {member.name}
+                                    </span>
+                                  </div>
+                                  {isSelected && (
+                                    <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          {members.filter((m) =>
                             (m.name || "")
                               .toLowerCase()
                               .includes(assigneeSearchQuery.toLowerCase()),
-                          )
-                          .map((member) => {
-                            const memberIdNum = Number(member.user_id);
-                            const isSelected =
-                              selectedAssigneeIds.includes(memberIdNum);
-                            const initials = (member.name || "")
-                              .split(/\s+/)
-                              .map((n: string) => n[0])
-                              .filter(Boolean)
-                              .slice(0, 2)
-                              .join("")
-                              .toUpperCase();
-                            const bgColor = stringToHslColor(
-                              member.name || String(member.user_id),
-                            );
-                            return (
-                              <button
-                                key={member.user_id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedAssigneeIds((prev) =>
-                                    isSelected
-                                      ? prev.filter((id) => id !== memberIdNum)
-                                      : [...prev, memberIdNum],
-                                  );
-                                }}
-                                className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-accent text-xs text-left cursor-pointer transition-colors"
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <Avatar className="h-6 w-6 shrink-0">
-                                    <AvatarFallback
-                                      style={{
-                                        background: bgColor,
-                                        color: "white",
-                                      }}
-                                      className="text-[10px] font-semibold flex items-center justify-center"
-                                    >
-                                      {initials || "U"}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="truncate">
-                                    {member.name}
-                                  </span>
-                                </div>
-                                {isSelected && (
-                                  <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                                )}
-                              </button>
-                            );
-                          })}
-                        {members.filter((m) =>
-                          (m.name || "")
-                            .toLowerCase()
-                            .includes(assigneeSearchQuery.toLowerCase()),
-                        ).length === 0 && (
-                          <div className="text-center py-2 text-xs text-muted-foreground">
-                            No members found
+                          ).length === 0 && (
+                            <div className="text-center py-2 text-xs text-muted-foreground">
+                              No members found
+                            </div>
+                          )}
+                        </div>
+                        {selectedAssigneeIds.length > 0 && (
+                          <div className="pt-2 mt-1 border-t border-border shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedAssigneeIds([])}
+                              className="w-full text-center py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                            >
+                              Clear Selection
+                            </button>
                           </div>
                         )}
-                      </div>
-                      {selectedAssigneeIds.length > 0 && (
-                        <div className="pt-2 mt-1 border-t border-border shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedAssigneeIds([])}
-                            className="w-full text-center py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5 flex flex-col">
+                      <Label
+                        htmlFor="startDate"
+                        className="text-foreground text-xs"
+                      >
+                        Start Date (Opt)
+                      </Label>
+                      <Popover
+                        open={isStartPopoverOpen}
+                        onOpenChange={(open) => {
+                          setIsStartPopoverOpen(open);
+                          if (open) {
+                            setTempStartDate(
+                              startDateStr ? new Date(startDateStr) : undefined,
+                            );
+                          }
+                        }}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            id="startDate"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal bg-background border-border hover:bg-accent hover:text-accent-foreground h-9 px-3 text-xs text-foreground relative pr-8",
+                              !startDateStr && "text-muted-foreground",
+                            )}
                           >
-                            Clear Selection
-                          </button>
-                        </div>
+                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate">
+                              {startDateStr
+                                ? format(new Date(startDateStr), "MMM d, yyyy")
+                                : "Pick start date"}
+                            </span>
+                            {startDateStr && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setStartDateStr("");
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-accent"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-auto p-3 bg-popover border-border z-[10000] flex flex-col gap-3"
+                          align="start"
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={tempStartDate}
+                            onSelect={setTempStartDate}
+                            disabled={(date) => {
+                              const refDate =
+                                tempEndDate ||
+                                (endDateStr ? parseISO(endDateStr) : null);
+                              if (!refDate) return false;
+                              const d = new Date(
+                                date.getFullYear(),
+                                date.getMonth(),
+                                date.getDate(),
+                              );
+                              const r = new Date(
+                                refDate.getFullYear(),
+                                refDate.getMonth(),
+                                refDate.getDate(),
+                              );
+                              return d > r;
+                            }}
+                            initialFocus
+                          />
+                          <div className="flex justify-end gap-2 border-t border-border pt-2 shrink-0">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsStartPopoverOpen(false)}
+                              className="border-slate-800 text-foreground hover:bg-accent hover:text-accent-foreground h-7 px-2.5 text-xs font-medium"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                if (tempStartDate) {
+                                  setStartDateStr(
+                                    format(tempStartDate, "yyyy-MM-dd"),
+                                  );
+                                } else {
+                                  setStartDateStr("");
+                                }
+                                setIsStartPopoverOpen(false);
+                              }}
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground h-7 px-2.5 text-xs font-medium"
+                            >
+                              Done
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1.5 flex flex-col">
+                      <Label
+                        htmlFor="endDate"
+                        className="text-foreground text-xs"
+                      >
+                        End Date (Opt)
+                      </Label>
+                      <Popover
+                        open={isEndPopoverOpen}
+                        onOpenChange={(open) => {
+                          setIsEndPopoverOpen(open);
+                          if (open) {
+                            setTempEndDate(
+                              endDateStr ? new Date(endDateStr) : undefined,
+                            );
+                          }
+                        }}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            id="endDate"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal bg-background border-border hover:bg-accent hover:text-accent-foreground h-9 px-3 text-xs text-foreground relative pr-8",
+                              !endDateStr && "text-muted-foreground",
+                            )}
+                          >
+                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate">
+                              {endDateStr
+                                ? format(new Date(endDateStr), "MMM d, yyyy")
+                                : "Pick end date"}
+                            </span>
+                            {endDateStr && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEndDateStr("");
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-accent"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-auto p-3 bg-popover border-border z-[10000] flex flex-col gap-3"
+                          align="start"
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={tempEndDate}
+                            onSelect={setTempEndDate}
+                            disabled={(date) => {
+                              const refDate =
+                                tempStartDate ||
+                                (startDateStr ? parseISO(startDateStr) : null);
+                              if (!refDate) return false;
+                              const d = new Date(
+                                date.getFullYear(),
+                                date.getMonth(),
+                                date.getDate(),
+                              );
+                              const r = new Date(
+                                refDate.getFullYear(),
+                                refDate.getMonth(),
+                                refDate.getDate(),
+                              );
+                              return d < r;
+                            }}
+                            initialFocus
+                          />
+                          <div className="flex justify-end gap-2 border-t border-border pt-2 shrink-0">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsEndPopoverOpen(false)}
+                              className="border-slate-800 text-foreground hover:bg-accent hover:text-accent-foreground h-7 px-2.5 text-xs font-medium"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                if (tempEndDate) {
+                                  setEndDateStr(
+                                    format(tempEndDate, "yyyy-MM-dd"),
+                                  );
+                                } else {
+                                  setEndDateStr("");
+                                }
+                                setIsEndPopoverOpen(false);
+                              }}
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground h-7 px-2.5 text-xs font-medium"
+                            >
+                              Done
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-border/60 flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsAddPopoverOpen(false)}
+                      className="border-border text-foreground hover:bg-accent hover:text-accent-foreground h-8 px-3 text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || !newTaskName.trim()}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-8 px-3 text-xs"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
+                          Creating...
+                        </>
+                      ) : (
+                        "Create"
                       )}
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5 flex flex-col">
-                    <Label
-                      htmlFor="startDate"
-                      className="text-foreground text-xs"
-                    >
-                      Start Date (Opt)
-                    </Label>
-                    <Popover
-                      open={isStartPopoverOpen}
-                      onOpenChange={(open) => {
-                        setIsStartPopoverOpen(open);
-                        if (open) {
-                          setTempStartDate(
-                            startDateStr ? new Date(startDateStr) : undefined,
-                          );
-                        }
-                      }}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="startDate"
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal bg-background border-border hover:bg-accent hover:text-accent-foreground h-9 px-3 text-xs text-foreground relative pr-8",
-                            !startDateStr && "text-muted-foreground",
-                          )}
-                        >
-                          <CalendarDays className="mr-2 h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="truncate">
-                            {startDateStr
-                              ? format(new Date(startDateStr), "MMM d, yyyy")
-                              : "Pick start date"}
-                          </span>
-                          {startDateStr && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setStartDateStr("");
-                              }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-accent"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-auto p-3 bg-popover border-border z-[10000] flex flex-col gap-3"
-                        align="start"
-                      >
-                        <Calendar
-                          mode="single"
-                          selected={tempStartDate}
-                          onSelect={setTempStartDate}
-                          disabled={(date) => {
-                            const refDate =
-                              tempEndDate ||
-                              (endDateStr ? parseISO(endDateStr) : null);
-                            if (!refDate) return false;
-                            const d = new Date(
-                              date.getFullYear(),
-                              date.getMonth(),
-                              date.getDate(),
-                            );
-                            const r = new Date(
-                              refDate.getFullYear(),
-                              refDate.getMonth(),
-                              refDate.getDate(),
-                            );
-                            return d > r;
-                          }}
-                          initialFocus
-                        />
-                        <div className="flex justify-end gap-2 border-t border-border pt-2 shrink-0">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsStartPopoverOpen(false)}
-                            className="border-slate-800 text-foreground hover:bg-accent hover:text-accent-foreground h-7 px-2.5 text-xs font-medium"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => {
-                              if (tempStartDate) {
-                                setStartDateStr(
-                                  format(tempStartDate, "yyyy-MM-dd"),
-                                );
-                              } else {
-                                setStartDateStr("");
-                              }
-                              setIsStartPopoverOpen(false);
-                            }}
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground h-7 px-2.5 text-xs font-medium"
-                          >
-                            Done
-                          </Button>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                    </Button>
                   </div>
-                  <div className="space-y-1.5 flex flex-col">
-                    <Label htmlFor="endDate" className="text-foreground text-xs">
-                      End Date (Opt)
-                    </Label>
-                    <Popover
-                      open={isEndPopoverOpen}
-                      onOpenChange={(open) => {
-                        setIsEndPopoverOpen(open);
-                        if (open) {
-                          setTempEndDate(
-                            endDateStr ? new Date(endDateStr) : undefined,
-                          );
-                        }
-                      }}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="endDate"
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal bg-background border-border hover:bg-accent hover:text-accent-foreground h-9 px-3 text-xs text-foreground relative pr-8",
-                            !endDateStr && "text-muted-foreground",
-                          )}
-                        >
-                          <CalendarDays className="mr-2 h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="truncate">
-                            {endDateStr
-                              ? format(new Date(endDateStr), "MMM d, yyyy")
-                              : "Pick end date"}
-                          </span>
-                          {endDateStr && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEndDateStr("");
-                              }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-accent"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-auto p-3 bg-popover border-border z-[10000] flex flex-col gap-3"
-                        align="start"
-                      >
-                        <Calendar
-                          mode="single"
-                          selected={tempEndDate}
-                          onSelect={setTempEndDate}
-                          disabled={(date) => {
-                            const refDate =
-                              tempStartDate ||
-                              (startDateStr ? parseISO(startDateStr) : null);
-                            if (!refDate) return false;
-                            const d = new Date(
-                              date.getFullYear(),
-                              date.getMonth(),
-                              date.getDate(),
-                            );
-                            const r = new Date(
-                              refDate.getFullYear(),
-                              refDate.getMonth(),
-                              refDate.getDate(),
-                            );
-                            return d < r;
-                          }}
-                          initialFocus
-                        />
-                        <div className="flex justify-end gap-2 border-t border-border pt-2 shrink-0">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsEndPopoverOpen(false)}
-                            className="border-slate-800 text-foreground hover:bg-accent hover:text-accent-foreground h-7 px-2.5 text-xs font-medium"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => {
-                              if (tempEndDate) {
-                                setEndDateStr(
-                                  format(tempEndDate, "yyyy-MM-dd"),
-                                );
-                              } else {
-                                setEndDateStr("");
-                              }
-                              setIsEndPopoverOpen(false);
-                            }}
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground h-7 px-2.5 text-xs font-medium"
-                          >
-                            Done
-                          </Button>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                <div className="pt-3 border-t border-border/60 flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsAddPopoverOpen(false)}
-                    className="border-border text-foreground hover:bg-accent hover:text-accent-foreground h-8 px-3 text-xs"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting || !newTaskName.trim()}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-8 px-3 text-xs"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
-                        Creating...
-                      </>
-                    ) : (
-                      "Create"
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </PopoverContent>
-          </Popover>
-        )}
-        <div className="flex items-center bg-muted/40 p-1 rounded-md border border-border/40 gap-1">
-          {(["day", "week"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setScaleMode(mode)}
-              className={cn(
-                "px-3 py-1.5 rounded-sm text-xs font-medium transition-all capitalize",
-                scaleMode === mode
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
-              )}
+                </form>
+              </PopoverContent>
+            </Popover>
+          )}
+          <div className="flex items-center bg-muted/40 p-1 rounded-md border border-border/40 gap-1">
+            {(["day", "week"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setScaleMode(mode)}
+                className={cn(
+                  "px-3 py-1.5 rounded-sm text-xs font-medium transition-all capitalize",
+                  scaleMode === mode
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/80",
+                )}
+              >
+                {mode === "day" ? "Days" : "Weeks"}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+            <Popover
+              open={isJumpPopoverOpen}
+              onOpenChange={setIsJumpPopoverOpen}
             >
-              {mode === "day" ? "Days" : "Weeks"}
-            </button>
-          ))}
-        </div>
-        <Popover open={isJumpPopoverOpen} onOpenChange={setIsJumpPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-2 h-9 gap-1.5 bg-popover border-border text-foreground hover:bg-accent hover:text-foreground"
-            >
-              <CalendarDays className="w-4 h-4 text-muted-foreground" />
-              <span>Jump to...</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="end"
-            className="w-72 p-3 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999]"
-          >
-            <div className="space-y-3">
-              <div className="border-b border-slate-800/80 pb-1.5 select-none">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Jump to Date
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground text-[10px] uppercase font-semibold">
-                    Month
-                  </Label>
-                  <Select
-                    value={String(jumpMonth)}
-                    onValueChange={(val) => {
-                      setJumpMonth(parseInt(val));
-                    }}
-                  >
-                    <SelectTrigger className="w-full bg-[#1e293b] border-[#334155] text-foreground focus:ring-primary h-9 text-xs">
-                      <SelectValue placeholder="Month" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#1e293b] border-[#334155] text-foreground z-[10000] max-h-48 overflow-y-auto">
-                      {MONTHS.map((m) => (
-                        <SelectItem
-                          key={m.value}
-                          value={m.value}
-                          className="text-foreground focus:bg-[#334155] focus:text-foreground text-xs"
-                        >
-                          {m.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground text-[10px] uppercase font-semibold">
-                    Year
-                  </Label>
-                  <Select
-                    value={String(jumpYear)}
-                    onValueChange={(val) => {
-                      setJumpYear(parseInt(val));
-                    }}
-                  >
-                    <SelectTrigger className="w-full bg-[#1e293b] border-[#334155] text-foreground focus:ring-primary h-9 text-xs">
-                      <SelectValue placeholder="Year" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#1e293b] border-[#334155] text-foreground z-[10000] max-h-48 overflow-y-auto">
-                      {YEARS.map((y) => (
-                        <SelectItem
-                          key={y.value}
-                          value={y.value}
-                          className="text-foreground focus:bg-[#334155] focus:text-foreground text-xs"
-                        >
-                          {y.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="border-t border-border pt-2 flex flex-col gap-1.5">
+              <PopoverTrigger asChild>
                 <Button
-                  type="button"
+                  variant="outline"
                   size="sm"
-                  onClick={() => {
-                    scrollToDate(new Date(jumpYear, jumpMonth, 1));
-                    setIsJumpPopoverOpen(false);
-                  }}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-8 text-xs"
+                  className="flex-1 sm:flex-none h-9 gap-1.5 bg-popover border-border text-foreground hover:bg-accent hover:text-foreground"
                 >
-                  Jump
+                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                  <span>Jump to...</span>
                 </Button>
-                <button
-                  type="button"
-                  onClick={handleGoToToday}
-                  className="w-full text-left px-2 py-1.5 rounded text-xs text-foreground hover:bg-accent hover:text-accent-foreground transition-colors flex items-center justify-between"
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-72 p-3 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999]"
+              >
+                <div className="space-y-3">
+                  <div className="border-b border-slate-800/80 pb-1.5 select-none">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Jump to Date
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground text-[10px] uppercase font-semibold">
+                        Month
+                      </Label>
+                      <Select
+                        value={String(jumpMonth)}
+                        onValueChange={(val) => {
+                          setJumpMonth(parseInt(val));
+                        }}
+                      >
+                        <SelectTrigger className="w-full bg-[#1e293b] border-[#334155] text-foreground focus:ring-primary h-9 text-xs">
+                          <SelectValue placeholder="Month" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#1e293b] border-[#334155] text-foreground z-[10000] max-h-48 overflow-y-auto">
+                          {MONTHS.map((m) => (
+                            <SelectItem
+                              key={m.value}
+                              value={m.value}
+                              className="text-foreground focus:bg-[#334155] focus:text-foreground text-xs"
+                            >
+                              {m.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground text-[10px] uppercase font-semibold">
+                        Year
+                      </Label>
+                      <Select
+                        value={String(jumpYear)}
+                        onValueChange={(val) => {
+                          setJumpYear(parseInt(val));
+                        }}
+                      >
+                        <SelectTrigger className="w-full bg-[#1e293b] border-[#334155] text-foreground focus:ring-primary h-9 text-xs">
+                          <SelectValue placeholder="Year" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#1e293b] border-[#334155] text-foreground z-[10000] max-h-48 overflow-y-auto">
+                          {YEARS.map((y) => (
+                            <SelectItem
+                              key={y.value}
+                              value={y.value}
+                              className="text-foreground focus:bg-[#334155] focus:text-foreground text-xs"
+                            >
+                              {y.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="border-t border-border pt-2 flex flex-col gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        scrollToDate(new Date(jumpYear, jumpMonth, 1));
+                        setIsJumpPopoverOpen(false);
+                      }}
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-8 text-xs"
+                    >
+                      Jump
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={handleGoToToday}
+                      className="w-full text-left px-2 py-1.5 rounded text-xs text-foreground hover:bg-accent hover:text-accent-foreground transition-colors flex items-center justify-between"
+                    >
+                      <span>Go to Today</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        Today
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 bg-background border-border text-foreground hover:bg-accent hover:text-accent-foreground"
                 >
-                  <span>Go to Today</span>
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    Today
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-48 p-2 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999]"
+              >
+                <div className="px-2 py-1.5 border-b border-border/80 mb-1 select-none">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Color Bars By
                   </span>
-                </button>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="ml-2 h-9 w-9 bg-background border-border text-foreground hover:bg-accent hover:text-accent-foreground"
-            >
-              <Settings className="w-4 h-4" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="end"
-            className="w-48 p-2 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999]"
-          >
-            <div className="px-2 py-1.5 border-b border-border/80 mb-1 select-none">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                Color Bars By
-              </span>
-            </div>
-            <div className="space-y-1">
-              {(["status", "priority"] as const).map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setColorBy(option)}
-                  type="button"
-                  className={cn(
-                    "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-all capitalize",
-                    colorBy === option
-                      ? "bg-primary/20 text-foreground font-semibold"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  )}
-                >
-                  <span>{option}</span>
-                  {colorBy === option && (
-                    <Check className="w-3.5 h-3.5 text-primary" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
-      </div>
+                </div>
+                <div className="space-y-1">
+                  {(["status", "priority"] as const).map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => setColorBy(option)}
+                      type="button"
+                      className={cn(
+                        "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-all capitalize",
+                        colorBy === option
+                          ? "bg-primary/20 text-foreground font-semibold"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                      )}
+                    >
+                      <span>{option}</span>
+                      {colorBy === option && (
+                        <Check className="w-3.5 h-3.5 text-primary" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
 
-      {/* Gantt Wrapper */}
-      <div className="flex-1 min-h-0 flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden pm-gantt-wrapper relative">
-        <style>{`
+        {/* Gantt Wrapper */}
+        <div className="flex-1 min-h-0 flex flex-col bg-background text-foreground border border-border rounded-lg overflow-hidden pm-gantt-wrapper relative">
+          <style>{`
           /* Custom styles to match the PM tool aesthetic */
           .pm-gantt-wrapper > div,
           .pm-gantt-wrapper .wx-gantt-theme-willow-dark,
@@ -2124,18 +2160,26 @@ export default function GanttView({
           
           /* Make scrollbars thin and match theme */
           .pm-gantt-wrapper ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 12px;
+            height: 12px;
+            background-color: transparent;
           }
           .pm-gantt-wrapper ::-webkit-scrollbar-track {
-            background: hsl(var(--background));
+            background: hsl(var(--muted) / 0.3);
+            border-radius: 6px;
+            margin: 4px;
           }
           .pm-gantt-wrapper ::-webkit-scrollbar-thumb {
-            background: hsl(var(--muted-foreground) / 0.3);
-            border-radius: 4px;
+            background: hsl(var(--muted-foreground) / 0.5);
+            border-radius: 6px;
+            border: 3px solid hsl(var(--background));
+            background-clip: content-box;
+          }
+          .pm-gantt-wrapper ::-webkit-scrollbar-corner {
+            background: transparent;
           }
           .pm-gantt-wrapper ::-webkit-scrollbar-thumb:hover {
-            background: hsl(var(--muted-foreground) / 0.6);
+            background-color: hsl(var(--muted-foreground) / 0.8);
           }
           /* Override SVAR Gantt default tooltip wrapper styles */
           .wx-tooltip {
@@ -2159,38 +2203,38 @@ export default function GanttView({
 
           ${dynamicStyles}
           `}</style>
-        {mappedTasks.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
-            <p className="text-lg">
-              No tasks found matching the current filters.
-            </p>
-            <p className="text-sm">
-              Try clearing some filters to see tasks in the timeline.
-            </p>
-          </div>
-        ) : (
-          <WillowDark>
-            <Tooltip api={ganttApi} content={CustomTooltipContent}>
-              <Gantt
-                init={handleInit}
-                tasks={mappedTasks}
-                links={[]}
-                columns={ganttColumns}
-                zoom={true}
-                start={ganttTimeRange.start}
-                end={ganttTimeRange.end}
-                cellWidth={timescaleConfig.cellWidth}
-                scales={timescaleConfig.scales}
-                cellHeight={40}
-                autoScale={false}
-                unscheduledTasks={false}
-                taskTypes={ganttTaskTypes}
-              />
-            </Tooltip>
-          </WillowDark>
-        )}
+          {mappedTasks.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
+              <p className="text-lg">
+                No tasks found matching the current filters.
+              </p>
+              <p className="text-sm">
+                Try clearing some filters to see tasks in the timeline.
+              </p>
+            </div>
+          ) : (
+            <WillowDark>
+              <Tooltip api={ganttApi} content={CustomTooltipContent}>
+                <Gantt
+                  init={handleInit}
+                  tasks={mappedTasks}
+                  links={[]}
+                  columns={ganttColumns}
+                  zoom={true}
+                  start={ganttTimeRange.start}
+                  end={ganttTimeRange.end}
+                  cellWidth={timescaleConfig.cellWidth}
+                  scales={timescaleConfig.scales}
+                  cellHeight={40}
+                  autoScale={false}
+                  unscheduledTasks={false}
+                  taskTypes={ganttTaskTypes}
+                />
+              </Tooltip>
+            </WillowDark>
+          )}
+        </div>
       </div>
-    </div>
-  </GanttCellContext.Provider>
+    </GanttCellContext.Provider>
   );
 }
