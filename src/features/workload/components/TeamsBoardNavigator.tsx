@@ -5,29 +5,33 @@ interface TeamsBoardNavigatorProps {
   columnsCount: number;
 }
 
-export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardNavigatorProps) {
+export function TeamsBoardNavigator({
+  containerNode,
+  columnsCount,
+}: TeamsBoardNavigatorProps) {
   const navigatorRef = useRef<HTMLDivElement>(null);
-  
+
   const [scrollStats, setScrollStats] = useState({
-    ratio: 1, 
-    leftRatio: 0 
+    ratio: 1,
+    leftRatio: 0,
   });
 
   const [isDragging, setIsDragging] = useState(false);
+  const dragOffsetRef = useRef<number>(0);
 
   const updateScrollStats = useCallback(() => {
     if (!containerNode) return;
-    
+
     // Only show if it is actually scrollable
     if (containerNode.scrollWidth > containerNode.clientWidth) {
       setScrollStats({
         ratio: containerNode.clientWidth / containerNode.scrollWidth,
-        leftRatio: containerNode.scrollLeft / containerNode.scrollWidth
+        leftRatio: containerNode.scrollLeft / containerNode.scrollWidth,
       });
     } else {
       setScrollStats({
         ratio: 1,
-        leftRatio: 0
+        leftRatio: 0,
       });
     }
   }, [containerNode, isDragging]);
@@ -35,22 +39,24 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
   useEffect(() => {
     if (!containerNode) return;
 
-    containerNode.addEventListener("scroll", updateScrollStats, { passive: true });
+    containerNode.addEventListener("scroll", updateScrollStats, {
+      passive: true,
+    });
     window.addEventListener("resize", updateScrollStats);
-    
+
     // Watch size/content changes of the scroll container to capture dynamic content loading
     const resizeObserver = new ResizeObserver(() => {
       updateScrollStats();
     });
-    
+
     resizeObserver.observe(containerNode);
-    
+
     // Observe child element to watch column structure updates
     const child = containerNode.firstElementChild;
     if (child) {
       resizeObserver.observe(child);
     }
-    
+
     // Initial calculation
     updateScrollStats();
     const timer = setTimeout(updateScrollStats, 100);
@@ -68,39 +74,49 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
     if (!containerNode || !navigatorRef.current) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    
+
     setIsDragging(true);
 
     const navRect = navigatorRef.current.getBoundingClientRect();
     const clickX = e.clientX - navRect.left;
     const clickRatio = clickX / navRect.width;
-    
+
     const thumbWidth = scrollStats.ratio * navRect.width;
     const thumbLeft = scrollStats.leftRatio * navRect.width;
-    
-    if (clickX < thumbLeft || clickX > thumbLeft + thumbWidth) {
-       // Snap center of viewport thumb directly to point clicked
-       let targetLeftRatio = clickRatio - (scrollStats.ratio / 2);
-       // constrain boundaries
-       targetLeftRatio = Math.max(0, Math.min(1 - scrollStats.ratio, targetLeftRatio));
-       containerNode.scrollTo({
-         left: targetLeftRatio * containerNode.scrollWidth,
-         behavior: 'instant'
-       });
-       // We don't have to manually update scrollStats, the container's "scroll" listener will handle it natively
+
+    if (clickX >= thumbLeft && clickX <= thumbLeft + thumbWidth) {
+      dragOffsetRef.current = clickX - thumbLeft;
+    } else {
+      dragOffsetRef.current = thumbWidth / 2;
+      // Snap center of viewport thumb directly to point clicked
+      let targetLeftRatio = clickRatio - scrollStats.ratio / 2;
+      // constrain boundaries
+      targetLeftRatio = Math.max(
+        0,
+        Math.min(1 - scrollStats.ratio, targetLeftRatio),
+      );
+      containerNode.scrollTo({
+        left: targetLeftRatio * containerNode.scrollWidth,
+        behavior: "instant",
+      });
+      // We don't have to manually update scrollStats, the container's "scroll" listener will handle it natively
     }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDragging || !containerNode || !navigatorRef.current) return;
-    
+
     const navRect = navigatorRef.current.getBoundingClientRect();
-    const newLeftRatio = (e.clientX - navRect.left - ((scrollStats.ratio * navRect.width) / 2)) / navRect.width;
-    
-    const boundedRatio = Math.max(0, Math.min(1 - scrollStats.ratio, newLeftRatio));
+    const newLeftRatio =
+      (e.clientX - navRect.left - dragOffsetRef.current) / navRect.width;
+
+    const boundedRatio = Math.max(
+      0,
+      Math.min(1 - scrollStats.ratio, newLeftRatio),
+    );
     containerNode.scrollTo({
       left: boundedRatio * containerNode.scrollWidth,
-      behavior: 'instant'
+      behavior: "instant",
     });
   };
 
@@ -113,7 +129,7 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
     if (!containerNode) return;
     // Push the wheel delta into the horizontal container directly
     const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
-    containerNode.scrollBy({ left: delta, behavior: 'instant' });
+    containerNode.scrollBy({ left: delta, behavior: "instant" });
   };
 
   // Keep navigator hidden on mobile where swiping is natural
@@ -121,21 +137,25 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
 
   const containerWidth = 140;
   const horizontalPadding = 6;
-  const innerWidth = containerWidth - (horizontalPadding * 2);
+  const innerWidth = containerWidth - horizontalPadding * 2;
   const thumbWidth = Math.max(24, scrollStats.ratio * innerWidth);
   const maxLeftRatio = scrollStats.ratio >= 1 ? 0 : 1 - scrollStats.ratio;
-  const boundedLeftRatio = Math.max(0, Math.min(maxLeftRatio, scrollStats.leftRatio));
-  
+  const boundedLeftRatio = Math.max(
+    0,
+    Math.min(maxLeftRatio, scrollStats.leftRatio),
+  );
+
   // Actually, standard math for thumbLeft:
   // We want thumb to slide exactly from `horizontalPadding` up to `containerWidth - horizontalPadding - thumbWidth`.
   // The available travel distance is innerWidth - thumbWidth.
   // The scroll percentage is boundedLeftRatio / maxLeftRatio.
-  
+
   const scrollPercent = maxLeftRatio > 0 ? boundedLeftRatio / maxLeftRatio : 0;
-  const finalThumbLeft = horizontalPadding + scrollPercent * (innerWidth - thumbWidth);
+  const finalThumbLeft =
+    horizontalPadding + scrollPercent * (innerWidth - thumbWidth);
 
   return (
-    <div className="hidden sm:block absolute bottom-6 right-6 z-50">
+    <div className="absolute bottom-6 right-6 z-50">
       <style>{`
         .jira-scroll-map {
             width: ${containerWidth}px;
@@ -145,6 +165,7 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
             padding: 6px;
             position: relative;
             overflow: hidden;
+            touch-action: none;
             box-shadow:
                 inset 0 1px 2px rgba(9,30,66,.08),
                 0 1px 3px rgba(9,30,66,.08);
@@ -217,7 +238,7 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
         }
       `}</style>
 
-      <div 
+      <div
         ref={navigatorRef}
         className="jira-scroll-map cursor-pointer"
         onPointerDown={handlePointerDown}
@@ -226,15 +247,17 @@ export function TeamsBoardNavigator({ containerNode, columnsCount }: TeamsBoardN
         onPointerCancel={handlePointerUp}
         onWheel={handleWheel}
       >
-        <div 
+        <div
           className="jira-scroll-thumb"
           style={{
             width: `${thumbWidth}px`,
-            left: `${finalThumbLeft}px`
+            left: `${finalThumbLeft}px`,
           }}
         >
           {/* Vertical internal grid bars based on thumb width */}
-          {Array.from({ length: Math.min(4, Math.max(1, Math.floor(thumbWidth / 12))) }).map((_, i) => (
+          {Array.from({
+            length: Math.min(4, Math.max(1, Math.floor(thumbWidth / 12))),
+          }).map((_, i) => (
             <span key={i} />
           ))}
         </div>
