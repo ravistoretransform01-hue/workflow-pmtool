@@ -1358,7 +1358,8 @@ export default function GanttView({
               </PopoverTrigger>
               <PopoverContent
                 align="end"
-                className="w-[350px] p-4 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999] max-h-[90vh] overflow-y-auto"
+                collisionPadding={10}
+                className="w-[350px] p-4 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999] max-h-[50vh] min-h-[300px] sm:max-h-[60vh] overflow-y-auto custom-scrollbar"
                 onInteractOutside={(e) => {
                   const target = e.target as HTMLElement;
                   if (
@@ -1887,7 +1888,8 @@ export default function GanttView({
               </PopoverTrigger>
               <PopoverContent
                 align="end"
-                className="w-72 p-3 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999]"
+                collisionPadding={10}
+                className="w-72 p-3 bg-popover border-border text-popover-foreground shadow-2xl rounded-lg z-[9999] max-h-[50vh] sm:max-h-[60vh] overflow-y-auto custom-scrollbar"
               >
                 <div className="space-y-3">
                   <div className="border-b border-slate-800/80 pb-1.5 select-none">
