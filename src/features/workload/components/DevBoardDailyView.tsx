@@ -220,7 +220,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
       <style>{collapseStyle}</style>
       <div
         className="flex-1 flex flex-col w-full h-full overflow-y-auto"
-        style={{ background: "#08111F", color: "#fff" }}
+        style={{ background: "hsl(var(--background))", color: "hsl(var(--foreground))" }}
         data-board-id={boardId}
       >
         <div className="max-w-[1600px] w-full mx-auto px-6 md:px-10 py-6 space-y-6">
@@ -234,9 +234,9 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     value={activeDateStr}
                     onChange={(e) => setActiveDateStr(e.target.value)}
                     style={{
-                      background: "#0F1B33",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      color: "#e2e8f0",
+                      background: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      color: "hsl(var(--foreground))",
                       borderRadius: "12px",
                       height: "40px",
                       padding: "0 36px 0 14px",
@@ -263,13 +263,13 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                   </select>
                   <ChevronDown
                     className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                    style={{ width: 14, height: 14, color: "#64748b" }}
+                    style={{ width: 14, height: 14, color: "hsl(var(--muted-foreground))" }}
                   />
                 </div>
               ) : (
                 <span
                   style={{
-                    color: "#64748b",
+                    color: "hsl(var(--muted-foreground))",
                     fontSize: "13px",
                     fontWeight: 500,
                   }}
@@ -289,8 +289,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     setActiveDateStr(todayStr);
                   }}
                   style={{
-                    background: "linear-gradient(135deg, #34D399, #10B981)",
-                    color: "#08111F",
+                    background: "hsl(var(--primary))",
+                    color: "hsl(var(--background))",
                     border: "none",
                     borderRadius: "12px",
                     height: "40px",
@@ -302,19 +302,19 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     gap: "6px",
                     cursor: "pointer",
                     transition: "transform 150ms, box-shadow 150ms",
-                    boxShadow: "0 2px 12px rgba(52,211,153,0.25)",
+                    boxShadow: "0 2px 12px hsl(var(--primary) / 0.25)",
                   }}
                   onMouseEnter={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.transform =
                       "translateY(-1px)";
                     (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                      "0 4px 18px rgba(52,211,153,0.35)";
+                      "0 4px 18px hsl(var(--primary) / 0.35)";
                   }}
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.transform =
                       "translateY(0)";
                     (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                      "0 2px 12px rgba(52,211,153,0.25)";
+                      "0 2px 12px hsl(var(--primary) / 0.25)";
                   }}
                 >
                   <Plus style={{ width: 15, height: 15 }} /> Today
@@ -329,10 +329,10 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     onChange={(e) => setNewDateValue(e.target.value)}
                     className="h-[40px] w-[150px] [color-scheme:dark]"
                     style={{
-                      background: "#0F1B33",
-                      border: "1px solid rgba(255,255,255,0.08)",
+                      background: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
                       borderRadius: "12px",
-                      color: "#e2e8f0",
+                      color: "hsl(var(--foreground))",
                       fontSize: "13px",
                     }}
                   />
@@ -354,8 +354,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                       }
                     }}
                     style={{
-                      background: "linear-gradient(135deg, #34D399, #10B981)",
-                      color: "#08111F",
+                      background: "hsl(var(--primary))",
+                      color: "hsl(var(--background))",
                       border: "none",
                       borderRadius: "12px",
                       height: "40px",
@@ -372,7 +372,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     style={{
                       background: "none",
                       border: "none",
-                      color: "#64748b",
+                      color: "hsl(var(--muted-foreground))",
                       cursor: "pointer",
                       padding: "0 4px",
                       display: "flex",
@@ -386,10 +386,10 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                 <button
                   onClick={() => setIsAddingDate(true)}
                   style={{
-                    background: "#0F1B33",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
                     borderRadius: "12px",
-                    color: "#94a3b8",
+                    color: "hsl(var(--muted-foreground))",
                     height: "40px",
                     padding: "0 16px",
                     fontWeight: 500,
@@ -403,15 +403,15 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                   }}
                   onMouseEnter={(e) => {
                     const el = e.currentTarget as HTMLButtonElement;
-                    el.style.background = "#1a2a44";
-                    el.style.color = "#e2e8f0";
+                    el.style.background = "hsl(var(--accent))";
+                    el.style.color = "hsl(var(--foreground))";
                     el.style.transform = "translateY(-1px)";
                     el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
                   }}
                   onMouseLeave={(e) => {
                     const el = e.currentTarget as HTMLButtonElement;
-                    el.style.background = "#0F1B33";
-                    el.style.color = "#94a3b8";
+                    el.style.background = "hsl(var(--card))";
+                    el.style.color = "hsl(var(--muted-foreground))";
                     el.style.transform = "translateY(0)";
                     el.style.boxShadow = "none";
                   }}
@@ -430,7 +430,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
               position: "sticky",
               top: 0,
               zIndex: 20,
-              background: "#08111F",
+              background: "hsl(var(--background))",
               paddingTop: "4px",
               paddingBottom: "8px",
             }}
@@ -445,7 +445,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                   transform: "translateY(-50%)",
                   width: 15,
                   height: 15,
-                  color: "#475569",
+                  color: "hsl(var(--muted-foreground))",
                 }}
               />
               <Input
@@ -454,10 +454,10 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                 placeholder="Search tasks..."
                 className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
                 style={{
-                  background: "#0F1B33",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
                   borderRadius: "12px",
-                  color: "#e2e8f0",
+                  color: "hsl(var(--foreground))",
                   paddingLeft: "36px",
                   height: "40px",
                   fontSize: "13px",
@@ -470,8 +470,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
             <div
               style={{
                 display: "flex",
-                background: "#0F1B33",
-                border: "1px solid rgba(255,255,255,0.08)",
+                background: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
                 borderRadius: "12px",
                 padding: "3px",
                 gap: "2px",
@@ -492,9 +492,9 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     transition: "background 150ms, color 150ms",
                     background:
                       filter === label
-                        ? "linear-gradient(135deg, #34D399, #10B981)"
+                        ? "hsl(var(--primary))"
                         : "transparent",
-                    color: filter === label ? "#08111F" : "#64748b",
+                    color: filter === label ? "hsl(var(--background))" : "hsl(var(--muted-foreground))",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -508,8 +508,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
           {activeDateStr ? (
             <div
               style={{
-                background: "#0F1B33",
-                border: "1px solid rgba(255,255,255,0.08)",
+                background: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
                 borderRadius: "16px",
                 boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
                 overflow: "hidden",
@@ -522,7 +522,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                   alignItems: "center",
                   justifyContent: "space-between",
                   padding: "20px 32px",
-                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  borderBottom: "1px solid hsl(var(--border))",
                   gap: "12px",
                   flexWrap: "wrap",
                 }}
@@ -534,7 +534,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     style={{
                       width: 20,
                       height: 20,
-                      color: "#34D399",
+                      color: "hsl(var(--primary))",
                       flexShrink: 0,
                     }}
                   />
@@ -542,7 +542,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     style={{
                       fontWeight: 700,
                       fontSize: "18px",
-                      color: "#f1f5f9",
+                      color: "hsl(var(--foreground))",
                     }}
                   >
                     {format(new Date(activeDateStr), "EEE, MMM d, yyyy")}
@@ -551,15 +551,15 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     format(new Date(), "yyyy-MM-dd") && (
                     <span
                       style={{
-                        background: "rgba(52,211,153,0.15)",
-                        color: "#34D399",
+                        background: "hsl(var(--primary) / 0.15)",
+                        color: "hsl(var(--primary))",
                         fontSize: "10px",
                         fontWeight: 700,
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
                         padding: "2px 8px",
                         borderRadius: "6px",
-                        border: "1px solid rgba(52,211,153,0.2)",
+                        border: "1px solid hsl(var(--primary) / 0.2)",
                       }}
                     >
                       Today
@@ -582,7 +582,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                       style={{
                         width: "80px",
                         height: "4px",
-                        background: "rgba(255,255,255,0.06)",
+                        background: "hsl(var(--border))",
                         borderRadius: "2px",
                         overflow: "hidden",
                       }}
@@ -592,7 +592,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                           width: `${progressPct}%`,
                           height: "100%",
                           background:
-                            "linear-gradient(90deg, #34D399, #10B981)",
+                            "hsl(var(--primary))",
                           borderRadius: "2px",
                           transition: "width 300ms ease",
                         }}
@@ -601,7 +601,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     <span
                       style={{
                         fontSize: "12px",
-                        color: "#64748b",
+                        color: "hsl(var(--muted-foreground))",
                         fontWeight: 500,
                         whiteSpace: "nowrap",
                       }}
@@ -656,7 +656,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                         }}
                         onMouseEnter={(e) => {
                           (e.currentTarget as HTMLDivElement).style.background =
-                            "rgba(255,255,255,0.03)";
+                            "hsl(var(--accent))";
                         }}
                         onMouseLeave={(e) => {
                           (e.currentTarget as HTMLDivElement).style.background =
@@ -688,10 +688,10 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                               style={{
                                 height: "32px",
                                 maxWidth: "200px",
-                                background: "#08111F",
-                                border: "1px solid rgba(52,211,153,0.4)",
+                                background: "hsl(var(--background))",
+                                border: "1px solid hsl(var(--primary) / 0.4)",
                                 borderRadius: "8px",
-                                color: "#e2e8f0",
+                                color: "hsl(var(--foreground))",
                                 fontSize: "13px",
                               }}
                             />
@@ -706,7 +706,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                               background: "none",
                               border: "none",
                               cursor: "pointer",
-                              color: "#e2e8f0",
+                              color: "hsl(var(--foreground))",
                               padding: 0,
                             }}
                           >
@@ -717,7 +717,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                   ? "rotate(0deg)"
                                   : "rotate(-90deg)",
                                 display: "flex",
-                                color: "#475569",
+                                color: "hsl(var(--muted-foreground))",
                               }}
                             >
                               <ChevronDown style={{ width: 15, height: 15 }} />
@@ -726,7 +726,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                               style={{
                                 width: 14,
                                 height: 14,
-                                color: "#34D399",
+                                color: "hsl(var(--primary))",
                                 flexShrink: 0,
                               }}
                             />
@@ -735,9 +735,9 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                             </span>
                             <span
                               style={{
-                                background: "rgba(52,211,153,0.12)",
-                                color: "#34D399",
-                                border: "1px solid rgba(52,211,153,0.2)",
+                                background: "hsl(var(--primary) / 0.12)",
+                                color: "hsl(var(--primary))",
+                                border: "1px solid hsl(var(--primary) / 0.2)",
                                 fontSize: "10px",
                                 fontWeight: 700,
                                 padding: "1px 7px",
@@ -766,8 +766,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                 }
                                 style={{
                                   background:
-                                    "linear-gradient(135deg, #34D399, #10B981)",
-                                  color: "#08111F",
+                                    "hsl(var(--primary))",
+                                  color: "hsl(var(--background))",
                                   border: "none",
                                   borderRadius: "8px",
                                   height: "28px",
@@ -788,7 +788,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     e.currentTarget as HTMLButtonElement;
                                   el.style.transform = "translateY(-1px)";
                                   el.style.boxShadow =
-                                    "0 3px 10px rgba(52,211,153,0.3)";
+                                    "0 3px 10px hsl(var(--primary) / 0.3)";
                                 }}
                                 onMouseLeave={(e) => {
                                   const el =
@@ -824,7 +824,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                             style={{
                               background: "none",
                               border: "none",
-                              color: "#475569",
+                              color: "hsl(var(--muted-foreground))",
                               cursor: "pointer",
                               padding: "4px",
                               borderRadius: "6px",
@@ -851,12 +851,12 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                             }}
                             onMouseEnter={(e) => {
                               const el = e.currentTarget as HTMLButtonElement;
-                              el.style.color = "#94a3b8";
-                              el.style.background = "rgba(255,255,255,0.05)";
+                              el.style.color = "hsl(var(--muted-foreground))";
+                              el.style.background = "hsl(var(--accent))";
                             }}
                             onMouseLeave={(e) => {
                               const el = e.currentTarget as HTMLButtonElement;
-                              el.style.color = "#475569";
+                              el.style.color = "hsl(var(--muted-foreground))";
                               el.style.background = "none";
                             }}
                           >
@@ -867,7 +867,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                             style={{
                               background: "none",
                               border: "none",
-                              color: "#475569",
+                              color: "hsl(var(--muted-foreground))",
                               cursor: "pointer",
                               padding: "4px",
                               borderRadius: "6px",
@@ -894,12 +894,12 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                             }}
                             onMouseEnter={(e) => {
                               const el = e.currentTarget as HTMLButtonElement;
-                              el.style.color = "#f87171";
-                              el.style.background = "rgba(248,113,113,0.08)";
+                              el.style.color = "hsl(var(--destructive))";
+                              el.style.background = "hsl(var(--destructive) / 0.15)";
                             }}
                             onMouseLeave={(e) => {
                               const el = e.currentTarget as HTMLButtonElement;
-                              el.style.color = "#475569";
+                              el.style.color = "hsl(var(--muted-foreground))";
                               el.style.background = "none";
                             }}
                           >
@@ -930,8 +930,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                   gap: "8px",
                                   marginTop: "2px",
                                   padding: "12px",
-                                  background: "rgba(255,255,255,0.02)",
-                                  border: "1px solid rgba(255,255,255,0.06)",
+                                  background: "hsl(var(--accent))",
+                                  border: "1px solid hsl(var(--border))",
                                   borderRadius: "10px",
                                 }}
                               >
@@ -951,10 +951,10 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                   className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
                                   style={{
                                     height: "36px",
-                                    background: "#08111F",
-                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    background: "hsl(var(--background))",
+                                    border: "1px solid hsl(var(--border))",
                                     borderRadius: "8px",
-                                    color: "#e2e8f0",
+                                    color: "hsl(var(--foreground))",
                                     fontSize: "13px",
                                   }}
                                 />
@@ -976,11 +976,11 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     style={{
                                       flex: 1,
                                       minHeight: "36px",
-                                      background: "#08111F",
+                                      background: "hsl(var(--background))",
                                       border:
-                                        "1px solid rgba(255,255,255,0.08)",
+                                        "1px solid hsl(var(--border))",
                                       borderRadius: "8px",
-                                      color: "#e2e8f0",
+                                      color: "hsl(var(--foreground))",
                                       fontSize: "13px",
                                     }}
                                   />
@@ -994,11 +994,11 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     style={{
                                       height: "36px",
                                       width: "90px",
-                                      background: "#08111F",
+                                      background: "hsl(var(--background))",
                                       border:
-                                        "1px solid rgba(255,255,255,0.08)",
+                                        "1px solid hsl(var(--border))",
                                       borderRadius: "8px",
-                                      color: "#e2e8f0",
+                                      color: "hsl(var(--foreground))",
                                       fontSize: "13px",
                                     }}
                                   />
@@ -1017,11 +1017,11 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     disabled={!editingTaskTitle.trim()}
                                     style={{
                                       background: editingTaskTitle.trim()
-                                        ? "linear-gradient(135deg, #34D399, #10B981)"
-                                        : "rgba(52,211,153,0.15)",
+                                        ? "hsl(var(--primary))"
+                                        : "hsl(var(--primary) / 0.15)",
                                       color: editingTaskTitle.trim()
-                                        ? "#08111F"
-                                        : "#34D399",
+                                        ? "hsl(var(--background))"
+                                        : "hsl(var(--primary))",
                                       border: "none",
                                       borderRadius: "8px",
                                       height: "33px",
@@ -1041,7 +1041,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     style={{
                                       background: "none",
                                       border: "none",
-                                      color: "#64748b",
+                                      color: "hsl(var(--muted-foreground))",
                                       fontSize: "12px",
                                       fontWeight: 500,
                                       cursor: "pointer",
@@ -1068,7 +1068,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                 onMouseEnter={(e) => {
                                   (
                                     e.currentTarget as HTMLDivElement
-                                  ).style.background = "rgba(255,255,255,0.03)";
+                                  ).style.background = "hsl(var(--accent))";
                                 }}
                                 onMouseLeave={(e) => {
                                   (
@@ -1089,8 +1089,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     gap: "10px",
                                     color:
                                       task.status === "completed"
-                                        ? "#475569"
-                                        : "#cbd5e1",
+                                        ? "hsl(var(--muted-foreground))"
+                                        : "hsl(var(--muted-foreground))",
                                     fontSize: "13px",
                                     fontWeight:
                                       task.status === "completed" ? 400 : 500,
@@ -1107,7 +1107,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                       style={{
                                         width: 15,
                                         height: 15,
-                                        color: "#34D399",
+                                        color: "hsl(var(--primary))",
                                         flexShrink: 0,
                                       }}
                                     />
@@ -1116,7 +1116,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                       style={{
                                         width: 15,
                                         height: 15,
-                                        color: "#334155",
+                                        color: "hsl(var(--muted-foreground))",
                                         flexShrink: 0,
                                       }}
                                     />
@@ -1126,12 +1126,12 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     <span
                                       style={{
                                         fontSize: "11px",
-                                        color: "#475569",
-                                        background: "rgba(255,255,255,0.04)",
+                                        color: "hsl(var(--muted-foreground))",
+                                        background: "hsl(var(--accent))",
                                         padding: "1px 7px",
                                         borderRadius: "5px",
                                         border:
-                                          "1px solid rgba(255,255,255,0.06)",
+                                          "1px solid hsl(var(--border))",
                                         fontWeight: 500,
                                       }}
                                     >
@@ -1152,7 +1152,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     style={{
                                       background: "none",
                                       border: "none",
-                                      color: "#334155",
+                                      color: "hsl(var(--muted-foreground))",
                                       cursor: "pointer",
                                       padding: "4px",
                                       borderRadius: "6px",
@@ -1164,14 +1164,14 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     onMouseEnter={(e) => {
                                       const el =
                                         e.currentTarget as HTMLButtonElement;
-                                      el.style.color = "#94a3b8";
+                                      el.style.color = "hsl(var(--muted-foreground))";
                                       el.style.background =
-                                        "rgba(255,255,255,0.05)";
+                                        "hsl(var(--accent))";
                                     }}
                                     onMouseLeave={(e) => {
                                       const el =
                                         e.currentTarget as HTMLButtonElement;
-                                      el.style.color = "#334155";
+                                      el.style.color = "hsl(var(--muted-foreground))";
                                       el.style.background = "none";
                                     }}
                                   >
@@ -1184,7 +1184,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     style={{
                                       background: "none",
                                       border: "none",
-                                      color: "#334155",
+                                      color: "hsl(var(--muted-foreground))",
                                       cursor: "pointer",
                                       padding: "4px",
                                       borderRadius: "6px",
@@ -1196,14 +1196,14 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     onMouseEnter={(e) => {
                                       const el =
                                         e.currentTarget as HTMLButtonElement;
-                                      el.style.color = "#f87171";
+                                      el.style.color = "hsl(var(--destructive))";
                                       el.style.background =
-                                        "rgba(248,113,113,0.08)";
+                                        "hsl(var(--destructive) / 0.15)";
                                     }}
                                     onMouseLeave={(e) => {
                                       const el =
                                         e.currentTarget as HTMLButtonElement;
-                                      el.style.color = "#334155";
+                                      el.style.color = "hsl(var(--muted-foreground))";
                                       el.style.background = "none";
                                     }}
                                   >
@@ -1224,8 +1224,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                 gap: "8px",
                                 marginTop: "6px",
                                 padding: "12px",
-                                background: "rgba(255,255,255,0.02)",
-                                border: "1px solid rgba(255,255,255,0.06)",
+                                background: "hsl(var(--accent))",
+                                border: "1px solid hsl(var(--border))",
                                 borderRadius: "10px",
                               }}
                             >
@@ -1244,10 +1244,10 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                 className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
                                 style={{
                                   height: "36px",
-                                  background: "#08111F",
-                                  border: "1px solid rgba(255,255,255,0.08)",
+                                  background: "hsl(var(--background))",
+                                  border: "1px solid hsl(var(--border))",
                                   borderRadius: "8px",
-                                  color: "#e2e8f0",
+                                  color: "hsl(var(--foreground))",
                                   fontSize: "13px",
                                 }}
                               />
@@ -1269,10 +1269,10 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                   style={{
                                     flex: 1,
                                     minHeight: "36px",
-                                    background: "#08111F",
-                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    background: "hsl(var(--background))",
+                                    border: "1px solid hsl(var(--border))",
                                     borderRadius: "8px",
-                                    color: "#e2e8f0",
+                                    color: "hsl(var(--foreground))",
                                     fontSize: "13px",
                                   }}
                                 />
@@ -1286,10 +1286,10 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                   style={{
                                     height: "36px",
                                     width: "90px",
-                                    background: "#08111F",
-                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    background: "hsl(var(--background))",
+                                    border: "1px solid hsl(var(--border))",
                                     borderRadius: "8px",
-                                    color: "#e2e8f0",
+                                    color: "hsl(var(--foreground))",
                                     fontSize: "13px",
                                   }}
                                 />
@@ -1306,11 +1306,11 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                   disabled={!newTaskTitle.trim()}
                                   style={{
                                     background: newTaskTitle.trim()
-                                      ? "linear-gradient(135deg, #34D399, #10B981)"
-                                      : "rgba(52,211,153,0.15)",
+                                      ? "hsl(var(--primary))"
+                                      : "hsl(var(--primary) / 0.15)",
                                     color: newTaskTitle.trim()
-                                      ? "#08111F"
-                                      : "#34D399",
+                                      ? "hsl(var(--background))"
+                                      : "hsl(var(--primary))",
                                     border: "none",
                                     borderRadius: "8px",
                                     height: "33px",
@@ -1330,7 +1330,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                   style={{
                                     background: "none",
                                     border: "none",
-                                    color: "#64748b",
+                                    color: "hsl(var(--muted-foreground))",
                                     fontSize: "12px",
                                     fontWeight: 500,
                                     cursor: "pointer",
@@ -1348,7 +1348,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                               style={{
                                 background: "none",
                                 border: "none",
-                                color: "#334155",
+                                color: "hsl(var(--muted-foreground))",
                                 cursor: "pointer",
                                 display: "inline-flex",
                                 alignItems: "center",
@@ -1362,12 +1362,12 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                               }}
                               onMouseEnter={(e) => {
                                 const el = e.currentTarget as HTMLButtonElement;
-                                el.style.color = "#94a3b8";
-                                el.style.background = "rgba(255,255,255,0.03)";
+                                el.style.color = "hsl(var(--muted-foreground))";
+                                el.style.background = "hsl(var(--accent))";
                               }}
                               onMouseLeave={(e) => {
                                 const el = e.currentTarget as HTMLButtonElement;
-                                el.style.color = "#334155";
+                                el.style.color = "hsl(var(--muted-foreground))";
                                 el.style.background = "none";
                               }}
                             >
@@ -1386,7 +1386,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                   style={{
                     marginTop: "12px",
                     paddingTop: "12px",
-                    borderTop: "1px solid rgba(255,255,255,0.05)",
+                    borderTop: "1px solid hsl(var(--accent))",
                   }}
                 >
                   {isAddingProject ? (
@@ -1415,10 +1415,10 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                         style={{
                           height: "36px",
                           width: "220px",
-                          background: "#08111F",
-                          border: "1px solid rgba(255,255,255,0.08)",
+                          background: "hsl(var(--background))",
+                          border: "1px solid hsl(var(--border))",
                           borderRadius: "10px",
-                          color: "#e2e8f0",
+                          color: "hsl(var(--foreground))",
                           fontSize: "13px",
                         }}
                       />
@@ -1427,9 +1427,9 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                         disabled={!newProjectName.trim()}
                         style={{
                           background: newProjectName.trim()
-                            ? "linear-gradient(135deg, #34D399, #10B981)"
-                            : "rgba(52,211,153,0.12)",
-                          color: newProjectName.trim() ? "#08111F" : "#34D399",
+                            ? "hsl(var(--primary))"
+                            : "hsl(var(--primary) / 0.12)",
+                          color: newProjectName.trim() ? "hsl(var(--background))" : "hsl(var(--primary))",
                           border: "none",
                           borderRadius: "10px",
                           height: "36px",
@@ -1451,7 +1451,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                         style={{
                           background: "none",
                           border: "none",
-                          color: "#64748b",
+                          color: "hsl(var(--muted-foreground))",
                           fontSize: "12px",
                           cursor: "pointer",
                           height: "36px",
@@ -1466,9 +1466,9 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                       onClick={() => setIsAddingProject(true)}
                       style={{
                         background: "transparent",
-                        border: "1px dashed rgba(255,255,255,0.1)",
+                        border: "1px dashed hsl(var(--border))",
                         borderRadius: "10px",
-                        color: "#475569",
+                        color: "hsl(var(--muted-foreground))",
                         cursor: "pointer",
                         display: "inline-flex",
                         alignItems: "center",
@@ -1481,14 +1481,14 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                       }}
                       onMouseEnter={(e) => {
                         const el = e.currentTarget as HTMLButtonElement;
-                        el.style.borderColor = "rgba(52,211,153,0.35)";
-                        el.style.color = "#34D399";
-                        el.style.background = "rgba(52,211,153,0.05)";
+                        el.style.borderColor = "hsl(var(--primary) / 0.35)";
+                        el.style.color = "hsl(var(--primary))";
+                        el.style.background = "hsl(var(--primary) / 0.05)";
                       }}
                       onMouseLeave={(e) => {
                         const el = e.currentTarget as HTMLButtonElement;
-                        el.style.borderColor = "rgba(255,255,255,0.1)";
-                        el.style.color = "#475569";
+                        el.style.borderColor = "hsl(var(--border))";
+                        el.style.color = "hsl(var(--muted-foreground))";
                         el.style.background = "transparent";
                       }}
                     >
@@ -1514,8 +1514,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                 style={{
                   width: "64px",
                   height: "64px",
-                  background: "rgba(52,211,153,0.08)",
-                  border: "1px solid rgba(52,211,153,0.15)",
+                  background: "hsl(var(--primary) / 0.08)",
+                  border: "1px solid hsl(var(--primary) / 0.15)",
                   borderRadius: "18px",
                   display: "flex",
                   alignItems: "center",
@@ -1523,12 +1523,12 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                 }}
               >
                 <ClipboardList
-                  style={{ width: 28, height: 28, color: "#34D399" }}
+                  style={{ width: 28, height: 28, color: "hsl(var(--primary))" }}
                 />
               </div>
               <p
                 style={{
-                  color: "#334155",
+                  color: "hsl(var(--muted-foreground))",
                   fontSize: "14px",
                   fontWeight: 500,
                   textAlign: "center",
@@ -1544,7 +1544,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                   style={{
                     background: "none",
                     border: "none",
-                    color: "#34D399",
+                    color: "hsl(var(--primary))",
                     cursor: "pointer",
                     fontWeight: 600,
                     fontSize: "14px",
