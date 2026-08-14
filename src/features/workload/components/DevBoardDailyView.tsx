@@ -15,6 +15,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -32,6 +33,8 @@ interface Task {
   id: string;
   title: string;
   status: "pending" | "completed";
+  description?: string;
+  hours?: string;
 }
 
 interface Project {
@@ -67,6 +70,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
     null,
   );
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [newTaskHours, setNewTaskHours] = useState("");
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [addingProjectType, setAddingProjectType] = useState<string>("");
@@ -95,9 +100,16 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
     setIsAddingProject(false);
   };
 
+  const resetTaskForm = () => {
+    setNewTaskTitle("");
+    setNewTaskDescription("");
+    setNewTaskHours("");
+    setAddingTaskToProject(null);
+  };
+
   const handleAddTask = (projectId: string) => {
     if (!newTaskTitle.trim()) {
-      setAddingTaskToProject(null);
+      resetTaskForm();
       return;
     }
     updateActiveProjects(
@@ -110,6 +122,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                 {
                   id: `t${Date.now()}`,
                   title: newTaskTitle.trim(),
+                  description: newTaskDescription.trim(),
+                  hours: newTaskHours.trim(),
                   status: "pending",
                 },
               ],
@@ -117,8 +131,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
           : p,
       ),
     );
-    setNewTaskTitle("");
-    setAddingTaskToProject(null);
+    resetTaskForm();
   };
 
   const handleDeleteProject = (id: string) => {
@@ -188,7 +201,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
               value={activeDateStr}
               onValueChange={(val) => setActiveDateStr(val)}
             >
-              <SelectTrigger className="w-[280px] bg-[#131b2b] border-[#1f2937] text-gray-200 hover:bg-[#1a2333] hover:text-white h-10">
+              <SelectTrigger className="w-[280px] bg-[#131b2b] border-[#1f2937] text-gray-200 hover:bg-[#1a2333] hover:text-white h-10 shadow-none focus:ring-1 focus:ring-[#34d399] focus:ring-offset-0">
                 <SelectValue placeholder="Select Date" />
               </SelectTrigger>
               <SelectContent className="bg-[#131b2b] border-[#1f2937] text-white">
@@ -237,7 +250,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                   type="date"
                   value={newDateValue}
                   onChange={(e) => setNewDateValue(e.target.value)}
-                  className="bg-[#131b2b] border-[#1f2937] text-white h-10 w-[160px] [color-scheme:dark]"
+                  className="bg-[#131b2b] border-[#1f2937] text-white h-10 w-[160px] [color-scheme:dark] focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
                 />
                 <button
                   onClick={() => {
@@ -288,7 +301,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search tasks..."
-              className="bg-[#131b2b] border-[#1f2937] text-white pl-10 focus-visible:ring-1 focus-visible:ring-gray-600 placeholder:text-gray-500"
+              className="bg-[#131b2b] border-[#1f2937] text-white pl-10 placeholder:text-gray-500 focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
             />
           </div>
 
@@ -474,21 +487,48 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                         ))}
 
                         {addingTaskToProject === project.id ? (
-                          <div className="flex items-center gap-2 mt-2">
+                          <div className="flex flex-col gap-3 mt-3 w-full pr-6 max-w-4xl">
                             <Input
                               autoFocus
                               value={newTaskTitle}
                               onChange={(e) => setNewTaskTitle(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter")
-                                  handleAddTask(project.id);
-                                if (e.key === "Escape")
-                                  setAddingTaskToProject(null);
-                              }}
-                              onBlur={() => handleAddTask(project.id)}
-                              placeholder="Enter task title..."
-                              className="h-8 max-w-[300px] bg-[#1a2333] border-[#1f2937] text-white text-sm"
+                              placeholder="Task title"
+                              className="h-10 bg-[#0a0f18] border-[#1f2937] text-white focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
                             />
+                            <Textarea
+                              value={newTaskDescription}
+                              onChange={(e) =>
+                                setNewTaskDescription(e.target.value)
+                              }
+                              placeholder="Description..."
+                              className="min-h-[40px] bg-[#0a0f18] border-[#1f2937] text-white resize-y focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
+                            />
+                            <Input
+                              value={newTaskHours}
+                              onChange={(e) => setNewTaskHours(e.target.value)}
+                              placeholder="Hours (e.g. 1.5)"
+                              className="h-10 w-[150px] bg-[#0a0f18] border-[#1f2937] text-white focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
+                            />
+                            <div className="flex items-center gap-3 mt-1">
+                              <button
+                                onClick={() => handleAddTask(project.id)}
+                                disabled={!newTaskTitle.trim()}
+                                className={cn(
+                                  "inline-flex items-center justify-center rounded-md font-medium text-sm h-9 px-6 transition-colors",
+                                  newTaskTitle.trim()
+                                    ? "bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] cursor-pointer"
+                                    : "bg-[#064e3b] text-[#10b981] cursor-not-allowed opacity-90",
+                                )}
+                              >
+                                Add
+                              </button>
+                              <button
+                                onClick={resetTaskForm}
+                                className="text-white hover:text-gray-300 font-medium text-sm h-9 px-2"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <div className="pt-1">
@@ -555,7 +595,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                           }
                         }}
                         placeholder=""
-                        className="h-10 w-[220px] bg-[#0a0f18] border-[#34d399] outline-none ring-1 ring-[#34d399] focus-visible:ring-[#34d399] text-white"
+                        className="h-10 w-[220px] bg-[#0a0f18] border-[#1f2937] text-white focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
                       />
                     )}
 
