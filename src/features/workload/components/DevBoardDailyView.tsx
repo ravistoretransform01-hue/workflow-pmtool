@@ -15,7 +15,6 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { Input } from "@/shared/ui/input";
-import { Button } from "@/shared/ui/button";
 import {
   Select,
   SelectContent,
@@ -70,6 +69,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [addingProjectType, setAddingProjectType] = useState<string>("");
 
   const toggleProject = (id: string) => {
     updateActiveProjects(
@@ -79,7 +79,6 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
 
   const handleAddProject = () => {
     if (!newProjectName.trim()) {
-      setIsAddingProject(false);
       return;
     }
     updateActiveProjects([
@@ -92,6 +91,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
       },
     ]);
     setNewProjectName("");
+    setAddingProjectType("");
     setIsAddingProject(false);
   };
 
@@ -177,12 +177,12 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
 
   return (
     <div
-      className="flex-1 flex flex-col w-full h-full bg-[#0a0f18] text-white p-6 overflow-y-auto"
+      className="flex-1 flex flex-col w-full h-full bg-[#0a0f18] text-white p-4 md:p-8 overflow-y-auto"
       data-board-id={boardId}
     >
-      <div className="max-w-4xl w-full mx-auto space-y-6">
+      <div className="max-w-[1200px] w-full mx-auto space-y-6">
         {/* Header Controls */}
-        <div className="flex items-center justify-between h-10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 h-auto min-h-[40px]">
           {activeDateStr ? (
             <Select
               value={activeDateStr}
@@ -219,16 +219,16 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
 
           <div className="flex items-center gap-2">
             {!activeDateStr && !isAddingDate && (
-              <Button
+              <button
                 onClick={() => {
                   const todayStr = new Date().toISOString();
                   setDateMap((prev) => ({ ...prev, [todayStr]: [] }));
                   setActiveDateStr(todayStr);
                 }}
-                className="bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] font-medium h-10"
+                className="inline-flex items-center justify-center rounded-md bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] font-medium h-10 px-4 transition-colors text-sm"
               >
                 <Plus className="mr-1 w-4 h-4" /> Today
-              </Button>
+              </button>
             )}
 
             {isAddingDate ? (
@@ -239,10 +239,9 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                   onChange={(e) => setNewDateValue(e.target.value)}
                   className="bg-[#131b2b] border-[#1f2937] text-white h-10 w-[160px] [color-scheme:dark]"
                 />
-                <Button
+                <button
                   onClick={() => {
                     if (newDateValue) {
-                      // Note: passing "YYYY-MM-DD" directly to new Date() parses as UTC by default on some browsers, so let's append time or just construct
                       const [y, m, d] = newDateValue.split("-");
                       const newDateObj = new Date(
                         Number(y),
@@ -259,10 +258,10 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                       setNewDateValue("");
                     }
                   }}
-                  className="bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] font-medium h-10 px-4"
+                  className="inline-flex items-center justify-center rounded-md bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] font-medium h-10 px-4 transition-colors text-sm"
                 >
                   Add
-                </Button>
+                </button>
                 <button
                   onClick={() => setIsAddingDate(false)}
                   className="text-gray-400 hover:text-white p-2"
@@ -271,20 +270,19 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                 </button>
               </div>
             ) : (
-              <Button
+              <button
                 onClick={() => setIsAddingDate(true)}
-                variant="outline"
-                className="bg-[#131b2b] border-[#1f2937] text-gray-200 hover:bg-[#1a2333] hover:text-white h-10"
+                className="inline-flex items-center justify-center rounded-md bg-[#131b2b] border border-[#1f2937] text-gray-200 hover:bg-[#1a2333] hover:text-white h-10 px-4 transition-colors text-sm"
               >
                 <Plus className="mr-2 w-4 h-4" /> Date
-              </Button>
+              </button>
             )}
           </div>
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className="relative w-full sm:flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
               value={searchQuery}
@@ -294,11 +292,11 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
             />
           </div>
 
-          <div className="flex items-center bg-[#131b2b] border border-[#1f2937] rounded-md p-1 gap-1">
+          <div className="flex items-center w-full sm:w-auto bg-[#131b2b] border border-[#1f2937] rounded-md p-1 gap-1">
             <button
               onClick={() => setFilter("All")}
               className={cn(
-                "px-4 py-1.5 rounded-sm text-sm font-medium transition-colors",
+                "flex-1 sm:flex-none px-4 py-1.5 rounded-sm text-sm font-medium transition-colors",
                 filter === "All"
                   ? "bg-[#34d399] text-[#0a0f18]"
                   : "text-gray-300 hover:text-white",
@@ -309,7 +307,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
             <button
               onClick={() => setFilter("Pending")}
               className={cn(
-                "px-4 py-1.5 rounded-sm text-sm font-medium transition-colors",
+                "flex-1 sm:flex-none px-4 py-1.5 rounded-sm text-sm font-medium transition-colors",
                 filter === "Pending"
                   ? "bg-[#34d399] text-[#0a0f18]"
                   : "text-gray-300 hover:text-white",
@@ -320,7 +318,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
             <button
               onClick={() => setFilter("Completed")}
               className={cn(
-                "px-4 py-1.5 rounded-sm text-sm font-medium transition-colors",
+                "flex-1 sm:flex-none px-4 py-1.5 rounded-sm text-sm font-medium transition-colors",
                 filter === "Completed"
                   ? "bg-[#34d399] text-[#0a0f18]"
                   : "text-gray-300 hover:text-white",
@@ -335,7 +333,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
         {activeDateStr ? (
           <div className="bg-[#131b2b] border border-[#1f2937] rounded-lg overflow-hidden">
             {/* Block Header */}
-            <div className="flex items-center justify-between p-4 border-b border-[#1f2937]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-b border-[#1f2937]">
               <div className="flex items-center gap-3">
                 <Calendar className="w-5 h-5 text-[#34d399]" />
                 <h2 className="text-lg font-semibold text-white">
@@ -495,15 +493,15 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                         ) : (
                           <div className="pt-1">
                             {idx === 0 && project.tasks.length === 0 ? (
-                              <Button
+                              <button
                                 onClick={() =>
                                   setAddingTaskToProject(project.id)
                                 }
-                                className="bg-[#22d3ee] hover:bg-[#06b6d4] text-[#083344] font-medium text-sm h-8 px-4"
+                                className="inline-flex items-center justify-center rounded-md bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] font-medium text-sm h-8 px-4 transition-colors"
                               >
                                 <Plus className="w-4 h-4 mr-1.5" />
                                 Add task
-                              </Button>
+                              </button>
                             ) : (
                               <button
                                 onClick={() =>
@@ -523,26 +521,74 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                 );
               })}
 
-              <div className="pt-4 border-t border-transparent mt-4">
+              <div className="pt-2 mt-2">
                 {isAddingProject ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      autoFocus
-                      value={newProjectName}
-                      onChange={(e) => setNewProjectName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleAddProject();
-                        if (e.key === "Escape") setIsAddingProject(false);
+                  <div className="flex items-center gap-3 overflow-x-auto pb-1">
+                    <Select
+                      value={addingProjectType}
+                      onValueChange={(val) => setAddingProjectType(val)}
+                    >
+                      <SelectTrigger className="w-[180px] bg-[#111827] border-[#1f2937] text-gray-200 hover:bg-[#1a2333] hover:text-white h-10 shadow-none">
+                        <SelectValue placeholder="New project..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#111827] border-[#1f2937] p-0 w-[180px]">
+                        <SelectItem
+                          value="custom"
+                          className="bg-[#22d3ee] text-black focus:bg-[#22d3ee] focus:text-black font-semibold rounded-none cursor-pointer h-10 text-sm"
+                        >
+                          + New project...
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {addingProjectType === "custom" && (
+                      <Input
+                        autoFocus
+                        value={newProjectName}
+                        onChange={(e) => setNewProjectName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleAddProject();
+                          if (e.key === "Escape") {
+                            setIsAddingProject(false);
+                            setAddingProjectType("");
+                            setNewProjectName("");
+                          }
+                        }}
+                        placeholder=""
+                        className="h-10 w-[220px] bg-[#0a0f18] border-[#34d399] outline-none ring-1 ring-[#34d399] focus-visible:ring-[#34d399] text-white"
+                      />
+                    )}
+
+                    <button
+                      onClick={handleAddProject}
+                      disabled={
+                        addingProjectType !== "custom" || !newProjectName.trim()
+                      }
+                      className={cn(
+                        "inline-flex items-center justify-center rounded-md font-medium text-sm h-10 px-6 transition-colors",
+                        addingProjectType === "custom" && newProjectName.trim()
+                          ? "bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] cursor-pointer"
+                          : "bg-[#064e3b] text-[#10b981] cursor-not-allowed opacity-90",
+                      )}
+                    >
+                      Add
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsAddingProject(false);
+                        setAddingProjectType("");
+                        setNewProjectName("");
                       }}
-                      onBlur={() => handleAddProject()}
-                      placeholder="Enter project name..."
-                      className="h-9 max-w-[250px] bg-[#1a2333] border-[#1f2937] text-white"
-                    />
+                      className="text-white hover:text-gray-300 font-medium text-sm h-10 px-2"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 ) : (
                   <button
                     onClick={() => setIsAddingProject(true)}
-                    className="flex items-center text-gray-400 hover:text-gray-200 text-sm font-medium"
+                    className="flex items-center text-gray-400 hover:text-gray-200 text-sm font-medium w-max px-2 py-1 -mx-2"
                   >
                     <Plus className="w-4 h-4 mr-1.5" />
                     Add project
