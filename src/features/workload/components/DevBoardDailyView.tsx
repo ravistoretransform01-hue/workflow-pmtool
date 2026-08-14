@@ -1,11 +1,9 @@
-import React, { useState } from "react";
+import { useState, useRef } from "react";
 import { format } from "date-fns";
 import {
   Search,
   ChevronDown,
-  ChevronRight,
   Plus,
-  Download,
   Calendar,
   Pencil,
   Trash2,
@@ -13,17 +11,10 @@ import {
   X,
   CheckCircle2,
   ClipboardList,
+  FolderOpen,
 } from "lucide-react";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
-import { cn } from "@/utils/utils";
 
 interface DevBoardDailyViewProps {
   boardId: string | number;
@@ -44,26 +35,22 @@ interface Project {
   expanded: boolean;
 }
 
+/* ─── tiny CSS-in-JS for keyframe animation ─── */
+const collapseStyle = `
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.anim-slide-down { animation: slideDown 150ms ease-out forwards; }
+`;
+
 export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
   const [activeDateStr, setActiveDateStr] = useState<string | null>(null);
   const [dateMap, setDateMap] = useState<Record<string, Project[]>>({});
-
   const [isAddingDate, setIsAddingDate] = useState(false);
   const [newDateValue, setNewDateValue] = useState("");
-
   const [filter, setFilter] = useState<"All" | "Pending" | "Completed">("All");
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Get current active projects
-  const projects =
-    activeDateStr && dateMap[activeDateStr] ? dateMap[activeDateStr] : [];
-
-  const updateActiveProjects = (newProjects: Project[]) => {
-    if (!activeDateStr) return;
-    setDateMap({ ...dateMap, [activeDateStr]: newProjects });
-  };
-
-  // Edits
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editProjectName, setEditProjectName] = useState("");
   const [addingTaskToProject, setAddingTaskToProject] = useState<string | null>(
@@ -74,18 +61,27 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
   const [newTaskHours, setNewTaskHours] = useState("");
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
-  const [addingProjectType, setAddingProjectType] = useState<string>("");
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState("");
+  const [editingTaskDescription, setEditingTaskDescription] = useState("");
+  const [editingTaskHours, setEditingTaskHours] = useState("");
+  const stickyRef = useRef<HTMLDivElement>(null);
 
-  const toggleProject = (id: string) => {
+  const projects =
+    activeDateStr && dateMap[activeDateStr] ? dateMap[activeDateStr] : [];
+
+  const updateActiveProjects = (newProjects: Project[]) => {
+    if (!activeDateStr) return;
+    setDateMap({ ...dateMap, [activeDateStr]: newProjects });
+  };
+
+  const toggleProject = (id: string) =>
     updateActiveProjects(
       projects.map((p) => (p.id === id ? { ...p, expanded: !p.expanded } : p)),
     );
-  };
 
   const handleAddProject = () => {
-    if (!newProjectName.trim()) {
-      return;
-    }
+    if (!newProjectName.trim()) return;
     updateActiveProjects([
       ...projects,
       {
@@ -96,7 +92,6 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
       },
     ]);
     setNewProjectName("");
-    setAddingProjectType("");
     setIsAddingProject(false);
   };
 
@@ -134,9 +129,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
     resetTaskForm();
   };
 
-  const handleDeleteProject = (id: string) => {
+  const handleDeleteProject = (id: string) =>
     updateActiveProjects(projects.filter((p) => p.id !== id));
-  };
 
   const handleEditProjectSave = (id: string) => {
     if (!editProjectName.trim()) {
@@ -152,7 +146,34 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
     setEditProjectName("");
   };
 
-  const handleToggleTaskStatus = (projectId: string, taskId: string) => {
+  const handleEditTaskSave = (projectId: string, taskId: string) => {
+    if (!editingTaskTitle.trim()) {
+      setEditingTaskId(null);
+      return;
+    }
+    updateActiveProjects(
+      projects.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              tasks: p.tasks.map((t) =>
+                t.id === taskId
+                  ? {
+                      ...t,
+                      title: editingTaskTitle.trim(),
+                      description: editingTaskDescription.trim(),
+                      hours: editingTaskHours.trim(),
+                    }
+                  : t,
+              ),
+            }
+          : p,
+      ),
+    );
+    setEditingTaskId(null);
+  };
+
+  const handleToggleTaskStatus = (projectId: string, taskId: string) =>
     updateActiveProjects(
       projects.map((p) =>
         p.id === projectId
@@ -170,9 +191,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
           : p,
       ),
     );
-  };
 
-  const handleDeleteTask = (projectId: string, taskId: string) => {
+  const handleDeleteTask = (projectId: string, taskId: string) =>
     updateActiveProjects(
       projects.map((p) =>
         p.id === projectId
@@ -180,408 +200,1205 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
           : p,
       ),
     );
-  };
 
   const totalTasks = projects.reduce((acc, p) => acc + p.tasks.length, 0);
   const completedTasks = projects.reduce(
     (acc, p) => acc + p.tasks.filter((t) => t.status === "completed").length,
     0,
   );
+  const progressPct =
+    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  const filterLabels: Array<"All" | "Pending" | "Completed"> = [
+    "All",
+    "Pending",
+    "Completed",
+  ];
 
   return (
-    <div
-      className="flex-1 flex flex-col w-full h-full bg-[#0a0f18] text-white p-4 md:p-8 overflow-y-auto"
-      data-board-id={boardId}
-    >
-      <div className="max-w-[1200px] w-full mx-auto space-y-6">
-        {/* Header Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 h-auto min-h-[40px]">
-          {activeDateStr ? (
-            <Select
-              value={activeDateStr}
-              onValueChange={(val) => setActiveDateStr(val)}
-            >
-              <SelectTrigger className="w-[280px] bg-[#131b2b] border-[#1f2937] text-gray-200 hover:bg-[#1a2333] hover:text-white h-10 shadow-none focus:ring-1 focus:ring-[#34d399] focus:ring-offset-0">
-                <SelectValue placeholder="Select Date" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#131b2b] border-[#1f2937] text-white">
-                {Object.keys(dateMap).map((dateStr) => {
-                  const dObj = new Date(dateStr);
-                  const isTodayStr =
-                    format(dObj, "yyyy-MM-dd") ===
-                    format(new Date(), "yyyy-MM-dd");
-
-                  return (
-                    <SelectItem
-                      key={dateStr}
-                      value={dateStr}
-                      className="focus:bg-[#1a2333] focus:text-white cursor-pointer"
-                    >
-                      {format(dObj, "EEE, MMM d, yyyy")}{" "}
-                      {isTodayStr ? "(Today)" : ""}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          ) : (
-            <span className="text-gray-400 font-medium ml-1">
-              No date entries yet
-            </span>
-          )}
-
-          <div className="flex items-center gap-2">
-            {!activeDateStr && !isAddingDate && (
-              <button
-                onClick={() => {
-                  const todayStr = new Date().toISOString();
-                  setDateMap((prev) => ({ ...prev, [todayStr]: [] }));
-                  setActiveDateStr(todayStr);
-                }}
-                className="inline-flex items-center justify-center rounded-md bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] font-medium h-10 px-4 transition-colors text-sm"
-              >
-                <Plus className="mr-1 w-4 h-4" /> Today
-              </button>
-            )}
-
-            {isAddingDate ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={newDateValue}
-                  onChange={(e) => setNewDateValue(e.target.value)}
-                  className="bg-[#131b2b] border-[#1f2937] text-white h-10 w-[160px] [color-scheme:dark] focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
-                />
-                <button
-                  onClick={() => {
-                    if (newDateValue) {
-                      const [y, m, d] = newDateValue.split("-");
-                      const newDateObj = new Date(
-                        Number(y),
-                        Number(m) - 1,
-                        Number(d),
+    <>
+      <style>{collapseStyle}</style>
+      <div
+        className="flex-1 flex flex-col w-full h-full overflow-y-auto"
+        style={{ background: "#08111F", color: "#fff" }}
+        data-board-id={boardId}
+      >
+        <div className="max-w-[1600px] w-full mx-auto px-6 md:px-10 py-6 space-y-6">
+          {/* ── HEADER ROW ── */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Left: date selector */}
+            <div className="flex items-center gap-3">
+              {activeDateStr ? (
+                <div className="relative">
+                  <select
+                    value={activeDateStr}
+                    onChange={(e) => setActiveDateStr(e.target.value)}
+                    style={{
+                      background: "#0F1B33",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      color: "#e2e8f0",
+                      borderRadius: "12px",
+                      height: "40px",
+                      padding: "0 36px 0 14px",
+                      fontSize: "13px",
+                      fontWeight: 500,
+                      appearance: "none",
+                      outline: "none",
+                      cursor: "pointer",
+                      minWidth: "220px",
+                    }}
+                  >
+                    {Object.keys(dateMap).map((dateStr) => {
+                      const dObj = new Date(dateStr);
+                      const isToday =
+                        format(dObj, "yyyy-MM-dd") ===
+                        format(new Date(), "yyyy-MM-dd");
+                      return (
+                        <option key={dateStr} value={dateStr}>
+                          {format(dObj, "EEE, MMM d, yyyy")}
+                          {isToday ? " (Today)" : ""}
+                        </option>
                       );
-                      const isoStr = newDateObj.toISOString();
-
-                      if (!dateMap[isoStr]) {
-                        setDateMap((prev) => ({ ...prev, [isoStr]: [] }));
-                      }
-                      setActiveDateStr(isoStr);
-                      setIsAddingDate(false);
-                      setNewDateValue("");
-                    }
+                    })}
+                  </select>
+                  <ChevronDown
+                    className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                    style={{ width: 14, height: 14, color: "#64748b" }}
+                  />
+                </div>
+              ) : (
+                <span
+                  style={{
+                    color: "#64748b",
+                    fontSize: "13px",
+                    fontWeight: 500,
                   }}
-                  className="inline-flex items-center justify-center rounded-md bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] font-medium h-10 px-4 transition-colors text-sm"
                 >
-                  Add
-                </button>
-                <button
-                  onClick={() => setIsAddingDate(false)}
-                  className="text-gray-400 hover:text-white p-2"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setIsAddingDate(true)}
-                className="inline-flex items-center justify-center rounded-md bg-[#131b2b] border border-[#1f2937] text-gray-200 hover:bg-[#1a2333] hover:text-white h-10 px-4 transition-colors text-sm"
-              >
-                <Plus className="mr-2 w-4 h-4" /> Date
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className="relative w-full sm:flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tasks..."
-              className="bg-[#131b2b] border-[#1f2937] text-white pl-10 placeholder:text-gray-500 focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
-            />
-          </div>
-
-          <div className="flex items-center w-full sm:w-auto bg-[#131b2b] border border-[#1f2937] rounded-md p-1 gap-1">
-            <button
-              onClick={() => setFilter("All")}
-              className={cn(
-                "flex-1 sm:flex-none px-4 py-1.5 rounded-sm text-sm font-medium transition-colors",
-                filter === "All"
-                  ? "bg-[#34d399] text-[#0a0f18]"
-                  : "text-gray-300 hover:text-white",
-              )}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilter("Pending")}
-              className={cn(
-                "flex-1 sm:flex-none px-4 py-1.5 rounded-sm text-sm font-medium transition-colors",
-                filter === "Pending"
-                  ? "bg-[#34d399] text-[#0a0f18]"
-                  : "text-gray-300 hover:text-white",
-              )}
-            >
-              Pending
-            </button>
-            <button
-              onClick={() => setFilter("Completed")}
-              className={cn(
-                "flex-1 sm:flex-none px-4 py-1.5 rounded-sm text-sm font-medium transition-colors",
-                filter === "Completed"
-                  ? "bg-[#34d399] text-[#0a0f18]"
-                  : "text-gray-300 hover:text-white",
-              )}
-            >
-              Completed
-            </button>
-          </div>
-        </div>
-
-        {/* Date Block OR Empty State */}
-        {activeDateStr ? (
-          <div className="bg-[#131b2b] border border-[#1f2937] rounded-lg overflow-hidden">
-            {/* Block Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-b border-[#1f2937]">
-              <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-[#34d399]" />
-                <h2 className="text-lg font-semibold text-white">
-                  {format(new Date(activeDateStr), "EEE, MMM d, yyyy")}
-                </h2>
-                {format(new Date(activeDateStr), "yyyy-MM-dd") ===
-                  format(new Date(), "yyyy-MM-dd") && (
-                  <span className="bg-[#34d399] text-[#0a0f18] text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-sm">
-                    Today
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-400 font-medium">
-                  {completedTasks}/{totalTasks} done
+                  No date entries yet
                 </span>
-                <button className="text-gray-400 hover:text-white transition-colors">
-                  <Download className="w-4 h-4" />
-                </button>
-              </div>
+              )}
             </div>
 
-            {/* Block Content */}
-            <div className="p-4 space-y-6 flex flex-col">
-              {projects.map((project, idx) => {
-                const filteredTasks = project.tasks.filter((t) => {
-                  if (
-                    searchQuery &&
-                    !t.title.toLowerCase().includes(searchQuery.toLowerCase())
-                  )
-                    return false;
-                  if (filter === "Pending" && t.status !== "pending")
-                    return false;
-                  if (filter === "Completed" && t.status !== "completed")
-                    return false;
-                  return true;
-                });
+            {/* Right: action buttons */}
+            <div className="flex items-center gap-2">
+              {!activeDateStr && !isAddingDate && (
+                <button
+                  onClick={() => {
+                    const todayStr = new Date().toISOString();
+                    setDateMap((prev) => ({ ...prev, [todayStr]: [] }));
+                    setActiveDateStr(todayStr);
+                  }}
+                  style={{
+                    background: "linear-gradient(135deg, #34D399, #10B981)",
+                    color: "#08111F",
+                    border: "none",
+                    borderRadius: "12px",
+                    height: "40px",
+                    padding: "0 18px",
+                    fontWeight: 600,
+                    fontSize: "13px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                    transition: "transform 150ms, box-shadow 150ms",
+                    boxShadow: "0 2px 12px rgba(52,211,153,0.25)",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.transform =
+                      "translateY(-1px)";
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                      "0 4px 18px rgba(52,211,153,0.35)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.transform =
+                      "translateY(0)";
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                      "0 2px 12px rgba(52,211,153,0.25)";
+                  }}
+                >
+                  <Plus style={{ width: 15, height: 15 }} /> Today
+                </button>
+              )}
 
-                if (
-                  (searchQuery || filter !== "All") &&
-                  filteredTasks.length === 0
-                ) {
-                  return null;
-                }
+              {isAddingDate ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={newDateValue}
+                    onChange={(e) => setNewDateValue(e.target.value)}
+                    className="h-[40px] w-[150px] [color-scheme:dark]"
+                    style={{
+                      background: "#0F1B33",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: "12px",
+                      color: "#e2e8f0",
+                      fontSize: "13px",
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (newDateValue) {
+                        const [y, m, d] = newDateValue.split("-");
+                        const newDateObj = new Date(
+                          Number(y),
+                          Number(m) - 1,
+                          Number(d),
+                        );
+                        const isoStr = newDateObj.toISOString();
+                        if (!dateMap[isoStr])
+                          setDateMap((prev) => ({ ...prev, [isoStr]: [] }));
+                        setActiveDateStr(isoStr);
+                        setIsAddingDate(false);
+                        setNewDateValue("");
+                      }
+                    }}
+                    style={{
+                      background: "linear-gradient(135deg, #34D399, #10B981)",
+                      color: "#08111F",
+                      border: "none",
+                      borderRadius: "12px",
+                      height: "40px",
+                      padding: "0 16px",
+                      fontWeight: 600,
+                      fontSize: "13px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Add
+                  </button>
+                  <button
+                    onClick={() => setIsAddingDate(false)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#64748b",
+                      cursor: "pointer",
+                      padding: "0 4px",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <X style={{ width: 16, height: 16 }} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsAddingDate(true)}
+                  style={{
+                    background: "#0F1B33",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: "12px",
+                    color: "#94a3b8",
+                    height: "40px",
+                    padding: "0 16px",
+                    fontWeight: 500,
+                    fontSize: "13px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                    transition:
+                      "background 150ms, color 150ms, transform 150ms, box-shadow 150ms",
+                  }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.background = "#1a2a44";
+                    el.style.color = "#e2e8f0";
+                    el.style.transform = "translateY(-1px)";
+                    el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.background = "#0F1B33";
+                    el.style.color = "#94a3b8";
+                    el.style.transform = "translateY(0)";
+                    el.style.boxShadow = "none";
+                  }}
+                >
+                  <Plus style={{ width: 15, height: 15 }} /> New Date
+                </button>
+              )}
+            </div>
+          </div>
 
-                return (
-                  <div key={project.id} className="space-y-3">
-                    <div className="flex items-center justify-between group">
-                      {editingProjectId === project.id ? (
-                        <div className="flex items-center gap-2 flex-1">
-                          <Input
-                            autoFocus
-                            value={editProjectName}
-                            onChange={(e) => setEditProjectName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter")
-                                handleEditProjectSave(project.id);
-                              if (e.key === "Escape") setEditingProjectId(null);
-                            }}
-                            onBlur={() => handleEditProjectSave(project.id)}
-                            className="h-8 max-w-[200px] bg-[#1a2333] border-[#1f2937] text-white"
-                          />
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => toggleProject(project.id)}
-                          className="flex items-center gap-2 text-white hover:text-gray-200"
-                        >
-                          {project.expanded ? (
-                            <ChevronDown className="w-4 h-4 text-gray-400" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-gray-400" />
-                          )}
-                          <span className="font-semibold">{project.name}</span>
-                          <span className="text-gray-500 font-medium">
-                            ({project.tasks.length})
-                          </span>
-                        </button>
-                      )}
+          {/* ── STICKY TOOLBAR ── */}
+          <div
+            ref={stickyRef}
+            className="flex flex-col sm:flex-row items-center gap-3"
+            style={{
+              position: "sticky",
+              top: 0,
+              zIndex: 20,
+              background: "#08111F",
+              paddingTop: "4px",
+              paddingBottom: "8px",
+            }}
+          >
+            {/* Search */}
+            <div style={{ position: "relative", flex: 1, width: "100%" }}>
+              <Search
+                style={{
+                  position: "absolute",
+                  left: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  width: 15,
+                  height: 15,
+                  color: "#475569",
+                }}
+              />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search tasks..."
+                className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
+                style={{
+                  background: "#0F1B33",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: "12px",
+                  color: "#e2e8f0",
+                  paddingLeft: "36px",
+                  height: "40px",
+                  fontSize: "13px",
+                  width: "100%",
+                }}
+              />
+            </div>
 
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => {
-                            setEditProjectName(project.name);
-                            setEditingProjectId(project.id);
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-white hover:bg-[#1a2333] rounded"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProject(project.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-[#1a2333] rounded"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+            {/* Segmented filter */}
+            <div
+              style={{
+                display: "flex",
+                background: "#0F1B33",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "12px",
+                padding: "3px",
+                gap: "2px",
+                flexShrink: 0,
+              }}
+            >
+              {filterLabels.map((label) => (
+                <button
+                  key={label}
+                  onClick={() => setFilter(label)}
+                  style={{
+                    padding: "5px 16px",
+                    borderRadius: "9px",
+                    border: "none",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    fontSize: "12px",
+                    transition: "background 150ms, color 150ms",
+                    background:
+                      filter === label
+                        ? "linear-gradient(135deg, #34D399, #10B981)"
+                        : "transparent",
+                    color: filter === label ? "#08111F" : "#64748b",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── DATE CARD ── */}
+          {activeDateStr ? (
+            <div
+              style={{
+                background: "#0F1B33",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "16px",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+                overflow: "hidden",
+              }}
+            >
+              {/* Card Header */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "20px 32px",
+                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "12px" }}
+                >
+                  <Calendar
+                    style={{
+                      width: 20,
+                      height: 20,
+                      color: "#34D399",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontSize: "18px",
+                      color: "#f1f5f9",
+                    }}
+                  >
+                    {format(new Date(activeDateStr), "EEE, MMM d, yyyy")}
+                  </span>
+                  {format(new Date(activeDateStr), "yyyy-MM-dd") ===
+                    format(new Date(), "yyyy-MM-dd") && (
+                    <span
+                      style={{
+                        background: "rgba(52,211,153,0.15)",
+                        color: "#34D399",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        padding: "2px 8px",
+                        borderRadius: "6px",
+                        border: "1px solid rgba(52,211,153,0.2)",
+                      }}
+                    >
+                      Today
+                    </span>
+                  )}
+                </div>
+
+                {/* Progress */}
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "12px" }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "80px",
+                        height: "4px",
+                        background: "rgba(255,255,255,0.06)",
+                        borderRadius: "2px",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${progressPct}%`,
+                          height: "100%",
+                          background:
+                            "linear-gradient(90deg, #34D399, #10B981)",
+                          borderRadius: "2px",
+                          transition: "width 300ms ease",
+                        }}
+                      />
                     </div>
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        color: "#64748b",
+                        fontWeight: 500,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {completedTasks}/{totalTasks} done
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-                    {project.expanded && (
-                      <div className="pl-6 space-y-2">
-                        {filteredTasks.map((task) => (
+              {/* Card Content */}
+              <div
+                style={{
+                  padding: "24px 32px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                }}
+              >
+                {projects.map((project) => {
+                  const filteredTasks = project.tasks.filter((t) => {
+                    if (
+                      searchQuery &&
+                      !t.title.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                      return false;
+                    if (filter === "Pending" && t.status !== "pending")
+                      return false;
+                    if (filter === "Completed" && t.status !== "completed")
+                      return false;
+                    return true;
+                  });
+
+                  if (
+                    (searchQuery || filter !== "All") &&
+                    filteredTasks.length === 0
+                  )
+                    return null;
+
+                  return (
+                    <div key={project.id} style={{ marginBottom: "4px" }}>
+                      {/* Project Header */}
+                      <div
+                        className="group"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 10px",
+                          borderRadius: "10px",
+                          transition: "background 150ms",
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLDivElement).style.background =
+                            "rgba(255,255,255,0.03)";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLDivElement).style.background =
+                            "transparent";
+                        }}
+                      >
+                        {editingProjectId === project.id ? (
                           <div
-                            key={task.id}
-                            className="flex items-center justify-between group/task py-1"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              flex: 1,
+                            }}
                           >
-                            <button
-                              onClick={() =>
-                                handleToggleTaskStatus(project.id, task.id)
-                              }
-                              className="flex items-center gap-2.5 text-sm text-gray-200 hover:text-white transition-colors"
-                            >
-                              {task.status === "completed" ? (
-                                <CheckCircle2 className="w-4 h-4 text-[#34d399]" />
-                              ) : (
-                                <Circle className="w-4 h-4 text-gray-500" />
-                              )}
-                              <span
-                                className={
-                                  task.status === "completed"
-                                    ? "line-through text-gray-500"
-                                    : ""
-                                }
-                              >
-                                {task.title}
-                              </span>
-                            </button>
-
-                            <button
-                              onClick={() =>
-                                handleDeleteTask(project.id, task.id)
-                              }
-                              className="opacity-0 group-hover/task:opacity-100 p-1 text-gray-500 hover:text-red-400 rounded"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
-
-                        {addingTaskToProject === project.id ? (
-                          <div className="flex flex-col gap-3 mt-3 w-full pr-6 max-w-4xl">
                             <Input
                               autoFocus
-                              value={newTaskTitle}
-                              onChange={(e) => setNewTaskTitle(e.target.value)}
-                              placeholder="Task title"
-                              className="h-10 bg-[#0a0f18] border-[#1f2937] text-white focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
-                            />
-                            <Textarea
-                              value={newTaskDescription}
+                              value={editProjectName}
                               onChange={(e) =>
-                                setNewTaskDescription(e.target.value)
+                                setEditProjectName(e.target.value)
                               }
-                              placeholder="Description..."
-                              className="min-h-[40px] bg-[#0a0f18] border-[#1f2937] text-white resize-y focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter")
+                                  handleEditProjectSave(project.id);
+                                if (e.key === "Escape")
+                                  setEditingProjectId(null);
+                              }}
+                              onBlur={() => handleEditProjectSave(project.id)}
+                              style={{
+                                height: "32px",
+                                maxWidth: "200px",
+                                background: "#08111F",
+                                border: "1px solid rgba(52,211,153,0.4)",
+                                borderRadius: "8px",
+                                color: "#e2e8f0",
+                                fontSize: "13px",
+                              }}
                             />
-                            <Input
-                              value={newTaskHours}
-                              onChange={(e) => setNewTaskHours(e.target.value)}
-                              placeholder="Hours (e.g. 1.5)"
-                              className="h-10 w-[150px] bg-[#0a0f18] border-[#1f2937] text-white focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
-                            />
-                            <div className="flex items-center gap-3 mt-1">
-                              <button
-                                onClick={() => handleAddTask(project.id)}
-                                disabled={!newTaskTitle.trim()}
-                                className={cn(
-                                  "inline-flex items-center justify-center rounded-md font-medium text-sm h-9 px-6 transition-colors",
-                                  newTaskTitle.trim()
-                                    ? "bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] cursor-pointer"
-                                    : "bg-[#064e3b] text-[#10b981] cursor-not-allowed opacity-90",
-                                )}
-                              >
-                                Add
-                              </button>
-                              <button
-                                onClick={resetTaskForm}
-                                className="text-white hover:text-gray-300 font-medium text-sm h-9 px-2"
-                              >
-                                Cancel
-                              </button>
-                            </div>
                           </div>
                         ) : (
-                          <div className="pt-1">
-                            {idx === 0 && project.tasks.length === 0 ? (
+                          <button
+                            onClick={() => toggleProject(project.id)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "#e2e8f0",
+                              padding: 0,
+                            }}
+                          >
+                            <span
+                              style={{
+                                transition: "transform 150ms",
+                                transform: project.expanded
+                                  ? "rotate(0deg)"
+                                  : "rotate(-90deg)",
+                                display: "flex",
+                                color: "#475569",
+                              }}
+                            >
+                              <ChevronDown style={{ width: 15, height: 15 }} />
+                            </span>
+                            <FolderOpen
+                              style={{
+                                width: 14,
+                                height: 14,
+                                color: "#34D399",
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span style={{ fontWeight: 600, fontSize: "13px" }}>
+                              {project.name}
+                            </span>
+                            <span
+                              style={{
+                                background: "rgba(52,211,153,0.12)",
+                                color: "#34D399",
+                                border: "1px solid rgba(52,211,153,0.2)",
+                                fontSize: "10px",
+                                fontWeight: 700,
+                                padding: "1px 7px",
+                                borderRadius: "20px",
+                              }}
+                            >
+                              {project.tasks.length}
+                            </span>
+                          </button>
+                        )}
+
+                        {/* Project actions (hover) */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
+                        >
+                          {/* + Add Task button visible always when expanded */}
+                          {project.expanded &&
+                            addingTaskToProject !== project.id && (
                               <button
                                 onClick={() =>
                                   setAddingTaskToProject(project.id)
                                 }
-                                className="inline-flex items-center justify-center rounded-md bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] font-medium text-sm h-8 px-4 transition-colors"
+                                style={{
+                                  background:
+                                    "linear-gradient(135deg, #34D399, #10B981)",
+                                  color: "#08111F",
+                                  border: "none",
+                                  borderRadius: "8px",
+                                  height: "28px",
+                                  padding: "0 10px",
+                                  fontWeight: 600,
+                                  fontSize: "11px",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  cursor: "pointer",
+                                  transition:
+                                    "transform 150ms, box-shadow 150ms",
+                                  opacity: 0,
+                                }}
+                                className="group-hover-task-btn"
+                                onMouseEnter={(e) => {
+                                  const el =
+                                    e.currentTarget as HTMLButtonElement;
+                                  el.style.transform = "translateY(-1px)";
+                                  el.style.boxShadow =
+                                    "0 3px 10px rgba(52,211,153,0.3)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  const el =
+                                    e.currentTarget as HTMLButtonElement;
+                                  el.style.transform = "translateY(0)";
+                                  el.style.boxShadow = "none";
+                                }}
+                                ref={(el) => {
+                                  if (el) {
+                                    el.closest(".group")?.addEventListener(
+                                      "mouseenter",
+                                      () => {
+                                        el.style.opacity = "1";
+                                      },
+                                    );
+                                    el.closest(".group")?.addEventListener(
+                                      "mouseleave",
+                                      () => {
+                                        el.style.opacity = "0";
+                                      },
+                                    );
+                                  }
+                                }}
                               >
-                                <Plus className="w-4 h-4 mr-1.5" />
-                                Add task
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() =>
-                                  setAddingTaskToProject(project.id)
-                                }
-                                className="flex items-center text-gray-400 hover:text-gray-200 text-sm font-medium py-1"
-                              >
-                                <Plus className="w-4 h-4 mr-1.5" />
-                                Add task
+                                <Plus style={{ width: 11, height: 11 }} /> Task
                               </button>
                             )}
-                          </div>
-                        )}
+                          <button
+                            onClick={() => {
+                              setEditProjectName(project.name);
+                              setEditingProjectId(project.id);
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#475569",
+                              cursor: "pointer",
+                              padding: "4px",
+                              borderRadius: "6px",
+                              display: "flex",
+                              alignItems: "center",
+                              transition: "color 150ms, background 150ms",
+                              opacity: 0,
+                            }}
+                            ref={(el) => {
+                              if (el) {
+                                el.closest(".group")?.addEventListener(
+                                  "mouseenter",
+                                  () => {
+                                    el.style.opacity = "1";
+                                  },
+                                );
+                                el.closest(".group")?.addEventListener(
+                                  "mouseleave",
+                                  () => {
+                                    el.style.opacity = "0";
+                                  },
+                                );
+                              }
+                            }}
+                            onMouseEnter={(e) => {
+                              const el = e.currentTarget as HTMLButtonElement;
+                              el.style.color = "#94a3b8";
+                              el.style.background = "rgba(255,255,255,0.05)";
+                            }}
+                            onMouseLeave={(e) => {
+                              const el = e.currentTarget as HTMLButtonElement;
+                              el.style.color = "#475569";
+                              el.style.background = "none";
+                            }}
+                          >
+                            <Pencil style={{ width: 12, height: 12 }} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProject(project.id)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#475569",
+                              cursor: "pointer",
+                              padding: "4px",
+                              borderRadius: "6px",
+                              display: "flex",
+                              alignItems: "center",
+                              transition: "color 150ms, background 150ms",
+                              opacity: 0,
+                            }}
+                            ref={(el) => {
+                              if (el) {
+                                el.closest(".group")?.addEventListener(
+                                  "mouseenter",
+                                  () => {
+                                    el.style.opacity = "1";
+                                  },
+                                );
+                                el.closest(".group")?.addEventListener(
+                                  "mouseleave",
+                                  () => {
+                                    el.style.opacity = "0";
+                                  },
+                                );
+                              }
+                            }}
+                            onMouseEnter={(e) => {
+                              const el = e.currentTarget as HTMLButtonElement;
+                              el.style.color = "#f87171";
+                              el.style.background = "rgba(248,113,113,0.08)";
+                            }}
+                            onMouseLeave={(e) => {
+                              const el = e.currentTarget as HTMLButtonElement;
+                              el.style.color = "#475569";
+                              el.style.background = "none";
+                            }}
+                          >
+                            <Trash2 style={{ width: 12, height: 12 }} />
+                          </button>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
 
-              <div className="pt-2 mt-2">
-                {isAddingProject ? (
-                  <div className="flex items-center gap-3 overflow-x-auto pb-1">
-                    <Select
-                      value={addingProjectType}
-                      onValueChange={(val) => setAddingProjectType(val)}
-                    >
-                      <SelectTrigger className="w-[180px] bg-[#111827] border-[#1f2937] text-gray-200 hover:bg-[#1a2333] hover:text-white h-10 shadow-none">
-                        <SelectValue placeholder="New project..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#111827] border-[#1f2937] p-0 w-[180px]">
-                        <SelectItem
-                          value="custom"
-                          className="bg-[#22d3ee] text-black focus:bg-[#22d3ee] focus:text-black font-semibold rounded-none cursor-pointer h-10 text-sm"
+                      {/* Project Tasks */}
+                      {project.expanded && (
+                        <div
+                          className="anim-slide-down"
+                          style={{
+                            paddingLeft: "34px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "2px",
+                          }}
                         >
-                          + New project...
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                          {filteredTasks.map((task) =>
+                            editingTaskId === task.id ? (
+                              <div
+                                key={task.id}
+                                className="anim-slide-down"
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "8px",
+                                  marginTop: "2px",
+                                  padding: "12px",
+                                  background: "rgba(255,255,255,0.02)",
+                                  border: "1px solid rgba(255,255,255,0.06)",
+                                  borderRadius: "10px",
+                                }}
+                              >
+                                <Input
+                                  autoFocus
+                                  value={editingTaskTitle}
+                                  onChange={(e) =>
+                                    setEditingTaskTitle(e.target.value)
+                                  }
+                                  placeholder="Task title..."
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter")
+                                      handleEditTaskSave(project.id, task.id);
+                                    if (e.key === "Escape")
+                                      setEditingTaskId(null);
+                                  }}
+                                  className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
+                                  style={{
+                                    height: "36px",
+                                    background: "#08111F",
+                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    borderRadius: "8px",
+                                    color: "#e2e8f0",
+                                    fontSize: "13px",
+                                  }}
+                                />
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: "8px",
+                                    alignItems: "center",
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <Textarea
+                                    value={editingTaskDescription}
+                                    onChange={(e) =>
+                                      setEditingTaskDescription(e.target.value)
+                                    }
+                                    placeholder="Description (optional)..."
+                                    className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 resize-none"
+                                    style={{
+                                      flex: 1,
+                                      minHeight: "36px",
+                                      background: "#08111F",
+                                      border:
+                                        "1px solid rgba(255,255,255,0.08)",
+                                      borderRadius: "8px",
+                                      color: "#e2e8f0",
+                                      fontSize: "13px",
+                                    }}
+                                  />
+                                  <Input
+                                    value={editingTaskHours}
+                                    onChange={(e) =>
+                                      setEditingTaskHours(e.target.value)
+                                    }
+                                    placeholder="Hours"
+                                    className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
+                                    style={{
+                                      height: "36px",
+                                      width: "90px",
+                                      background: "#08111F",
+                                      border:
+                                        "1px solid rgba(255,255,255,0.08)",
+                                      borderRadius: "8px",
+                                      color: "#e2e8f0",
+                                      fontSize: "13px",
+                                    }}
+                                  />
+                                </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: "8px",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <button
+                                    onClick={() =>
+                                      handleEditTaskSave(project.id, task.id)
+                                    }
+                                    disabled={!editingTaskTitle.trim()}
+                                    style={{
+                                      background: editingTaskTitle.trim()
+                                        ? "linear-gradient(135deg, #34D399, #10B981)"
+                                        : "rgba(52,211,153,0.15)",
+                                      color: editingTaskTitle.trim()
+                                        ? "#08111F"
+                                        : "#34D399",
+                                      border: "none",
+                                      borderRadius: "8px",
+                                      height: "33px",
+                                      padding: "0 18px",
+                                      fontWeight: 600,
+                                      fontSize: "12px",
+                                      cursor: editingTaskTitle.trim()
+                                        ? "pointer"
+                                        : "not-allowed",
+                                      transition: "background 150ms",
+                                    }}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingTaskId(null)}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "#64748b",
+                                      fontSize: "12px",
+                                      fontWeight: 500,
+                                      cursor: "pointer",
+                                      height: "33px",
+                                      padding: "0 10px",
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                key={task.id}
+                                className="group/task"
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  padding: "6px 10px",
+                                  borderRadius: "8px",
+                                  transition: "background 150ms",
+                                }}
+                                onMouseEnter={(e) => {
+                                  (
+                                    e.currentTarget as HTMLDivElement
+                                  ).style.background = "rgba(255,255,255,0.03)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  (
+                                    e.currentTarget as HTMLDivElement
+                                  ).style.background = "transparent";
+                                }}
+                              >
+                                <button
+                                  onClick={() =>
+                                    handleToggleTaskStatus(project.id, task.id)
+                                  }
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "10px",
+                                    color:
+                                      task.status === "completed"
+                                        ? "#475569"
+                                        : "#cbd5e1",
+                                    fontSize: "13px",
+                                    fontWeight:
+                                      task.status === "completed" ? 400 : 500,
+                                    textDecoration:
+                                      task.status === "completed"
+                                        ? "line-through"
+                                        : "none",
+                                    transition: "color 150ms",
+                                    padding: 0,
+                                  }}
+                                >
+                                  {task.status === "completed" ? (
+                                    <CheckCircle2
+                                      style={{
+                                        width: 15,
+                                        height: 15,
+                                        color: "#34D399",
+                                        flexShrink: 0,
+                                      }}
+                                    />
+                                  ) : (
+                                    <Circle
+                                      style={{
+                                        width: 15,
+                                        height: 15,
+                                        color: "#334155",
+                                        flexShrink: 0,
+                                      }}
+                                    />
+                                  )}
+                                  {task.title}
+                                  {task.hours && (
+                                    <span
+                                      style={{
+                                        fontSize: "11px",
+                                        color: "#475569",
+                                        background: "rgba(255,255,255,0.04)",
+                                        padding: "1px 7px",
+                                        borderRadius: "5px",
+                                        border:
+                                          "1px solid rgba(255,255,255,0.06)",
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      {task.hours}h
+                                    </span>
+                                  )}
+                                </button>
+                                <div className="opacity-0 group-hover/task:opacity-100 flex items-center gap-1">
+                                  <button
+                                    onClick={() => {
+                                      setEditingTaskId(task.id);
+                                      setEditingTaskTitle(task.title);
+                                      setEditingTaskDescription(
+                                        task.description || "",
+                                      );
+                                      setEditingTaskHours(task.hours || "");
+                                    }}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "#334155",
+                                      cursor: "pointer",
+                                      padding: "4px",
+                                      borderRadius: "6px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      transition:
+                                        "color 150ms, background 150ms",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      const el =
+                                        e.currentTarget as HTMLButtonElement;
+                                      el.style.color = "#94a3b8";
+                                      el.style.background =
+                                        "rgba(255,255,255,0.05)";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      const el =
+                                        e.currentTarget as HTMLButtonElement;
+                                      el.style.color = "#334155";
+                                      el.style.background = "none";
+                                    }}
+                                  >
+                                    <Pencil style={{ width: 12, height: 12 }} />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleDeleteTask(project.id, task.id)
+                                    }
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "#334155",
+                                      cursor: "pointer",
+                                      padding: "4px",
+                                      borderRadius: "6px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      transition:
+                                        "color 150ms, background 150ms",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      const el =
+                                        e.currentTarget as HTMLButtonElement;
+                                      el.style.color = "#f87171";
+                                      el.style.background =
+                                        "rgba(248,113,113,0.08)";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      const el =
+                                        e.currentTarget as HTMLButtonElement;
+                                      el.style.color = "#334155";
+                                      el.style.background = "none";
+                                    }}
+                                  >
+                                    <Trash2 style={{ width: 12, height: 12 }} />
+                                  </button>
+                                </div>
+                              </div>
+                            ),
+                          )}
 
-                    {addingProjectType === "custom" && (
+                          {/* Add task inline form */}
+                          {addingTaskToProject === project.id ? (
+                            <div
+                              className="anim-slide-down"
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "8px",
+                                marginTop: "6px",
+                                padding: "12px",
+                                background: "rgba(255,255,255,0.02)",
+                                border: "1px solid rgba(255,255,255,0.06)",
+                                borderRadius: "10px",
+                              }}
+                            >
+                              <Input
+                                autoFocus
+                                value={newTaskTitle}
+                                onChange={(e) =>
+                                  setNewTaskTitle(e.target.value)
+                                }
+                                placeholder="Task title..."
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter")
+                                    handleAddTask(project.id);
+                                  if (e.key === "Escape") resetTaskForm();
+                                }}
+                                className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
+                                style={{
+                                  height: "36px",
+                                  background: "#08111F",
+                                  border: "1px solid rgba(255,255,255,0.08)",
+                                  borderRadius: "8px",
+                                  color: "#e2e8f0",
+                                  fontSize: "13px",
+                                }}
+                              />
+                              <div
+                                style={{
+                                  display: "flex",
+                                  gap: "8px",
+                                  alignItems: "center",
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <Textarea
+                                  value={newTaskDescription}
+                                  onChange={(e) =>
+                                    setNewTaskDescription(e.target.value)
+                                  }
+                                  placeholder="Description (optional)..."
+                                  className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 resize-none"
+                                  style={{
+                                    flex: 1,
+                                    minHeight: "36px",
+                                    background: "#08111F",
+                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    borderRadius: "8px",
+                                    color: "#e2e8f0",
+                                    fontSize: "13px",
+                                  }}
+                                />
+                                <Input
+                                  value={newTaskHours}
+                                  onChange={(e) =>
+                                    setNewTaskHours(e.target.value)
+                                  }
+                                  placeholder="Hours"
+                                  className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
+                                  style={{
+                                    height: "36px",
+                                    width: "90px",
+                                    background: "#08111F",
+                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    borderRadius: "8px",
+                                    color: "#e2e8f0",
+                                    fontSize: "13px",
+                                  }}
+                                />
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  gap: "8px",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <button
+                                  onClick={() => handleAddTask(project.id)}
+                                  disabled={!newTaskTitle.trim()}
+                                  style={{
+                                    background: newTaskTitle.trim()
+                                      ? "linear-gradient(135deg, #34D399, #10B981)"
+                                      : "rgba(52,211,153,0.15)",
+                                    color: newTaskTitle.trim()
+                                      ? "#08111F"
+                                      : "#34D399",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    height: "33px",
+                                    padding: "0 18px",
+                                    fontWeight: 600,
+                                    fontSize: "12px",
+                                    cursor: newTaskTitle.trim()
+                                      ? "pointer"
+                                      : "not-allowed",
+                                    transition: "background 150ms",
+                                  }}
+                                >
+                                  Add Task
+                                </button>
+                                <button
+                                  onClick={resetTaskForm}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "#64748b",
+                                    fontSize: "12px",
+                                    fontWeight: 500,
+                                    cursor: "pointer",
+                                    height: "33px",
+                                    padding: "0 10px",
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setAddingTaskToProject(project.id)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#334155",
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                fontSize: "12px",
+                                fontWeight: 500,
+                                padding: "6px 10px",
+                                borderRadius: "7px",
+                                transition: "color 150ms, background 150ms",
+                                marginTop: "2px",
+                              }}
+                              onMouseEnter={(e) => {
+                                const el = e.currentTarget as HTMLButtonElement;
+                                el.style.color = "#94a3b8";
+                                el.style.background = "rgba(255,255,255,0.03)";
+                              }}
+                              onMouseLeave={(e) => {
+                                const el = e.currentTarget as HTMLButtonElement;
+                                el.style.color = "#334155";
+                                el.style.background = "none";
+                              }}
+                            >
+                              <Plus style={{ width: 13, height: 13 }} /> Add
+                              task
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* ── Add Project ── */}
+                <div
+                  style={{
+                    marginTop: "12px",
+                    paddingTop: "12px",
+                    borderTop: "1px solid rgba(255,255,255,0.05)",
+                  }}
+                >
+                  {isAddingProject ? (
+                    <div
+                      className="anim-slide-down"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        flexWrap: "wrap",
+                      }}
+                    >
                       <Input
                         autoFocus
                         value={newProjectName}
@@ -590,62 +1407,160 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                           if (e.key === "Enter") handleAddProject();
                           if (e.key === "Escape") {
                             setIsAddingProject(false);
-                            setAddingProjectType("");
                             setNewProjectName("");
                           }
                         }}
-                        placeholder=""
-                        className="h-10 w-[220px] bg-[#0a0f18] border-[#1f2937] text-white focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0 focus-visible:border-[#34d399]"
+                        placeholder="Project name..."
+                        className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
+                        style={{
+                          height: "36px",
+                          width: "220px",
+                          background: "#08111F",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: "10px",
+                          color: "#e2e8f0",
+                          fontSize: "13px",
+                        }}
                       />
-                    )}
-
+                      <button
+                        onClick={handleAddProject}
+                        disabled={!newProjectName.trim()}
+                        style={{
+                          background: newProjectName.trim()
+                            ? "linear-gradient(135deg, #34D399, #10B981)"
+                            : "rgba(52,211,153,0.12)",
+                          color: newProjectName.trim() ? "#08111F" : "#34D399",
+                          border: "none",
+                          borderRadius: "10px",
+                          height: "36px",
+                          padding: "0 18px",
+                          fontWeight: 600,
+                          fontSize: "12px",
+                          cursor: newProjectName.trim()
+                            ? "pointer"
+                            : "not-allowed",
+                        }}
+                      >
+                        Add
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsAddingProject(false);
+                          setNewProjectName("");
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#64748b",
+                          fontSize: "12px",
+                          cursor: "pointer",
+                          height: "36px",
+                          padding: "0 8px",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
                     <button
-                      onClick={handleAddProject}
-                      disabled={
-                        addingProjectType !== "custom" || !newProjectName.trim()
-                      }
-                      className={cn(
-                        "inline-flex items-center justify-center rounded-md font-medium text-sm h-10 px-6 transition-colors",
-                        addingProjectType === "custom" && newProjectName.trim()
-                          ? "bg-[#34d399] hover:bg-[#10b981] text-[#0a0f18] cursor-pointer"
-                          : "bg-[#064e3b] text-[#10b981] cursor-not-allowed opacity-90",
-                      )}
-                    >
-                      Add
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setIsAddingProject(false);
-                        setAddingProjectType("");
-                        setNewProjectName("");
+                      onClick={() => setIsAddingProject(true)}
+                      style={{
+                        background: "transparent",
+                        border: "1px dashed rgba(255,255,255,0.1)",
+                        borderRadius: "10px",
+                        color: "#475569",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "7px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        padding: "6px 16px",
+                        transition:
+                          "border-color 150ms, color 150ms, background 150ms",
                       }}
-                      className="text-white hover:text-gray-300 font-medium text-sm h-10 px-2"
+                      onMouseEnter={(e) => {
+                        const el = e.currentTarget as HTMLButtonElement;
+                        el.style.borderColor = "rgba(52,211,153,0.35)";
+                        el.style.color = "#34D399";
+                        el.style.background = "rgba(52,211,153,0.05)";
+                      }}
+                      onMouseLeave={(e) => {
+                        const el = e.currentTarget as HTMLButtonElement;
+                        el.style.borderColor = "rgba(255,255,255,0.1)";
+                        el.style.color = "#475569";
+                        el.style.background = "transparent";
+                      }}
                     >
-                      Cancel
+                      <Plus style={{ width: 13, height: 13 }} /> Add Project
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setIsAddingProject(true)}
-                    className="flex items-center text-gray-400 hover:text-gray-200 text-sm font-medium w-max px-2 py-1 -mx-2"
-                  >
-                    <Plus className="w-4 h-4 mr-1.5" />
-                    Add project
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-32 space-y-4">
-            <ClipboardList className="w-16 h-16 text-[#1f2937]" />
-            <p className="text-gray-400 font-medium text-base">
-              No entries yet. Click "+ Today" to begin.
-            </p>
-          </div>
-        )}
+          ) : (
+            /* ── Empty State ── */
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "80px 0",
+                gap: "16px",
+              }}
+            >
+              <div
+                style={{
+                  width: "64px",
+                  height: "64px",
+                  background: "rgba(52,211,153,0.08)",
+                  border: "1px solid rgba(52,211,153,0.15)",
+                  borderRadius: "18px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <ClipboardList
+                  style={{ width: 28, height: 28, color: "#34D399" }}
+                />
+              </div>
+              <p
+                style={{
+                  color: "#334155",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  textAlign: "center",
+                }}
+              >
+                No entries yet.{" "}
+                <button
+                  onClick={() => {
+                    const todayStr = new Date().toISOString();
+                    setDateMap((prev) => ({ ...prev, [todayStr]: [] }));
+                    setActiveDateStr(todayStr);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#34D399",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    padding: 0,
+                    textDecoration: "underline",
+                    textDecorationStyle: "dotted",
+                    textUnderlineOffset: "3px",
+                  }}
+                >
+                  Click here to start today's plan.
+                </button>
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
