@@ -29,6 +29,7 @@ const DEFAULT_TABS = [
   "Doc",
   "Updates",
   "Dashboard",
+  "DevBoard.Daily",
 ];
 
 // "Teams" (displayed as "Team Kanban") must always sit immediately after
@@ -52,17 +53,23 @@ function withTeamsAfterGantt(tabs: string[]): string[] {
  * Reusable across all views
  */
 export function useColumnPersistence(boardId: string) {
-  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
-    const saved = localStorage.getItem(`board-visible-columns-${boardId}`);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return Object.fromEntries(DEFAULT_VISIBLE_COLUMNS.map((col) => [col, true]));
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
+    () => {
+      const saved = localStorage.getItem(`board-visible-columns-${boardId}`);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return Object.fromEntries(
+            DEFAULT_VISIBLE_COLUMNS.map((col) => [col, true]),
+          );
+        }
       }
-    }
-    return Object.fromEntries(DEFAULT_VISIBLE_COLUMNS.map((col) => [col, true]));
-  });
+      return Object.fromEntries(
+        DEFAULT_VISIBLE_COLUMNS.map((col) => [col, true]),
+      );
+    },
+  );
 
   const [viewTabs, setViewTabs] = useState<string[]>(() => {
     const savedTabs = localStorage.getItem(`board-tabs-${boardId}`);
@@ -83,7 +90,10 @@ export function useColumnPersistence(boardId: string) {
 
   // Persist visible columns to localStorage
   useEffect(() => {
-    localStorage.setItem(`board-visible-columns-${boardId}`, JSON.stringify(visibleColumns));
+    localStorage.setItem(
+      `board-visible-columns-${boardId}`,
+      JSON.stringify(visibleColumns),
+    );
   }, [visibleColumns, boardId]);
 
   // Persist view tabs to localStorage
@@ -114,25 +124,28 @@ export function useColumnPersistence(boardId: string) {
 
   const isColumnVisible = useCallback(
     (columnId: string) => visibleColumns[columnId] !== false,
-    [visibleColumns]
+    [visibleColumns],
   );
 
   const reorderTabs = useCallback((newTabs: string[]) => {
     setViewTabs(newTabs);
   }, []);
 
-  const updateColumnLabel = useCallback((columnId: string, newLabel: string) => {
-    setColumnLabels((prev) => ({
-      ...prev,
-      [columnId]: newLabel,
-    }));
-  }, []);
+  const updateColumnLabel = useCallback(
+    (columnId: string, newLabel: string) => {
+      setColumnLabels((prev) => ({
+        ...prev,
+        [columnId]: newLabel,
+      }));
+    },
+    [],
+  );
 
   const getColumnLabel = useCallback(
     (columnId: string, defaultLabel: string) => {
       return columnLabels[columnId] || defaultLabel;
     },
-    [columnLabels]
+    [columnLabels],
   );
 
   return {

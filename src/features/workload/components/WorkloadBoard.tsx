@@ -126,6 +126,7 @@ import { SOPView } from "@/features/workload/components/SOPView";
 import GanttView from "@/features/workload/components/GanttView";
 import { TeamsBoardNavigator } from "@/features/workload/components/TeamsBoardNavigator";
 import { KanbanBoardColumn } from "@/features/workload/components/KanbanBoardColumn";
+import { DevBoardDailyView } from "@/features/workload/components/DevBoardDailyView";
 
 function DebouncedSearchInput({
   value,
@@ -505,6 +506,7 @@ function SortableViewTab({ tab, activeTab, onTabClick }: SortableViewTabProps) {
     "SOP",
     "Gantt",
     "Teams",
+    "DevBoard.Daily",
   ];
   const isImplemented = implementedTabs.includes(tab);
 
@@ -638,6 +640,7 @@ export function WorkloadBoard({
     Doc: "doc",
     Updates: "updates",
     Dashboard: "dashboard",
+    "DevBoard.Daily": "devboardDaily",
   };
 
   const isCurrentViewLive = (tab: string) => {
@@ -8008,6 +8011,11 @@ export function WorkloadBoard({
               if (task) openTaskCard(task);
             }}
           />
+        )}
+
+        {/* DevBoard Daily VIEW */}
+        {activeTab === "DevBoard.Daily" && isViewLive.devboardDaily && (
+          <DevBoardDailyView boardId={boardId} />
         )}
 
         {/* Gantt VIEW */}
