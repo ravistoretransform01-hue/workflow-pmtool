@@ -12,6 +12,9 @@ import {
   CheckCircle2,
   ClipboardList,
   FolderOpen,
+  ExternalLink,
+  UserPlus,
+  ChevronRight,
 } from "lucide-react";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
@@ -219,11 +222,14 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
     <>
       <style>{collapseStyle}</style>
       <div
-        className="flex-1 flex flex-col w-full h-full overflow-y-auto"
-        style={{ background: "hsl(var(--background))", color: "hsl(var(--foreground))" }}
+        className="flex-1 flex flex-col w-full h-full overflow-hidden"
+        style={{
+          background: "hsl(var(--background))",
+          color: "hsl(var(--foreground))",
+        }}
         data-board-id={boardId}
       >
-        <div className="max-w-[1600px] w-full mx-auto px-6 md:px-10 py-6 space-y-6">
+        <div className="max-w-[1600px] w-full mx-auto px-6 md:px-10 py-6 flex flex-col h-full min-h-0 space-y-6">
           {/* ── HEADER ROW ── */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             {/* Left: date selector */}
@@ -263,7 +269,11 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                   </select>
                   <ChevronDown
                     className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                    style={{ width: 14, height: 14, color: "hsl(var(--muted-foreground))" }}
+                    style={{
+                      width: 14,
+                      height: 14,
+                      color: "hsl(var(--muted-foreground))",
+                    }}
                   />
                 </div>
               ) : (
@@ -491,10 +501,11 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     fontSize: "12px",
                     transition: "background 150ms, color 150ms",
                     background:
+                      filter === label ? "hsl(var(--primary))" : "transparent",
+                    color:
                       filter === label
-                        ? "hsl(var(--primary))"
-                        : "transparent",
-                    color: filter === label ? "hsl(var(--background))" : "hsl(var(--muted-foreground))",
+                        ? "hsl(var(--background))"
+                        : "hsl(var(--muted-foreground))",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -513,6 +524,10 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                 borderRadius: "16px",
                 boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
                 overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                flex: 1,
+                minHeight: 0,
               }}
             >
               {/* Card Header */}
@@ -525,6 +540,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                   borderBottom: "1px solid hsl(var(--border))",
                   gap: "12px",
                   flexWrap: "wrap",
+                  flexShrink: 0,
                 }}
               >
                 <div
@@ -591,8 +607,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                         style={{
                           width: `${progressPct}%`,
                           height: "100%",
-                          background:
-                            "hsl(var(--primary))",
+                          background: "hsl(var(--primary))",
                           borderRadius: "2px",
                           transition: "width 300ms ease",
                         }}
@@ -614,11 +629,15 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
 
               {/* Card Content */}
               <div
+                className="custom-scrollbar"
                 style={{
                   padding: "24px 32px",
                   display: "flex",
                   flexDirection: "column",
                   gap: "8px",
+                  flex: 1,
+                  overflowY: "auto",
+                  minHeight: 0,
                 }}
               >
                 {projects.map((project) => {
@@ -765,8 +784,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                   setAddingTaskToProject(project.id)
                                 }
                                 style={{
-                                  background:
-                                    "hsl(var(--primary))",
+                                  background: "hsl(var(--primary))",
                                   color: "hsl(var(--background))",
                                   border: "none",
                                   borderRadius: "8px",
@@ -895,7 +913,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                             onMouseEnter={(e) => {
                               const el = e.currentTarget as HTMLButtonElement;
                               el.style.color = "hsl(var(--destructive))";
-                              el.style.background = "hsl(var(--destructive) / 0.15)";
+                              el.style.background =
+                                "hsl(var(--destructive) / 0.15)";
                             }}
                             onMouseLeave={(e) => {
                               const el = e.currentTarget as HTMLButtonElement;
@@ -977,8 +996,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                       flex: 1,
                                       minHeight: "36px",
                                       background: "hsl(var(--background))",
-                                      border:
-                                        "1px solid hsl(var(--border))",
+                                      border: "1px solid hsl(var(--border))",
                                       borderRadius: "8px",
                                       color: "hsl(var(--foreground))",
                                       fontSize: "13px",
@@ -995,8 +1013,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                       height: "36px",
                                       width: "90px",
                                       background: "hsl(var(--background))",
-                                      border:
-                                        "1px solid hsl(var(--border))",
+                                      border: "1px solid hsl(var(--border))",
                                       borderRadius: "8px",
                                       color: "hsl(var(--foreground))",
                                       fontSize: "13px",
@@ -1122,93 +1139,172 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     />
                                   )}
                                   {task.title}
+                                </button>
+                                <div className="flex items-center gap-3">
+                                  <div className="opacity-0 group-hover/task:opacity-100 flex items-center gap-2">
+                                    <button
+                                      style={{
+                                        background: "none",
+                                        border: "none",
+                                        color: "hsl(var(--primary))",
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        padding: "4px",
+                                      }}
+                                    >
+                                      <ExternalLink
+                                        style={{ width: 14, height: 14 }}
+                                      />
+                                    </button>
+                                  </div>
+
                                   {task.hours && (
                                     <span
                                       style={{
-                                        fontSize: "11px",
-                                        color: "hsl(var(--muted-foreground))",
-                                        background: "hsl(var(--accent))",
-                                        padding: "1px 7px",
-                                        borderRadius: "5px",
+                                        fontSize: "12px",
+                                        color: "hsl(var(--primary))",
+                                        background:
+                                          "hsl(var(--primary) / 0.15)",
+                                        padding: "3px 8px",
+                                        borderRadius: "6px",
                                         border:
-                                          "1px solid hsl(var(--border))",
+                                          "1px solid hsl(var(--primary) / 0.3)",
                                         fontWeight: 500,
                                       }}
                                     >
                                       {task.hours}h
                                     </span>
                                   )}
-                                </button>
-                                <div className="opacity-0 group-hover/task:opacity-100 flex items-center gap-1">
-                                  <button
-                                    onClick={() => {
-                                      setEditingTaskId(task.id);
-                                      setEditingTaskTitle(task.title);
-                                      setEditingTaskDescription(
-                                        task.description || "",
-                                      );
-                                      setEditingTaskHours(task.hours || "");
-                                    }}
-                                    style={{
-                                      background: "none",
-                                      border: "none",
-                                      color: "hsl(var(--muted-foreground))",
-                                      cursor: "pointer",
-                                      padding: "4px",
-                                      borderRadius: "6px",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      transition:
-                                        "color 150ms, background 150ms",
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      const el =
-                                        e.currentTarget as HTMLButtonElement;
-                                      el.style.color = "hsl(var(--muted-foreground))";
-                                      el.style.background =
-                                        "hsl(var(--accent))";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      const el =
-                                        e.currentTarget as HTMLButtonElement;
-                                      el.style.color = "hsl(var(--muted-foreground))";
-                                      el.style.background = "none";
-                                    }}
-                                  >
-                                    <Pencil style={{ width: 12, height: 12 }} />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleDeleteTask(project.id, task.id)
-                                    }
-                                    style={{
-                                      background: "none",
-                                      border: "none",
-                                      color: "hsl(var(--muted-foreground))",
-                                      cursor: "pointer",
-                                      padding: "4px",
-                                      borderRadius: "6px",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      transition:
-                                        "color 150ms, background 150ms",
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      const el =
-                                        e.currentTarget as HTMLButtonElement;
-                                      el.style.color = "hsl(var(--destructive))";
-                                      el.style.background =
-                                        "hsl(var(--destructive) / 0.15)";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      const el =
-                                        e.currentTarget as HTMLButtonElement;
-                                      el.style.color = "hsl(var(--muted-foreground))";
-                                      el.style.background = "none";
-                                    }}
-                                  >
-                                    <Trash2 style={{ width: 12, height: 12 }} />
-                                  </button>
+
+                                  <div className="opacity-0 group-hover/task:opacity-100 flex items-center gap-2">
+                                    <button
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "6px",
+                                        color: "hsl(var(--muted-foreground))",
+                                        background: "transparent",
+                                        border: "1px dashed hsl(var(--border))",
+                                        borderRadius: "999px",
+                                        padding: "3px 10px",
+                                        fontSize: "12px",
+                                        cursor: "pointer",
+                                        transition:
+                                          "color 150ms, border-color 150ms",
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        const el = e.currentTarget;
+                                        el.style.color =
+                                          "hsl(var(--foreground))";
+                                        el.style.borderColor =
+                                          "hsl(var(--muted-foreground))";
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        const el = e.currentTarget;
+                                        el.style.color =
+                                          "hsl(var(--muted-foreground))";
+                                        el.style.borderColor =
+                                          "hsl(var(--border))";
+                                      }}
+                                    >
+                                      <UserPlus
+                                        style={{ width: 12, height: 12 }}
+                                      />
+                                      assign
+                                    </button>
+
+                                    <div className="flex items-center gap-1 border-l border-white/5 pl-2 ml-1">
+                                      <button
+                                        onClick={() => {
+                                          setEditingTaskId(task.id);
+                                          setEditingTaskTitle(task.title);
+                                          setEditingTaskDescription(
+                                            task.description || "",
+                                          );
+                                          setEditingTaskHours(task.hours || "");
+                                        }}
+                                        style={{
+                                          background: "none",
+                                          border: "none",
+                                          color: "hsl(var(--muted-foreground))",
+                                          cursor: "pointer",
+                                          padding: "4px",
+                                          borderRadius: "6px",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          transition:
+                                            "color 150ms, background 150ms",
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          const el = e.currentTarget;
+                                          el.style.color =
+                                            "hsl(var(--foreground))";
+                                          el.style.background =
+                                            "hsl(var(--accent))";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          const el = e.currentTarget;
+                                          el.style.color =
+                                            "hsl(var(--muted-foreground))";
+                                          el.style.background = "none";
+                                        }}
+                                      >
+                                        <Pencil
+                                          style={{ width: 14, height: 14 }}
+                                        />
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleDeleteTask(project.id, task.id)
+                                        }
+                                        style={{
+                                          background: "none",
+                                          border: "none",
+                                          color: "hsl(var(--muted-foreground))",
+                                          cursor: "pointer",
+                                          padding: "4px",
+                                          borderRadius: "6px",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          transition:
+                                            "color 150ms, background 150ms",
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          const el = e.currentTarget;
+                                          el.style.color =
+                                            "hsl(var(--destructive))";
+                                          el.style.background =
+                                            "hsl(var(--destructive) / 0.15)";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          const el = e.currentTarget;
+                                          el.style.color =
+                                            "hsl(var(--muted-foreground))";
+                                          el.style.background = "none";
+                                        }}
+                                      >
+                                        <Trash2
+                                          style={{ width: 14, height: 14 }}
+                                        />
+                                      </button>
+                                      <button
+                                        style={{
+                                          background: "none",
+                                          border: "none",
+                                          color: "hsl(var(--muted-foreground))",
+                                          cursor: "pointer",
+                                          padding: "4px",
+                                          display: "flex",
+                                          alignItems: "center",
+                                        }}
+                                      >
+                                        <ChevronRight
+                                          style={{ width: 16, height: 16 }}
+                                        />
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             ),
@@ -1429,7 +1525,9 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                           background: newProjectName.trim()
                             ? "hsl(var(--primary))"
                             : "hsl(var(--primary) / 0.12)",
-                          color: newProjectName.trim() ? "hsl(var(--background))" : "hsl(var(--primary))",
+                          color: newProjectName.trim()
+                            ? "hsl(var(--background))"
+                            : "hsl(var(--primary))",
                           border: "none",
                           borderRadius: "10px",
                           height: "36px",
@@ -1523,7 +1621,11 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                 }}
               >
                 <ClipboardList
-                  style={{ width: 28, height: 28, color: "hsl(var(--primary))" }}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    color: "hsl(var(--primary))",
+                  }}
                 />
               </div>
               <p
