@@ -5866,13 +5866,26 @@ export function WorkloadBoard({
 
         {/* View Tabs */}
         {(() => {
-          const orderedTabs =
-            String(orgId) === "27"
-              ? [
-                  "Kanban",
-                  ...columnState.viewTabs.filter((t: string) => t !== "Kanban"),
-                ]
-              : columnState.viewTabs;
+          let orderedTabs = [...columnState.viewTabs];
+
+          if (String(orgId) === "27") {
+            // Bring Kanban to the front for Org 27
+            orderedTabs = [
+              "Kanban",
+              ...orderedTabs.filter((t: string) => t !== "Kanban"),
+            ];
+
+            // Reorder DevBoard.Daily to be right after Gantt
+            if (orderedTabs.includes("DevBoard.Daily")) {
+              orderedTabs = orderedTabs.filter((t) => t !== "DevBoard.Daily");
+            }
+            const ganttIdx = orderedTabs.indexOf("Gantt");
+            if (ganttIdx !== -1) {
+              orderedTabs.splice(ganttIdx + 1, 0, "DevBoard.Daily");
+            } else {
+              orderedTabs.push("DevBoard.Daily");
+            }
+          }
 
           return (
             <DndContext
