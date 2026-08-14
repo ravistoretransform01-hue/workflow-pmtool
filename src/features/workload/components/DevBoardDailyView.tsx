@@ -1093,55 +1093,82 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                   ).style.background = "transparent";
                                 }}
                               >
-                                <button
-                                  onClick={() =>
-                                    handleToggleTaskStatus(project.id, task.id)
-                                  }
+                                <div
                                   style={{
-                                    background: "none",
-                                    border: "none",
-                                    cursor: "pointer",
                                     display: "flex",
                                     alignItems: "center",
                                     gap: "10px",
-                                    color:
-                                      task.status === "completed"
-                                        ? "hsl(var(--muted-foreground))"
-                                        : "hsl(var(--muted-foreground))",
-                                    fontSize: "13px",
-                                    fontWeight:
-                                      task.status === "completed" ? 400 : 500,
-                                    textDecoration:
-                                      task.status === "completed"
-                                        ? "line-through"
-                                        : "none",
-                                    transition: "color 150ms",
-                                    padding: 0,
+                                    cursor: "pointer",
+                                    flex: 1, // Let this grow so the whole row is clickable
+                                    minWidth: 0, // Prevent overflow if text is long
+                                  }}
+                                  onClick={() => {
+                                    setEditingTaskId(task.id);
+                                    setEditingTaskTitle(task.title);
+                                    setEditingTaskDescription(
+                                      task.description || "",
+                                    );
+                                    setEditingTaskHours(task.hours || "");
                                   }}
                                 >
-                                  {task.status === "completed" ? (
-                                    <CheckCircle2
-                                      style={{
-                                        width: 15,
-                                        height: 15,
-                                        color: "hsl(var(--primary))",
-                                        flexShrink: 0,
-                                      }}
-                                    />
-                                  ) : (
-                                    <Circle
-                                      style={{
-                                        width: 15,
-                                        height: 15,
-                                        color: "hsl(var(--muted-foreground))",
-                                        flexShrink: 0,
-                                      }}
-                                    />
-                                  )}
-                                  {task.title}
-                                </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleTaskStatus(
+                                        project.id,
+                                        task.id,
+                                      );
+                                    }}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      padding: 0,
+                                    }}
+                                  >
+                                    {task.status === "completed" ? (
+                                      <CheckCircle2
+                                        style={{
+                                          width: 15,
+                                          height: 15,
+                                          color: "hsl(var(--primary))",
+                                          flexShrink: 0,
+                                        }}
+                                      />
+                                    ) : (
+                                      <Circle
+                                        style={{
+                                          width: 15,
+                                          height: 15,
+                                          color: "hsl(var(--muted-foreground))",
+                                          flexShrink: 0,
+                                        }}
+                                      />
+                                    )}
+                                  </button>
+                                  <span
+                                    style={{
+                                      color:
+                                        task.status === "completed"
+                                          ? "hsl(var(--muted-foreground))"
+                                          : "hsl(var(--muted-foreground))",
+                                      fontSize: "13px",
+                                      fontWeight:
+                                        task.status === "completed" ? 400 : 500,
+                                      textDecoration:
+                                        task.status === "completed"
+                                          ? "line-through"
+                                          : "none",
+                                      transition: "color 150ms",
+                                    }}
+                                  >
+                                    {task.title}
+                                  </span>
+                                </div>
                                 <div className="flex items-center gap-3">
-                                  <div className="opacity-0 group-hover/task:opacity-100 flex items-center gap-2">
+                                  <div className="flex items-center gap-2">
                                     <button
                                       style={{
                                         background: "none",
@@ -1177,7 +1204,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                     </span>
                                   )}
 
-                                  <div className="opacity-0 group-hover/task:opacity-100 flex items-center gap-2">
+                                  <div className="flex items-center gap-2">
                                     <button
                                       style={{
                                         display: "flex",

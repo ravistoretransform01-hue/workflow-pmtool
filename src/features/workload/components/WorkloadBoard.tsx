@@ -5886,7 +5886,13 @@ export function WorkloadBoard({
                   strategy={horizontalListSortingStrategy}
                 >
                   {orderedTabs
-                    .filter((tab: string) => tab !== "Teams" || orgId === "31")
+                    .filter((tab: string) => {
+                      if (tab === "Teams" && String(orgId) !== "31")
+                        return false;
+                      if (tab === "DevBoard.Daily" && String(orgId) !== "27")
+                        return false;
+                      return true;
+                    })
                     .map((tab: string) => (
                       <SortableViewTab
                         key={tab}
