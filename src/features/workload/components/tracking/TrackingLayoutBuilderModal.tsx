@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/api/groupsApi";
+import * as XLSX from "xlsx";
 
 export type WidgetType = "tasks_list" | "calendar_view" | "chart" | "notes";
 
@@ -73,83 +74,87 @@ export function TrackingLayoutBuilderModal({
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
-        if (lines.length === 0) {
-          toast.error("CSV is empty");
-          return;
-        }
+    const validExtensions = [".csv", ".xls", ".xlsx"];
+    const extension = file.name
+      .substring(file.name.lastIndexOf("."))
+      .toLowerCase();
 
-        const parseLine = (str: string) => {
-          const result = [];
-          let current = "";
-          let inQuotes = false;
-          for (let i = 0; i < str.length; i++) {
-            const char = str[i];
-            if (char === '"') {
-              inQuotes = !inQuotes;
-            } else if (char === "," && !inQuotes) {
-              result.push(current.trim());
-              current = "";
-            } else {
-              current += char;
-            }
-          }
-          result.push(current.trim());
-          return result;
-        };
-
-        const headers = parseLine(lines[0]);
-        const dataRowLines = lines.slice(1);
-
-        const newColumns: TrackingLayoutColumn[] = headers.map((header) => ({
-          id: `col_${generateId()}`,
-          name: header,
-          rows: [],
-        }));
-
-        dataRowLines.forEach((line) => {
-          const rowValues = parseLine(line);
-          rowValues.forEach((val, i) => {
-            if (i < newColumns.length && val) {
-              newColumns[i].rows.push({
-                id: `row_${generateId()}`,
-                name: val,
-              });
-            }
-          });
-        });
-
-        setTabs((prev) =>
-          prev.map((t) => {
-            if (t.id === activeTabId) {
-              return {
-                ...t,
-                columns: [...t.columns, ...newColumns],
-              };
-            }
-            return t;
-          }),
-        );
-
-        toast.success("CSV Imported Successfully");
-      } catch (err) {
-        toast.error("Failed to parse CSV");
-        console.error(err);
-      } finally {
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
+    if (!validExtensions.includes(extension)) {
+      toast.error(
+        "Invalid file type. Please upload a .csv, .xls, or .xlsx file.",
+      );
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
       }
-    };
-    reader.readAsText(file);
+      return;
+    }
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+
+      const json: any[][] = XLSX.utils.sheet_to_json(worksheet, {
+        header: 1,
+        defval: "",
+      });
+
+      const lines = json.filter((row) =>
+        row.some((cell) => String(cell).trim() !== ""),
+      );
+
+      if (lines.length === 0) {
+        toast.error("File is empty");
+        return;
+      }
+
+      const headers = lines[0].map((h: any) => String(h).trim());
+      const dataRowLines = lines.slice(1);
+
+      const newColumns: TrackingLayoutColumn[] = headers.map((header) => ({
+        id: `col_${generateId()}`,
+        name: header,
+        rows: [],
+      }));
+
+      dataRowLines.forEach((rowValues) => {
+        rowValues.forEach((val, i) => {
+          const strVal = String(val).trim();
+          if (i < newColumns.length && strVal) {
+            newColumns[i].rows.push({
+              id: `row_${generateId()}`,
+              name: strVal,
+            });
+          }
+        });
+      });
+
+      setTabs((prev) =>
+        prev.map((t) => {
+          if (t.id === activeTabId) {
+            return {
+              ...t,
+              columns: [...t.columns, ...newColumns],
+            };
+          }
+          return t;
+        }),
+      );
+
+      toast.success("File Imported Successfully");
+    } catch (err) {
+      toast.error("Failed to parse file");
+      console.error(err);
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
   useEffect(() => {
@@ -596,7 +601,7 @@ export function TrackingLayoutBuilderModal({
                     <div className="flex items-center gap-2">
                       <input
                         type="file"
-                        accept=".csv"
+                        accept=".csv, .xls, .xlsx"
                         className="hidden"
                         ref={fileInputRef}
                         onChange={handleFileUpload}
@@ -607,7 +612,7 @@ export function TrackingLayoutBuilderModal({
                         variant="outline"
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        Import CSV
+                        Import File
                       </Button>
                       <Button
                         onClick={() => addColumn(activeTab.id)}
@@ -735,7 +740,7 @@ export function TrackingLayoutBuilderModal({
                             variant="outline"
                           >
                             <Download className="h-4 w-4 mr-2" />
-                            Import CSV
+                            Import File
                           </Button>
                         </div>
                       </div>
