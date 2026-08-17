@@ -7,7 +7,14 @@ import {
 } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
-import { Plus, Trash2, GripVertical, Layout, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  GripVertical,
+  Layout,
+  Loader2,
+  Download,
+} from "lucide-react";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/api/groupsApi";
 
@@ -57,6 +64,93 @@ export function TrackingLayoutBuilderModal({
   const [existingLayoutId, setExistingLayoutId] = useState<
     number | string | null
   >(null);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleImportCSVClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
+        if (lines.length === 0) {
+          toast.error("CSV is empty");
+          return;
+        }
+
+        const parseLine = (str: string) => {
+          const result = [];
+          let current = "";
+          let inQuotes = false;
+          for (let i = 0; i < str.length; i++) {
+            const char = str[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === "," && !inQuotes) {
+              result.push(current.trim());
+              current = "";
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        };
+
+        const headers = parseLine(lines[0]);
+        const dataRowLines = lines.slice(1);
+
+        const newColumns: TrackingLayoutColumn[] = headers.map((header) => ({
+          id: `col_${generateId()}`,
+          name: header,
+          rows: [],
+        }));
+
+        dataRowLines.forEach((line) => {
+          const rowValues = parseLine(line);
+          rowValues.forEach((val, i) => {
+            if (i < newColumns.length && val) {
+              newColumns[i].rows.push({
+                id: `row_${generateId()}`,
+                name: val,
+              });
+            }
+          });
+        });
+
+        setTabs((prev) =>
+          prev.map((t) => {
+            if (t.id === activeTabId) {
+              return {
+                ...t,
+                columns: [...t.columns, ...newColumns],
+              };
+            }
+            return t;
+          }),
+        );
+
+        toast.success("CSV Imported Successfully");
+      } catch (err) {
+        toast.error("Failed to parse CSV");
+        console.error(err);
+      } finally {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
 
   useEffect(() => {
     if (open && groupId) {
@@ -499,14 +593,31 @@ export function TrackingLayoutBuilderModal({
                     <h3 className="font-semibold text-lg">
                       {activeTab.name} Dashboard
                     </h3>
-                    <Button
-                      onClick={() => addColumn(activeTab.id)}
-                      size="sm"
-                      variant="secondary"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Column
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept=".csv"
+                        className="hidden"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                      />
+                      <Button
+                        onClick={handleImportCSVClick}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Import CSV
+                      </Button>
+                      <Button
+                        onClick={() => addColumn(activeTab.id)}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Column
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="flex-1 overflow-x-auto overflow-y-hidden flex items-stretch gap-4 pb-4">
@@ -615,9 +726,18 @@ export function TrackingLayoutBuilderModal({
                         <p className="mb-4">
                           This dashboard has no columns yet
                         </p>
-                        <Button onClick={() => addColumn(activeTab.id)}>
-                          Add First Column
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button onClick={() => addColumn(activeTab.id)}>
+                            Add First Column
+                          </Button>
+                          <Button
+                            onClick={handleImportCSVClick}
+                            variant="outline"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Import CSV
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
