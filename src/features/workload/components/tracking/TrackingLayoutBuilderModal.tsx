@@ -685,19 +685,61 @@ export function TrackingLayoutBuilderModal({
                                   className="border rounded-md bg-background p-2 flex flex-col relative group/row transition-all shadow-sm"
                                 >
                                   <div className="flex items-center justify-between gap-2">
-                                    <Input
-                                      className="h-7 text-xs flex-1"
-                                      placeholder="Row Name..."
-                                      value={row.name || ""}
-                                      onChange={(e) =>
-                                        updateRow(
-                                          activeTab.id,
-                                          col.id,
-                                          row.id,
-                                          e.target.value,
-                                        )
-                                      }
-                                    />
+                                    {col.name
+                                      ?.toLowerCase()
+                                      .includes("status") ? (
+                                      <select
+                                        className="flex h-7 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={row.name || ""}
+                                        onChange={(e) =>
+                                          updateRow(
+                                            activeTab.id,
+                                            col.id,
+                                            row.id,
+                                            e.target.value,
+                                          )
+                                        }
+                                      >
+                                        <option value="" disabled>
+                                          Select Status
+                                        </option>
+                                        <option value="Done">Done</option>
+                                        <option value="In Progress">
+                                          In Progress
+                                        </option>
+                                        <option value="Pending">Pending</option>
+                                        <option value="Not Added">
+                                          Not Added
+                                        </option>
+                                        <option value="N/A">N/A</option>
+                                        {row.name &&
+                                          ![
+                                            "Done",
+                                            "In Progress",
+                                            "Pending",
+                                            "Not Added",
+                                            "N/A",
+                                          ].includes(row.name) && (
+                                            <option value={row.name}>
+                                              {row.name}
+                                            </option>
+                                          )}
+                                      </select>
+                                    ) : (
+                                      <Input
+                                        className="h-7 text-xs flex-1"
+                                        placeholder="Row Name..."
+                                        value={row.name || ""}
+                                        onChange={(e) =>
+                                          updateRow(
+                                            activeTab.id,
+                                            col.id,
+                                            row.id,
+                                            e.target.value,
+                                          )
+                                        }
+                                      />
+                                    )}
                                     <Button
                                       size="icon"
                                       variant="ghost"
