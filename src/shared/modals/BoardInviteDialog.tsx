@@ -15,8 +15,16 @@ import {
 import { boardsApi } from "@/features/boards/api/boardsApi";
 import { groupsApi } from "@/features/groups/api/groupsApi";
 import type { Group } from "@/features/groups/types/types";
-import { clearCMSCache, getMembers, getRoles } from "@/features/cms/services/cmsStorage";
-import { getOrganizationId, getCurrentUserId, isClientRole } from "@/utils/utils";
+import {
+  clearCMSCache,
+  getMembers,
+  getRoles,
+} from "@/features/cms/services/cmsStorage";
+import {
+  getOrganizationId,
+  getCurrentUserId,
+  isClientRole,
+} from "@/utils/utils";
 import type { Role } from "@/features/cms/types/types";
 import api from "@/config/axios";
 import {
@@ -27,11 +35,7 @@ import {
   SelectValue,
 } from "@/shared/ui/select";
 import { Button } from "@/shared/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 
 interface BoardInviteDialogProps {
   open: boolean;
@@ -89,7 +93,7 @@ export function BoardInviteDialog({
     OrganizationMember[]
   >([]);
   const [isInviting, setIsInviting] = useState(false);
-  
+
   const [internalBoardMembers, setInternalBoardMembers] = useState<
     Array<{
       id: string;
@@ -100,15 +104,17 @@ export function BoardInviteDialog({
     }>
   >([]);
   const [isLoadingBoardMembers, setIsLoadingBoardMembers] = useState(false);
-  
+
   const [roles, setRoles] = useState<Role[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState("2"); // Default to 2 (Member)
-  const [selectedInvitees, setSelectedInvitees] = useState<SelectedInvitee[]>([]);
+  const [selectedInvitees, setSelectedInvitees] = useState<SelectedInvitee[]>(
+    [],
+  );
   const [boardGroups, setBoardGroups] = useState<Group[]>([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
-  
+
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -237,7 +243,9 @@ export function BoardInviteDialog({
       setRoles(rolesData);
       if (rolesData.length > 0) {
         // Default to the member role if found
-        const memberRole = rolesData.find((r) => r.name.toLowerCase().includes("member"));
+        const memberRole = rolesData.find((r) =>
+          r.name.toLowerCase().includes("member"),
+        );
         setSelectedRoleId(memberRole ? memberRole.id : rolesData[0].id);
       }
     } catch (error) {
@@ -273,7 +281,9 @@ export function BoardInviteDialog({
   }, [roles]);
 
   const isSelectedRoleClient = useMemo(() => {
-    const roleObj = effectiveRoles.find((r) => String(r.id) === String(selectedRoleId));
+    const roleObj = effectiveRoles.find(
+      (r) => String(r.id) === String(selectedRoleId),
+    );
     return roleObj ? isClientRole(roleObj.name) : false;
   }, [selectedRoleId, effectiveRoles]);
 
@@ -294,7 +304,9 @@ export function BoardInviteDialog({
   // Filter organization members for dropdown search (not already on board & not selected)
   const availableUsers = useMemo(() => {
     const currentMemberIds = new Set(boardMembersList.map((m) => String(m.id)));
-    const selectedIds = new Set(selectedInvitees.map((item) => String(item.id)));
+    const selectedIds = new Set(
+      selectedInvitees.map((item) => String(item.id)),
+    );
     const currentUserId = getCurrentUserId();
 
     if (!searchQuery.trim()) {
@@ -308,11 +320,14 @@ export function BoardInviteDialog({
       const isAlreadySelected = selectedIds.has(String(orgMember.user_id));
       if (isAlreadySelected) return false;
 
-      const isCurrentUser = currentUserId && String(orgMember.user_id) === String(currentUserId);
+      const isCurrentUser =
+        currentUserId && String(orgMember.user_id) === String(currentUserId);
       if (isCurrentUser) return false;
 
       return (
-        orgMember.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        orgMember.display_name
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
         orgMember.user_email.toLowerCase().includes(searchQuery.toLowerCase())
       );
     });
@@ -321,14 +336,17 @@ export function BoardInviteDialog({
   // Suggested people row (org members not on board and not in input chips)
   const suggestedPeople = useMemo(() => {
     const currentMemberIds = new Set(boardMembersList.map((m) => String(m.id)));
-    const selectedIds = new Set(selectedInvitees.map((item) => String(item.id)));
+    const selectedIds = new Set(
+      selectedInvitees.map((item) => String(item.id)),
+    );
     const currentUserId = getCurrentUserId();
 
     return organizationMembers
       .filter((orgMember) => {
         const isMember = currentMemberIds.has(String(orgMember.user_id));
         const isSelected = selectedIds.has(String(orgMember.user_id));
-        const isCurrentUser = currentUserId && String(orgMember.user_id) === String(currentUserId);
+        const isCurrentUser =
+          currentUserId && String(orgMember.user_id) === String(currentUserId);
         return !isMember && !isSelected && !isCurrentUser;
       })
       .slice(0, 4); // Limit to top 4 recommendations
@@ -378,7 +396,11 @@ export function BoardInviteDialog({
       if (!val) return;
 
       if (isValidEmail(val)) {
-        if (selectedInvitees.some((item) => item.email.toLowerCase() === val.toLowerCase())) {
+        if (
+          selectedInvitees.some(
+            (item) => item.email.toLowerCase() === val.toLowerCase(),
+          )
+        ) {
           toast({
             title: "Already added",
             description: `${val} is already in the list.`,
@@ -387,7 +409,9 @@ export function BoardInviteDialog({
           return;
         }
 
-        const isMember = boardMembersList.some((m) => m.email?.toLowerCase() === val.toLowerCase());
+        const isMember = boardMembersList.some(
+          (m) => m.email?.toLowerCase() === val.toLowerCase(),
+        );
         if (isMember) {
           toast({
             title: "Already a member",
@@ -445,7 +469,7 @@ export function BoardInviteDialog({
             user_ids: existingUserIds,
             role_id: roleId,
             group_ids: numericGroupIds,
-          })
+          }),
         );
       }
 
@@ -458,7 +482,7 @@ export function BoardInviteDialog({
             board_id: parseInt(boardId),
             role_id: roleId,
             group_ids: numericGroupIds,
-          })
+          }),
         );
       }
 
@@ -472,19 +496,19 @@ export function BoardInviteDialog({
       clearCMSCache(parseInt(boardId));
       setSelectedInvitees([]);
       setSearchQuery("");
-      
+
       // Close the modal
       onOpenChange(false);
 
-      setTimeout(() => {
-        onMembersUpdate?.();
-        loadBoardMembers();
-      }, 500);
+      onMembersUpdate?.();
+      loadBoardMembers();
     } catch (error: any) {
       console.error("Failed to batch invite users:", error);
       toast({
         title: "Error",
-        description: error.response?.data?.message || "Failed to add or invite some users.",
+        description:
+          error.response?.data?.message ||
+          "Failed to add or invite some users.",
         variant: "destructive",
       });
     } finally {
@@ -507,20 +531,22 @@ export function BoardInviteDialog({
             <label className="text-xs font-semibold text-gray-300">
               Names or emails <span className="text-red-500">*</span>
             </label>
-            
-            <div 
+
+            <div
               onClick={() => inputRef.current?.focus()}
               className="min-h-12 w-full bg-[#0f172a] border border-slate-700/80 rounded-xl p-2 flex flex-wrap gap-1.5 items-center cursor-text focus-within:ring-2 focus-within:ring-primary focus-within:border-primary transition-all"
             >
               {selectedInvitees.map((invitee, idx) => (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className="flex items-center gap-1 bg-[#1e293b] text-white pl-1.5 pr-1 py-1 rounded-lg text-xs border border-slate-700/50 select-none animate-in fade-in zoom-in-95 duration-100"
                 >
                   <Avatar className="w-4 h-4">
-                    <AvatarFallback 
-                      className="text-[8px] text-white" 
-                      style={{ backgroundColor: invitee.avatarColor || '#3b82f6' }}
+                    <AvatarFallback
+                      className="text-[8px] text-white"
+                      style={{
+                        backgroundColor: invitee.avatarColor || "#3b82f6",
+                      }}
                     >
                       {(invitee.name || invitee.email).charAt(0).toUpperCase()}
                     </AvatarFallback>
@@ -528,7 +554,7 @@ export function BoardInviteDialog({
                   <span className="max-w-[120px] truncate text-gray-200">
                     {invitee.name || invitee.email}
                   </span>
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleRemoveSelectedInvitee(idx);
@@ -539,10 +565,14 @@ export function BoardInviteDialog({
                   </button>
                 </div>
               ))}
-              
+
               <input
                 ref={inputRef}
-                placeholder={selectedInvitees.length === 0 ? "e.g., Maria, maria@company.com" : "add more..."}
+                placeholder={
+                  selectedInvitees.length === 0
+                    ? "e.g., Maria, maria@company.com"
+                    : "add more..."
+                }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleInputKeyDown}
@@ -560,13 +590,21 @@ export function BoardInviteDialog({
                     className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#0f172a] text-left transition-colors border-b border-slate-800/80 last:border-none"
                   >
                     <Avatar className="w-8 h-8">
-                      <AvatarFallback style={{ backgroundColor: getAvatarColor(user.display_name) }}>
+                      <AvatarFallback
+                        style={{
+                          backgroundColor: getAvatarColor(user.display_name),
+                        }}
+                      >
                         {user.display_name.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-white truncate">{user.display_name}</p>
-                      <p className="text-[10px] text-gray-400 truncate">{user.user_email}</p>
+                      <p className="text-xs font-medium text-white truncate">
+                        {user.display_name}
+                      </p>
+                      <p className="text-[10px] text-gray-400 truncate">
+                        {user.user_email}
+                      </p>
                     </div>
                     <Plus className="h-4 w-4 text-gray-400" />
                   </button>
@@ -575,33 +613,42 @@ export function BoardInviteDialog({
             )}
 
             {/* Dropdown: Invite Email helper overlay */}
-            {searchQuery.trim() && isEmail && !selectedInvitees.some(item => item.email.toLowerCase() === searchQuery.trim().toLowerCase()) && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-[#1e293b] border border-slate-700 rounded-lg shadow-xl z-50">
-                <button
-                  onClick={() => {
-                    setSelectedInvitees((prev) => [
-                      ...prev,
-                      {
-                        email: searchQuery.trim(),
-                        type: "email",
-                        avatarColor: getAvatarColor(searchQuery.trim()),
-                      },
-                    ]);
-                    setSearchQuery("");
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#0f172a] text-left transition-colors"
-                >
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary">
-                    <Mail className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-white">Invite email</p>
-                    <p className="text-[10px] text-gray-400 truncate">{searchQuery.trim()}</p>
-                  </div>
-                  <Plus className="h-4 w-4 text-gray-400" />
-                </button>
-              </div>
-            )}
+            {searchQuery.trim() &&
+              isEmail &&
+              !selectedInvitees.some(
+                (item) =>
+                  item.email.toLowerCase() === searchQuery.trim().toLowerCase(),
+              ) && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-[#1e293b] border border-slate-700 rounded-lg shadow-xl z-50">
+                  <button
+                    onClick={() => {
+                      setSelectedInvitees((prev) => [
+                        ...prev,
+                        {
+                          email: searchQuery.trim(),
+                          type: "email",
+                          avatarColor: getAvatarColor(searchQuery.trim()),
+                        },
+                      ]);
+                      setSearchQuery("");
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#0f172a] text-left transition-colors"
+                  >
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary">
+                      <Mail className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-white">
+                        Invite email
+                      </p>
+                      <p className="text-[10px] text-gray-400 truncate">
+                        {searchQuery.trim()}
+                      </p>
+                    </div>
+                    <Plus className="h-4 w-4 text-gray-400" />
+                  </button>
+                </div>
+              )}
           </div>
 
           {/* Suggested Row (Horizontal Chip List) */}
@@ -632,8 +679,8 @@ export function BoardInviteDialog({
             <label className="text-xs font-semibold text-gray-300">
               Role <span className="text-red-500">*</span>
             </label>
-            <Select 
-              value={selectedRoleId} 
+            <Select
+              value={selectedRoleId}
               onValueChange={setSelectedRoleId}
               disabled={loadingRoles}
             >
@@ -642,7 +689,11 @@ export function BoardInviteDialog({
               </SelectTrigger>
               <SelectContent className="bg-[#1e293b] border-slate-700 text-white">
                 {effectiveRoles.map((role) => (
-                  <SelectItem key={role.id} value={role.id} className="text-white hover:bg-primary/20">
+                  <SelectItem
+                    key={role.id}
+                    value={role.id}
+                    className="text-white hover:bg-primary/20"
+                  >
                     {role.name}
                   </SelectItem>
                 ))}
@@ -665,10 +716,14 @@ export function BoardInviteDialog({
                   >
                     <div className="flex items-center gap-1.5 flex-wrap overflow-hidden max-w-[90%]">
                       {selectedGroupIds.length === 0 ? (
-                        <span className="text-gray-500">Select groups (optional)</span>
+                        <span className="text-gray-500">
+                          Select groups (optional)
+                        </span>
                       ) : (
                         selectedGroupIds.map((groupId) => {
-                          const group = boardGroups.find((g) => String(g.id) === groupId);
+                          const group = boardGroups.find(
+                            (g) => String(g.id) === groupId,
+                          );
                           if (!group) return null;
                           return (
                             <span
@@ -677,7 +732,9 @@ export function BoardInviteDialog({
                             >
                               <span
                                 className="w-1.5 h-1.5 rounded-full"
-                                style={{ backgroundColor: group.color || '#3b82f6' }}
+                                style={{
+                                  backgroundColor: group.color || "#3b82f6",
+                                }}
                               />
                               {group.name}
                             </span>
@@ -690,13 +747,22 @@ export function BoardInviteDialog({
                 </PopoverTrigger>
                 <PopoverContent className="w-[432px] p-2 bg-[#1e293b] border border-slate-700/60 rounded-xl shadow-xl text-white">
                   {isLoadingGroups ? (
-                    <p className="text-xs text-gray-400 p-2">Loading groups...</p>
+                    <p className="text-xs text-gray-400 p-2">
+                      Loading groups...
+                    </p>
                   ) : boardGroups.length === 0 ? (
-                    <p className="text-xs text-gray-400 p-2">No groups available on this board</p>
+                    <p className="text-xs text-gray-400 p-2">
+                      No groups available on this board
+                    </p>
                   ) : (
-                    <div className="space-y-1 max-h-[160px] overflow-y-auto" onWheel={(e) => e.stopPropagation()}>
+                    <div
+                      className="space-y-1 max-h-[160px] overflow-y-auto"
+                      onWheel={(e) => e.stopPropagation()}
+                    >
                       {boardGroups.map((group) => {
-                        const isSelected = selectedGroupIds.includes(String(group.id));
+                        const isSelected = selectedGroupIds.includes(
+                          String(group.id),
+                        );
                         return (
                           <button
                             key={group.id}
@@ -705,21 +771,27 @@ export function BoardInviteDialog({
                               setSelectedGroupIds((prev) =>
                                 isSelected
                                   ? prev.filter((id) => id !== String(group.id))
-                                  : [...prev, String(group.id)]
+                                  : [...prev, String(group.id)],
                               );
                             }}
                             className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all hover:bg-slate-800 ${
-                              isSelected ? "bg-slate-800 text-white" : "text-gray-300"
+                              isSelected
+                                ? "bg-slate-800 text-white"
+                                : "text-gray-300"
                             }`}
                           >
                             <div className="flex items-center gap-2">
                               <span
                                 className="w-2.5 h-2.5 rounded-full"
-                                style={{ backgroundColor: group.color || '#3b82f6' }}
+                                style={{
+                                  backgroundColor: group.color || "#3b82f6",
+                                }}
                               />
                               <span>{group.name}</span>
                             </div>
-                            {isSelected && <Check className="h-3.5 w-3.5 text-blue-500" />}
+                            {isSelected && (
+                              <Check className="h-3.5 w-3.5 text-blue-500" />
+                            )}
                           </button>
                         );
                       })}
@@ -738,7 +810,9 @@ export function BoardInviteDialog({
 
             {boardMembersList.length === 0 ? (
               <p className="text-gray-400 text-center text-xs py-4">
-                {isLoadingBoardMembers ? "Loading members..." : "No members in this board"}
+                {isLoadingBoardMembers
+                  ? "Loading members..."
+                  : "No members in this board"}
               </p>
             ) : (
               <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
@@ -747,7 +821,8 @@ export function BoardInviteDialog({
                     <Avatar className="w-8 h-8">
                       <AvatarFallback
                         style={{
-                          backgroundColor: member.avatarColor || getAvatarColor(member.name),
+                          backgroundColor:
+                            member.avatarColor || getAvatarColor(member.name),
                         }}
                         className="text-white text-xs font-semibold"
                       >
@@ -758,7 +833,9 @@ export function BoardInviteDialog({
                       <p className="text-xs font-medium text-white truncate">
                         {member.name}
                       </p>
-                      <p className="text-[10px] text-gray-400 truncate">{member.email}</p>
+                      <p className="text-[10px] text-gray-400 truncate">
+                        {member.email}
+                      </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] text-gray-500 border border-slate-800 px-2 py-0.5 rounded bg-slate-900/60 font-medium">
