@@ -465,6 +465,23 @@ export function TrackingLayoutBuilderModal({
     );
   };
 
+  const removeGlobalRow = (tabId: string, rowIndex: number) => {
+    setTabs((prev) =>
+      prev.map((t) => {
+        if (t.id === tabId) {
+          return {
+            ...t,
+            columns: t.columns.map((c) => ({
+              ...c,
+              rows: c.rows.filter((_, idx) => idx !== rowIndex),
+            })),
+          };
+        }
+        return t;
+      }),
+    );
+  };
+
   const [draggedColId, setDraggedColId] = useState<string | null>(null);
 
   const handleColDragStart = (e: React.DragEvent, colId: string) => {
@@ -626,6 +643,45 @@ export function TrackingLayoutBuilderModal({
                   </div>
 
                   <div className="flex-1 overflow-x-auto overflow-y-hidden flex items-stretch gap-4 pb-4">
+                    {/* GLOBAL ROW ACTIONS GUTTER */}
+                    {activeTab.columns &&
+                      activeTab.columns.length > 0 &&
+                      activeTab.columns[0].rows &&
+                      activeTab.columns[0].rows.length > 0 && (
+                        <div className="w-8 shrink-0 flex flex-col bg-transparent">
+                          {/* Header spacer to match the exact 57px of the column headers */}
+                          <div className="p-3 border-b border-transparent flex items-center justify-center invisible">
+                            <div className="h-8 w-full" />
+                          </div>
+                          {/* Rows spacer */}
+                          <div className="flex-1 overflow-y-auto p-3 space-y-3 px-0 flex flex-col items-center">
+                            {Array.from({
+                              length: Math.max(
+                                ...activeTab.columns.map(
+                                  (c) => c.rows?.length || 0,
+                                ),
+                              ),
+                            }).map((_, rowIndex) => (
+                              <div
+                                key={`global_del_${rowIndex}`}
+                                className="h-[46px] w-full flex items-center justify-center group/globalrow opacity-60 hover:opacity-100 transition-opacity"
+                              >
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-destructive shrink-0 ml-1 hover:bg-destructive/10"
+                                  title="Delete row from all columns"
+                                  onClick={() =>
+                                    removeGlobalRow(activeTab.id, rowIndex)
+                                  }
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     {(activeTab.columns || []).map((col) => (
                       <div
                         key={col.id}
@@ -657,7 +713,8 @@ export function TrackingLayoutBuilderModal({
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 text-destructive shrink-0 ml-1"
+                            className="h-7 w-7 text-destructive shrink-0 ml-1 hover:bg-destructive/10"
+                            title="Delete column"
                             onClick={() => removeColumn(activeTab.id, col.id)}
                           >
                             <Trash2 className="h-4 w-4" />
