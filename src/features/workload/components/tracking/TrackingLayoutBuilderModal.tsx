@@ -523,6 +523,44 @@ export function TrackingLayoutBuilderModal({
     setDraggedColId(null);
   };
 
+  const getTabStatusStyle = (tab: TrackingLayoutTab, isActive: boolean) => {
+    let hasPending = false;
+    let hasInProgress = false;
+
+    tab.columns?.forEach((col) => {
+      if (col.name?.toLowerCase().includes("status")) {
+        col.rows?.forEach((row) => {
+          const status = (row.name || "").toLowerCase().trim();
+          if (status === "pending") {
+            hasPending = true;
+          } else if (
+            status === "in progress" ||
+            status === "not added" ||
+            (status !== "done" && status !== "n/a" && status !== "")
+          ) {
+            hasInProgress = true;
+          }
+        });
+      }
+    });
+
+    if (hasPending) {
+      return isActive
+        ? "bg-red-500/20 text-red-600 dark:bg-red-500/30 dark:text-red-400 font-medium"
+        : "bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 text-sm";
+    }
+
+    if (hasInProgress) {
+      return isActive
+        ? "bg-orange-500/20 text-orange-600 dark:bg-orange-500/30 dark:text-orange-400 font-medium"
+        : "bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 text-sm";
+    }
+
+    return isActive
+      ? "bg-primary/10 text-primary font-medium"
+      : "hover:bg-muted text-foreground text-sm";
+  };
+
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   return (
@@ -574,7 +612,7 @@ export function TrackingLayoutBuilderModal({
                 {tabs.map((tab) => (
                   <div
                     key={tab.id}
-                    className={`flex items-center gap-2 p-2 rounded-md cursor-pointer group hover:bg-muted ${activeTabId === tab.id ? "bg-primary/10 text-primary font-medium" : "text-sm"}`}
+                    className={`flex items-center gap-2 p-2 rounded-md cursor-pointer group transition-colors ${getTabStatusStyle(tab, activeTabId === tab.id)}`}
                     onClick={() => setActiveTabId(tab.id)}
                   >
                     <Layout className="h-4 w-4 shrink-0" />
