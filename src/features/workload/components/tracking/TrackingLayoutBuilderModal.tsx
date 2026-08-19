@@ -800,23 +800,27 @@ export function TrackingLayoutBuilderModal({
   };
 
   const getTabStatusStyle = (tab: TrackingLayoutTab, isActive: boolean) => {
-    let hasPending = false;
-    let hasInProgress = false;
     let hasStatusCol = false;
+    let totalActionable = 0;
+    let doneCount = 0;
+    let pendingCount = 0;
+    let inProgressCount = 0;
 
     tab.columns?.forEach((col) => {
       if (col.name?.toLowerCase().includes("status")) {
         hasStatusCol = true;
         col.rows?.forEach((row) => {
           const status = (row.name || "").toLowerCase().trim();
-          if (status === "pending") {
-            hasPending = true;
-          } else if (
-            status === "in progress" ||
-            status === "not added" ||
-            (status !== "done" && status !== "n/a" && status !== "")
-          ) {
-            hasInProgress = true;
+          if (status !== "n/a") {
+            totalActionable++;
+            if (status === "done") {
+              doneCount++;
+            } else if (status === "pending") {
+              pendingCount++;
+            } else {
+              // this captures "in progress", "not added", AND empty "" strings
+              inProgressCount++;
+            }
           }
         });
       }
@@ -824,20 +828,33 @@ export function TrackingLayoutBuilderModal({
 
     if (!hasStatusCol) {
       return isActive
-        ? "bg-blue-500/20 text-blue-600 dark:bg-blue-500/30 dark:text-blue-400 font-medium"
-        : "bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 text-sm";
+        ? "bg-primary/10 text-primary font-medium"
+        : "hover:bg-muted text-foreground text-sm";
     }
 
-    if (hasPending) {
+    if (totalActionable === 0) {
+      return isActive
+        ? "bg-primary/10 text-primary font-medium"
+        : "hover:bg-muted text-foreground text-sm";
+    }
+
+    if (pendingCount > 0) {
       return isActive
         ? "bg-red-500/20 text-red-600 dark:bg-red-500/30 dark:text-red-400 font-medium"
         : "bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 text-sm";
     }
 
-    if (hasInProgress) {
+    if (inProgressCount > 0) {
       return isActive
         ? "bg-orange-500/20 text-orange-600 dark:bg-orange-500/30 dark:text-orange-400 font-medium"
         : "bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 text-sm";
+    }
+
+    // Explicitly require ALL actionable tracking rows to be exclusively marked "done"
+    if (doneCount === totalActionable) {
+      return isActive
+        ? "bg-green-500/20 text-green-600 dark:bg-green-500/30 dark:text-green-400 font-medium"
+        : "bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 text-sm";
     }
 
     return isActive
