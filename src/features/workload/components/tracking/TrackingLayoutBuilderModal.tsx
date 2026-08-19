@@ -537,9 +537,11 @@ export function TrackingLayoutBuilderModal({
   const getTabStatusStyle = (tab: TrackingLayoutTab, isActive: boolean) => {
     let hasPending = false;
     let hasInProgress = false;
+    let hasStatusCol = false;
 
     tab.columns?.forEach((col) => {
       if (col.name?.toLowerCase().includes("status")) {
+        hasStatusCol = true;
         col.rows?.forEach((row) => {
           const status = (row.name || "").toLowerCase().trim();
           if (status === "pending") {
@@ -554,6 +556,12 @@ export function TrackingLayoutBuilderModal({
         });
       }
     });
+
+    if (!hasStatusCol) {
+      return isActive
+        ? "bg-blue-500/20 text-blue-600 dark:bg-blue-500/30 dark:text-blue-400 font-medium"
+        : "bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 text-sm";
+    }
 
     if (hasPending) {
       return isActive
