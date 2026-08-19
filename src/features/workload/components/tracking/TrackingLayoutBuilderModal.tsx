@@ -14,6 +14,7 @@ import {
   Layout,
   Loader2,
   Download,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/api/groupsApi";
@@ -66,15 +67,25 @@ export function TrackingLayoutBuilderModal({
     number | string | null
   >(null);
 
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const globalFileInputRef = React.useRef<HTMLInputElement>(null);
+  const tabFileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleImportCSVClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+  const handleGlobalImportCSVClick = () => {
+    if (globalFileInputRef.current) {
+      globalFileInputRef.current.click();
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTabImportCSVClick = () => {
+    if (tabFileInputRef.current) {
+      tabFileInputRef.current.click();
+    }
+  };
+
+  const processFile = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    mode: "global" | "tab",
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -87,19 +98,80 @@ export function TrackingLayoutBuilderModal({
       toast.error(
         "Invalid file type. Please upload a .csv, .xls, or .xlsx file.",
       );
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      e.target.value = "";
       return;
     }
 
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
-      const newTabsToAppend: TrackingLayoutTab[] = [];
 
-      workbook.SheetNames.forEach((sheetName) => {
-        const worksheet = workbook.Sheets[sheetName];
+      if (mode === "global") {
+        const newTabsToAppend: TrackingLayoutTab[] = [];
+
+        workbook.SheetNames.forEach((sheetName) => {
+          const worksheet = workbook.Sheets[sheetName];
+          const json: any[][] = XLSX.utils.sheet_to_json(worksheet, {
+            header: 1,
+            defval: "",
+          });
+
+          const lines = json.filter((row) =>
+            row.some((cell) => String(cell).trim() !== ""),
+          );
+
+          if (lines.length === 0) return;
+
+          const headers = lines[0].map((h: any) => String(h).trim());
+          const dataRowLines = lines.slice(1);
+
+          const newColumns: TrackingLayoutColumn[] = headers.map((header) => ({
+            id: `col_${generateId()}`,
+            name: header,
+            rows: [],
+          }));
+
+          dataRowLines.forEach((rowValues) => {
+            rowValues.forEach((val, i) => {
+              const strVal = String(val).trim();
+              if (i < newColumns.length && strVal) {
+                newColumns[i].rows.push({
+                  id: `row_${generateId()}`,
+                  name: strVal,
+                });
+              }
+            });
+          });
+
+          newTabsToAppend.push({
+            id: `tab_${sheetName}_${generateId()}`,
+            name: sheetName,
+            columns: newColumns,
+          });
+        });
+
+        if (newTabsToAppend.length === 0) {
+          toast.error("File is empty or contains no valid data");
+          return;
+        }
+
+        setTabs((prev) => {
+          if (
+            prev.length === 1 &&
+            prev[0].columns.length === 0 &&
+            prev[0].name === "Overview"
+          ) {
+            return newTabsToAppend;
+          }
+          return [...prev, ...newTabsToAppend];
+        });
+
+        setActiveTabId(newTabsToAppend[0].id);
+        toast.success("All tabs imported successfully");
+      } else {
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
         const json: any[][] = XLSX.utils.sheet_to_json(worksheet, {
           header: 1,
           defval: "",
@@ -109,7 +181,10 @@ export function TrackingLayoutBuilderModal({
           row.some((cell) => String(cell).trim() !== ""),
         );
 
-        if (lines.length === 0) return;
+        if (lines.length === 0) {
+          toast.error("File is empty");
+          return;
+        }
 
         const headers = lines[0].map((h: any) => String(h).trim());
         const dataRowLines = lines.slice(1);
@@ -132,40 +207,105 @@ export function TrackingLayoutBuilderModal({
           });
         });
 
-        newTabsToAppend.push({
-          id: `tab_${sheetName}_${generateId()}`,
-          name: sheetName,
-          columns: newColumns,
-        });
-      });
-
-      if (newTabsToAppend.length === 0) {
-        toast.error("File is empty or contains no valid data");
-        return;
+        setTabs((prev) =>
+          prev.map((t) => {
+            if (t.id === activeTabId) {
+              return {
+                ...t,
+                columns: [...t.columns, ...newColumns],
+              };
+            }
+            return t;
+          }),
+        );
+        toast.success("Sheet imported to current tab");
       }
-
-      setTabs((prev) => {
-        // Replace default empty Overview tab, otherwise append
-        if (
-          prev.length === 1 &&
-          prev[0].columns.length === 0 &&
-          prev[0].name === "Overview"
-        ) {
-          return newTabsToAppend;
-        }
-        return [...prev, ...newTabsToAppend];
-      });
-
-      setActiveTabId(newTabsToAppend[0].id);
-      toast.success("File Imported Successfully");
     } catch (err) {
       toast.error("Failed to parse file");
       console.error(err);
     } finally {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      e.target.value = "";
     }
+  };
+
+  const handleGlobalFileUpload = (e: React.ChangeEvent<HTMLInputElement>) =>
+    processFile(e, "global");
+
+  const handleTabFileUpload = (e: React.ChangeEvent<HTMLInputElement>) =>
+    processFile(e, "tab");
+
+  const handleGlobalExport = () => {
+    if (!tabs || tabs.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
+    const wb = XLSX.utils.book_new();
+    tabs.forEach((tab) => {
+      const headers = tab.columns
+        ? tab.columns.map((c) => c.name || "Untitled")
+        : [];
+      let maxRows = 0;
+      if (tab.columns) {
+        maxRows = Math.max(0, ...tab.columns.map((c) => c.rows?.length || 0));
+      }
+
+      const sheetData: any[][] = [headers];
+
+      for (let i = 0; i < maxRows; i++) {
+        const row = tab.columns.map((c) => c.rows?.[i]?.name || "");
+        sheetData.push(row);
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+      let safeSheetName = (tab.name || "Tab").substring(0, 31);
+      let nameCount = 1;
+      let finalName = safeSheetName;
+      while (wb.SheetNames.includes(finalName)) {
+        const suffix = ` (${nameCount})`;
+        finalName = safeSheetName.substring(0, 31 - suffix.length) + suffix;
+        nameCount++;
+      }
+
+      XLSX.utils.book_append_sheet(wb, ws, finalName);
+    });
+
+    if (wb.SheetNames.length === 0) {
+      toast.error("No valid tabs to export");
+      return;
+    }
+
+    XLSX.writeFile(wb, `${boardName || "Global"}_Export.xlsx`);
+  };
+
+  const handleTabExport = () => {
+    const activeTabObj = tabs.find((t) => t.id === activeTabId);
+    if (
+      !activeTabObj ||
+      !activeTabObj.columns ||
+      activeTabObj.columns.length === 0
+    ) {
+      toast.error("No data to export in the active tab");
+      return;
+    }
+    const wb = XLSX.utils.book_new();
+    const headers = activeTabObj.columns.map((c) => c.name || "Untitled");
+    const maxRows = Math.max(
+      0,
+      ...activeTabObj.columns.map((c) => c.rows?.length || 0),
+    );
+
+    const sheetData: any[][] = [headers];
+    for (let i = 0; i < maxRows; i++) {
+      const row = activeTabObj.columns.map((c) => c.rows?.[i]?.name || "");
+      sheetData.push(row);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    const safeSheetName = (activeTabObj.name || "Tab").substring(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+
+    XLSX.writeFile(wb, `${activeTabObj.name || "Tab"}_Export.xlsx`);
   };
 
   useEffect(() => {
@@ -594,6 +734,21 @@ export function TrackingLayoutBuilderModal({
               </div>
             </div>
             <div className="flex items-center gap-2 pr-6">
+              <input
+                type="file"
+                accept=".csv, .xls, .xlsx"
+                className="hidden"
+                ref={globalFileInputRef}
+                onChange={handleGlobalFileUpload}
+              />
+              <Button variant="outline" onClick={handleGlobalExport}>
+                <Download className="h-4 w-4 mr-2" />
+                Export Global
+              </Button>
+              <Button variant="outline" onClick={handleGlobalImportCSVClick}>
+                <Upload className="h-4 w-4 mr-2" />
+                Import File
+              </Button>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
@@ -677,15 +832,23 @@ export function TrackingLayoutBuilderModal({
                         type="file"
                         accept=".csv, .xls, .xlsx"
                         className="hidden"
-                        ref={fileInputRef}
-                        onChange={handleFileUpload}
+                        ref={tabFileInputRef}
+                        onChange={handleTabFileUpload}
                       />
                       <Button
-                        onClick={handleImportCSVClick}
+                        onClick={handleTabExport}
                         size="sm"
                         variant="outline"
                       >
                         <Download className="h-4 w-4 mr-2" />
+                        Export Tab
+                      </Button>
+                      <Button
+                        onClick={handleTabImportCSVClick}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
                         Import File
                       </Button>
                       <Button
@@ -887,16 +1050,9 @@ export function TrackingLayoutBuilderModal({
                         <p className="mb-4">
                           This dashboard has no columns yet
                         </p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center">
                           <Button onClick={() => addColumn(activeTab.id)}>
                             Add First Column
-                          </Button>
-                          <Button
-                            onClick={handleImportCSVClick}
-                            variant="outline"
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Import File
                           </Button>
                         </div>
                       </div>
