@@ -96,56 +96,67 @@ export function TrackingLayoutBuilderModal({
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
+      const newTabsToAppend: TrackingLayoutTab[] = [];
 
-      const json: any[][] = XLSX.utils.sheet_to_json(worksheet, {
-        header: 1,
-        defval: "",
-      });
+      workbook.SheetNames.forEach((sheetName) => {
+        const worksheet = workbook.Sheets[sheetName];
+        const json: any[][] = XLSX.utils.sheet_to_json(worksheet, {
+          header: 1,
+          defval: "",
+        });
 
-      const lines = json.filter((row) =>
-        row.some((cell) => String(cell).trim() !== ""),
-      );
+        const lines = json.filter((row) =>
+          row.some((cell) => String(cell).trim() !== ""),
+        );
 
-      if (lines.length === 0) {
-        toast.error("File is empty");
-        return;
-      }
+        if (lines.length === 0) return;
 
-      const headers = lines[0].map((h: any) => String(h).trim());
-      const dataRowLines = lines.slice(1);
+        const headers = lines[0].map((h: any) => String(h).trim());
+        const dataRowLines = lines.slice(1);
 
-      const newColumns: TrackingLayoutColumn[] = headers.map((header) => ({
-        id: `col_${generateId()}`,
-        name: header,
-        rows: [],
-      }));
+        const newColumns: TrackingLayoutColumn[] = headers.map((header) => ({
+          id: `col_${generateId()}`,
+          name: header,
+          rows: [],
+        }));
 
-      dataRowLines.forEach((rowValues) => {
-        rowValues.forEach((val, i) => {
-          const strVal = String(val).trim();
-          if (i < newColumns.length && strVal) {
-            newColumns[i].rows.push({
-              id: `row_${generateId()}`,
-              name: strVal,
-            });
-          }
+        dataRowLines.forEach((rowValues) => {
+          rowValues.forEach((val, i) => {
+            const strVal = String(val).trim();
+            if (i < newColumns.length && strVal) {
+              newColumns[i].rows.push({
+                id: `row_${generateId()}`,
+                name: strVal,
+              });
+            }
+          });
+        });
+
+        newTabsToAppend.push({
+          id: `tab_${sheetName}_${generateId()}`,
+          name: sheetName,
+          columns: newColumns,
         });
       });
 
-      setTabs((prev) =>
-        prev.map((t) => {
-          if (t.id === activeTabId) {
-            return {
-              ...t,
-              columns: [...t.columns, ...newColumns],
-            };
-          }
-          return t;
-        }),
-      );
+      if (newTabsToAppend.length === 0) {
+        toast.error("File is empty or contains no valid data");
+        return;
+      }
 
+      setTabs((prev) => {
+        // Replace default empty Overview tab, otherwise append
+        if (
+          prev.length === 1 &&
+          prev[0].columns.length === 0 &&
+          prev[0].name === "Overview"
+        ) {
+          return newTabsToAppend;
+        }
+        return [...prev, ...newTabsToAppend];
+      });
+
+      setActiveTabId(newTabsToAppend[0].id);
       toast.success("File Imported Successfully");
     } catch (err) {
       toast.error("Failed to parse file");
