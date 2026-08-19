@@ -67,6 +67,8 @@
     "date-fns": "^3.6.0",
     "devtools-detect": "^4.0.2",
     "embla-carousel-react": "^8.6.0",
+    "exceljs": "^4.4.0",
+    "file-saver": "^2.0.5",
     "firebase": "^12.10.0",
     "input-otp": "^1.4.2",
     "lottie-react": "^2.4.1",

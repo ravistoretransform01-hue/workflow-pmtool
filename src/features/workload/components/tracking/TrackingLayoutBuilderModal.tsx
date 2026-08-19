@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/api/groupsApi";
 import * as XLSX from "xlsx";
+import * as ExcelJS from "exceljs";
 
 export type WidgetType = "tasks_list" | "calendar_view" | "chart" | "notes";
 
@@ -313,67 +314,72 @@ export function TrackingLayoutBuilderModal({
   const handleTabFileUpload = (e: React.ChangeEvent<HTMLInputElement>) =>
     processFile(e, "tab");
 
-  const handleGlobalExport = () => {
+  const handleGlobalExport = async () => {
     if (!tabs || tabs.length === 0) {
       toast.error("No data to export");
       return;
     }
-    const wb = XLSX.utils.book_new();
+    const wb = new ExcelJS.Workbook();
+
     tabs.forEach((tab) => {
+      let sheetTitle = (tab.name || "Tab").substring(0, 31);
+      let count = 1;
+      while (wb.worksheets.find((ws) => ws.name === sheetTitle)) {
+        let suffix = ` (${count})`;
+        sheetTitle =
+          (tab.name || "Tab").substring(0, 31 - suffix.length) + suffix;
+        count++;
+      }
+      const ws = wb.addWorksheet(sheetTitle);
+
       const headers = tab.columns
         ? tab.columns.map((c) => c.name || "Untitled")
         : [];
+      if (headers.length > 0) {
+        ws.addRow(headers);
+      }
+
       let maxRows = 0;
       if (tab.columns) {
         maxRows = Math.max(0, ...tab.columns.map((c) => c.rows?.length || 0));
       }
 
-      const sheetData: any[][] = [headers];
-
       for (let i = 0; i < maxRows; i++) {
-        const row = tab.columns.map((c) => c.rows?.[i]?.name || "");
-        sheetData.push(row);
+        const rowData = tab.columns.map((c) => c.rows?.[i]?.name || "");
+        ws.addRow(rowData);
       }
 
-      const ws = XLSX.utils.aoa_to_sheet(sheetData);
-
-      const dataValidation: any[] = [];
       tab.columns?.forEach((c, idx) => {
         if (c.name?.toLowerCase().includes("status")) {
-          const colLetter = XLSX.utils.encode_col(idx);
-          dataValidation.push({
-            sqref: `${colLetter}2:${colLetter}1000`,
-            type: "list",
-            allowBlank: true,
-            formula1: '"Not Added,Done,In Progress,Pending,N/A"',
-          });
+          for (let rowNum = 2; rowNum <= 1000; rowNum++) {
+            ws.getCell(rowNum, idx + 1).dataValidation = {
+              type: "list",
+              allowBlank: true,
+              formulae: ['"Not Added,Done,In Progress,Pending,N/A"'],
+            };
+          }
         }
       });
-      if (dataValidation.length > 0) {
-        ws["!dataValidation"] = dataValidation;
-      }
-
-      let safeSheetName = (tab.name || "Tab").substring(0, 31);
-      let nameCount = 1;
-      let finalName = safeSheetName;
-      while (wb.SheetNames.includes(finalName)) {
-        const suffix = ` (${nameCount})`;
-        finalName = safeSheetName.substring(0, 31 - suffix.length) + suffix;
-        nameCount++;
-      }
-
-      XLSX.utils.book_append_sheet(wb, ws, finalName);
     });
 
-    if (wb.SheetNames.length === 0) {
+    if (wb.worksheets.length === 0) {
       toast.error("No valid tabs to export");
       return;
     }
 
-    XLSX.writeFile(wb, `${boardName || "Global"}_Export.xlsx`);
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${boardName || "Global"}_Export.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
-  const handleTabExport = () => {
+  const handleTabExport = async () => {
     const activeTabObj = tabs.find((t) => t.id === activeTabId);
     if (
       !activeTabObj ||
@@ -383,41 +389,48 @@ export function TrackingLayoutBuilderModal({
       toast.error("No data to export in the active tab");
       return;
     }
-    const wb = XLSX.utils.book_new();
+
+    const wb = new ExcelJS.Workbook();
+    const sheetTitle = (activeTabObj.name || "Tab").substring(0, 31);
+    const ws = wb.addWorksheet(sheetTitle);
+
     const headers = activeTabObj.columns.map((c) => c.name || "Untitled");
+    if (headers.length > 0) {
+      ws.addRow(headers);
+    }
+
     const maxRows = Math.max(
       0,
       ...activeTabObj.columns.map((c) => c.rows?.length || 0),
     );
 
-    const sheetData: any[][] = [headers];
     for (let i = 0; i < maxRows; i++) {
-      const row = activeTabObj.columns.map((c) => c.rows?.[i]?.name || "");
-      sheetData.push(row);
+      const rowData = activeTabObj.columns.map((c) => c.rows?.[i]?.name || "");
+      ws.addRow(rowData);
     }
 
-    const ws = XLSX.utils.aoa_to_sheet(sheetData);
-
-    const dataValidation: any[] = [];
     activeTabObj.columns?.forEach((c, idx) => {
       if (c.name?.toLowerCase().includes("status")) {
-        const colLetter = XLSX.utils.encode_col(idx);
-        dataValidation.push({
-          sqref: `${colLetter}2:${colLetter}1000`,
-          type: "list",
-          allowBlank: true,
-          formula1: '"Not Added,Done,In Progress,Pending,N/A"',
-        });
+        for (let rowNum = 2; rowNum <= 1000; rowNum++) {
+          ws.getCell(rowNum, idx + 1).dataValidation = {
+            type: "list",
+            allowBlank: true,
+            formulae: ['"Not Added,Done,In Progress,Pending,N/A"'],
+          };
+        }
       }
     });
-    if (dataValidation.length > 0) {
-      ws["!dataValidation"] = dataValidation;
-    }
 
-    const safeSheetName = (activeTabObj.name || "Tab").substring(0, 31);
-    XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
-
-    XLSX.writeFile(wb, `${activeTabObj.name || "Tab"}_Export.xlsx`);
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${activeTabObj.name || "Tab"}_Export.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
