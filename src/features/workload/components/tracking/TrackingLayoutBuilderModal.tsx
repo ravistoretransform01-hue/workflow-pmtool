@@ -258,6 +258,22 @@ export function TrackingLayoutBuilderModal({
 
       const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
+      const dataValidation: any[] = [];
+      tab.columns?.forEach((c, idx) => {
+        if (c.name?.toLowerCase().includes("status")) {
+          const colLetter = XLSX.utils.encode_col(idx);
+          dataValidation.push({
+            sqref: `${colLetter}2:${colLetter}1000`,
+            type: "list",
+            allowBlank: true,
+            formula1: '"Not Added,Done,In Progress,Pending,N/A"',
+          });
+        }
+      });
+      if (dataValidation.length > 0) {
+        ws["!dataValidation"] = dataValidation;
+      }
+
       let safeSheetName = (tab.name || "Tab").substring(0, 31);
       let nameCount = 1;
       let finalName = safeSheetName;
@@ -302,6 +318,23 @@ export function TrackingLayoutBuilderModal({
     }
 
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+    const dataValidation: any[] = [];
+    activeTabObj.columns?.forEach((c, idx) => {
+      if (c.name?.toLowerCase().includes("status")) {
+        const colLetter = XLSX.utils.encode_col(idx);
+        dataValidation.push({
+          sqref: `${colLetter}2:${colLetter}1000`,
+          type: "list",
+          allowBlank: true,
+          formula1: '"Not Added,Done,In Progress,Pending,N/A"',
+        });
+      }
+    });
+    if (dataValidation.length > 0) {
+      ws["!dataValidation"] = dataValidation;
+    }
+
     const safeSheetName = (activeTabObj.name || "Tab").substring(0, 31);
     XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
 
@@ -742,12 +775,12 @@ export function TrackingLayoutBuilderModal({
                 onChange={handleGlobalFileUpload}
               />
               <Button variant="outline" onClick={handleGlobalExport}>
-                <Download className="h-4 w-4 mr-2" />
+                <Upload className="h-4 w-4 mr-2" />
                 Export Global
               </Button>
               <Button variant="outline" onClick={handleGlobalImportCSVClick}>
-                <Upload className="h-4 w-4 mr-2" />
-                Import File
+                <Download className="h-4 w-4 mr-2" />
+                Import Global
               </Button>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
@@ -840,15 +873,15 @@ export function TrackingLayoutBuilderModal({
                         size="sm"
                         variant="outline"
                       >
-                        <Download className="h-4 w-4 mr-2" />
-                        Export Tab
+                        <Upload className="h-4 w-4 mr-2" />
+                        Export File
                       </Button>
                       <Button
                         onClick={handleTabImportCSVClick}
                         size="sm"
                         variant="outline"
                       >
-                        <Upload className="h-4 w-4 mr-2" />
+                        <Download className="h-4 w-4 mr-2" />
                         Import File
                       </Button>
                       <Button
