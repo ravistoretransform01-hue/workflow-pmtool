@@ -5902,8 +5902,7 @@ export function WorkloadBoard({
                     .filter((tab: string) => {
                       if (tab === "Teams" && String(orgId) !== "31")
                         return false;
-                      if (tab === "DevBoard.Daily" && String(orgId) !== "27")
-                        return false;
+                      if (tab === "DevBoard.Daily") return false;
                       return true;
                     })
                     .map((tab: string) => (
