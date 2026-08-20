@@ -1,6 +1,6 @@
 import axios, { AxiosError, type AxiosResponse } from "axios";
 import { debugLog, debugWarn, debugError, getTokenInfo } from "@/utils/debugLog";
- 
+
 declare module "axios" {
   export interface AxiosRequestConfig {
     skipAuth?: boolean;
