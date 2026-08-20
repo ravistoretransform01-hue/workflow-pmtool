@@ -65,6 +65,151 @@ const colorOptions = [
   { name: "Indigo", value: "#6366f1" },
 ];
 
+function InvitationExpiryCell({
+  status,
+  expiry,
+  onResend,
+}: {
+  status?: string;
+  expiry?: string;
+  onResend: () => Promise<void>;
+}) {
+  const [timeLeft, setTimeLeft] = useState<string>("");
+  const [isExpired, setIsExpired] = useState(status === "Expired");
+  const [isLastDay, setIsLastDay] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+
+  useEffect(() => {
+    if (!expiry || status === "Accepted") return;
+
+    const calculateTimeLeft = () => {
+      const now = new Date();
+      const expireDate = new Date(expiry);
+      const diffMs = expireDate.getTime() - now.getTime();
+
+      if (diffMs <= 0) {
+        setIsExpired(true);
+        setTimeLeft("Expired");
+        setIsLastDay(true);
+      } else {
+        setIsExpired(false);
+        const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+        const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
+
+        if (days > 0) {
+          setTimeLeft(`${days} Day${days > 1 ? "s" : ""} Left`);
+          setIsLastDay(Math.floor(diffMs / (1000 * 60 * 60 * 24)) === 0);
+        } else if (hours > 0) {
+          setTimeLeft(`${hours} Hour${hours > 1 ? "s" : ""} Left`);
+          setIsLastDay(true);
+        } else {
+          setTimeLeft(`${minutes} Minute${minutes > 1 ? "s" : ""} Left`);
+          setIsLastDay(true);
+        }
+      }
+    };
+
+    calculateTimeLeft();
+    const interval = setInterval(calculateTimeLeft, 60000);
+    return () => clearInterval(interval);
+  }, [expiry, status]);
+
+  if (!status) {
+    return <div className="text-muted-foreground text-sm">—</div>;
+  }
+
+  if (status === "Accepted") {
+    return <div className="text-muted-foreground text-sm">—</div>;
+  }
+
+  const formattedDate = expiry
+    ? new Date(expiry).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "";
+
+  const handleResend = async () => {
+    setIsResending(true);
+    await onResend();
+    setIsResending(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-1 items-start">
+      {expiry && (
+        <span className="text-sm text-foreground">
+          {formattedDate} {timeLeft !== "Expired" && `• ${timeLeft}`}
+        </span>
+      )}
+      {(isLastDay || isExpired || status === "Expired") && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleResend}
+          disabled={isResending}
+          className="h-6 text-xs px-2"
+        >
+          {isResending ? "Sending..." : "Reinvite"}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function InvitationStatusCell({
+  status,
+  expiry,
+}: {
+  status?: string;
+  expiry?: string;
+}) {
+  const [isExpired, setIsExpired] = useState(
+    expiry ? new Date(expiry).getTime() - new Date().getTime() <= 0 : false,
+  );
+
+  useEffect(() => {
+    if (!expiry || status !== "Pending") return;
+    const calculateTimeLeft = () => {
+      const diffMs = new Date(expiry).getTime() - new Date().getTime();
+      setIsExpired(diffMs <= 0);
+    };
+    calculateTimeLeft();
+    const interval = setInterval(calculateTimeLeft, 60000);
+    return () => clearInterval(interval);
+  }, [expiry, status]);
+
+  if (!status) {
+    return <span className="text-muted-foreground text-sm">—</span>;
+  }
+
+  const effectiveStatus =
+    isExpired && status === "Pending" ? "Expired" : status;
+
+  const getBadgeClass = (s: string) => {
+    switch (s.toLowerCase()) {
+      case "pending":
+        return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300";
+      case "accepted":
+        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
+      case "expired":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  };
+
+  return (
+    <span
+      className={`inline-flex w-fit items-center px-2 py-0.5 rounded-full text-xs font-medium ${getBadgeClass(effectiveStatus)}`}
+    >
+      {effectiveStatus}
+    </span>
+  );
+}
+
 export default function BoardDashboardPage() {
   const { boardId } = useParams();
   const navigate = useNavigate();
@@ -97,6 +242,9 @@ export default function BoardDashboardPage() {
       role_id?: string;
       avatarColor?: string;
       group_ids?: string[];
+      invitation_status?: string;
+      expire_date?: string;
+      board_role_active?: boolean;
     }>
   >([]);
 
@@ -221,6 +369,9 @@ export default function BoardDashboardPage() {
           : undefined,
         avatarColor: `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`, // Generate color from user_id
         group_ids: member.group_ids || [],
+        invitation_status: member.invitation_status,
+        expire_date: member.expire_date,
+        board_role_active: member.board_role_active,
       }));
 
       // Check if current user is in the list, if not add them
@@ -242,6 +393,9 @@ export default function BoardDashboardPage() {
             role_id: undefined,
             avatarColor: `hsl(${(userId * 137) % 360}, 70%, 50%)`,
             group_ids: [],
+            invitation_status: undefined,
+            expire_date: undefined,
+            board_role_active: true,
           });
         }
       }
@@ -327,6 +481,9 @@ export default function BoardDashboardPage() {
           : undefined,
         avatarColor: `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`, // Generate color from user_id
         group_ids: member.group_ids ? member.group_ids.map(String) : [],
+        invitation_status: member.invitation_status,
+        expire_date: member.expire_date,
+        board_role_active: member.board_role_active,
       }));
 
       // Check if current user is in the list, if not add them
@@ -348,6 +505,9 @@ export default function BoardDashboardPage() {
             role_id: undefined,
             avatarColor: `hsl(${(userId * 137) % 360}, 70%, 50%)`,
             group_ids: [],
+            invitation_status: undefined,
+            expire_date: undefined,
+            board_role_active: true,
           });
         }
       }
@@ -555,6 +715,30 @@ export default function BoardDashboardPage() {
       });
     } finally {
       setAssigningGroupsUserId(null);
+    }
+  };
+
+  const handleResendInvitation = async (userId: string) => {
+    try {
+      if (!boardId) return;
+
+      await boardsApi.resendInvitation({
+        board_id: Number(boardId),
+        user_id: Number(userId),
+      });
+      toast({
+        title: "Success",
+        description: "Invitation resent successfully",
+      });
+      // Refresh members
+      loadMembers(Number(boardId));
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to resend invitation",
+        variant: "destructive",
+      });
     }
   };
 
@@ -834,12 +1018,18 @@ export default function BoardDashboardPage() {
 
             {/* Members Table */}
             <div className="border border-border rounded-lg overflow-hidden bg-card">
-              <div className="grid grid-cols-[1.2fr_1.8fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 bg-muted/30 border-b border-border">
+              <div className="grid grid-cols-[1.2fr_1.8fr_1fr_1.2fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 bg-muted/30 border-b border-border">
                 <div className="text-sm font-medium text-muted-foreground">
                   Name
                 </div>
                 <div className="text-sm font-medium text-muted-foreground">
                   Email
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Invitation Status
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Invitation Expiry
                 </div>
                 <div className="text-sm font-medium text-muted-foreground">
                   Groups
@@ -857,7 +1047,7 @@ export default function BoardDashboardPage() {
                   members.map((member) => (
                     <div
                       key={member.id}
-                      className="grid grid-cols-[1.2fr_1.8fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 items-center hover:bg-muted/10 transition-colors"
+                      className="grid grid-cols-[1.2fr_1.8fr_1fr_1.2fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 items-center hover:bg-muted/10 transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <Avatar className="w-8 h-8">
@@ -880,6 +1070,21 @@ export default function BoardDashboardPage() {
                       >
                         {member.email}
                       </div>
+
+                      <InvitationStatusCell
+                        status={
+                          member.board_role_active ? "Accepted" : "Pending"
+                        }
+                        expiry={member.expire_date}
+                      />
+
+                      <InvitationExpiryCell
+                        status={
+                          member.board_role_active ? "Accepted" : "Pending"
+                        }
+                        expiry={member.expire_date}
+                        onResend={() => handleResendInvitation(member.id)}
+                      />
 
                       {/* Group Selector Column */}
                       <div>
