@@ -3,6 +3,7 @@ import {
   X,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Mail,
   Link2,
   Activity,
@@ -18,14 +19,15 @@ import {
   Pencil,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/ui/dropdown-menu";
 
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 
@@ -77,6 +79,8 @@ interface TaskCardDialogProps {
   boardId?: number;
   groupName?: string;
   groupColor?: string;
+  groups?: any[];
+  onGroupChange?: (taskId: string, groupId: string) => Promise<void>;
   onInlineEditTaskName?: (taskId: string, newName: string) => void;
   tags?: any[];
   onTagChange?: (taskId: string, tags: any[]) => void;
@@ -116,6 +120,8 @@ export function TaskCardDialog({
   onEstimatedTimeChange,
   groupName,
   groupColor,
+  groups = [],
+  onGroupChange,
   onInlineEditTaskName,
   tags,
   onTagChange,
@@ -171,7 +177,10 @@ export function TaskCardDialog({
   }, [open, boardId]);
 
   useEffect(() => {
-    if (isClientRole(currentUserRole) && (activeTab === "dev-updates" || activeTab === "activity")) {
+    if (
+      isClientRole(currentUserRole) &&
+      (activeTab === "dev-updates" || activeTab === "activity")
+    ) {
       setActiveTab("description");
     }
   }, [currentUserRole, activeTab]);
@@ -704,23 +713,55 @@ export function TaskCardDialog({
         </DialogTitle>
 
         {/* Content */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden">
           {/* Left: Fields */}
-          <div className="w-[35%] border-r border-border overflow-y-auto p-4 space-y-3">
+          <div className="w-full lg:w-[35%] lg:border-r border-b lg:border-b-0 border-border lg:overflow-y-auto shrink-0 p-4 space-y-3">
             {/* Group */}
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
                 <Circle className="h-4 w-4" />
                 <span>Group</span>
               </div>
-              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 flex items-center gap-2 min-h-[36px]">
-                {groupColor && (
-                  <div
-                    className="h-3 w-3 rounded-full shrink-0"
-                    style={{ backgroundColor: groupColor }}
-                  />
-                )}
-                <span className="text-sm text-foreground/90">{groupName}</span>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 flex items-center min-h-[36px]">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex-1 flex items-center gap-2 cursor-pointer outline-none">
+                      {groupColor && (
+                        <div
+                          className="h-3 w-3 rounded-full shrink-0"
+                          style={{ backgroundColor: groupColor }}
+                        />
+                      )}
+                      <span className="text-sm text-foreground/90 select-none">
+                        {groupName}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto" />
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[200px]">
+                    {groups.map((g) => (
+                      <DropdownMenuItem
+                        key={g.id}
+                        onClick={async () => {
+                          if (onGroupChange && displayTask?.id && g.id) {
+                            try {
+                              await onGroupChange(displayTask.id, String(g.id));
+                            } catch (error) {
+                              console.error(error);
+                            }
+                          }
+                        }}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <div
+                          className="h-3 w-3 rounded-full shrink-0"
+                          style={{ backgroundColor: g.color || "#ccc" }}
+                        />
+                        <span className="truncate">{g.name}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
@@ -865,18 +906,18 @@ export function TaskCardDialog({
             </div>
 
             {/* Task Content Spacer */}
-            <div className="flex-1" />
+            <div className="hidden lg:block flex-1" />
           </div>
 
           {/* Right: Updates Section */}
-          <div className="w-[65%] flex flex-col overflow-hidden">
+          <div className="w-full lg:w-[65%] flex flex-col lg:overflow-hidden">
             {/* Tabs */}
             <Tabs
               value={activeTab}
               onValueChange={setActiveTab}
               className="flex flex-col h-full"
             >
-              <TabsList className="w-full justify-start rounded-none border-b border-border bg-transparent px-3 py-0">
+              <TabsList className="w-full justify-start rounded-none border-b border-border bg-transparent px-3 py-0 flex-wrap h-auto">
                 <TabsTrigger
                   value="description"
                   className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
@@ -925,10 +966,12 @@ export function TaskCardDialog({
                 className="flex-1 overflow-auto m-0 p-0"
               >
                 {(() => {
-                  const hasDescription = displayTask?.description &&
-                        (displayTask.description.replace(/<[^>]*>/g, "").trim().length > 0 ||
-                          displayTask.description.includes("<img") ||
-                          displayTask.description.includes("<iframe"));
+                  const hasDescription =
+                    displayTask?.description &&
+                    (displayTask.description.replace(/<[^>]*>/g, "").trim()
+                      .length > 0 ||
+                      displayTask.description.includes("<img") ||
+                      displayTask.description.includes("<iframe"));
                   const showEditor = isEditingDescription || !hasDescription;
 
                   return (
@@ -944,7 +987,9 @@ export function TaskCardDialog({
                             size="sm"
                             className="h-8 text-xs gap-1.5"
                             onClick={() => {
-                              setTempDescription(displayTask?.description || "");
+                              setTempDescription(
+                                displayTask?.description || "",
+                              );
                               setIsEditingDescription(true);
                             }}
                           >
@@ -980,82 +1025,91 @@ export function TaskCardDialog({
                                 >
                               Cancel
                             </Button> */}
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="h-9 px-6 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm"
-                              onClick={async () => {
-                                if (displayTask?.id && onDescriptionChange) {
-                                  const finalHtml =
-                                    await attachmentsApi.uploadAndReplace(
-                                      tempDescription,
-                                    );
-                                  await onDescriptionChange(
-                                    displayTask.id,
-                                    finalHtml,
-                                  );
-                                  setIsEditingDescription(false);
-                                }
-                              }}
-                            >
-                              Save Changes
-                            </Button>
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  className="h-9 px-6 text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm"
+                                  onClick={async () => {
+                                    if (
+                                      displayTask?.id &&
+                                      onDescriptionChange
+                                    ) {
+                                      const finalHtml =
+                                        await attachmentsApi.uploadAndReplace(
+                                          tempDescription,
+                                        );
+                                      await onDescriptionChange(
+                                        displayTask.id,
+                                        finalHtml,
+                                      );
+                                      setIsEditingDescription(false);
+                                    }
+                                  }}
+                                >
+                                  Save Changes
+                                </Button>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        className="p-8 min-h-full"
-                        onClick={(e) => {
-                          const target = e.target as HTMLElement;
-                          if (target.tagName === "IMG") {
-                            handleFilePreview((target as HTMLImageElement).src);
-                            return;
-                          }
-
-                          // Handle File/PDF Card Preview button
-                          const previewBtn =
-                            target.closest(".file-card-preview-btn") ||
-                            target.closest(".pdf-card-preview-btn");
-                          const openBtn =
-                            target.closest(".file-card-open-btn") ||
-                            target.closest(".pdf-card-open-btn");
-
-                          if (previewBtn || openBtn) {
-                            const wrapper =
-                              target.closest("[data-type='file-card']") ||
-                              target.closest("[data-type='pdf-card']");
-                            if (wrapper) {
-                              const href = wrapper.getAttribute("data-href");
-                              const fileName =
-                                wrapper.getAttribute("data-file-name") ||
-                                undefined;
-                              if (href) {
-                                handleFilePreview(href, fileName);
-                              }
-                            }
-                          }
-                        }}
-                      >
-                        {displayTask?.description &&
-                        (displayTask.description.replace(/<[^>]*>/g, "").trim()
-                          .length > 0 ||
-                          displayTask.description.includes("<img") ||
-                          displayTask.description.includes("<iframe")) && (
+                        ) : (
                           <div
-                            className="text-sm text-foreground/90 prose dark:prose-invert prose-content max-w-none prose-p:my-2 [&_img]:cursor-pointer [&_img]:transition-opacity hover:[&_img]:opacity-90 [&_.file-card]:cursor-default"
-                            dangerouslySetInnerHTML={{
-                              __html: displayTask.description,
+                            className="p-8 min-h-full"
+                            onClick={(e) => {
+                              const target = e.target as HTMLElement;
+                              if (target.tagName === "IMG") {
+                                handleFilePreview(
+                                  (target as HTMLImageElement).src,
+                                );
+                                return;
+                              }
+
+                              // Handle File/PDF Card Preview button
+                              const previewBtn =
+                                target.closest(".file-card-preview-btn") ||
+                                target.closest(".pdf-card-preview-btn");
+                              const openBtn =
+                                target.closest(".file-card-open-btn") ||
+                                target.closest(".pdf-card-open-btn");
+
+                              if (previewBtn || openBtn) {
+                                const wrapper =
+                                  target.closest("[data-type='file-card']") ||
+                                  target.closest("[data-type='pdf-card']");
+                                if (wrapper) {
+                                  const href =
+                                    wrapper.getAttribute("data-href");
+                                  const fileName =
+                                    wrapper.getAttribute("data-file-name") ||
+                                    undefined;
+                                  if (href) {
+                                    handleFilePreview(href, fileName);
+                                  }
+                                }
+                              }
                             }}
-                          />
+                          >
+                            {displayTask?.description &&
+                              (displayTask.description
+                                .replace(/<[^>]*>/g, "")
+                                .trim().length > 0 ||
+                                displayTask.description.includes("<img") ||
+                                displayTask.description.includes(
+                                  "<iframe",
+                                )) && (
+                                <div
+                                  className="text-sm text-foreground/90 prose dark:prose-invert prose-content max-w-none prose-p:my-2 [&_img]:cursor-pointer [&_img]:transition-opacity hover:[&_img]:opacity-90 [&_.file-card]:cursor-default"
+                                  dangerouslySetInnerHTML={{
+                                    __html: displayTask.description,
+                                  }}
+                                />
+                              )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-            </TabsContent>
+                    </div>
+                  );
+                })()}
+              </TabsContent>
 
               <TabsContent
                 value="dev-updates"
@@ -1227,7 +1281,12 @@ export function TaskCardDialog({
                                   <div
                                     className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                     dangerouslySetInnerHTML={renderFormattedContent(
-                                      formatActivityValue(activity.action, activity.old_value, statuses, priorities) || "",
+                                      formatActivityValue(
+                                        activity.action,
+                                        activity.old_value,
+                                        statuses,
+                                        priorities,
+                                      ) || "",
                                     )}
                                   />
                                 </div>
@@ -1240,7 +1299,12 @@ export function TaskCardDialog({
                                   <div
                                     className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                     dangerouslySetInnerHTML={renderFormattedContent(
-                                      formatActivityValue(activity.action, activity.new_value, statuses, priorities) || "",
+                                      formatActivityValue(
+                                        activity.action,
+                                        activity.new_value,
+                                        statuses,
+                                        priorities,
+                                      ) || "",
                                     )}
                                   />
                                 </div>

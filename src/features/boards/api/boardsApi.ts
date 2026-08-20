@@ -18,7 +18,7 @@ const BOARD_ENDPOINTS = {
 
 // const CACHE_CONTROL_HEADERS = {
 //   'Cache-Control': 'no-cache, no-store, must-revalidate',
-//   'Pragma': 'no-cache', 
+//   'Pragma': 'no-cache',
 // };
 
 export const boardsApi = {
@@ -30,8 +30,8 @@ export const boardsApi = {
       const response = await api.get<GetBoardsResponse>(
         BOARD_ENDPOINTS.GET_ALL,
         {
-          params: { organization_id: organizationId }
-        }
+          params: { organization_id: organizationId },
+        },
       );
 
       // Handle the API response format
@@ -59,7 +59,7 @@ export const boardsApi = {
    * Create a new board
    */
   createBoard: async (
-    data: CreateBoardRequest
+    data: CreateBoardRequest,
   ): Promise<CreateBoardResponse> => {
     try {
       const response = await api.post<any>(BOARD_ENDPOINTS.CREATE, data, {
@@ -129,14 +129,18 @@ export const boardsApi = {
    */
   updateBoard: async (
     id: string,
-    data: Partial<CreateBoardRequest>
+    data: Partial<CreateBoardRequest>,
   ): Promise<Board> => {
-    const response = await api.put<Board>(BOARD_ENDPOINTS.UPDATE, {
-      id,
-      ...data,
-    }, {
-      // headers: CACHE_CONTROL_HEADERS
-    });
+    const response = await api.put<Board>(
+      BOARD_ENDPOINTS.UPDATE,
+      {
+        id,
+        ...data,
+      },
+      {
+        // headers: CACHE_CONTROL_HEADERS
+      },
+    );
     return response.data;
   },
 
@@ -228,7 +232,7 @@ export const boardsApi = {
   }> => {
     try {
       const response = await api.delete("/boards/assign-members", {
-        data: payload
+        data: payload,
       });
       return response.data;
     } catch (error) {
@@ -238,20 +242,38 @@ export const boardsApi = {
   },
 
   /**
+   * Resend invitation
+   */
+  resendInvitation: async (payload: {
+    board_id: number | string;
+    user_id: number | string;
+  }): Promise<any> => {
+    try {
+      const response = await api.post("/invites/resend", payload);
+      return response.data;
+    } catch (error) {
+      console.error("Resend invitation API error:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Clone/Duplicate board
    */
-  cloneBoard: async (boardId: number | string): Promise<{
+  cloneBoard: async (
+    boardId: number | string,
+  ): Promise<{
     code: number;
     status: string;
     message: string;
     data: {
       old_board_id: number;
       new_board_id: number;
-    }
+    };
   }> => {
     try {
       const response = await api.post(BOARD_ENDPOINTS.CLONE, {
-        board_id: boardId
+        board_id: boardId,
       });
       return response.data;
     } catch (error) {
@@ -309,7 +331,7 @@ export const boardsApi = {
         `/groups/${payload.groupId}/clients/${payload.userId}`,
         {
           data: { organization_id: payload.organization_id },
-        }
+        },
       );
       return response.data;
     } catch (error) {

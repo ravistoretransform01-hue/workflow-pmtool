@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { MoreHorizontal, UserPlus, LayoutDashboard, X, ChevronDown, Check } from "lucide-react";
+import {
+  MoreHorizontal,
+  UserPlus,
+  LayoutDashboard,
+  X,
+  ChevronDown,
+  Check,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,11 +21,7 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Button } from "@/shared/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/shared/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,12 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useBoards } from "@/hooks/useBoards";
 import { boardsApi } from "@/features/boards/api/boardsApi";
@@ -47,7 +45,11 @@ import { BoardInviteDialog } from "@/shared/modals/BoardInviteDialog";
 import { getMembers, getCMSData } from "@/features/cms/services/cmsStorage";
 import { clearCMSCache } from "@/features/cms/services/cmsStorage";
 import type { Role } from "@/features/cms/types/types";
-import { getCurrentUserId, getOrganizationId, isClientRole } from "@/utils/utils";
+import {
+  getCurrentUserId,
+  getOrganizationId,
+  isClientRole,
+} from "@/utils/utils";
 import { debugLog } from "@/utils/debugLog";
 
 const colorOptions = [
@@ -62,6 +64,151 @@ const colorOptions = [
   { name: "Cyan", value: "#0284c7" },
   { name: "Indigo", value: "#6366f1" },
 ];
+
+function InvitationExpiryCell({
+  status,
+  expiry,
+  onResend,
+}: {
+  status?: string;
+  expiry?: string;
+  onResend: () => Promise<void>;
+}) {
+  const [timeLeft, setTimeLeft] = useState<string>("");
+  const [isExpired, setIsExpired] = useState(status === "Expired");
+  const [isLastDay, setIsLastDay] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+
+  useEffect(() => {
+    if (!expiry || status === "Accepted") return;
+
+    const calculateTimeLeft = () => {
+      const now = new Date();
+      const expireDate = new Date(expiry);
+      const diffMs = expireDate.getTime() - now.getTime();
+
+      if (diffMs <= 0) {
+        setIsExpired(true);
+        setTimeLeft("Expired");
+        setIsLastDay(true);
+      } else {
+        setIsExpired(false);
+        const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+        const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
+
+        if (days > 0) {
+          setTimeLeft(`${days} Day${days > 1 ? "s" : ""} Left`);
+          setIsLastDay(Math.floor(diffMs / (1000 * 60 * 60 * 24)) === 0);
+        } else if (hours > 0) {
+          setTimeLeft(`${hours} Hour${hours > 1 ? "s" : ""} Left`);
+          setIsLastDay(true);
+        } else {
+          setTimeLeft(`${minutes} Minute${minutes > 1 ? "s" : ""} Left`);
+          setIsLastDay(true);
+        }
+      }
+    };
+
+    calculateTimeLeft();
+    const interval = setInterval(calculateTimeLeft, 60000);
+    return () => clearInterval(interval);
+  }, [expiry, status]);
+
+  if (!status) {
+    return <div className="text-muted-foreground text-sm">—</div>;
+  }
+
+  if (status === "Accepted") {
+    return <div className="text-muted-foreground text-sm">—</div>;
+  }
+
+  const formattedDate = expiry
+    ? new Date(expiry).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "";
+
+  const handleResend = async () => {
+    setIsResending(true);
+    await onResend();
+    setIsResending(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-1 items-start">
+      {expiry && (
+        <span className="text-sm text-foreground">
+          {formattedDate} {timeLeft !== "Expired" && `• ${timeLeft}`}
+        </span>
+      )}
+      {(isLastDay || isExpired || status === "Expired") && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleResend}
+          disabled={isResending}
+          className="h-6 text-xs px-2"
+        >
+          {isResending ? "Sending..." : "Reinvite"}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function InvitationStatusCell({
+  status,
+  expiry,
+}: {
+  status?: string;
+  expiry?: string;
+}) {
+  const [isExpired, setIsExpired] = useState(
+    expiry ? new Date(expiry).getTime() - new Date().getTime() <= 0 : false,
+  );
+
+  useEffect(() => {
+    if (!expiry || status !== "Pending") return;
+    const calculateTimeLeft = () => {
+      const diffMs = new Date(expiry).getTime() - new Date().getTime();
+      setIsExpired(diffMs <= 0);
+    };
+    calculateTimeLeft();
+    const interval = setInterval(calculateTimeLeft, 60000);
+    return () => clearInterval(interval);
+  }, [expiry, status]);
+
+  if (!status) {
+    return <span className="text-muted-foreground text-sm">—</span>;
+  }
+
+  const effectiveStatus =
+    isExpired && status === "Pending" ? "Expired" : status;
+
+  const getBadgeClass = (s: string) => {
+    switch (s.toLowerCase()) {
+      case "pending":
+        return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300";
+      case "accepted":
+        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
+      case "expired":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  };
+
+  return (
+    <span
+      className={`inline-flex w-fit items-center px-2 py-0.5 rounded-full text-xs font-medium ${getBadgeClass(effectiveStatus)}`}
+    >
+      {effectiveStatus}
+    </span>
+  );
+}
 
 export default function BoardDashboardPage() {
   const { boardId } = useParams();
@@ -95,6 +242,9 @@ export default function BoardDashboardPage() {
       role_id?: string;
       avatarColor?: string;
       group_ids?: string[];
+      invitation_status?: string;
+      expire_date?: string;
+      board_role_active?: boolean;
     }>
   >([]);
 
@@ -129,7 +279,7 @@ export default function BoardDashboardPage() {
           const cachedData = JSON.parse(cachedDataRaw);
           const cachedMembers = cachedData?.members || [];
           const matchedMember = cachedMembers.find(
-            (m: any) => String(m.user_id) === String(userId)
+            (m: any) => String(m.user_id) === String(userId),
           );
           if (matchedMember) {
             return matchedMember.board_role_label || null;
@@ -195,9 +345,12 @@ export default function BoardDashboardPage() {
       const groupsList = cmsData.groups || [];
       const cmsMembers = (cmsData.members || []).map((member) => {
         const memberGroupIds = groupsList
-          .filter((g: any) => 
-            g.assigned_users && 
-            g.assigned_users.some((uid: any) => String(uid) === String(member.user_id))
+          .filter(
+            (g: any) =>
+              g.assigned_users &&
+              g.assigned_users.some(
+                (uid: any) => String(uid) === String(member.user_id),
+              ),
           )
           .map((g: any) => String(g.id));
         return {
@@ -216,6 +369,9 @@ export default function BoardDashboardPage() {
           : undefined,
         avatarColor: `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`, // Generate color from user_id
         group_ids: member.group_ids || [],
+        invitation_status: member.invitation_status,
+        expire_date: member.expire_date,
+        board_role_active: member.board_role_active,
       }));
 
       // Check if current user is in the list, if not add them
@@ -237,6 +393,9 @@ export default function BoardDashboardPage() {
             role_id: undefined,
             avatarColor: `hsl(${(userId * 137) % 360}, 70%, 50%)`,
             group_ids: [],
+            invitation_status: undefined,
+            expire_date: undefined,
+            board_role_active: true,
           });
         }
       }
@@ -256,7 +415,6 @@ export default function BoardDashboardPage() {
       loadAllDashboardData(Number(boardId), true);
     }
   }, [boardId]);
-
 
   const loadBoardData = async (id: number) => {
     try {
@@ -323,6 +481,9 @@ export default function BoardDashboardPage() {
           : undefined,
         avatarColor: `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`, // Generate color from user_id
         group_ids: member.group_ids ? member.group_ids.map(String) : [],
+        invitation_status: member.invitation_status,
+        expire_date: member.expire_date,
+        board_role_active: member.board_role_active,
       }));
 
       // Check if current user is in the list, if not add them
@@ -344,6 +505,9 @@ export default function BoardDashboardPage() {
             role_id: undefined,
             avatarColor: `hsl(${(userId * 137) % 360}, 70%, 50%)`,
             group_ids: [],
+            invitation_status: undefined,
+            expire_date: undefined,
+            board_role_active: true,
           });
         }
       }
@@ -354,7 +518,6 @@ export default function BoardDashboardPage() {
       // Don't show error toast, just log it
     }
   };
-
 
   const handleRoleChange = async (userId: string, newRoleId: string) => {
     if (!boardId) return;
@@ -468,9 +631,15 @@ export default function BoardDashboardPage() {
     }
   };
 
-  const [assigningGroupsUserId, setAssigningGroupsUserId] = useState<string | null>(null);
+  const [assigningGroupsUserId, setAssigningGroupsUserId] = useState<
+    string | null
+  >(null);
 
-  const handleToggleGroup = async (userId: string, groupId: string, isCurrentlySelected: boolean) => {
+  const handleToggleGroup = async (
+    userId: string,
+    groupId: string,
+    isCurrentlySelected: boolean,
+  ) => {
     if (!boardId) return;
 
     setAssigningGroupsUserId(userId);
@@ -495,10 +664,12 @@ export default function BoardDashboardPage() {
               member.id === userId
                 ? {
                     ...member,
-                    group_ids: (member.group_ids || []).filter((id) => id !== groupId),
+                    group_ids: (member.group_ids || []).filter(
+                      (id) => id !== groupId,
+                    ),
                   }
-                : member
-            )
+                : member,
+            ),
           );
         } else {
           throw new Error(response.message || "Failed to remove group");
@@ -525,8 +696,8 @@ export default function BoardDashboardPage() {
                     ...member,
                     group_ids: [...(member.group_ids || []), groupId],
                   }
-                : member
-            )
+                : member,
+            ),
           );
         } else {
           throw new Error(response.message || "Failed to assign group");
@@ -544,6 +715,30 @@ export default function BoardDashboardPage() {
       });
     } finally {
       setAssigningGroupsUserId(null);
+    }
+  };
+
+  const handleResendInvitation = async (userId: string) => {
+    try {
+      if (!boardId) return;
+
+      await boardsApi.resendInvitation({
+        board_id: Number(boardId),
+        user_id: Number(userId),
+      });
+      toast({
+        title: "Success",
+        description: "Invitation resent successfully",
+      });
+      // Refresh members
+      loadMembers(Number(boardId));
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to resend invitation",
+        variant: "destructive",
+      });
     }
   };
 
@@ -599,7 +794,9 @@ export default function BoardDashboardPage() {
         <Button
           variant="ghost"
           className="mb-4 pl-0 hover:bg-transparent hover:text-primary"
-          onClick={() => navigate(`/org/${getOrganizationId()}/board/${boardId}`)}
+          onClick={() =>
+            navigate(`/org/${getOrganizationId()}/board/${boardId}`)
+          }
         >
           ← Back to Project
         </Button>
@@ -645,7 +842,9 @@ export default function BoardDashboardPage() {
                               icon_color: color.value,
                             });
                             // Optimistically update board in Redux to avoid loading spinner
-                            updateBoardLocally(boardId, { icon_color: color.value });
+                            updateBoardLocally(boardId, {
+                              icon_color: color.value,
+                            });
                           } catch (e) {
                             console.error(e);
                           }
@@ -690,7 +889,9 @@ export default function BoardDashboardPage() {
                     variant="outline"
                     className="w-full sm:w-auto h-11 text-sm font-semibold rounded-lg transition-colors border-2"
                     onClick={() =>
-                      navigate(`/org/${getOrganizationId()}/board/${boardId}/view/Main%20Table`)
+                      navigate(
+                        `/org/${getOrganizationId()}/board/${boardId}/view/Main%20Table`,
+                      )
                     }
                   >
                     View Items
@@ -725,7 +926,9 @@ export default function BoardDashboardPage() {
                   <DropdownMenuContent align="start" className="w-56">
                     <DropdownMenuItem
                       onClick={() =>
-                        navigate(`/org/${getOrganizationId()}/board/${boardId}/view/Main%20Table`)
+                        navigate(
+                          `/org/${getOrganizationId()}/board/${boardId}/view/Main%20Table`,
+                        )
                       }
                     >
                       <LayoutDashboard className="h-4 w-4 mr-2" />
@@ -778,8 +981,20 @@ export default function BoardDashboardPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full max-w-2xl grid-cols-3 mb-6">
             <TabsTrigger value="user-management">User management</TabsTrigger>
-            <TabsTrigger value="permissions" className="text-amber-400" title="Coming Soon">Permissions</TabsTrigger>
-            <TabsTrigger value="my-schedule" className="text-amber-400" title="Coming Soon">My Schedule</TabsTrigger>
+            <TabsTrigger
+              value="permissions"
+              className="text-amber-400"
+              title="Coming Soon"
+            >
+              Permissions
+            </TabsTrigger>
+            <TabsTrigger
+              value="my-schedule"
+              className="text-amber-400"
+              title="Coming Soon"
+            >
+              My Schedule
+            </TabsTrigger>
           </TabsList>
 
           {/* User Management Tab */}
@@ -803,12 +1018,18 @@ export default function BoardDashboardPage() {
 
             {/* Members Table */}
             <div className="border border-border rounded-lg overflow-hidden bg-card">
-              <div className="grid grid-cols-[1.2fr_1.8fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 bg-muted/30 border-b border-border">
+              <div className="grid grid-cols-[1.2fr_1.8fr_1fr_1.2fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 bg-muted/30 border-b border-border">
                 <div className="text-sm font-medium text-muted-foreground">
                   Name
                 </div>
                 <div className="text-sm font-medium text-muted-foreground">
                   Email
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Invitation Status
+                </div>
+                <div className="text-sm font-medium text-muted-foreground">
+                  Invitation Expiry
                 </div>
                 <div className="text-sm font-medium text-muted-foreground">
                   Groups
@@ -826,7 +1047,7 @@ export default function BoardDashboardPage() {
                   members.map((member) => (
                     <div
                       key={member.id}
-                      className="grid grid-cols-[1.2fr_1.8fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 items-center hover:bg-muted/10 transition-colors"
+                      className="grid grid-cols-[1.2fr_1.8fr_1fr_1.2fr_1.5fr_1.2fr_auto] gap-4 px-6 py-4 items-center hover:bg-muted/10 transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <Avatar className="w-8 h-8">
@@ -843,9 +1064,27 @@ export default function BoardDashboardPage() {
                         </span>
                       </div>
 
-                      <div className="text-muted-foreground text-sm truncate" title={member.email}>
+                      <div
+                        className="text-muted-foreground text-sm truncate"
+                        title={member.email}
+                      >
                         {member.email}
                       </div>
+
+                      <InvitationStatusCell
+                        status={
+                          member.board_role_active ? "Accepted" : "Pending"
+                        }
+                        expiry={member.expire_date}
+                      />
+
+                      <InvitationExpiryCell
+                        status={
+                          member.board_role_active ? "Accepted" : "Pending"
+                        }
+                        expiry={member.expire_date}
+                        onResend={() => handleResendInvitation(member.id)}
+                      />
 
                       {/* Group Selector Column */}
                       <div>
@@ -854,15 +1093,24 @@ export default function BoardDashboardPage() {
                             <PopoverTrigger asChild>
                               <button
                                 type="button"
-                                disabled={isCurrentUserClient || isLoadingGroups || assigningGroupsUserId === member.id}
+                                disabled={
+                                  isCurrentUserClient ||
+                                  isLoadingGroups ||
+                                  assigningGroupsUserId === member.id
+                                }
                                 className="w-full max-w-[180px] flex items-center justify-between bg-background border border-input rounded-md h-8 px-3 text-left text-xs hover:bg-accent hover:text-accent-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <div className="flex items-center gap-1 overflow-hidden max-w-[85%]">
-                                  {(!member.group_ids || member.group_ids.length === 0) ? (
-                                    <span className="text-muted-foreground text-[11px]">Select groups</span>
+                                  {!member.group_ids ||
+                                  member.group_ids.length === 0 ? (
+                                    <span className="text-muted-foreground text-[11px]">
+                                      Select groups
+                                    </span>
                                   ) : (
                                     member.group_ids.map((groupId) => {
-                                      const group = boardGroups.find((g) => String(g.id) === groupId);
+                                      const group = boardGroups.find(
+                                        (g) => String(g.id) === groupId,
+                                      );
                                       if (!group) return null;
                                       return (
                                         <span
@@ -871,9 +1119,14 @@ export default function BoardDashboardPage() {
                                         >
                                           <span
                                             className="w-1.5 h-1.5 rounded-full shrink-0"
-                                            style={{ backgroundColor: group.color || '#3b82f6' }}
+                                            style={{
+                                              backgroundColor:
+                                                group.color || "#3b82f6",
+                                            }}
                                           />
-                                          <span className="truncate max-w-[50px]">{group.name}</span>
+                                          <span className="truncate max-w-[50px]">
+                                            {group.name}
+                                          </span>
                                         </span>
                                       );
                                     })
@@ -884,33 +1137,56 @@ export default function BoardDashboardPage() {
                             </PopoverTrigger>
                             <PopoverContent className="w-[200px] p-2 bg-popover border border-border rounded-md shadow-md text-popover-foreground z-50">
                               {isLoadingGroups ? (
-                                <p className="text-xs text-muted-foreground p-2">Loading groups...</p>
+                                <p className="text-xs text-muted-foreground p-2">
+                                  Loading groups...
+                                </p>
                               ) : boardGroups.length === 0 ? (
-                                <p className="text-xs text-muted-foreground p-2">No groups available</p>
+                                <p className="text-xs text-muted-foreground p-2">
+                                  No groups available
+                                </p>
                               ) : (
-                                <div className="space-y-1 max-h-[160px] overflow-y-auto" onWheel={(e) => e.stopPropagation()}>
+                                <div
+                                  className="space-y-1 max-h-[160px] overflow-y-auto"
+                                  onWheel={(e) => e.stopPropagation()}
+                                >
                                   {boardGroups.map((group) => {
-                                    const currentGroupIds = member.group_ids || [];
-                                    const isSelected = currentGroupIds.includes(String(group.id));
+                                    const currentGroupIds =
+                                      member.group_ids || [];
+                                    const isSelected = currentGroupIds.includes(
+                                      String(group.id),
+                                    );
                                     return (
                                       <button
                                         key={group.id}
                                         type="button"
                                         onClick={() => {
-                                          handleToggleGroup(member.id, String(group.id), isSelected);
+                                          handleToggleGroup(
+                                            member.id,
+                                            String(group.id),
+                                            isSelected,
+                                          );
                                         }}
                                         className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-medium transition-all hover:bg-accent hover:text-accent-foreground ${
-                                          isSelected ? "bg-accent text-accent-foreground font-semibold" : "text-foreground"
+                                          isSelected
+                                            ? "bg-accent text-accent-foreground font-semibold"
+                                            : "text-foreground"
                                         }`}
                                       >
                                         <div className="flex items-center gap-2 truncate">
                                           <span
                                             className="w-2 h-2 rounded-full shrink-0"
-                                            style={{ backgroundColor: group.color || '#3b82f6' }}
+                                            style={{
+                                              backgroundColor:
+                                                group.color || "#3b82f6",
+                                            }}
                                           />
-                                          <span className="truncate">{group.name}</span>
+                                          <span className="truncate">
+                                            {group.name}
+                                          </span>
                                         </div>
-                                        {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                                        {isSelected && (
+                                          <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                                        )}
                                       </button>
                                     );
                                   })}
@@ -919,7 +1195,9 @@ export default function BoardDashboardPage() {
                             </PopoverContent>
                           </Popover>
                         ) : (
-                          <span className="text-muted-foreground text-sm pl-4">—</span>
+                          <span className="text-muted-foreground text-sm pl-4">
+                            —
+                          </span>
                         )}
                       </div>
 
@@ -958,7 +1236,9 @@ export default function BoardDashboardPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRemoveMember(member.id)}
-                          disabled={isCurrentUserClient || removingUserId === member.id}
+                          disabled={
+                            isCurrentUserClient || removingUserId === member.id
+                          }
                           className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {removingUserId === member.id ? (
@@ -1027,10 +1307,7 @@ export default function BoardDashboardPage() {
           if (!open) {
             // Reload members when dialog closes to ensure main list is fresh
             if (boardId) {
-              // Add a small delay to ensure API operations are complete
-              setTimeout(() => {
-                loadMembers(Number(boardId));
-              }, 500);
+              loadMembers(Number(boardId));
             }
           }
         }}
@@ -1038,10 +1315,7 @@ export default function BoardDashboardPage() {
         currentMembers={members}
         onMembersUpdate={() => {
           if (boardId) {
-            // Add a small delay to ensure API operations are complete
-            setTimeout(() => {
-              loadMembers(Number(boardId));
-            }, 500);
+            loadMembers(Number(boardId));
           }
         }}
       />

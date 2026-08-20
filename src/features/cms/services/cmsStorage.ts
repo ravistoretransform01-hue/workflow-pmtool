@@ -74,6 +74,8 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
           m.board_role_active === true ||
           String(m.board_role_active) === "1" ||
           Number(m.board_role_active) === 1,
+        invitation_status: m.invitation_status,
+        expire_date: m.expire_date,
       })),
       labels: apiResponse.labels || [],
       tags: apiResponse.tags || [],
@@ -153,9 +155,12 @@ export async function getMembers(payload: CMSRequest): Promise<Member[]> {
   const groups = cmsData.groups || [];
   return cmsData.members.map((member) => {
     const memberGroupIds = groups
-      .filter((g: any) => 
-        g.assigned_users && 
-        g.assigned_users.some((uid: any) => String(uid) === String(member.user_id))
+      .filter(
+        (g: any) =>
+          g.assigned_users &&
+          g.assigned_users.some(
+            (uid: any) => String(uid) === String(member.user_id),
+          ),
       )
       .map((g: any) => String(g.id));
     return {
@@ -639,7 +644,9 @@ export function updateStatusesOrderInCache(
   try {
     const cachedData = getFromLocalStorage(boardId, true);
     if (cachedData) {
-      const statusMap = new Map(cachedData.statuses.map((s) => [String(s.id), s]));
+      const statusMap = new Map(
+        cachedData.statuses.map((s) => [String(s.id), s]),
+      );
       const nextStatuses: Status[] = orderedIds
         .map((id) => statusMap.get(id))
         .filter((s): s is Status => !!s);
