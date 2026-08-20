@@ -65,6 +65,15 @@ const isValidEmail = (email: string): boolean => {
   return emailRegex.test(email);
 };
 
+const normalizeSearchValue = (value?: string): string =>
+  (value?.toLowerCase() || "").replace(/[^a-z0-9]/g, "");
+
+const getMemberEmail = (member: OrganizationMember): string =>
+  member.user_email || member.email || "";
+
+const getMemberName = (member: OrganizationMember): string =>
+  member.display_name || member.name || member.username || getMemberEmail(member);
+
 // Generate avatar color based on name
 const getAvatarColor = (name: string): string => {
   const colors = [
@@ -92,6 +101,8 @@ export function BoardInviteDialog({
   const [organizationMembers, setOrganizationMembers] = useState<
     OrganizationMember[]
   >([]);
+  const [isLoadingOrganizationMembers, setIsLoadingOrganizationMembers] =
+    useState(false);
   const [isInviting, setIsInviting] = useState(false);
 
   const [internalBoardMembers, setInternalBoardMembers] = useState<
@@ -215,6 +226,7 @@ export function BoardInviteDialog({
   };
 
   const loadOrganizationMembers = async () => {
+    setIsLoadingOrganizationMembers(true);
     try {
       const organizationId = getOrganizationId() || 2;
       const orgMembers =
@@ -227,6 +239,8 @@ export function BoardInviteDialog({
         description: "Failed to load organization members",
         variant: "destructive",
       });
+    } finally {
+      setIsLoadingOrganizationMembers(false);
     }
   };
 
@@ -303,7 +317,6 @@ export function BoardInviteDialog({
 
   // Filter organization members for dropdown search (not already on board & not selected)
   const availableUsers = useMemo(() => {
-    const currentMemberIds = new Set(boardMembersList.map((m) => String(m.id)));
     const selectedIds = new Set(
       selectedInvitees.map((item) => String(item.id)),
     );
@@ -313,10 +326,9 @@ export function BoardInviteDialog({
       return [];
     }
 
-    return organizationMembers.filter((orgMember) => {
-      const isAlreadyMember = currentMemberIds.has(String(orgMember.user_id));
-      if (isAlreadyMember) return false;
+    const normalizedQuery = normalizeSearchValue(searchQuery.trim());
 
+    return organizationMembers.filter((orgMember) => {
       const isAlreadySelected = selectedIds.has(String(orgMember.user_id));
       if (isAlreadySelected) return false;
 
@@ -324,11 +336,16 @@ export function BoardInviteDialog({
         currentUserId && String(orgMember.user_id) === String(currentUserId);
       if (isCurrentUser) return false;
 
-      return (
-        orgMember.display_name
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        orgMember.user_email.toLowerCase().includes(searchQuery.toLowerCase())
+      const searchableValues = [
+        getMemberName(orgMember),
+        orgMember.username,
+        getMemberEmail(orgMember),
+        orgMember.first_name,
+        orgMember.last_name,
+      ];
+
+      return searchableValues.some((value) =>
+        normalizeSearchValue(value).includes(normalizedQuery),
       );
     });
   }, [organizationMembers, boardMembersList, selectedInvitees, searchQuery]);
@@ -353,6 +370,22 @@ export function BoardInviteDialog({
   }, [organizationMembers, boardMembersList, selectedInvitees]);
 
   const handleSelectUser = (user: OrganizationMember) => {
+    const userEmail = getMemberEmail(user);
+    const isAlreadyOnBoard = boardMembersList.some(
+      (member) =>
+        String(member.id) === String(user.user_id) ||
+        member.email?.toLowerCase() === userEmail.toLowerCase(),
+    );
+
+    if (isAlreadyOnBoard) {
+      toast({
+        title: "This user is already a member of this board.",
+        description: "This user is already a member of this board.",
+      });
+      setSearchQuery("");
+      return;
+    }
+
     if (selectedInvitees.some((item) => item.id === user.user_id)) {
       setSearchQuery("");
       return;
@@ -362,10 +395,12 @@ export function BoardInviteDialog({
       ...prev,
       {
         id: user.user_id,
-        name: user.display_name,
-        email: user.user_email,
+        name: getMemberName(user),
+        email: userEmail,
         type: "user",
-        avatarColor: getAvatarColor(user.display_name),
+        avatarColor: getAvatarColor(
+          getMemberName(user),
+        ),
       },
     ]);
     setSearchQuery("");
@@ -377,10 +412,12 @@ export function BoardInviteDialog({
       ...prev,
       {
         id: user.user_id,
-        name: user.display_name,
-        email: user.user_email,
+        name: getMemberName(user),
+        email: getMemberEmail(user),
         type: "user",
-        avatarColor: getAvatarColor(user.display_name),
+        avatarColor: getAvatarColor(
+          getMemberName(user),
+        ),
       },
     ]);
   };
@@ -388,6 +425,24 @@ export function BoardInviteDialog({
   const handleRemoveSelectedInvitee = (index: number) => {
     setSelectedInvitees((prev) => prev.filter((_, i) => i !== index));
   };
+
+  const findOrganizationMemberByEmail = (email: string) =>
+    organizationMembers.find(
+      (member) =>
+        getMemberEmail(member).toLowerCase() === email.trim().toLowerCase(),
+    );
+
+  const matchingEmailMember = isEmail
+    ? findOrganizationMemberByEmail(searchQuery.trim())
+    : undefined;
+  const isEmailAlreadyOnBoard = isEmail
+    ? boardMembersList.some(
+        (member) =>
+          member.email?.toLowerCase() === searchQuery.trim().toLowerCase() ||
+          (matchingEmailMember &&
+            String(member.id) === String(matchingEmailMember.user_id)),
+      )
+    : false;
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === "," || e.key === "Tab") {
@@ -414,20 +469,29 @@ export function BoardInviteDialog({
         );
         if (isMember) {
           toast({
-            title: "Already a member",
-            description: `${val} is already a member of this board.`,
+            title: "This user is already a member of this board.",
+            description: "This user is already a member of this board.",
             variant: "destructive",
           });
           return;
         }
 
+        const organizationMember = findOrganizationMemberByEmail(val);
         setSelectedInvitees((prev) => [
           ...prev,
-          {
-            email: val,
-            type: "email",
-            avatarColor: getAvatarColor(val),
-          },
+          organizationMember
+            ? {
+                id: organizationMember.user_id,
+                name: getMemberName(organizationMember),
+                email: getMemberEmail(organizationMember),
+                type: "user",
+                avatarColor: getAvatarColor(getMemberName(organizationMember)),
+              }
+            : {
+                email: val,
+                type: "email",
+                avatarColor: getAvatarColor(val),
+              },
         ]);
         setSearchQuery("");
       } else {
@@ -451,12 +515,27 @@ export function BoardInviteDialog({
       const numericGroupIds = selectedGroupIds.map((id) => parseInt(id));
 
       const existingUserIds = selectedInvitees
-        .filter((invitee) => invitee.type === "user" && invitee.id)
-        .map((invitee) => parseInt(invitee.id!));
+        .map(
+          (invitee) =>
+            invitee.id || findOrganizationMemberByEmail(invitee.email)?.user_id,
+        )
+        .filter((userId): userId is string => Boolean(userId))
+        .map((userId) => parseInt(userId, 10));
 
+      const existingUserIdSet = new Set(existingUserIds);
       const newEmails = selectedInvitees
-        .filter((invitee) => invitee.type === "email" || !invitee.id)
-        .map((invitee) => invitee.email);
+        .filter(
+          (invitee) =>
+            !invitee.id && !findOrganizationMemberByEmail(invitee.email),
+        )
+        .map((invitee) => invitee.email)
+        .filter(
+          (email, index, emails) =>
+            emails.indexOf(email) === index &&
+            !existingUserIdSet.has(
+              parseInt(findOrganizationMemberByEmail(email)?.user_id || "", 10),
+            ),
+        );
 
       const promises: Promise<any>[] = [];
 
@@ -583,38 +662,77 @@ export function BoardInviteDialog({
             {/* Drodown: Search Suggestions overlay */}
             {searchQuery.trim() && !isEmail && availableUsers.length > 0 && (
               <div className="absolute left-0 right-0 top-full mt-1 bg-[#1e293b] border border-slate-700 rounded-lg shadow-xl z-50 max-h-[160px] overflow-y-auto">
-                {availableUsers.map((user) => (
-                  <button
-                    key={user.user_id}
-                    onClick={() => handleSelectUser(user)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#0f172a] text-left transition-colors border-b border-slate-800/80 last:border-none"
-                  >
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback
-                        style={{
-                          backgroundColor: getAvatarColor(user.display_name),
-                        }}
-                      >
-                        {user.display_name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-white truncate">
-                        {user.display_name}
-                      </p>
-                      <p className="text-[10px] text-gray-400 truncate">
-                        {user.user_email}
-                      </p>
-                    </div>
-                    <Plus className="h-4 w-4 text-gray-400" />
-                  </button>
-                ))}
+                {availableUsers.map((user) => {
+                  const isAlreadyOnBoard = boardMembersList.some(
+                    (member) =>
+                      String(member.id) === String(user.user_id) ||
+                      member.email?.toLowerCase() ===
+                          getMemberEmail(user).toLowerCase(),
+                  );
+                  const userName = getMemberName(user);
+
+                  return (
+                    <button
+                      key={user.user_id}
+                      onClick={() => handleSelectUser(user)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-b border-slate-800/80 last:border-none ${
+                        isAlreadyOnBoard
+                          ? "cursor-default opacity-60"
+                          : "hover:bg-[#0f172a]"
+                      }`}
+                    >
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback
+                          style={{
+                            backgroundColor: getAvatarColor(userName),
+                          }}
+                        >
+                          {userName.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-white truncate">
+                          {userName}
+                        </p>
+                        <p className="text-[10px] text-gray-400 truncate">
+                          {isAlreadyOnBoard
+                            ? "This user is already a member of this board."
+                            : getMemberEmail(user)}
+                        </p>
+                      </div>
+                      {isAlreadyOnBoard ? (
+                        <span className="text-[10px] text-gray-500">Added</span>
+                      ) : (
+                        <Plus className="h-4 w-4 text-gray-400" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
+
+            {searchQuery.trim() &&
+              !isEmail &&
+              !isLoadingOrganizationMembers &&
+              availableUsers.length === 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-[#1e293b] border border-slate-700 rounded-lg shadow-xl z-50 px-3 py-2.5 text-xs text-gray-400">
+                  No registered Workflow PM member found
+                </div>
+              )}
+
+            {searchQuery.trim() &&
+              !isEmail &&
+              isLoadingOrganizationMembers && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-[#1e293b] border border-slate-700 rounded-lg shadow-xl z-50 px-3 py-2.5 text-xs text-gray-400">
+                  Searching members...
+                </div>
+              )}
 
             {/* Dropdown: Invite Email helper overlay */}
             {searchQuery.trim() &&
               isEmail &&
+              !isEmailAlreadyOnBoard &&
+              !matchingEmailMember &&
               !selectedInvitees.some(
                 (item) =>
                   item.email.toLowerCase() === searchQuery.trim().toLowerCase(),
@@ -649,6 +767,51 @@ export function BoardInviteDialog({
                   </button>
                 </div>
               )}
+
+            {searchQuery.trim() &&
+              isEmail &&
+              !isEmailAlreadyOnBoard &&
+              matchingEmailMember &&
+              !selectedInvitees.some(
+                (item) =>
+                  item.email.toLowerCase() === searchQuery.trim().toLowerCase(),
+              ) && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-[#1e293b] border border-slate-700 rounded-lg shadow-xl z-50">
+                  <button
+                    onClick={() => handleSelectUser(matchingEmailMember)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#0f172a] text-left transition-colors"
+                  >
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback
+                        style={{
+                          backgroundColor: getAvatarColor(
+                            getMemberName(matchingEmailMember),
+                          ),
+                        }}
+                      >
+                        {getMemberName(matchingEmailMember)
+                          .charAt(0)
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-white truncate">
+                        {getMemberName(matchingEmailMember)}
+                      </p>
+                      <p className="text-[10px] text-gray-400 truncate">
+                        Registered Workflow PM member
+                      </p>
+                    </div>
+                    <Plus className="h-4 w-4 text-gray-400" />
+                  </button>
+                </div>
+              )}
+
+            {searchQuery.trim() && isEmailAlreadyOnBoard && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-[#1e293b] border border-slate-700 rounded-lg shadow-xl z-50 px-3 py-2.5 text-xs text-gray-400">
+                This user is already a member of this board.
+              </div>
+            )}
           </div>
 
           {/* Suggested Row (Horizontal Chip List) */}
@@ -664,10 +827,10 @@ export function BoardInviteDialog({
                     <Plus className="h-3.5 w-3.5 text-gray-400" />
                     <Avatar className="w-4 h-4">
                       <AvatarFallback className="text-[8px] bg-slate-700 text-white font-semibold">
-                        {user.display_name.charAt(0).toUpperCase()}
+                        {getMemberName(user).charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <span>{user.display_name}</span>
+                    <span>{getMemberName(user)}</span>
                   </button>
                 ))}
               </div>

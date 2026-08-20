@@ -6,6 +6,9 @@ export interface OrganizationMember {
   status: string;
   joined_at: string;
   display_name: string;
+  username?: string;
+  name?: string;
+  email?: string;
   user_email: string;
   first_name: string;
   last_name: string;
