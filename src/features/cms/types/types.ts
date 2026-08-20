@@ -30,6 +30,8 @@ export interface Member {
   board_role_label?: string;
   board_role_active?: boolean;
   group_ids?: string[];
+  invitation_status?: string;
+  expire_date?: string;
 }
 
 export interface Label {
@@ -98,6 +100,8 @@ export interface RawMember {
   board_role_id?: number | string;
   board_role_label?: string;
   board_role_active?: boolean | string | number;
+  invitation_status?: string;
+  expire_date?: string;
 }
 
 export interface CMSResponse {

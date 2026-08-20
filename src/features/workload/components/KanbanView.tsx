@@ -1048,127 +1048,131 @@ export function KanbanView({
 
           <div
             ref={setBoardNode}
-            className="flex-1 flex gap-4 overflow-x-auto overflow-y-hidden pt-4 px-6 pb-2 min-h-0 items-stretch custom-scrollbar scrollbar-visible scroll-shadows-x"
+            className="flex-1 min-h-0 overflow-auto pt-4 px-6 pb-2 custom-scrollbar scrollbar-visible scroll-shadows-x"
           >
-            <SortableContext
-              items={activeOrderedIds.map((id) => `column-${id}`)}
-              strategy={horizontalListSortingStrategy}
-            >
-              {activeOrderedIds
-                .filter((id) => activeVisibleIds.has(id))
-                .map((catId) => {
-                  const category = categoriesTable.find((c) => c.id === catId);
-                  if (!category) return null;
+            <div className="flex w-max h-fit gap-4 items-stretch">
+              <SortableContext
+                items={activeOrderedIds.map((id) => `column-${id}`)}
+                strategy={horizontalListSortingStrategy}
+              >
+                {activeOrderedIds
+                  .filter((id) => activeVisibleIds.has(id))
+                  .map((catId) => {
+                    const category = categoriesTable.find(
+                      (c) => c.id === catId,
+                    );
+                    if (!category) return null;
 
-                  let isDraggingOver = false;
-                  if (activeId && activeType === "card") {
-                    if (optimisticStatusChanges[activeId] === catId) {
-                      isDraggingOver = true;
-                    } else {
-                      const activeTaskOriginalVal = String(
-                        groups
-                          .flatMap((g) => g.tasks)
-                          .find((t) => String(t.id) === activeId)?.[
-                          groupBy === "status" ? "status_id" : "priority_id"
-                        ] || "",
-                      );
-                      if (
-                        !optimisticStatusChanges[activeId] &&
-                        activeTaskOriginalVal === catId
-                      ) {
+                    let isDraggingOver = false;
+                    if (activeId && activeType === "card") {
+                      if (optimisticStatusChanges[activeId] === catId) {
                         isDraggingOver = true;
+                      } else {
+                        const activeTaskOriginalVal = String(
+                          groups
+                            .flatMap((g) => g.tasks)
+                            .find((t) => String(t.id) === activeId)?.[
+                            groupBy === "status" ? "status_id" : "priority_id"
+                          ] || "",
+                        );
+                        if (
+                          !optimisticStatusChanges[activeId] &&
+                          activeTaskOriginalVal === catId
+                        ) {
+                          isDraggingOver = true;
+                        }
                       }
                     }
-                  }
 
-                  return (
-                    <KanbanColumn
-                      key={catId}
-                      category={category as any}
-                      tasks={tasksByCategory[catId] || []}
-                      onTaskClick={onTaskClick}
-                      onAddTask={(name, groupId, parentId) =>
-                        onAddTask(
-                          name,
-                          groupBy === "status"
-                            ? catId
-                            : statuses[0]?.id
-                              ? String(statuses[0].id)
-                              : "",
-                          groupId,
-                          parentId,
-                          groupBy === "priority" ? catId : undefined,
-                        )
-                      }
-                      groups={groups}
-                      groupMap={groupMap}
-                      members={members}
-                      visibleCardFields={visibleCardFields}
-                      statusMap={statusMap}
-                      priorityMap={priorityMap}
-                      isDraggingOver={isDraggingOver}
-                      onStatusesUpdated={onStatusesUpdated}
-                      onPrioritiesUpdated={onPrioritiesUpdated}
-                      boardId={boardId}
-                      statuses={statuses}
-                      priorities={priorities}
-                      groupBy={groupBy}
-                      onDeleteTask={onDeleteTask}
-                      onOpenComments={onOpenComments}
-                    />
-                  );
-                })}
-            </SortableContext>
+                    return (
+                      <KanbanColumn
+                        key={catId}
+                        category={category as any}
+                        tasks={tasksByCategory[catId] || []}
+                        onTaskClick={onTaskClick}
+                        onAddTask={(name, groupId, parentId) =>
+                          onAddTask(
+                            name,
+                            groupBy === "status"
+                              ? catId
+                              : statuses[0]?.id
+                                ? String(statuses[0].id)
+                                : "",
+                            groupId,
+                            parentId,
+                            groupBy === "priority" ? catId : undefined,
+                          )
+                        }
+                        groups={groups}
+                        groupMap={groupMap}
+                        members={members}
+                        visibleCardFields={visibleCardFields}
+                        statusMap={statusMap}
+                        priorityMap={priorityMap}
+                        isDraggingOver={isDraggingOver}
+                        onStatusesUpdated={onStatusesUpdated}
+                        onPrioritiesUpdated={onPrioritiesUpdated}
+                        boardId={boardId}
+                        statuses={statuses}
+                        priorities={priorities}
+                        groupBy={groupBy}
+                        onDeleteTask={onDeleteTask}
+                        onOpenComments={onOpenComments}
+                      />
+                    );
+                  })}
+              </SortableContext>
 
-            <div className="shrink-0 w-80 pt-1 pb-4 flex flex-col justify-start">
-              {!showAddColumn ? (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-muted-foreground bg-muted/50 hover:bg-muted"
-                  onClick={() => setShowAddColumn(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" /> Add Column
-                </Button>
-              ) : (
-                <div className="p-3 border border-border rounded bg-card flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">
-                      Add {groupBy === "status" ? "Status" : "Priority"}
-                    </span>
+              <div className="shrink-0 w-80 pt-1 pb-4 flex flex-col justify-start">
+                {!showAddColumn ? (
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-muted-foreground bg-muted/50 hover:bg-muted"
+                    onClick={() => setShowAddColumn(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" /> Add Column
+                  </Button>
+                ) : (
+                  <div className="p-3 border border-border rounded bg-card flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        Add {groupBy === "status" ? "Status" : "Priority"}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowAddColumn(false)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        autoFocus
+                        placeholder="Column name"
+                        value={newColumnName}
+                        onChange={(e) => setNewColumnName(e.target.value)}
+                        className="h-8"
+                      />
+                      <ColorPickerPopover
+                        color={newColumnColor}
+                        onColorChange={setNewColumnColor}
+                        isOpen={createColorPickerOpen}
+                        onOpenChange={setCreateColorPickerOpen}
+                        size="w-8 h-8"
+                      />
+                    </div>
                     <Button
-                      variant="ghost"
                       size="sm"
-                      onClick={() => setShowAddColumn(false)}
-                      className="h-6 w-6 p-0"
+                      onClick={handleAddColumn}
+                      disabled={isCreatingColumn}
                     >
-                      <X className="h-4 w-4" />
+                      Create
                     </Button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      autoFocus
-                      placeholder="Column name"
-                      value={newColumnName}
-                      onChange={(e) => setNewColumnName(e.target.value)}
-                      className="h-8"
-                    />
-                    <ColorPickerPopover
-                      color={newColumnColor}
-                      onColorChange={setNewColumnColor}
-                      isOpen={createColorPickerOpen}
-                      onOpenChange={setCreateColorPickerOpen}
-                      size="w-8 h-8"
-                    />
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={handleAddColumn}
-                    disabled={isCreatingColumn}
-                  >
-                    Create
-                  </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
