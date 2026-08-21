@@ -380,7 +380,6 @@ export function BoardInviteDialog({
     if (isAlreadyOnBoard) {
       toast({
         title: "This user is already a member of this board.",
-        description: "This user is already a member of this board.",
       });
       setSearchQuery("");
       return;
@@ -470,7 +469,6 @@ export function BoardInviteDialog({
         if (isMember) {
           toast({
             title: "This user is already a member of this board.",
-            description: "This user is already a member of this board.",
             variant: "destructive",
           });
           return;
