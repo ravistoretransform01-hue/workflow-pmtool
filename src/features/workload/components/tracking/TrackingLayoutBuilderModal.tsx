@@ -64,6 +64,11 @@ export function TrackingLayoutBuilderModal({
 
   const [tabs, setTabs] = useState<TrackingLayoutTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("All");
+
+  useEffect(() => {
+    setStatusFilter("All");
+  }, [activeTabId]);
   const [existingLayoutId, setExistingLayoutId] = useState<
     number | string | null
   >(null);
@@ -863,6 +868,10 @@ export function TrackingLayoutBuilderModal({
   };
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  const statusCol = activeTab?.columns?.find((c) =>
+    c.name?.toLowerCase().includes("status"),
+  );
+  const hasStatusCol = !!statusCol;
 
   return (
     <>
@@ -971,6 +980,20 @@ export function TrackingLayoutBuilderModal({
                         {activeTab.name} Dashboard
                       </h3>
                       <div className="flex items-center gap-2">
+                        {hasStatusCol && (
+                          <select
+                            className="flex h-9 w-[160px] rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                          >
+                            <option value="All">All Statuses</option>
+                            <option value="Done">Done</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Not Added">Not Added</option>
+                            <option value="N/A">N/A</option>
+                          </select>
+                        )}
                         <input
                           type="file"
                           accept=".csv, .xls, .xlsx"
@@ -1024,24 +1047,36 @@ export function TrackingLayoutBuilderModal({
                                     (c) => c.rows?.length || 0,
                                   ),
                                 ),
-                              }).map((_, rowIndex) => (
-                                <div
-                                  key={`global_del_${rowIndex}`}
-                                  className="h-[46px] w-full flex items-center justify-center group/globalrow opacity-60 hover:opacity-100 transition-opacity"
-                                >
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7 text-destructive shrink-0 ml-1 hover:bg-destructive/10"
-                                    title="Delete row from all columns"
-                                    onClick={() =>
-                                      removeGlobalRow(activeTab.id, rowIndex)
-                                    }
+                              }).map((_, rowIndex) => {
+                                if (statusFilter !== "All" && statusCol) {
+                                  const statusVal =
+                                    statusCol.rows?.[rowIndex]?.name?.trim() ||
+                                    "";
+                                  if (
+                                    statusVal.toLowerCase() !==
+                                    statusFilter.toLowerCase()
+                                  )
+                                    return null;
+                                }
+                                return (
+                                  <div
+                                    key={`global_del_${rowIndex}`}
+                                    className="h-[46px] w-full flex items-center justify-center group/globalrow opacity-60 hover:opacity-100 transition-opacity"
                                   >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ))}
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-7 w-7 text-destructive shrink-0 ml-1 hover:bg-destructive/10"
+                                      title="Delete row from all columns"
+                                      onClick={() =>
+                                        removeGlobalRow(activeTab.id, rowIndex)
+                                      }
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -1101,86 +1136,99 @@ export function TrackingLayoutBuilderModal({
                               </div>
                             ) : (
                               <>
-                                {col.rows.map((row) => (
-                                  <div
-                                    key={row.id}
-                                    className="border rounded-md bg-background p-2 flex flex-col relative group/row transition-all shadow-sm"
-                                  >
-                                    <div className="flex items-center justify-between gap-2">
-                                      {col.name
-                                        ?.toLowerCase()
-                                        .includes("status") ? (
-                                        <select
-                                          className="flex h-7 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                          value={row.name || ""}
-                                          onChange={(e) =>
-                                            updateRow(
+                                {col.rows.map((row, rowIndex) => {
+                                  if (statusFilter !== "All" && statusCol) {
+                                    const statusVal =
+                                      statusCol.rows?.[
+                                        rowIndex
+                                      ]?.name?.trim() || "";
+                                    if (
+                                      statusVal.toLowerCase() !==
+                                      statusFilter.toLowerCase()
+                                    )
+                                      return null;
+                                  }
+                                  return (
+                                    <div
+                                      key={row.id}
+                                      className="border rounded-md bg-background p-2 flex flex-col relative group/row transition-all shadow-sm"
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        {col.name
+                                          ?.toLowerCase()
+                                          .includes("status") ? (
+                                          <select
+                                            className="flex h-7 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            value={row.name || ""}
+                                            onChange={(e) =>
+                                              updateRow(
+                                                activeTab.id,
+                                                col.id,
+                                                row.id,
+                                                e.target.value,
+                                              )
+                                            }
+                                          >
+                                            <option value="" disabled>
+                                              Select Status
+                                            </option>
+                                            <option value="Done">Done</option>
+                                            <option value="In Progress">
+                                              In Progress
+                                            </option>
+                                            <option value="Pending">
+                                              Pending
+                                            </option>
+                                            <option value="Not Added">
+                                              Not Added
+                                            </option>
+                                            <option value="N/A">N/A</option>
+                                            {row.name &&
+                                              ![
+                                                "Done",
+                                                "In Progress",
+                                                "Pending",
+                                                "Not Added",
+                                                "N/A",
+                                              ].includes(row.name) && (
+                                                <option value={row.name}>
+                                                  {row.name}
+                                                </option>
+                                              )}
+                                          </select>
+                                        ) : (
+                                          <Input
+                                            className="h-7 text-xs flex-1"
+                                            placeholder="Row Name..."
+                                            value={row.name || ""}
+                                            onChange={(e) =>
+                                              updateRow(
+                                                activeTab.id,
+                                                col.id,
+                                                row.id,
+                                                e.target.value,
+                                              )
+                                            }
+                                          />
+                                        )}
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0"
+                                          onClick={() =>
+                                            removeRow(
                                               activeTab.id,
                                               col.id,
                                               row.id,
-                                              e.target.value,
                                             )
                                           }
                                         >
-                                          <option value="" disabled>
-                                            Select Status
-                                          </option>
-                                          <option value="Done">Done</option>
-                                          <option value="In Progress">
-                                            In Progress
-                                          </option>
-                                          <option value="Pending">
-                                            Pending
-                                          </option>
-                                          <option value="Not Added">
-                                            Not Added
-                                          </option>
-                                          <option value="N/A">N/A</option>
-                                          {row.name &&
-                                            ![
-                                              "Done",
-                                              "In Progress",
-                                              "Pending",
-                                              "Not Added",
-                                              "N/A",
-                                            ].includes(row.name) && (
-                                              <option value={row.name}>
-                                                {row.name}
-                                              </option>
-                                            )}
-                                        </select>
-                                      ) : (
-                                        <Input
-                                          className="h-7 text-xs flex-1"
-                                          placeholder="Row Name..."
-                                          value={row.name || ""}
-                                          onChange={(e) =>
-                                            updateRow(
-                                              activeTab.id,
-                                              col.id,
-                                              row.id,
-                                              e.target.value,
-                                            )
-                                          }
-                                        />
-                                      )}
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0"
-                                        onClick={() =>
-                                          removeRow(
-                                            activeTab.id,
-                                            col.id,
-                                            row.id,
-                                          )
-                                        }
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </Button>
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
 
                                 <button
                                   onClick={() => addRow(activeTab.id, col.id)}
