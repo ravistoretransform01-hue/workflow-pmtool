@@ -101,10 +101,6 @@ export function TrackingLayoutBuilderModal({
   const [existingLayoutId, setExistingLayoutId] = useState<
     number | string | null
   >(null);
-  // True whenever a layout was actually loaded from the backend for this
-  // group, regardless of whether an `id` field could be resolved from it.
-  // Used to decide the Save vs Update button label.
-  const [hasExistingLayoutData, setHasExistingLayoutData] = useState(false);
 
   interface PendingImportData {
     mode: "global" | "tab";
@@ -482,7 +478,6 @@ export function TrackingLayoutBuilderModal({
   const fetchLayout = async () => {
     setLoading(true);
     setExistingLayoutId(null);
-    setHasExistingLayoutData(false);
     try {
       const data = await groupsApi.getTrackingLayout(groupId);
       // The endpoint can return a list containing layouts for other groups;
@@ -501,7 +496,6 @@ export function TrackingLayoutBuilderModal({
           layoutData.layout_id;
         if (resolvedId != null) {
           setExistingLayoutId(resolvedId);
-          setHasExistingLayoutData(true);
         } else {
           console.warn(
             "[TrackingLayoutBuilderModal] Existing layout data found but no id field detected on it:",
