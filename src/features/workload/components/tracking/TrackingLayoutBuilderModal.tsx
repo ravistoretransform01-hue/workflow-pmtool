@@ -101,6 +101,10 @@ export function TrackingLayoutBuilderModal({
   const [existingLayoutId, setExistingLayoutId] = useState<
     number | string | null
   >(null);
+  // True whenever a layout was actually loaded from the backend for this
+  // group, regardless of whether an `id` field could be resolved from it.
+  // Used to decide the Save vs Update button label.
+  const [hasExistingLayoutData, setHasExistingLayoutData] = useState(false);
 
   interface PendingImportData {
     mode: "global" | "tab";
@@ -478,13 +482,31 @@ export function TrackingLayoutBuilderModal({
   const fetchLayout = async () => {
     setLoading(true);
     setExistingLayoutId(null);
+    setHasExistingLayoutData(false);
     try {
       const data = await groupsApi.getTrackingLayout(groupId);
-      const layoutData = Array.isArray(data) ? data[0] : data;
+      // The endpoint can return a list containing layouts for other groups;
+      // make sure we only treat *this* group's record as "existing data".
+      const layoutData = Array.isArray(data)
+        ? (data.find(
+            (item: any) => String(item?.group_id) === String(groupId),
+          ) ?? null)
+        : data;
 
       if (layoutData) {
-        if (layoutData.id) {
-          setExistingLayoutId(layoutData.id);
+        const resolvedId =
+          layoutData.id ??
+          layoutData.ID ??
+          layoutData.tracking_id ??
+          layoutData.layout_id;
+        if (resolvedId != null) {
+          setExistingLayoutId(resolvedId);
+          setHasExistingLayoutData(true);
+        } else {
+          console.warn(
+            "[TrackingLayoutBuilderModal] Existing layout data found but no id field detected on it:",
+            layoutData,
+          );
         }
       }
 
@@ -935,7 +957,6 @@ export function TrackingLayoutBuilderModal({
                 </Button>
                 <Button
                   onClick={handleSave}
-                  disabled={saving || !tabs.some((tab) => tab.columns?.length)}
                   className="min-w-[120px]"
                 >
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
