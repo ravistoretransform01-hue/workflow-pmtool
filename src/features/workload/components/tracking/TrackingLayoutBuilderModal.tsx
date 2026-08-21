@@ -935,7 +935,7 @@ export function TrackingLayoutBuilderModal({
                 </Button>
                 <Button
                   onClick={handleSave}
-                  disabled={saving}
+                  disabled={saving || !tabs.some((tab) => tab.columns?.length)}
                   className="min-w-[120px]"
                 >
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

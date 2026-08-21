@@ -964,6 +964,20 @@ export function WorkloadBoard({
   const [trackingLayoutStatuses, setTrackingLayoutStatuses] = useState<
     Record<string, "default" | "pending" | "complete">
   >({});
+  // Stable identity so the modal's status-sync effect doesn't re-fire on
+  // every WorkloadBoard render, and skip the update entirely when the
+  // status hasn't actually changed to avoid needless re-renders while
+  // the tracking modal is open (was causing typing lag/hang).
+  const handleTrackingLayoutStatusChange = useCallback(
+    (status: "default" | "pending" | "complete") => {
+      setTrackingLayoutStatuses((previous) => {
+        const key = String(trackingGroupId);
+        if (previous[key] === status) return previous;
+        return { ...previous, [key]: status };
+      });
+    },
+    [trackingGroupId],
+  );
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [addingItemToGroup, setAddingItemToGroup] = useState<string | null>(
     null,
@@ -9827,12 +9841,7 @@ export function WorkloadBoard({
           boardId={boardId}
           boardName={boardName}
           organizationId={getOrganizationId() || ""}
-          onLayoutStatusChange={(status) =>
-            setTrackingLayoutStatuses((previous) => ({
-              ...previous,
-              [String(trackingGroupId)]: status,
-            }))
-          }
+          onLayoutStatusChange={handleTrackingLayoutStatusChange}
         />
       )}
     </div>
