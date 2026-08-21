@@ -48,6 +48,7 @@ interface TrackingLayoutBuilderModalProps {
   boardId: string | number;
   boardName: string;
   organizationId: string | number;
+  onLayoutStatusChange?: (status: "default" | "pending" | "complete") => void;
 }
 
 export function TrackingLayoutBuilderModal({
@@ -58,6 +59,7 @@ export function TrackingLayoutBuilderModal({
   boardId,
   boardName,
   organizationId,
+  onLayoutStatusChange,
 }: TrackingLayoutBuilderModalProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -65,6 +67,33 @@ export function TrackingLayoutBuilderModal({
   const [tabs, setTabs] = useState<TrackingLayoutTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
+
+  useEffect(() => {
+    let hasTrackingData = false;
+    let hasPendingStatus = false;
+
+    tabs.forEach((tab) =>
+      tab.columns?.forEach((column) => {
+        if (!column.name?.toLowerCase().includes("status")) return;
+
+        column.rows?.forEach((row) => {
+          const status = (row.name || "").trim().toLowerCase();
+          if (!status || status === "n/a") return;
+
+          hasTrackingData = true;
+          if (status === "pending") hasPendingStatus = true;
+        });
+      }),
+    );
+
+    onLayoutStatusChange?.(
+      !hasTrackingData
+        ? "default"
+        : hasPendingStatus
+          ? "pending"
+          : "complete",
+    );
+  }, [tabs, onLayoutStatusChange]);
 
   useEffect(() => {
     setStatusFilter("All");
@@ -451,11 +480,27 @@ export function TrackingLayoutBuilderModal({
     setExistingLayoutId(null);
     try {
       const data = await groupsApi.getTrackingLayout(groupId);
-      const layoutData = Array.isArray(data) ? data[0] : data;
+      // The endpoint can return a list containing layouts for other groups;
+      // make sure we only treat *this* group's record as "existing data".
+      const layoutData = Array.isArray(data)
+        ? (data.find(
+            (item: any) => String(item?.group_id) === String(groupId),
+          ) ?? null)
+        : data;
 
       if (layoutData) {
-        if (layoutData.id) {
-          setExistingLayoutId(layoutData.id);
+        const resolvedId =
+          layoutData.id ??
+          layoutData.ID ??
+          layoutData.tracking_id ??
+          layoutData.layout_id;
+        if (resolvedId != null) {
+          setExistingLayoutId(resolvedId);
+        } else {
+          console.warn(
+            "[TrackingLayoutBuilderModal] Existing layout data found but no id field detected on it:",
+            layoutData,
+          );
         }
       }
 
@@ -906,7 +951,6 @@ export function TrackingLayoutBuilderModal({
                 </Button>
                 <Button
                   onClick={handleSave}
-                  disabled={saving}
                   className="min-w-[120px]"
                 >
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
