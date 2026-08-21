@@ -961,6 +961,9 @@ export function WorkloadBoard({
   >(null);
   // @ts-ignore
   const [trackingGroupName, setTrackingGroupName] = useState("");
+  const [trackingLayoutStatuses, setTrackingLayoutStatuses] = useState<
+    Record<string, "default" | "pending" | "complete">
+  >({});
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [addingItemToGroup, setAddingItemToGroup] = useState<string | null>(
     null,
@@ -1261,6 +1264,69 @@ export function WorkloadBoard({
         setExpandedGroups(
           Object.fromEntries(groupedData.map((g: any) => [g.id, true])),
         );
+
+        // Fetch tracking layout status for each group so the "Tracking"
+        // button shows the correct red/green background immediately,
+        // without needing to open the tracking modal first.
+        groupsRes.forEach(async (g: any) => {
+          try {
+            const data = await groupsApi.getTrackingLayout(g.id);
+            const layoutData = Array.isArray(data) ? data[0] : data;
+            const rawLayout =
+              layoutData?.layout_data || layoutData?.layout_json;
+            if (!rawLayout) return;
+
+            let parsedLayoutJson = rawLayout;
+            if (typeof parsedLayoutJson === "string") {
+              try {
+                parsedLayoutJson = JSON.parse(parsedLayoutJson);
+                if (typeof parsedLayoutJson === "string") {
+                  parsedLayoutJson = JSON.parse(parsedLayoutJson);
+                }
+              } catch {
+                return;
+              }
+            }
+
+            const tabs = Array.isArray(parsedLayoutJson?.tabs)
+              ? parsedLayoutJson.tabs
+              : [];
+
+            let hasTrackingData = false;
+            let hasPendingStatus = false;
+
+            tabs.forEach((tab: any) => {
+              const rows = Array.isArray(tab?.rows) ? tab.rows : [];
+              rows.forEach((row: any) => {
+                const columns = Array.isArray(row?.columns)
+                  ? row.columns
+                  : [];
+                columns.forEach((column: any) => {
+                  if (!column?.name?.toLowerCase?.().includes("status"))
+                    return;
+                  (column.rows || []).forEach((r: any) => {
+                    const status = (r?.name || "").trim().toLowerCase();
+                    if (!status || status === "n/a") return;
+                    hasTrackingData = true;
+                    if (status === "pending") hasPendingStatus = true;
+                  });
+                });
+              });
+            });
+
+            setTrackingLayoutStatuses((prev) => ({
+              ...prev,
+              [g.id]: !hasTrackingData
+                ? "default"
+                : hasPendingStatus
+                  ? "pending"
+                  : "complete",
+            }));
+          } catch (e) {
+            // Non-fatal: leave this group's tracking button at default styling
+            console.error("Failed to load tracking layout status", e);
+          }
+        });
       } catch (err) {
         toast.error("Failed to load board data");
         console.error(err);
@@ -7009,7 +7075,16 @@ export function WorkloadBoard({
                                       );
                                       setTrackingModalOpen(true);
                                     }}
-                                    className="ml-2 h-7 px-2 text-xs"
+                                    className={cn(
+                                      "ml-2 h-7 px-2 text-xs",
+                                      trackingLayoutStatuses[group.id] ===
+                                      "pending"
+                                        ? "!bg-red-500 !text-white !border-red-500 hover:!bg-red-600"
+                                        : trackingLayoutStatuses[group.id] ===
+                                            "complete"
+                                          ? "!bg-green-500 !text-white !border-green-500 hover:!bg-green-600"
+                                          : "",
+                                    )}
                                   >
                                     Tracking
                                   </Button>
@@ -9752,6 +9827,12 @@ export function WorkloadBoard({
           boardId={boardId}
           boardName={boardName}
           organizationId={getOrganizationId() || ""}
+          onLayoutStatusChange={(status) =>
+            setTrackingLayoutStatuses((previous) => ({
+              ...previous,
+              [String(trackingGroupId)]: status,
+            }))
+          }
         />
       )}
     </div>

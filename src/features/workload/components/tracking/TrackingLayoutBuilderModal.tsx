@@ -48,6 +48,7 @@ interface TrackingLayoutBuilderModalProps {
   boardId: string | number;
   boardName: string;
   organizationId: string | number;
+  onLayoutStatusChange?: (status: "default" | "pending" | "complete") => void;
 }
 
 export function TrackingLayoutBuilderModal({
@@ -58,6 +59,7 @@ export function TrackingLayoutBuilderModal({
   boardId,
   boardName,
   organizationId,
+  onLayoutStatusChange,
 }: TrackingLayoutBuilderModalProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -65,6 +67,33 @@ export function TrackingLayoutBuilderModal({
   const [tabs, setTabs] = useState<TrackingLayoutTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
+
+  useEffect(() => {
+    let hasTrackingData = false;
+    let hasPendingStatus = false;
+
+    tabs.forEach((tab) =>
+      tab.columns?.forEach((column) => {
+        if (!column.name?.toLowerCase().includes("status")) return;
+
+        column.rows?.forEach((row) => {
+          const status = (row.name || "").trim().toLowerCase();
+          if (!status || status === "n/a") return;
+
+          hasTrackingData = true;
+          if (status === "pending") hasPendingStatus = true;
+        });
+      }),
+    );
+
+    onLayoutStatusChange?.(
+      !hasTrackingData
+        ? "default"
+        : hasPendingStatus
+          ? "pending"
+          : "complete",
+    );
+  }, [tabs, onLayoutStatusChange]);
 
   useEffect(() => {
     setStatusFilter("All");
