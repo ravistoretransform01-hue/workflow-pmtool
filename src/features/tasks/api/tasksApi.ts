@@ -34,7 +34,7 @@ const TASKS_ENDPOINTS = {
   DELETE_COMMENT: (taskId: string | number, commentId: string | number) =>
     `/tasks/${taskId}/comments/${commentId}`,
   LIKE_COMMENT: (commentId: string | number) =>
-    `http://localhost/platform/wp-json/wp-platform/v1/comments/${commentId}/like`,
+    `/comments/${commentId}/like`,
   START_TIMER: `/tasks/time/start`,
   STOP_TIMER: `/tasks/time/stop`,
   GET_ACTIVE_TIMER: `/tasks/time/active`,
