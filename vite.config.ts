@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       "/api": {
-        target: "https://outskillmarketing.com/wp-json/wp-platform/v1",
+        target: "http://localhost/platform/wp-json/wp-platform/v1",
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, "")
