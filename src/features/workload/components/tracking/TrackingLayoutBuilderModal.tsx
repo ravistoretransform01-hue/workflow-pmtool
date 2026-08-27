@@ -15,6 +15,8 @@ import {
   Loader2,
   Download,
   Upload,
+  Pencil,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/api/groupsApi";
@@ -67,6 +69,28 @@ export function TrackingLayoutBuilderModal({
   const [tabs, setTabs] = useState<TrackingLayoutTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [tempTabName, setTempTabName] = useState<string>("");
+
+  const handleStartEditingTab = (
+    tab: TrackingLayoutTab,
+    e: React.MouseEvent,
+  ) => {
+    e.stopPropagation();
+    setEditingTabId(tab.id);
+    setTempTabName(tab.name);
+  };
+
+  const handleSaveTabName = (tabId: string) => {
+    if (tempTabName.trim()) {
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === tabId ? { ...t, name: tempTabName.trim() } : t,
+        ),
+      );
+    }
+    setEditingTabId(null);
+  };
 
   useEffect(() => {
     let hasTrackingData = false;
@@ -484,8 +508,8 @@ export function TrackingLayoutBuilderModal({
       // make sure we only treat *this* group's record as "existing data".
       const layoutData = Array.isArray(data)
         ? (data.find(
-            (item: any) => String(item?.group_id) === String(groupId),
-          ) ?? null)
+          (item: any) => String(item?.group_id) === String(groupId),
+        ) ?? null)
         : data;
 
       if (layoutData) {
@@ -538,9 +562,9 @@ export function TrackingLayoutBuilderModal({
                         name: c.name || "",
                         rows: Array.isArray(c.rows)
                           ? c.rows.map((r: any) => ({
-                              id: r.id || `row_${generateId()}`,
-                              name: r.name || "",
-                            }))
+                            id: r.id || `row_${generateId()}`,
+                            name: r.name || "",
+                          }))
                           : [],
                       }));
                       allColumns = [...allColumns, ...rowCols];
@@ -696,11 +720,11 @@ export function TrackingLayoutBuilderModal({
       prev.map((t) =>
         t.id === tabId
           ? {
-              ...t,
-              columns: t.columns.map((c) =>
-                c.id === colId ? { ...c, name } : c,
-              ),
-            }
+            ...t,
+            columns: t.columns.map((c) =>
+              c.id === colId ? { ...c, name } : c,
+            ),
+          }
           : t,
       ),
     );
@@ -979,40 +1003,81 @@ export function TrackingLayoutBuilderModal({
                   </Button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                  {tabs.map((tab) => (
-                    <div
-                      key={tab.id}
-                      className={`flex items-center gap-2 p-2 rounded-md cursor-pointer group transition-colors ${getTabStatusStyle(tab, activeTabId === tab.id)}`}
-                      onClick={() => setActiveTabId(tab.id)}
-                    >
-                      <Layout className="h-4 w-4 shrink-0" />
-                      <Input
-                        value={tab.name}
-                        onChange={(e) => {
-                          setTabs((prev) =>
-                            prev.map((t) =>
-                              t.id === tab.id
-                                ? { ...t, name: e.target.value }
-                                : t,
-                            ),
-                          );
-                        }}
-                        className="h-7 text-xs bg-transparent border-none focus-visible:ring-1 px-1 -ml-1"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeTab(tab.id);
+                  {tabs.map((tab) => {
+                    const isEditing = editingTabId === tab.id;
+                    const isActive = activeTabId === tab.id;
+
+                    return (
+                      <div
+                        key={tab.id}
+                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer group transition-colors ${getTabStatusStyle(tab, isActive)}`}
+                        onClick={() => {
+                          if (!isEditing) {
+                            setActiveTabId(tab.id);
+                          }
                         }}
                       >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                        <Layout className="h-4 w-4 shrink-0" />
+                        {isEditing ? (
+                          <div
+                            className="flex-1 flex items-center gap-1 min-w-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Input
+                              value={tempTabName}
+                              onChange={(e) => setTempTabName(e.target.value)}
+                              onBlur={() => handleSaveTabName(tab.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  handleSaveTabName(tab.id);
+                                } else if (e.key === "Escape") {
+                                  setEditingTabId(null);
+                                }
+                              }}
+                              autoFocus
+                              className="h-6 text-xs bg-background border px-1.5 py-0.5 rounded shadow-sm focus-visible:ring-1"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0 text-primary hover:bg-primary/10"
+                              title="Save name"
+                              onClick={() => handleSaveTabName(tab.id)}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="flex-1 text-xs truncate select-none font-medium text-left">
+                              {tab.name}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+                              title="Edit tab name"
+                              onClick={(e) => handleStartEditingTab(tab, e)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-destructive hover:bg-destructive/10"
+                              title="Delete tab"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeTab(tab.id);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1289,18 +1354,18 @@ export function TrackingLayoutBuilderModal({
 
                       {(!activeTab.columns ||
                         activeTab.columns.length === 0) && (
-                        <div className="w-full flex-1 border border-dashed rounded-xl p-12 flex flex-col items-center justify-center text-muted-foreground mr-1 mb-1">
-                          <Layout className="h-10 w-10 mb-4 opacity-30" />
-                          <p className="mb-4">
-                            This dashboard has no columns yet
-                          </p>
-                          <div className="flex items-center justify-center">
-                            <Button onClick={() => addColumn(activeTab.id)}>
-                              Add First Column
-                            </Button>
+                          <div className="w-full flex-1 border border-dashed rounded-xl p-12 flex flex-col items-center justify-center text-muted-foreground mr-1 mb-1">
+                            <Layout className="h-10 w-10 mb-4 opacity-30" />
+                            <p className="mb-4">
+                              This dashboard has no columns yet
+                            </p>
+                            <div className="flex items-center justify-center">
+                              <Button onClick={() => addColumn(activeTab.id)}>
+                                Add First Column
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
                   </div>
                 ) : (
