@@ -49,6 +49,7 @@ import {
   cn,
   copyToClipboard,
   isClientRole,
+  parseApiDateTime,
 } from "@/utils/utils";
 import { TaskUpdates } from "@/features/workload/components/TaskUpdates/TaskUpdates";
 import { renderFormattedContent } from "@/features/workload/components/TaskUpdates/utils";
@@ -314,6 +315,17 @@ export function TaskCardDialog({
     }
   }, [open, task?.id]);
 
+  // Poll the activity log while it is visible so comments and task changes appear without a reload.
+  useEffect(() => {
+    if (!open || !task?.id || activeTab !== "activity") return;
+
+    const refreshInterval = setInterval(() => {
+      loadActivity(currentPage, true);
+    }, 5000);
+
+    return () => clearInterval(refreshInterval);
+  }, [open, task?.id, activeTab, currentPage]);
+
   // Keyboard navigation for pagination
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -363,13 +375,16 @@ export function TaskCardDialog({
     }
   };
 
-  const loadActivity = async (page: number = currentPage) => {
+  const loadActivity = async (
+    page: number = currentPage,
+    silent = false,
+  ) => {
     if (!task?.id) return;
 
     // Use different loading states for initial load vs pagination
-    if (page === 1) {
+    if (!silent && page === 1) {
       setIsLoadingActivity(true);
-    } else {
+    } else if (!silent) {
       setIsLoadingPage(true);
     }
 
@@ -392,8 +407,10 @@ export function TaskCardDialog({
       console.error("Failed to load activity:", error);
       setActivityData([]);
     } finally {
-      setIsLoadingActivity(false);
-      setIsLoadingPage(false);
+      if (!silent) {
+        setIsLoadingActivity(false);
+        setIsLoadingPage(false);
+      }
     }
   };
 
@@ -420,6 +437,7 @@ export function TaskCardDialog({
         is_internal: isInternalParam,
       });
       setComments((prev) => [...prev, createdComment]);
+      await loadActivity(1, true);
       onCommentCountChange?.(task.id, 1);
       toast.success(isInternalParam ? "Update added" : "Client update added");
     } catch (error) {
@@ -436,6 +454,7 @@ export function TaskCardDialog({
     try {
       await tasksApi.deleteComment(task.id, commentId);
       setComments((prev) => prev.filter((c) => c.id !== commentId));
+      await loadActivity(1, true);
       onCommentCountChange?.(task.id, -1);
       toast.success("Comment deleted");
     } catch (error) {
@@ -479,6 +498,7 @@ export function TaskCardDialog({
           return c;
         }),
       );
+      await loadActivity(1, true);
     } catch (error) {
       console.error("Failed to like comment:", error);
       setComments(originalComments);
@@ -571,6 +591,7 @@ export function TaskCardDialog({
           c.id === commentId ? { ...c, content: updated.content } : c,
         ),
       );
+      await loadActivity(1, true);
       toast.success("Comment updated");
     } catch (error) {
       console.error("Failed to update comment:", error);
@@ -594,6 +615,7 @@ export function TaskCardDialog({
         is_internal: isInternalParam,
       });
       setComments((prev) => [...prev, createdComment]);
+      await loadActivity(1, true);
       onCommentCountChange?.(task.id, 1);
       toast.success("Reply added");
     } catch (error) {
@@ -613,7 +635,7 @@ export function TaskCardDialog({
   // Get columns with all the interactive components
   const columns = getWorkloadColumns({
     expandedTasks,
-    toggleTask: () => {},
+    toggleTask: () => { },
     statuses,
     priorities,
     members,
@@ -1263,7 +1285,8 @@ export function TaskCardDialog({
                               <span className="text-xs text-muted-foreground">
                                 {activity.created_at
                                   ? format(
-                                      new Date(activity.created_at),
+                                      parseApiDateTime(activity.created_at) ||
+                                        new Date(activity.created_at),
                                       "MMM d, h:mm a",
                                     )
                                   : ""}
@@ -1277,7 +1300,13 @@ export function TaskCardDialog({
                             {activity.old_value &&
                               activity.old_value.trim() && (
                                 <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-destructive/30">
-                                  <span className="font-medium">Previous:</span>
+                                  <span className="font-medium">
+                                    {activity.action?.toLowerCase().includes("comment")
+                                      ? activity.action?.toLowerCase().includes("updat") || activity.action?.toLowerCase().includes("edit")
+                                        ? "Previous Comment:"
+                                        : "Deleted Comment:"
+                                      : "Previous:"}
+                                  </span>
                                   <div
                                     className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                     dangerouslySetInnerHTML={renderFormattedContent(
@@ -1295,7 +1324,13 @@ export function TaskCardDialog({
                               activity.new_value !== "Task updated" &&
                               activity.new_value.trim() && (
                                 <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30">
-                                  <span className="font-medium">New:</span>
+                                  <span className="font-medium">
+                                    {activity.action?.toLowerCase().includes("comment")
+                                      ? activity.action?.toLowerCase().includes("updat") || activity.action?.toLowerCase().includes("edit")
+                                        ? "Updated Comment:"
+                                        : "Comment:"
+                                      : "New:"}
+                                  </span>
                                   <div
                                     className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                     dangerouslySetInnerHTML={renderFormattedContent(
