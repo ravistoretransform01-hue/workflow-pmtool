@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { MoreVertical, Trash2, MessageCircle, MessageCirclePlus, GripVertical } from "lucide-react";
+import { MoreVertical, Trash2, Pencil, GripVertical } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,7 +94,7 @@ export function KanbanCard({
         (!disableDrag ? " cursor-grab active:cursor-grabbing hover:shadow-md" : " hover:shadow-md") +
         (overlay ? " shadow-2xl ring-2 ring-primary/20" : "")
       }
-      onClick={onClick}
+      onClick={() => onOpenComments?.(task)}
       {...(!overlay && !disableDrag ? { ...attributes, ...listeners } : {})}
     >
       <div className="flex items-start gap-2">
@@ -129,20 +129,18 @@ export function KanbanCard({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onOpenComments?.(task);
+                    onClick?.();
                   }}
                   className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0 opacity-0 group-hover:opacity-100 group/commentbtn"
                 >
-                  {task.comment_count ? (
-                    <div className="relative">
-                      <MessageCircle className="h-4 w-4 text-muted-foreground group-hover/commentbtn:text-foreground transition-colors" />
+                  <div className="relative">
+                    <Pencil className="h-4 w-4 text-muted-foreground group-hover/commentbtn:text-foreground transition-colors" />
+                    {Boolean(task.comment_count) && (
                       <span className="absolute -bottom-1 -right-1 bg-muted-foreground text-background text-[9px] font-bold h-3.5 min-w-[14px] px-[2px] flex items-center justify-center rounded-full border border-background">
                         {task.comment_count}
                       </span>
-                    </div>
-                  ) : (
-                    <MessageCirclePlus className="h-4 w-4 text-muted-foreground group-hover/commentbtn:text-foreground transition-colors" />
-                  )}
+                    )}
+                  </div>
                 </button>
                 {onDeleteTask && (
                   <DropdownMenu>

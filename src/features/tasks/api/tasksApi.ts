@@ -33,7 +33,8 @@ const TASKS_ENDPOINTS = {
     `/tasks/${taskId}/comments/${commentId}`,
   DELETE_COMMENT: (taskId: string | number, commentId: string | number) =>
     `/tasks/${taskId}/comments/${commentId}`,
-  LIKE_COMMENT: (commentId: string | number) => `/comments/${commentId}/like`,
+  LIKE_COMMENT: (commentId: string | number) =>
+    `/comments/${commentId}/like`,
   START_TIMER: `/tasks/time/start`,
   STOP_TIMER: `/tasks/time/stop`,
   GET_ACTIVE_TIMER: `/tasks/time/active`,

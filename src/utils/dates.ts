@@ -5,9 +5,20 @@
 
 export function parseApiDateTime(input: string | null | undefined): Date | null {
   if (!input || typeof input !== "string" || input.startsWith("0000-00-00")) return null;
-  const re = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/;
-  const m = input.trim().match(re);
-  if (!m) return null;
+  const trimmed = input.trim();
+
+  // If already standard ISO with Z or timezone offset, standard Date parses it as UTC
+  if (trimmed.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(trimmed)) {
+    const d = new Date(trimmed);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  const re = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/;
+  const m = trimmed.match(re);
+  if (!m) {
+    const d = new Date(trimmed);
+    return isNaN(d.getTime()) ? null : d;
+  }
   const [, y, mm, d, hh, min, ss] = m;
   const year = Number(y);
   const month = Number(mm) - 1; // JS Date months are 0-based

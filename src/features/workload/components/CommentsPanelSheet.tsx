@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { parseApiDateTime, cn } from "@/utils/utils";
 import { TaskUpdates } from "@/features/workload/components/TaskUpdates/TaskUpdates";
-
 import { renderFormattedContent } from "@/features/workload/components/TaskUpdates/utils";
 import {
   Sheet,
@@ -20,9 +19,7 @@ import {
 } from "@/shared/ui/tabs";
 import { Button } from "@/shared/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
-
 import { FilePreviewModal } from "@/features/workload/components/texteditor/FilePreviewModal";
-// import { TruncatedTaskName } from "@/features/workload/components/TruncatedTaskName";
 import {
   Home,
   RefreshCcw,
@@ -103,10 +100,6 @@ export function formatActivityValue(
   return value;
 }
 
-/**
- * Individual comment item component that renders recursively for nested replies
- */
-
 export function CommentsPanelSheet({
   open,
   onOpenChange,
@@ -116,10 +109,6 @@ export function CommentsPanelSheet({
   isLoadingComments,
   updateText,
   onUpdateTextChange,
-  // updateFiles,
-  // onUpdateFilesChange,
-  // updateFiles,
-  // onUpdateFilesChange,
   onSaveUpdate,
   onDeleteComment,
   onUpdateComment,
@@ -292,8 +281,6 @@ export function CommentsPanelSheet({
   }, [open, activeCommentsTab, taskId]);
 
   useEffect(() => {
-    // Clear client comments when task changes or panel closes or standard comments change
-    // to ensure they stay somewhat in sync or at least don't show stale data
     setClientComments([]);
     setClientCommentsPage(1);
     setHasMoreClientComments(false);
@@ -315,13 +302,17 @@ export function CommentsPanelSheet({
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingPage, setIsLoadingPage] = useState(false);
 
-  // Load activity when taskId changes or component opens
+  // Load activity when taskId changes, component opens, or when switching to activity tab
   useEffect(() => {
     if (open && taskId) {
-      setCurrentPage(1); // Reset to first page when opening
-      loadActivity(1);
+      if (activeCommentsTab === "activity") {
+        loadActivity(1);
+      } else {
+        setCurrentPage(1); // Reset to first page when opening
+        loadActivity(1);
+      }
     }
-  }, [open, taskId]);
+  }, [open, taskId, activeCommentsTab]);
 
   // Keyboard navigation for pagination
   useEffect(() => {
@@ -415,10 +406,8 @@ export function CommentsPanelSheet({
       setSheetWidth((prev) => {
         const maxAllowed = window.innerWidth * 0.99;
         if (window.innerWidth > 800) {
-          // On desktop, ensure minimum width is 800px, but don't exceed maxAllowed
           return Math.min(Math.max(prev, 800), maxAllowed);
         } else {
-          // On mobile, take up full allowed width
           return maxAllowed;
         }
       });
@@ -465,7 +454,6 @@ export function CommentsPanelSheet({
     const minWidth = Math.min(800, window.innerWidth * 0.9);
     const maxWidth = window.innerWidth * 0.99;
 
-    // Toggle logic: If at min -> go to max. Otherwise (if > min or at max) -> go to min.
     if (Math.abs(sheetWidth - minWidth) < 10) {
       setSheetWidth(maxWidth);
     } else {
@@ -629,14 +617,29 @@ export function CommentsPanelSheet({
                         comments={comments}
                         isLoadingComments={isLoadingComments}
                         layout="sidebar"
-                        onDeleteComment={onDeleteComment}
-                        onUpdateComment={onUpdateComment}
-                        onSaveInlineReply={onSaveInlineReply}
-                        onLikeComment={onLikeComment}
+                        onDeleteComment={async (id) => {
+                          await onDeleteComment(id);
+                          loadActivity(1);
+                        }}
+                        onUpdateComment={async (id, content) => {
+                          await onUpdateComment(id, content, false);
+                          loadActivity(1);
+                        }}
+                        onSaveInlineReply={async (pid, txt) => {
+                          await onSaveInlineReply(pid, txt, false);
+                          loadActivity(1);
+                        }}
+                        onLikeComment={async (id) => {
+                          await onLikeComment(id);
+                          loadActivity(1);
+                        }}
                         onShareComment={onShareComment}
                         onToggleSOP={onToggleSOP}
                         onToggleIsClient={onToggleIsClient}
-                        onSaveMainUpdate={() => onSaveUpdate(false)}
+                        onSaveMainUpdate={async () => {
+                          await onSaveUpdate(false);
+                          loadActivity(1);
+                        }}
                         onHighlightComplete={onHighlightComplete}
                         isSaving={isSaving}
                         onFilePreview={handleFilePreview}
@@ -661,18 +664,22 @@ export function CommentsPanelSheet({
                       layout="sidebar"
                       onDeleteComment={async (id) => {
                         await onDeleteComment(id);
+                        loadActivity(1);
                         fetchClientComments(true, false);
                       }}
                       onUpdateComment={async (id, content) => {
                         await onUpdateComment(id, content, true);
+                        loadActivity(1);
                         fetchClientComments(true, false);
                       }}
                       onSaveInlineReply={async (pid, txt) => {
                         await onSaveInlineReply(pid, txt, true);
+                        loadActivity(1);
                         fetchClientComments(true, false);
                       }}
                       onLikeComment={async (id) => {
                         await onLikeComment(id);
+                        loadActivity(1);
                         fetchClientComments(true, false);
                       }}
                       onShareComment={onShareComment}
@@ -685,9 +692,8 @@ export function CommentsPanelSheet({
                         fetchClientComments(true, false);
                       }}
                       onSaveMainUpdate={async (_text) => {
-                        // The parent onSaveUpdate uses the internal updateText state from Board
-                        // but it will be cleared after successful save.
                         await onSaveUpdate(true);
+                        loadActivity(1);
                         fetchClientComments(false, true);
                       }}
                       onHighlightComplete={onHighlightComplete}
@@ -825,9 +831,15 @@ export function CommentsPanelSheet({
                                   {activity.old_value &&
                                     activity.old_value.trim() && (
                                       <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-destructive/30">
-                                        <span className="font-medium">Previous:</span>
+                                        <span className="font-medium">
+                                          {activity.action?.toLowerCase().includes("comment")
+                                            ? activity.action?.toLowerCase().includes("updat") || activity.action?.toLowerCase().includes("edit")
+                                              ? "Previous Comment:"
+                                              : "Deleted Comment:"
+                                            : "Previous:"}
+                                        </span>
                                         <div
-                                          className="mt-1 break-words [&_.pdf-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.pdf-card-content]:bg-card [&_.pdf-card-content]:border-border [&_.pdf-card-content]:shadow-sm [&_.pdf-card-preview-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
+                                          className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                           dangerouslySetInnerHTML={renderFormattedContent(
                                             formatActivityValue(activity.action, activity.old_value, statuses, priorities) || "",
                                           )}
@@ -838,7 +850,13 @@ export function CommentsPanelSheet({
                                     activity.new_value !== "Task updated" &&
                                     activity.new_value.trim() && (
                                       <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border-l-2 border-primary/30">
-                                        <span className="font-medium">New:</span>
+                                        <span className="font-medium">
+                                          {activity.action?.toLowerCase().includes("comment")
+                                            ? activity.action?.toLowerCase().includes("updat") || activity.action?.toLowerCase().includes("edit")
+                                              ? "Updated Comment:"
+                                              : "Comment:"
+                                            : "New:"}
+                                        </span>
                                         <div
                                           className="mt-1 break-words [&_.file-card-wrapper]:max-w-full [&_.pdf-card-wrapper]:max-w-full [&_.file-card-wrapper]:my-1 [&_.pdf-card-wrapper]:my-1 scale-90 origin-left [&_.file-card-content]:bg-card [&_.pdf-card-content]:bg-card [&_.file-card-content]:border-border [&_.pdf-card-content]:border-border [&_.file-card-content]:shadow-sm [&_.pdf-card-content]:shadow-sm [&_.file-card-preview-btn]:bg-background [&_.pdf-card-preview-btn]:bg-background [&_.file-card-open-btn]:bg-background [&_.pdf-card-open-btn]:bg-background"
                                           dangerouslySetInnerHTML={renderFormattedContent(
