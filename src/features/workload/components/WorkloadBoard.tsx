@@ -978,6 +978,32 @@ export function WorkloadBoard({
     },
     [trackingGroupId],
   );
+
+  const handleTaskCreatedFromTracking = useCallback(
+    (newTask: Task) => {
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => {
+          if (String(group.id) === String(newTask.group_id)) {
+            if (group.tasks.some((t) => String(t.id) === String(newTask.id))) {
+              return group;
+            }
+            return {
+              ...group,
+              tasks: [
+                ...group.tasks,
+                {
+                  ...newTask,
+                  label_id: groupLabels[String(newTask.group_id)],
+                },
+              ],
+            };
+          }
+          return group;
+        }),
+      );
+    },
+    [groupLabels],
+  );
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [addingItemToGroup, setAddingItemToGroup] = useState<string | null>(
     null,
@@ -2045,28 +2071,70 @@ export function WorkloadBoard({
 
           switch (columnId) {
             case "item":
-              valA = a.name?.toLowerCase() || "";
-              valB = b.name?.toLowerCase() || "";
+              valA = (a.name || "").trim().toLowerCase();
+              valB = (b.name || "").trim().toLowerCase();
               break;
-            case "status":
-              valA = a.status || "";
-              valB = b.status || "";
+            case "status": {
+              const statusA = statuses.find(
+                (s) =>
+                  (a.status_id && String(s.id) === String(a.status_id)) ||
+                  (a.status &&
+                    s.name?.trim().toLowerCase() ===
+                      a.status.trim().toLowerCase()),
+              );
+              const statusB = statuses.find(
+                (s) =>
+                  (b.status_id && String(s.id) === String(b.status_id)) ||
+                  (b.status &&
+                    s.name?.trim().toLowerCase() ===
+                      b.status.trim().toLowerCase()),
+              );
+              valA = (statusA?.name || a.status || "").trim().toLowerCase();
+              valB = (statusB?.name || b.status || "").trim().toLowerCase();
               break;
-            case "priority":
-              valA = a.priority || "";
-              valB = b.priority || "";
+            }
+            case "priority": {
+              const priorityA = priorities.find(
+                (p) =>
+                  (a.priority_id && String(p.id) === String(a.priority_id)) ||
+                  (a.priority &&
+                    p.name?.trim().toLowerCase() ===
+                      a.priority.trim().toLowerCase()),
+              );
+              const priorityB = priorities.find(
+                (p) =>
+                  (b.priority_id && String(p.id) === String(b.priority_id)) ||
+                  (b.priority &&
+                    p.name?.trim().toLowerCase() ===
+                      b.priority.trim().toLowerCase()),
+              );
+              valA = (priorityA?.name || a.priority || "").trim().toLowerCase();
+              valB = (priorityB?.name || b.priority || "").trim().toLowerCase();
               break;
+            }
             case "person":
-              valA = a.person || "";
-              valB = b.person || "";
+              valA = (
+                a.person ||
+                (a.assignee_names && a.assignee_names[0]) ||
+                ""
+              )
+                .trim()
+                .toLowerCase();
+              valB = (
+                b.person ||
+                (b.assignee_names && b.assignee_names[0]) ||
+                ""
+              )
+                .trim()
+                .toLowerCase();
               break;
             case "rating":
-              valA = a.rating || 0;
-              valB = b.rating || 0;
+              valA = Number(a.rating) || 0;
+              valB = Number(b.rating) || 0;
               break;
             case "estimatedDate":
-              valA = a.estimatedDate || "";
-              valB = b.estimatedDate || "";
+              valA = a.estimatedDateRaw || a.estimatedDate || "";
+              valB = b.estimatedDateRaw || b.estimatedDate || "";
               break;
             case "estimatedTime":
               valA = Number(a.estimatedHours) || 0;
@@ -2076,6 +2144,8 @@ export function WorkloadBoard({
               return 0;
           }
 
+          if (!valA && valB) return 1;
+          if (valA && !valB) return -1;
           if (valA < valB) return direction === "asc" ? -1 : 1;
           if (valA > valB) return direction === "asc" ? 1 : -1;
           return 0;
@@ -9841,7 +9911,10 @@ export function WorkloadBoard({
           boardId={boardId}
           boardName={boardName}
           organizationId={getOrganizationId() || ""}
+          statuses={statuses}
+          priorities={priorities}
           onLayoutStatusChange={handleTrackingLayoutStatusChange}
+          onTaskCreated={handleTaskCreatedFromTracking}
         />
       )}
     </div>
