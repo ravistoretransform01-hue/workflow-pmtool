@@ -31,6 +31,8 @@ export function RatingStars({
 }: RatingStarsProps) {
   const [hoveredRating, setHoveredRating] = useState(0);
 
+  const isReviewPending = isDone && (!rating || rating === 0);
+
   const handleRatingClick = (ratingValue: number) => {
     if (!hasAssignee) {
       toast.error("Please assign a person before rating");
@@ -63,8 +65,12 @@ export function RatingStars({
     >
       <PopoverTrigger asChild>
         <button
-          className={`w-full h-8 flex items-center justify-center gap-1 ${
-            !hasAssignee || !isDone ? "opacity-50 cursor-not-allowed" : ""
+          className={`w-full h-8 flex items-center justify-center gap-1 transition-all ${
+            isReviewPending
+              ? "rounded-md bg-amber-500/15 border border-amber-400/60 ring-2 ring-amber-400/30 animate-pulse hover:bg-amber-500/25"
+              : !hasAssignee || !isDone
+                ? "opacity-50 cursor-not-allowed"
+                : ""
           }`}
           aria-label={`Rating ${rating}${
             ratingCount
@@ -77,9 +83,11 @@ export function RatingStars({
               ? "Assign a person first"
               : !isDone
                 ? "Task must be marked as Done"
-                : ratingCount
-                  ? `${ratingCount} rating${ratingCount !== 1 ? "s" : ""}`
-                  : "No ratings"
+                : isReviewPending
+                  ? "Task completed! Click to give review & rating"
+                  : ratingCount
+                    ? `${ratingCount} rating${ratingCount !== 1 ? "s" : ""}`
+                    : "No ratings"
           }
           disabled={!hasAssignee || !isDone}
         >
@@ -89,8 +97,12 @@ export function RatingStars({
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              className={`h-4 w-4 ${
-                i <= rating ? "text-yellow-400" : "text-muted-foreground"
+              className={`h-4 w-4 transition-colors ${
+                i <= rating
+                  ? "text-yellow-400 fill-yellow-400"
+                  : isReviewPending
+                    ? "text-amber-500/70"
+                    : "text-muted-foreground"
               }`}
             >
               <path
@@ -123,7 +135,7 @@ export function RatingStars({
                   xmlns="http://www.w3.org/2000/svg"
                   className={`h-6 w-6 transition-colors ${
                     i <= (hoveredRating || rating)
-                      ? "text-yellow-400"
+                      ? "text-yellow-400 fill-yellow-400"
                       : "text-muted-foreground"
                   }`}
                 >

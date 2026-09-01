@@ -222,7 +222,7 @@ export const API_ENDPOINTS = {
       method: "DELETE" as const
     },
     likeComment: {
-      path: (commentId: string | number) => `http://localhost/platform/wp-json/wp-platform/v1/comments/${commentId}/like`,
+      path: (commentId: string | number) => `/comments/${commentId}/like`,
       method: "POST" as const
     },
     startTimer: {
@@ -237,10 +237,12 @@ export const API_ENDPOINTS = {
       path: "/tasks/time/active",
       method: "GET" as const
     },
+
     pingTimer: {
       path: "/tasks/time/ping",
       method: "POST" as const
     },
+
     getTimeEntries: {
       path: (taskId: string | number) => `/tasks/time/entries?task_id=${taskId}`,
       method: "GET" as const

@@ -3660,11 +3660,22 @@ export function WorkloadBoard({
         taskState.clearCheckedTasks();
       }
 
+      const targetStatus = statuses.find((s) => String(s.id) === String(statusId));
+      const isMovedToDone =
+        targetStatus?.name?.trim().toLowerCase() === "done" ||
+        targetStatus?.name?.trim().toLowerCase() === "completed";
+
       toast.success(
         tasksToUpdate.length > 1
           ? `${tasksToUpdate.length} Tasks Status Updated Successfully`
           : "Status Updated Successfully",
       );
+
+      if (isMovedToDone) {
+        toast.info("Task completed! Please provide a review and rating ⭐", {
+          duration: 4000,
+        });
+      }
 
       // Refresh task data from the server to ensure consistency
       try {
