@@ -241,6 +241,7 @@ export const API_ENDPOINTS = {
       path: "/tasks/time/ping",
       method: "POST" as const
     },
+
     getTimeEntries: {
       path: (taskId: string | number) => `/tasks/time/entries?task_id=${taskId}`,
       method: "GET" as const
