@@ -895,15 +895,33 @@ export function TaskCardDialog({
             </div>
 
             {/* Rating */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
-                <Star className="h-4 w-4" />
-                <span>Rating</span>
-              </div>
-              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
-                {columns.find((c) => c.id === "rating")?.render(displayTask)}
-              </div>
-            </div>
+            {(() => {
+              const statusObj = statuses.find((s) => String(s.id) === String(displayTask?.status_id));
+              const statusName = (statusObj?.name || displayTask?.status || "").trim().toLowerCase();
+              const isDone = statusName === "done" || statusName === "completed";
+              const isReviewPending = isDone && (!displayTask?.rating || Number(displayTask?.rating) === 0);
+
+              return (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                    <Star className={`h-4 w-4 ${isReviewPending ? "text-amber-500 fill-amber-400" : ""}`} />
+                    <span className={isReviewPending ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}>
+                      {isReviewPending ? "Review *" : "Rating"}
+                    </span>
+                  </div>
+                  <div
+                    className={cn(
+                      "flex-1 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center transition-all",
+                      isReviewPending
+                        ? "bg-amber-500/15 border border-amber-400/50 ring-2 ring-amber-400/20"
+                        : "bg-gray-500/10",
+                    )}
+                  >
+                    {columns.find((c) => c.id === "rating")?.render(displayTask)}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Tags */}
             <div className="flex items-center gap-2">
