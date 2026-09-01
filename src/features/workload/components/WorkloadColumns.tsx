@@ -396,7 +396,8 @@ export const getWorkloadColumns = ({
           task.assigned_to_ids && task.assigned_to_ids.length > 0;
 
         const statusObj = statusMap.get(task.status_id || "");
-        const isDone = statusObj?.name === "Done";
+        const statusName = (statusObj?.name || task.status || "").trim().toLowerCase();
+        const isDone = statusName === "done" || statusName === "completed";
 
         return (
           <RatingStars
