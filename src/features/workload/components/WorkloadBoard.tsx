@@ -978,6 +978,32 @@ export function WorkloadBoard({
     },
     [trackingGroupId],
   );
+
+  const handleTaskCreatedFromTracking = useCallback(
+    (newTask: Task) => {
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => {
+          if (String(group.id) === String(newTask.group_id)) {
+            if (group.tasks.some((t) => String(t.id) === String(newTask.id))) {
+              return group;
+            }
+            return {
+              ...group,
+              tasks: [
+                ...group.tasks,
+                {
+                  ...newTask,
+                  label_id: groupLabels[String(newTask.group_id)],
+                },
+              ],
+            };
+          }
+          return group;
+        }),
+      );
+    },
+    [groupLabels],
+  );
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [addingItemToGroup, setAddingItemToGroup] = useState<string | null>(
     null,
@@ -9885,7 +9911,10 @@ export function WorkloadBoard({
           boardId={boardId}
           boardName={boardName}
           organizationId={getOrganizationId() || ""}
+          statuses={statuses}
+          priorities={priorities}
           onLayoutStatusChange={handleTrackingLayoutStatusChange}
+          onTaskCreated={handleTaskCreatedFromTracking}
         />
       )}
     </div>
