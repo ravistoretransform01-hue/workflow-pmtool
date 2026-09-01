@@ -212,24 +212,26 @@ export const SortableColumnHeader = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <ArrowUpDown className="h-4 w-4 mr-2" />
-                    <span>Sort</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuItem
-                      onClick={() => onSort?.(column.id, "asc")}
-                    >
-                      Sort ascending
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => onSort?.(column.id, "desc")}
-                    >
-                      Sort descending
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                {["item", "status", "priority"].includes(column.id) && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <ArrowUpDown className="h-4 w-4 mr-2" />
+                      <span>Sort</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem
+                        onClick={() => onSort?.(column.id, "asc")}
+                      >
+                        Sort ascending
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => onSort?.(column.id, "desc")}
+                      >
+                        Sort descending
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                )}
                 <DropdownMenuItem
                   onClick={() => onToggleCollapse?.()}
                   disabled={column.fixed}
