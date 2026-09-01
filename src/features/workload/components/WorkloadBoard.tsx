@@ -3672,6 +3672,9 @@ export function WorkloadBoard({
       );
 
       if (isMovedToDone) {
+        toast.success("Notification email sent to assigned members ✉️", {
+          duration: 4000,
+        });
         toast.info("Task completed! Please provide a review and rating ⭐", {
           duration: 4000,
         });

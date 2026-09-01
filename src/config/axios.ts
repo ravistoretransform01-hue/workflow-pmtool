@@ -54,9 +54,18 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+const getBaseURL = () => {
+  if (typeof window !== "undefined") {
+    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      return "/api";
+    }
+  }
+  return import.meta.env.VITE_API_URL || "http://localhost/platform/wp-json/wp-platform/v1";
+};
+
 // Create axios instance with production-ready config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: getBaseURL(),
   timeout: 30000, // 30 seconds
   headers: {
     "Content-Type": "application/json",
