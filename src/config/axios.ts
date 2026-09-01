@@ -1,6 +1,6 @@
 import axios, { AxiosError, type AxiosResponse } from "axios";
 import { debugLog, debugWarn, debugError, getTokenInfo } from "@/utils/debugLog";
- 
+
 declare module "axios" {
   export interface AxiosRequestConfig {
     skipAuth?: boolean;
@@ -54,9 +54,18 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+const getBaseURL = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  // In production on Vercel (or when VITE_API_URL is /api), use /api so vercel.json proxies requests without CORS errors
+  if (import.meta.env.PROD || !envUrl || envUrl.startsWith("/")) {
+    return "/api";
+  }
+  return envUrl.endsWith("/") ? envUrl.slice(0, -1) : envUrl;
+};
+
 // Create axios instance with production-ready config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: getBaseURL(),
   timeout: 30000, // 30 seconds
   headers: {
     "Content-Type": "application/json",
@@ -144,8 +153,8 @@ api.interceptors.response.use(
       ) {
         debugLog(`[ERROR] Step 7: ❌ Permission denied error detected`);
         debugLog(`[ERROR] Step 8: Error message: ${errorData?.message}`);
-        
-        
+
+
         // Don't retry, just reject the error
         return Promise.reject(error);
       }
