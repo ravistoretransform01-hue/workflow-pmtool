@@ -87,13 +87,17 @@ export function formatActivityValue(
   const trimmed = value.trim();
   const actionLower = action.toLowerCase();
   
-  if (actionLower === "status_id" || actionLower === "status") {
-    const status = statuses.find((s) => String(s.id) === trimmed);
+  if (actionLower === "status_id" || actionLower === "status" || actionLower === "status_updated" || actionLower === "task_status_updated") {
+    const match = trimmed.match(/ID:\s*(\d+)/i) || trimmed.match(/^(\d+)$/);
+    const idToFind = match ? match[1] : trimmed;
+    const status = statuses.find((s) => String(s.id) === idToFind);
     if (status) return status.name;
   }
   
-  if (actionLower === "priority_id" || actionLower === "priority") {
-    const priority = priorities.find((p) => String(p.id) === trimmed);
+  if (actionLower === "priority_id" || actionLower === "priority" || actionLower === "priority_updated" || actionLower === "task_priority_updated") {
+    const match = trimmed.match(/ID:\s*(\d+)/i) || trimmed.match(/^(\d+)$/);
+    const idToFind = match ? match[1] : trimmed;
+    const priority = priorities.find((p) => String(p.id) === idToFind);
     if (priority) return priority.name;
   }
   
