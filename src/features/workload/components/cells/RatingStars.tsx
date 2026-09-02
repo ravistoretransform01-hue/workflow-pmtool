@@ -65,12 +65,8 @@ export function RatingStars({
     >
       <PopoverTrigger asChild>
         <button
-          className={`w-full h-8 flex items-center justify-center gap-1 transition-all ${
-            isReviewPending
-              ? "rounded-md bg-amber-500/15 border border-amber-400/60 ring-2 ring-amber-400/30 animate-pulse hover:bg-amber-500/25"
-              : !hasAssignee || !isDone
-                ? "opacity-50 cursor-not-allowed"
-                : ""
+          className={`relative w-full h-8 flex items-center justify-center gap-1 rounded transition-colors ${
+            !hasAssignee || !isDone ? "opacity-50 cursor-not-allowed" : ""
           }`}
           aria-label={`Rating ${rating}${
             ratingCount
@@ -91,18 +87,50 @@ export function RatingStars({
           }
           disabled={!hasAssignee || !isDone}
         >
+          {isReviewPending && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none rounded overflow-visible"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              {/* Base single solid border */}
+              <rect
+                x="1"
+                y="1"
+                width="calc(100% - 2px)"
+                height="calc(100% - 2px)"
+                rx="4"
+                ry="4"
+                fill="none"
+                stroke="rgba(245, 158, 11, 0.35)"
+                strokeWidth="1.5"
+              />
+              {/* Single running shade traveling around the border */}
+              <rect
+                x="1"
+                y="1"
+                width="calc(100% - 2px)"
+                height="calc(100% - 2px)"
+                rx="4"
+                ry="4"
+                fill="none"
+                stroke="#f59e0b"
+                strokeWidth="1.5"
+                pathLength="100"
+                strokeDasharray="15 85"
+                style={{
+                  animation: "runningShadeAnim 4s linear infinite",
+                }}
+              />
+            </svg>
+          )}
           {[1, 2, 3, 4, 5].map((i) => (
             <svg
               key={i}
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              className={`h-4 w-4 transition-colors ${
-                i <= rating
-                  ? "text-yellow-400 fill-yellow-400"
-                  : isReviewPending
-                    ? "text-amber-500/70"
-                    : "text-muted-foreground"
+              className={`h-4 w-4 relative z-10 ${
+                i <= rating ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground"
               }`}
             >
               <path
