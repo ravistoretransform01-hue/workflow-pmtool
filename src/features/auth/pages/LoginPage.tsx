@@ -10,14 +10,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/components/card";
-import { Loader2, Eye, EyeOff, CheckCircle2, LogIn } from "lucide-react";
+import { Loader2, CheckCircle2, LogIn } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/shared/ui/button";
 import { requestNotificationPermission } from "@/config/firebase";
 import { authApi } from "@/features/auth/api/authApi";
 import { debugLog } from "@/utils/debugLog";
 import { appName } from "@/constants";
-import { Logo } from "@/shared/components/Logo";
+
 import loginLogo from "@/assets/login-logo.png";
 import api from "@/config/axios";
 import { useDispatch } from "react-redux";
