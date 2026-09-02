@@ -21,6 +21,7 @@ import { cmsApi } from "@/features/cms/api/cmsApi";
 // import { boardsApi } from "@/features/boards/api/boardsApi";
 import {
   getCMSData,
+  getMembers,
   clearCMSCache,
   getUserColumnsFromCache,
 } from "@/features/cms/services/cmsStorage";
@@ -45,6 +46,8 @@ import {
   Pencil,
   FolderSymlink,
   Calendar as CalendarIcon,
+  X,
+  Award,
 } from "lucide-react";
 import { cn, getCurrentUserId, copyToClipboard } from "@/utils/utils";
 import { sortBy } from "@/utils/sorting";
@@ -1033,6 +1036,19 @@ export function WorkloadBoard({
   const [labels, setLabels] = useState<any[]>([]);
   const [tags, setTags] = useState<any[]>([]);
 
+  // Search state for filters
+  const [personSearch, setPersonSearch] = useState("");
+  const [statusSearch, setStatusSearch] = useState("");
+  const [prioritySearch, setPrioritySearch] = useState("");
+  const [labelSearch, setLabelSearch] = useState("");
+  const [groupSearch, setGroupSearch] = useState("");
+
+  const filteredMembers = (members || []).filter(m => (m?.name || "").toLowerCase().includes(personSearch.toLowerCase()));
+  const filteredStatuses = (statuses || []).filter(s => (s?.name || "").toLowerCase().includes(statusSearch.toLowerCase()));
+  const filteredPriorities = (priorities || []).filter(p => (p?.name || "").toLowerCase().includes(prioritySearch.toLowerCase()));
+  const filteredLabels = (labels || []).filter(l => (l?.label_name || "").toLowerCase().includes(labelSearch.toLowerCase()));
+  const filteredGroups = (groups || []).filter(g => (g?.name || "").toLowerCase().includes(groupSearch.toLowerCase()));
+
   // Color picker popover states
   const [editGroupColorPickerOpen, setEditGroupColorPickerOpen] =
     useState(false);
@@ -1416,7 +1432,13 @@ export function WorkloadBoard({
         );
 
         setPriorities(sortedPriorities);
-        setMembers(cmsData.members || []);
+        const membersWithGroups = await getMembers({
+          organization_id: organizationIdNum,
+          board_id: boardIdNum,
+          user_id: userId,
+          forceRefresh: false,
+        });
+        setMembers(membersWithGroups || []);
         setLabels(cmsData.labels || []);
         setTags(cmsData.tags || []);
 
@@ -6201,292 +6223,427 @@ export function WorkloadBoard({
                   <div className="space-y-1 overflow-y-auto flex-1 p-2 scrollbar-hide">
                     {/* Person Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("persons")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      <div
+                        onClick={() => filterState.toggleFilterDropdown("persons")}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors cursor-pointer"
                       >
                         <span className="text-sm font-medium">Person</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.persons
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
+                        <div className="flex items-center gap-2">
+                          {filterState.taskFilters.persons.size > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  persons: new Set(),
+                                });
+                              }}
+                              className="text-xs text-muted-foreground hover:text-destructive z-10 px-1 rounded transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              filterState.openFilterDropdowns.persons
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
                       {filterState.openFilterDropdowns.persons && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {members.map((member) => (
-                            <label
-                              key={member.user_id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.persons.has(
-                                  String(member.user_id),
-                                )}
-                                onChange={(e) => {
-                                  const newPersons = new Set(
-                                    filterState.taskFilters.persons,
-                                  );
-                                  if (e.target.checked) {
-                                    newPersons.add(String(member.user_id));
-                                  } else {
-                                    newPersons.delete(String(member.user_id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    persons: newPersons,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <span className="flex-1 min-w-0 truncate">
-                                {member.name}
-                              </span>
-                            </label>
-                          ))}
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Search person..."
+                              value={personSearch}
+                              onChange={(e) => setPersonSearch(e.target.value)}
+                              className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                            {filteredMembers.map((member) => (
+                              <label
+                                key={member.user_id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filterState.taskFilters.persons.has(
+                                    String(member.user_id),
+                                  )}
+                                  onChange={(e) => {
+                                    const newPersons = new Set(
+                                      filterState.taskFilters.persons,
+                                    );
+                                    if (e.target.checked) {
+                                      newPersons.add(String(member.user_id));
+                                    } else {
+                                      newPersons.delete(String(member.user_id));
+                                    }
+                                    filterState.setTaskFilters({
+                                      ...filterState.taskFilters,
+                                      persons: newPersons,
+                                    });
+                                  }}
+                                  className="cursor-pointer"
+                                />
+                                <span className="flex-1 min-w-0 truncate">
+                                  {member.name}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
 
                     {/* Status Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("statuses")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      <div
+                        onClick={() => filterState.toggleFilterDropdown("statuses")}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors cursor-pointer"
                       >
                         <span className="text-sm font-medium">Status</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.statuses
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
+                        <div className="flex items-center gap-2">
+                          {filterState.taskFilters.statuses.size > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  statuses: new Set(),
+                                });
+                              }}
+                              className="text-xs text-muted-foreground hover:text-destructive z-10 px-1 rounded transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              filterState.openFilterDropdowns.statuses
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
                       {filterState.openFilterDropdowns.statuses && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {statuses.map((status) => (
-                            <label
-                              key={status.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.statuses.has(
-                                  String(status.id),
-                                )}
-                                onChange={(e) => {
-                                  const newStatuses = new Set(
-                                    filterState.taskFilters.statuses,
-                                  );
-                                  if (e.target.checked) {
-                                    newStatuses.add(String(status.id));
-                                  } else {
-                                    newStatuses.delete(String(status.id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    statuses: newStatuses,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{
-                                    backgroundColor: status.color_code,
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Search status..."
+                              value={statusSearch}
+                              onChange={(e) => setStatusSearch(e.target.value)}
+                              className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                            {filteredStatuses.map((status) => (
+                              <label
+                                key={status.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filterState.taskFilters.statuses.has(
+                                    String(status.id),
+                                  )}
+                                  onChange={(e) => {
+                                    const newStatuses = new Set(
+                                      filterState.taskFilters.statuses,
+                                    );
+                                    if (e.target.checked) {
+                                      newStatuses.add(String(status.id));
+                                    } else {
+                                      newStatuses.delete(String(status.id));
+                                    }
+                                    filterState.setTaskFilters({
+                                      ...filterState.taskFilters,
+                                      statuses: newStatuses,
+                                    });
                                   }}
+                                  className="cursor-pointer"
                                 />
-                                <span>{status.name}</span>
-                              </div>
-                            </label>
-                          ))}
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <div
+                                    className="w-3 h-3 rounded-full shrink-0"
+                                    style={{
+                                      backgroundColor: status.color_code,
+                                    }}
+                                  />
+                                  <span className="truncate">{status.name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
 
                     {/* Priority Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("priorities")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      <div
+                        onClick={() => filterState.toggleFilterDropdown("priorities")}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors cursor-pointer"
                       >
                         <span className="text-sm font-medium">Priority</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.priorities
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
+                        <div className="flex items-center gap-2">
+                          {filterState.taskFilters.priorities.size > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  priorities: new Set(),
+                                });
+                              }}
+                              className="text-xs text-muted-foreground hover:text-destructive z-10 px-1 rounded transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              filterState.openFilterDropdowns.priorities
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
                       {filterState.openFilterDropdowns.priorities && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {priorities.map((priority) => (
-                            <label
-                              key={priority.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.priorities.has(
-                                  String(priority.id),
-                                )}
-                                onChange={(e) => {
-                                  const newPriorities = new Set(
-                                    filterState.taskFilters.priorities,
-                                  );
-                                  if (e.target.checked) {
-                                    newPriorities.add(String(priority.id));
-                                  } else {
-                                    newPriorities.delete(String(priority.id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    priorities: newPriorities,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{
-                                    backgroundColor: priority.color_code,
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Search priority..."
+                              value={prioritySearch}
+                              onChange={(e) => setPrioritySearch(e.target.value)}
+                              className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                            {filteredPriorities.map((priority) => (
+                              <label
+                                key={priority.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filterState.taskFilters.priorities.has(
+                                    String(priority.id),
+                                  )}
+                                  onChange={(e) => {
+                                    const newPriorities = new Set(
+                                      filterState.taskFilters.priorities,
+                                    );
+                                    if (e.target.checked) {
+                                      newPriorities.add(String(priority.id));
+                                    } else {
+                                      newPriorities.delete(String(priority.id));
+                                    }
+                                    filterState.setTaskFilters({
+                                      ...filterState.taskFilters,
+                                      priorities: newPriorities,
+                                    });
                                   }}
+                                  className="cursor-pointer"
                                 />
-                                <span>{priority.name}</span>
-                              </div>
-                            </label>
-                          ))}
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <div
+                                    className="w-3 h-3 rounded-full shrink-0"
+                                    style={{
+                                      backgroundColor: priority.color_code,
+                                    }}
+                                  />
+                                  <span className="truncate">{priority.name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
 
                     {/* Label Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("labels")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      <div
+                        onClick={() => filterState.toggleFilterDropdown("labels")}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors cursor-pointer"
                       >
                         <span className="text-sm font-medium">Label</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.labels
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
+                        <div className="flex items-center gap-2">
+                          {filterState.taskFilters.labels.size > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  labels: new Set(),
+                                });
+                              }}
+                              className="text-xs text-muted-foreground hover:text-destructive z-10 px-1 rounded transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              filterState.openFilterDropdowns.labels
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
                       {filterState.openFilterDropdowns.labels && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {labels.map((label) => (
-                            <label
-                              key={label.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.labels.has(
-                                  String(label.id),
-                                )}
-                                onChange={(e) => {
-                                  const newLabels = new Set(
-                                    filterState.taskFilters.labels,
-                                  );
-                                  if (e.target.checked) {
-                                    newLabels.add(String(label.id));
-                                  } else {
-                                    newLabels.delete(String(label.id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    labels: newLabels,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{
-                                    backgroundColor: label.label_color,
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Search label..."
+                              value={labelSearch}
+                              onChange={(e) => setLabelSearch(e.target.value)}
+                              className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                            {filteredLabels.map((label) => (
+                              <label
+                                key={label.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filterState.taskFilters.labels.has(
+                                    String(label.id),
+                                  )}
+                                  onChange={(e) => {
+                                    const newLabels = new Set(
+                                      filterState.taskFilters.labels,
+                                    );
+                                    if (e.target.checked) {
+                                      newLabels.add(String(label.id));
+                                    } else {
+                                      newLabels.delete(String(label.id));
+                                    }
+                                    filterState.setTaskFilters({
+                                      ...filterState.taskFilters,
+                                      labels: newLabels,
+                                    });
                                   }}
+                                  className="cursor-pointer"
                                 />
-                                <span>{label.label_name}</span>
-                              </div>
-                            </label>
-                          ))}
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <div
+                                    className="w-3 h-3 rounded-full shrink-0"
+                                    style={{
+                                      backgroundColor: label.label_color,
+                                    }}
+                                  />
+                                  <span className="truncate">{label.label_name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
 
                     {/* Group Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("groups")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      <div
+                        onClick={() => filterState.toggleFilterDropdown("groups")}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors cursor-pointer"
                       >
                         <span className="text-sm font-medium">Group</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.groups
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
+                        <div className="flex items-center gap-2">
+                          {filterState.taskFilters.groups.size > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  groups: new Set(),
+                                });
+                              }}
+                              className="text-xs text-muted-foreground hover:text-destructive z-10 px-1 rounded transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              filterState.openFilterDropdowns.groups
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
                       {filterState.openFilterDropdowns.groups && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {groups.map((group) => (
-                            <label
-                              key={group.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.groups.has(
-                                  group.id,
-                                )}
-                                onChange={(e) => {
-                                  const newGroups = new Set(
-                                    filterState.taskFilters.groups,
-                                  );
-                                  if (e.target.checked) {
-                                    newGroups.add(group.id);
-                                  } else {
-                                    newGroups.delete(group.id);
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    groups: newGroups,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{ backgroundColor: group.color }}
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Search group..."
+                              value={groupSearch}
+                              onChange={(e) => setGroupSearch(e.target.value)}
+                              className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                            {filteredGroups.map((group) => (
+                              <label
+                                key={group.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filterState.taskFilters.groups.has(
+                                    group.id,
+                                  )}
+                                  onChange={(e) => {
+                                    const newGroups = new Set(
+                                      filterState.taskFilters.groups,
+                                    );
+                                    if (e.target.checked) {
+                                      newGroups.add(group.id);
+                                    } else {
+                                      newGroups.delete(group.id);
+                                    }
+                                    filterState.setTaskFilters({
+                                      ...filterState.taskFilters,
+                                      groups: newGroups,
+                                    });
+                                  }}
+                                  className="cursor-pointer"
                                 />
-                                <span>{group.name}</span>
-                              </div>
-                            </label>
-                          ))}
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <div
+                                    className="w-3 h-3 rounded-full shrink-0"
+                                    style={{ backgroundColor: group.color }}
+                                  />
+                                  <span className="truncate">{group.name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -6690,6 +6847,27 @@ export function WorkloadBoard({
                   </PopoverContent>
                 </Popover>
               )}
+
+              {/* Global Clear Filters Button */}
+              <button
+                onClick={() => {
+                  filterState.clearFilters();
+                  setMainTableSearchQuery("");
+                }}
+                disabled={
+                  filterState.taskFilters.persons.size === 0 &&
+                  filterState.taskFilters.statuses.size === 0 &&
+                  filterState.taskFilters.priorities.size === 0 &&
+                  filterState.taskFilters.labels.size === 0 &&
+                  filterState.taskFilters.groups.size === 0 &&
+                  !mainTableSearchQuery.trim()
+                }
+                className="flex items-center px-3 gap-2 text-sm font-medium text-destructive disabled:opacity-30 disabled:hover:bg-transparent hover:bg-destructive/10 cursor-pointer disabled:cursor-not-allowed rounded transition-colors py-1"
+                title="Clear All Filters"
+              >
+                <X className="h-4 w-4" />
+                Clear Filters
+              </button>
             </div>
           </div>
         )}
@@ -6865,14 +7043,16 @@ export function WorkloadBoard({
                                 </button>
 
                                 <span
-                                  className="font-semibold text-lg text-primary"
+                                  className="font-semibold text-lg text-primary flex items-center gap-2"
                                   style={{
                                     color: group.color || "#3b82f6",
                                   }}
                                 >
-                                  {groupNames[group.id] || group.name}
-                                  {group.abbreviation &&
-                                    ` (${group.abbreviation})`}
+                                  <span>
+                                    {groupNames[group.id] || group.name}
+                                    {group.abbreviation &&
+                                      ` (${group.abbreviation})`}
+                                  </span>
                                 </span>
 
                                 {/* Label Chip (optional) */}
@@ -7251,6 +7431,24 @@ export function WorkloadBoard({
                                     </div>
                                   );
                                 })()}
+
+                                {/* Client Group Badge on the right side */}
+                                {members.some(
+                                  (m) =>
+                                    m.group_ids?.map(String).includes(String(group.id)) &&
+                                    (m.board_role_label?.toLowerCase() === "client" ||
+                                      (m as any).role?.toLowerCase() === "client" ||
+                                      (m as any).role_name?.toLowerCase() === "client" ||
+                                      m.role_id === "client" ||
+                                      String(m.role_id) === "client")
+                                ) && (
+                                  <span
+                                    className="ml-2 inline-flex items-center justify-center rounded-full bg-amber-100 p-1 ring-1 ring-inset ring-amber-600/20 shadow-sm shrink-0"
+                                    title="Client Group"
+                                  >
+                                    <Award className="h-4 w-4 text-amber-500" />
+                                  </span>
+                                )}
                               </div>
 
                               {/* Task Table */}

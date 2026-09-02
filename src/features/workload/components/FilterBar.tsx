@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Search, ChevronDown, Eye } from "lucide-react";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
@@ -35,6 +36,18 @@ export function FilterBar({
   onAddNewGroup,
   isLoadingGroups,
 }: FilterBarProps) {
+  const [personSearch, setPersonSearch] = useState("");
+  const [statusSearch, setStatusSearch] = useState("");
+  const [prioritySearch, setPrioritySearch] = useState("");
+  const [labelSearch, setLabelSearch] = useState("");
+  const [groupSearch, setGroupSearch] = useState("");
+
+  const filteredMembers = (members || []).filter(m => (m?.name || "").toLowerCase().includes(personSearch.toLowerCase()));
+  const filteredStatuses = (statuses || []).filter(s => (s?.name || "").toLowerCase().includes(statusSearch.toLowerCase()));
+  const filteredPriorities = (priorities || []).filter(p => (p?.name || "").toLowerCase().includes(prioritySearch.toLowerCase()));
+  const filteredLabels = (labels || []).filter(l => (l?.label_name || "").toLowerCase().includes(labelSearch.toLowerCase()));
+  const filteredGroups = (groups || []).filter(g => (g?.name || "").toLowerCase().includes(groupSearch.toLowerCase()));
+
   return (
     <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
       {/* New Group Button */}
@@ -100,35 +113,47 @@ export function FilterBar({
                 </button>
                 {filterState.openFilterDropdowns.persons && (
                   <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                    {members.map((member) => (
-                      <label
-                        key={member.user_id}
-                        className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={filterState.taskFilters.persons.has(
-                            String(member.user_id)
-                          )}
-                          onChange={(e) => {
-                            const newPersons = new Set(
-                              filterState.taskFilters.persons
-                            );
-                            if (e.target.checked) {
-                              newPersons.add(String(member.user_id));
-                            } else {
-                              newPersons.delete(String(member.user_id));
-                            }
-                            filterState.setTaskFilters({
-                              ...filterState.taskFilters,
-                              persons: newPersons,
-                            });
-                          }}
-                          className="cursor-pointer"
-                        />
-                        <span>{member.name}</span>
-                      </label>
-                    ))}
+                    <div className="relative mb-2">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                      <Input
+                        placeholder="Search person..."
+                        value={personSearch}
+                        onChange={(e) => setPersonSearch(e.target.value)}
+                        className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                      {filteredMembers.map((member) => (
+                        <label
+                          key={member.user_id}
+                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={filterState.taskFilters.persons.has(
+                              String(member.user_id)
+                            )}
+                            onChange={(e) => {
+                              const newPersons = new Set(
+                                filterState.taskFilters.persons
+                              );
+                              if (e.target.checked) {
+                                newPersons.add(String(member.user_id));
+                              } else {
+                                newPersons.delete(String(member.user_id));
+                              }
+                              filterState.setTaskFilters({
+                                ...filterState.taskFilters,
+                                persons: newPersons,
+                              });
+                            }}
+                            className="cursor-pointer"
+                          />
+                          <span className="truncate">{member.name}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -148,43 +173,55 @@ export function FilterBar({
                 </button>
                 {filterState.openFilterDropdowns.statuses && (
                   <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                    {statuses.map((status) => (
-                      <label
-                        key={status.id}
-                        className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={filterState.taskFilters.statuses.has(
-                            String(status.id)
-                          )}
-                          onChange={(e) => {
-                            const newStatuses = new Set(
-                              filterState.taskFilters.statuses
-                            );
-                            if (e.target.checked) {
-                              newStatuses.add(String(status.id));
-                            } else {
-                              newStatuses.delete(String(status.id));
-                            }
-                            filterState.setTaskFilters({
-                              ...filterState.taskFilters,
-                              statuses: newStatuses,
-                            });
-                          }}
-                          className="cursor-pointer"
-                        />
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{
-                              backgroundColor: status.color_code,
+                    <div className="relative mb-2">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                      <Input
+                        placeholder="Search status..."
+                        value={statusSearch}
+                        onChange={(e) => setStatusSearch(e.target.value)}
+                        className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                      {filteredStatuses.map((status) => (
+                        <label
+                          key={status.id}
+                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={filterState.taskFilters.statuses.has(
+                              String(status.id)
+                            )}
+                            onChange={(e) => {
+                              const newStatuses = new Set(
+                                filterState.taskFilters.statuses
+                              );
+                              if (e.target.checked) {
+                                newStatuses.add(String(status.id));
+                              } else {
+                                newStatuses.delete(String(status.id));
+                              }
+                              filterState.setTaskFilters({
+                                ...filterState.taskFilters,
+                                statuses: newStatuses,
+                              });
                             }}
+                            className="cursor-pointer"
                           />
-                          <span>{status.name}</span>
-                        </div>
-                      </label>
-                    ))}
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <div
+                              className="w-3 h-3 rounded-full shrink-0"
+                              style={{
+                                backgroundColor: status.color_code,
+                              }}
+                            />
+                            <span className="truncate">{status.name}</span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -208,43 +245,55 @@ export function FilterBar({
                 </button>
                 {filterState.openFilterDropdowns.priorities && (
                   <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                    {priorities.map((priority) => (
-                      <label
-                        key={priority.id}
-                        className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={filterState.taskFilters.priorities.has(
-                            String(priority.id)
-                          )}
-                          onChange={(e) => {
-                            const newPriorities = new Set(
-                              filterState.taskFilters.priorities
-                            );
-                            if (e.target.checked) {
-                              newPriorities.add(String(priority.id));
-                            } else {
-                              newPriorities.delete(String(priority.id));
-                            }
-                            filterState.setTaskFilters({
-                              ...filterState.taskFilters,
-                              priorities: newPriorities,
-                            });
-                          }}
-                          className="cursor-pointer"
-                        />
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{
-                              backgroundColor: priority.color_code,
+                    <div className="relative mb-2">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                      <Input
+                        placeholder="Search priority..."
+                        value={prioritySearch}
+                        onChange={(e) => setPrioritySearch(e.target.value)}
+                        className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                      {filteredPriorities.map((priority) => (
+                        <label
+                          key={priority.id}
+                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={filterState.taskFilters.priorities.has(
+                              String(priority.id)
+                            )}
+                            onChange={(e) => {
+                              const newPriorities = new Set(
+                                filterState.taskFilters.priorities
+                              );
+                              if (e.target.checked) {
+                                newPriorities.add(String(priority.id));
+                              } else {
+                                newPriorities.delete(String(priority.id));
+                              }
+                              filterState.setTaskFilters({
+                                ...filterState.taskFilters,
+                                priorities: newPriorities,
+                              });
                             }}
+                            className="cursor-pointer"
                           />
-                          <span>{priority.name}</span>
-                        </div>
-                      </label>
-                    ))}
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <div
+                              className="w-3 h-3 rounded-full shrink-0"
+                              style={{
+                                backgroundColor: priority.color_code,
+                              }}
+                            />
+                            <span className="truncate">{priority.name}</span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -264,43 +313,55 @@ export function FilterBar({
                 </button>
                 {filterState.openFilterDropdowns.labels && (
                   <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                    {labels.map((label) => (
-                      <label
-                        key={label.id}
-                        className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={filterState.taskFilters.labels.has(
-                            String(label.id)
-                          )}
-                          onChange={(e) => {
-                            const newLabels = new Set(
-                              filterState.taskFilters.labels
-                            );
-                            if (e.target.checked) {
-                              newLabels.add(String(label.id));
-                            } else {
-                              newLabels.delete(String(label.id));
-                            }
-                            filterState.setTaskFilters({
-                              ...filterState.taskFilters,
-                              labels: newLabels,
-                            });
-                          }}
-                          className="cursor-pointer"
-                        />
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{
-                              backgroundColor: label.label_color,
+                    <div className="relative mb-2">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                      <Input
+                        placeholder="Search label..."
+                        value={labelSearch}
+                        onChange={(e) => setLabelSearch(e.target.value)}
+                        className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                      {filteredLabels.map((label) => (
+                        <label
+                          key={label.id}
+                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={filterState.taskFilters.labels.has(
+                              String(label.id)
+                            )}
+                            onChange={(e) => {
+                              const newLabels = new Set(
+                                filterState.taskFilters.labels
+                              );
+                              if (e.target.checked) {
+                                newLabels.add(String(label.id));
+                              } else {
+                                newLabels.delete(String(label.id));
+                              }
+                              filterState.setTaskFilters({
+                                ...filterState.taskFilters,
+                                labels: newLabels,
+                              });
                             }}
+                            className="cursor-pointer"
                           />
-                          <span>{label.label_name}</span>
-                        </div>
-                      </label>
-                    ))}
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <div
+                              className="w-3 h-3 rounded-full shrink-0"
+                              style={{
+                                backgroundColor: label.label_color,
+                              }}
+                            />
+                            <span className="truncate">{label.label_name}</span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -320,41 +381,53 @@ export function FilterBar({
                 </button>
                 {filterState.openFilterDropdowns.groups && (
                   <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                    {groups.map((group) => (
-                      <label
-                        key={group.id}
-                        className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={filterState.taskFilters.groups.has(
-                            group.id
-                          )}
-                          onChange={(e) => {
-                            const newGroups = new Set(
-                              filterState.taskFilters.groups
-                            );
-                            if (e.target.checked) {
-                              newGroups.add(group.id);
-                            } else {
-                              newGroups.delete(group.id);
-                            }
-                            filterState.setTaskFilters({
-                              ...filterState.taskFilters,
-                              groups: newGroups,
-                            });
-                          }}
-                          className="cursor-pointer"
-                        />
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: group.color }}
+                    <div className="relative mb-2">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                      <Input
+                        placeholder="Search group..."
+                        value={groupSearch}
+                        onChange={(e) => setGroupSearch(e.target.value)}
+                        className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                      {filteredGroups.map((group) => (
+                        <label
+                          key={group.id}
+                          className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={filterState.taskFilters.groups.has(
+                              group.id
+                            )}
+                            onChange={(e) => {
+                              const newGroups = new Set(
+                                filterState.taskFilters.groups
+                              );
+                              if (e.target.checked) {
+                                newGroups.add(group.id);
+                              } else {
+                                newGroups.delete(group.id);
+                              }
+                              filterState.setTaskFilters({
+                                ...filterState.taskFilters,
+                                groups: newGroups,
+                              });
+                            }}
+                            className="cursor-pointer"
                           />
-                          <span>{group.name}</span>
-                        </div>
-                      </label>
-                    ))}
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <div
+                              className="w-3 h-3 rounded-full shrink-0"
+                              style={{ backgroundColor: group.color }}
+                            />
+                            <span className="truncate">{group.name}</span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
