@@ -18,6 +18,7 @@ import { authApi } from "@/features/auth/api/authApi";
 import { debugLog } from "@/utils/debugLog";
 import { appName } from "@/constants";
 import { Logo } from "@/shared/components/Logo";
+import loginLogo from "@/assets/login-logo.png";
 import api from "@/config/axios";
 import { useDispatch } from "react-redux";
 import { switchOrganization } from "@/features/auth/services/authSlice";
@@ -47,7 +48,6 @@ const LoginPage = () => {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [invitationData, setInvitationData] = useState<InvitationData | null>(null);
   const [isValidatingToken, setIsValidatingToken] = useState(false);
 
@@ -260,7 +260,7 @@ const LoginPage = () => {
       <div className="w-full max-w-md space-y-6 animate-slide-up">
         {/* Logo and Title */}
         <div className="text-center space-y-3">
-          <Logo size={56} rounded="rounded-xl" className="mx-auto" bgColor="bg-white" />
+          <img src={loginLogo} alt={appName} className="mx-auto h-16 object-contain" />
           <div>
             <h1 className="text-3xl font-bold text-foreground tracking-tight">
               {appName}
@@ -347,25 +347,14 @@ const LoginPage = () => {
                 <div className="relative">
                   <Input
                     id="password"
-                    type={showPassword ? "text" : "password"}
+                    type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     disabled={loading}
-                    className="h-11 bg-background border-border pr-10"
+                    className="h-11 bg-background border-border"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
                 </div>
               </div>
 
