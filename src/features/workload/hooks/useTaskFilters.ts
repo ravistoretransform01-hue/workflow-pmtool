@@ -16,6 +16,7 @@ export function useTaskFilters(storageKey?: string) {
       priorities: new Set(),
       labels: new Set(),
       groups: new Set(),
+      commentDateFilter: null,
     };
 
     if (!key) return defaultState;
@@ -30,6 +31,7 @@ export function useTaskFilters(storageKey?: string) {
           priorities: new Set(parsed.priorities || []),
           labels: new Set(parsed.labels || []),
           groups: new Set(parsed.groups || []),
+          commentDateFilter: parsed.commentDateFilter || null,
         };
       }
     } catch (error) {
@@ -83,6 +85,7 @@ export function useTaskFilters(storageKey?: string) {
           priorities: new Set(apiFilters.priorities || []),
           labels: new Set(apiFilters.labels || []),
           groups: new Set(apiFilters.groups || []),
+          commentDateFilter: (apiFilters as any).commentDateFilter || null,
         };
         
         setTaskFilters(newFilters);
@@ -119,7 +122,13 @@ export function useTaskFilters(storageKey?: string) {
         groups: Array.from(taskFilters.groups),
       };
       
-      const stateString = JSON.stringify(stateToSave);
+      // We don't save commentDateFilter to backend API since it's not supported yet
+      const localStorageState = {
+        ...stateToSave,
+        commentDateFilter: taskFilters.commentDateFilter,
+      };
+      
+      const stateString = JSON.stringify(localStorageState);
       
       // ONLY save if the state has actually changed from what we last saved/loaded
       if (stateString === lastSavedStateRef.current) return;
@@ -156,10 +165,15 @@ export function useTaskFilters(storageKey?: string) {
 
   const addFilter = useCallback(
     (filterType: keyof TaskFilters, value: string) => {
-      setTaskFilters((prev) => ({
-        ...prev,
-        [filterType]: new Set([...prev[filterType], value]),
-      }));
+      setTaskFilters((prev) => {
+        if (filterType === "commentDateFilter") {
+          return { ...prev, [filterType]: value };
+        }
+        return {
+          ...prev,
+          [filterType]: new Set([...(prev[filterType] as Set<string>), value]),
+        };
+      });
     },
     []
   );
@@ -167,7 +181,10 @@ export function useTaskFilters(storageKey?: string) {
   const removeFilter = useCallback(
     (filterType: keyof TaskFilters, value: string) => {
       setTaskFilters((prev) => {
-        const newSet = new Set(prev[filterType]);
+        if (filterType === "commentDateFilter") {
+          return { ...prev, [filterType]: null };
+        }
+        const newSet = new Set(prev[filterType] as Set<string>);
         newSet.delete(value);
         return {
           ...prev,
@@ -203,14 +220,20 @@ export function useTaskFilters(storageKey?: string) {
       priorities: new Set(),
       labels: new Set(),
       groups: new Set(),
+      commentDateFilter: null,
     });
   }, []);
 
   const clearFilterType = useCallback((filterType: keyof TaskFilters) => {
-    setTaskFilters((prev) => ({
-      ...prev,
-      [filterType]: new Set(),
-    }));
+    setTaskFilters((prev) => {
+      if (filterType === "commentDateFilter") {
+        return { ...prev, [filterType]: null };
+      }
+      return {
+        ...prev,
+        [filterType]: new Set(),
+      };
+    });
   }, []);
 
   const hasActiveFilters = useCallback(() => {
@@ -219,7 +242,8 @@ export function useTaskFilters(storageKey?: string) {
       taskFilters.statuses.size > 0 ||
       taskFilters.priorities.size > 0 ||
       taskFilters.labels.size > 0 ||
-      taskFilters.groups.size > 0
+      taskFilters.groups.size > 0 ||
+      !!taskFilters.commentDateFilter
     );
   }, [taskFilters]);
 
