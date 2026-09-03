@@ -1062,7 +1062,13 @@ export function WorkloadBoard({
         const results = await Promise.all(
           batch.map(async (taskId) => {
             try {
-              const comments = await tasksApi.getComments(taskId);
+              const response = await tasksApi.getComments(taskId, { per_page: 150 });
+              let comments = [];
+              if (Array.isArray(response)) {
+                comments = response;
+              } else if (response && Array.isArray(response.data)) {
+                comments = response.data;
+              }
               return { taskId, comments };
             } catch (err) {
               return { taskId, comments: [] };
@@ -4254,19 +4260,11 @@ export function WorkloadBoard({
                   hasCommentOnDate = taskCommentsCache[item.id].some(comment => {
                     const cDate = comment.updated_at || comment.created_at;
                     if (!cDate) return false;
-                    try {
-                      const itemDate = new Date(cDate);
-                      if (!isNaN(itemDate.getTime())) {
-                        const year = itemDate.getFullYear();
-                        const month = String(itemDate.getMonth() + 1).padStart(2, '0');
-                        const day = String(itemDate.getDate()).padStart(2, '0');
-                        const itemDateStr = `${year}-${month}-${day}`;
-                        if (itemDateStr === selectedDate) return true;
-                      }
-                      return cDate.startsWith(selectedDate) || cDate.includes(selectedDate.split("-").reverse().join("-"));
-                    } catch (e) {
-                      return cDate.startsWith(selectedDate);
-                    }
+                    
+                    // Direct string matching is safest against timezone drift
+                    const ddMMyyyy = selectedDate.split("-").reverse().join("-");
+                    
+                    return cDate.includes(selectedDate) || cDate.includes(ddMMyyyy);
                   });
                 }
                 
