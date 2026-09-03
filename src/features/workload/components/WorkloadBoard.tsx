@@ -1062,7 +1062,7 @@ export function WorkloadBoard({
         const results = await Promise.all(
           batch.map(async (taskId) => {
             try {
-              const response = await tasksApi.getComments(taskId, { per_page: 150 });
+              const response = await tasksApi.getComments(taskId, { mode: "threaded", per_page: 150 });
               let comments = [];
               if (Array.isArray(response)) {
                 comments = response;
@@ -4268,14 +4268,24 @@ export function WorkloadBoard({
                       return true;
                     }
 
-                    // 2. Parsed Date match (handles UTC timezone shifts, e.g., an ISO string from 9PM yesterday that is 3AM today locally)
+                    // 2. Parsed Date match (handles UTC timezone shifts)
                     try {
-                      // Only parse if it's YYYY-MM-DD to avoid DD/MM vs MM/DD ambiguity
+                      // Only parse if it's YYYY-MM-DD
                       if (cDate.match(/^\d{4}-\d{2}-\d{2}/)) {
-                        const d = new Date(cDate + (cDate.includes('T') && !cDate.endsWith('Z') ? 'Z' : '')); // Ensure UTC parsing if it's an ISO-like string from PHP
-                        const d2 = new Date(cDate);
+                        // Normalize format to ISO string (e.g. "2026-08-28 22:24:00" -> "2026-08-28T22:24:00Z")
+                        // so Javascript correctly interprets it as UTC rather than Local time.
+                        let isoStr = cDate;
+                        if (!isoStr.includes('T') && isoStr.includes(' ')) {
+                          isoStr = isoStr.replace(' ', 'T');
+                        }
+                        if (isoStr.includes('T') && !isoStr.endsWith('Z')) {
+                          isoStr += 'Z';
+                        }
                         
-                        // Check both interpretations (local parse and UTC parse) just to be absolutely certain
+                        const d = new Date(isoStr); // Parsed as UTC
+                        const d2 = new Date(cDate); // Parsed natively
+                        
+                        // Check both interpretations just to be absolutely certain
                         for (const dateObj of [d, d2]) {
                           if (!isNaN(dateObj.getTime())) {
                             const year = dateObj.getFullYear();
