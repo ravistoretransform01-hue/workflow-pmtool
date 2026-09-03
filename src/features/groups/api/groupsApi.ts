@@ -178,10 +178,7 @@ export const groupsApi = {
    */
   getTrackingLayout: async (groupId: string | number): Promise<any> => {
     try {
-      const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-      const baseURL = isProd ? `${window.location.origin}/wp-json/wp-platform/v1` : undefined;
-      
-      const response = await api.get(`/group-tracking/?group_id=${groupId}`, { baseURL });
+      const response = await api.get(`/group-tracking/?group_id=${groupId}`);
       return response.data?.data || response.data;
     } catch (error) {
       console.error("Get tracking layout error:", error);
@@ -191,14 +188,11 @@ export const groupsApi = {
 
   saveTrackingLayout: async (payload: any): Promise<any> => {
     try {
-      const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-      const baseURL = isProd ? `${window.location.origin}/wp-json/wp-platform/v1` : undefined;
-
       let response;
       if (payload.id) {
-        response = await api.put(`/group-tracking/${payload.id}`, payload, { baseURL });
+        response = await api.put(`/group-tracking/${payload.id}`, payload);
       } else {
-        response = await api.post("/group-tracking/", payload, { baseURL });
+        response = await api.post("/group-tracking/", payload);
       }
       return response.data;
     } catch (error) {
