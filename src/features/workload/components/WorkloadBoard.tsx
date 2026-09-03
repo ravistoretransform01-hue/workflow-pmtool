@@ -205,6 +205,9 @@ export interface Task {
   rating?: number; // Display rating as average number (1-5)
   ratingCount?: number; // Number of ratings
   comment_count?: number;
+  updated_at?: string;
+  created_at?: string;
+  latest_comment_date?: string;
   ratings?: Array<{
     id: string;
     task_id?: string;
@@ -1024,6 +1027,61 @@ export function WorkloadBoard({
   const [loadedCommentsTaskId, setLoadedCommentsTaskId] = useState<
     string | null
   >(null);
+  
+  const [taskCommentsCache, setTaskCommentsCache] = useState<Record<string, TaskComment[]>>({});
+  const fetchedTasksForComments = useRef<Set<string>>(new Set());
+
+  // Fetch comments for date filtering when a date is selected
+  useEffect(() => {
+    const selectedDate = filterState.taskFilters.commentDateFilter;
+    if (!selectedDate) return;
+
+    const fetchCommentsForFilter = async () => {
+      const tasksToFetch: string[] = [];
+      
+      groups.forEach(group => {
+        group.tasks?.forEach(task => {
+          if ((task.comment_count || 0) > 0 && !fetchedTasksForComments.current.has(task.id)) {
+            tasksToFetch.push(task.id);
+            fetchedTasksForComments.current.add(task.id);
+          }
+          task.subitems?.forEach(sub => {
+            if ((sub.comment_count || 0) > 0 && !fetchedTasksForComments.current.has(sub.id)) {
+              tasksToFetch.push(sub.id);
+              fetchedTasksForComments.current.add(sub.id);
+            }
+          });
+        });
+      });
+
+      if (tasksToFetch.length === 0) return;
+
+      // Fetch in batches of 5 to avoid overwhelming the server
+      for (let i = 0; i < tasksToFetch.length; i += 5) {
+        const batch = tasksToFetch.slice(i, i + 5);
+        const results = await Promise.all(
+          batch.map(async (taskId) => {
+            try {
+              const comments = await tasksApi.getComments(taskId);
+              return { taskId, comments };
+            } catch (err) {
+              return { taskId, comments: [] };
+            }
+          })
+        );
+        
+        setTaskCommentsCache(prev => {
+          const next = { ...prev };
+          results.forEach(res => {
+            next[res.taskId] = res.comments;
+          });
+          return next;
+        });
+      }
+    };
+
+    fetchCommentsForFilter();
+  }, [filterState.taskFilters.commentDateFilter, groups]);
 
   // Timer conflict dialog state
   const [timerConflictDialogOpen, setTimerConflictDialogOpen] = useState(false);
@@ -4186,6 +4244,71 @@ export function WorkloadBoard({
                   return false;
               }
 
+              // Check comment date filter
+              if (filterState.taskFilters.commentDateFilter) {
+                const selectedDate = filterState.taskFilters.commentDateFilter;
+                let hasCommentOnDate = false;
+                
+                // 1. Check local cache if we fetched comments for this task
+                if (taskCommentsCache[item.id] && taskCommentsCache[item.id].length > 0) {
+                  hasCommentOnDate = taskCommentsCache[item.id].some(comment => {
+                    const cDate = comment.updated_at || comment.created_at;
+                    if (!cDate) return false;
+                    try {
+                      const itemDate = new Date(cDate);
+                      if (!isNaN(itemDate.getTime())) {
+                        const year = itemDate.getFullYear();
+                        const month = String(itemDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(itemDate.getDate()).padStart(2, '0');
+                        const itemDateStr = `${year}-${month}-${day}`;
+                        if (itemDateStr === selectedDate) return true;
+                      }
+                      return cDate.startsWith(selectedDate) || cDate.includes(selectedDate.split("-").reverse().join("-"));
+                    } catch (e) {
+                      return cDate.startsWith(selectedDate);
+                    }
+                  });
+                }
+                
+                // 2. Fallbacks if cache hasn't loaded yet or task has no comments fetched
+                if (!hasCommentOnDate) {
+                  if (item.comments && Array.isArray(item.comments)) {
+                    hasCommentOnDate = item.comments.some((comment: any) => 
+                      comment.created_at && comment.created_at.startsWith(selectedDate)
+                    );
+                  } 
+                  else if (item.comment_dates && Array.isArray(item.comment_dates)) {
+                    hasCommentOnDate = item.comment_dates.some((dateStr: string) => dateStr.startsWith(selectedDate));
+                  } 
+                  else if (item.latest_comment_date && typeof item.latest_comment_date === 'string') {
+                    hasCommentOnDate = item.latest_comment_date.startsWith(selectedDate);
+                  }
+                  else if (item.updated_at && typeof item.updated_at === 'string') {
+                    // Our previous proxy logic
+                    try {
+                      const itemDate = new Date(item.updated_at);
+                      if (!isNaN(itemDate.getTime())) {
+                        const year = itemDate.getFullYear();
+                        const month = String(itemDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(itemDate.getDate()).padStart(2, '0');
+                        const itemDateStr = `${year}-${month}-${day}`;
+                        if (itemDateStr === selectedDate) {
+                          hasCommentOnDate = true;
+                        } else {
+                          hasCommentOnDate = item.updated_at.startsWith(selectedDate) || item.updated_at.includes(selectedDate.split("-").reverse().join("-"));
+                        }
+                      } else {
+                        hasCommentOnDate = item.updated_at.startsWith(selectedDate) || item.updated_at.includes(selectedDate.split("-").reverse().join("-"));
+                      }
+                    } catch (e) {
+                      hasCommentOnDate = item.updated_at.startsWith(selectedDate);
+                    }
+                  }
+                }
+                
+                if (!hasCommentOnDate) return false;
+              }
+
               // Note: Label filter is now at group level so we don't check item.label_id here
               return true;
             };
@@ -4237,6 +4360,7 @@ export function WorkloadBoard({
                 filterState.taskFilters.persons.size > 0 ||
                 filterState.taskFilters.statuses.size > 0 ||
                 filterState.taskFilters.priorities.size > 0 ||
+                !!filterState.taskFilters.commentDateFilter ||
                 filterState.showDoneItemsOnly;
 
               if (hasActiveFilters && matchingSubitems.length > 0) {
@@ -4267,6 +4391,7 @@ export function WorkloadBoard({
           filterState.taskFilters.priorities.size > 0 ||
           filterState.taskFilters.labels.size > 0 ||
           filterState.taskFilters.groups.size > 0 ||
+          !!filterState.taskFilters.commentDateFilter ||
           filterState.showDoneItemsOnly;
 
         // If filtering, only show groups with matching tasks or if the group name matches the query
@@ -4282,6 +4407,7 @@ export function WorkloadBoard({
               filterState.taskFilters.persons.size > 0 ||
               filterState.taskFilters.statuses.size > 0 ||
               filterState.taskFilters.priorities.size > 0 ||
+              filterState.taskFilters.commentDateFilter !== null ||
               filterState.showDoneItemsOnly;
 
             // If no other filters are active, show the group (even if empty)
@@ -4308,6 +4434,7 @@ export function WorkloadBoard({
     statuses,
     labels,
     groupLabels,
+    taskCommentsCache,
   ]);
 
   // Compatibility function to return groups (maintains existing usage)
@@ -4855,6 +4982,7 @@ export function WorkloadBoard({
       if (taskToUpdate) {
         updateTaskInGroups(selectedCommentsId, {
           comment_count: (taskToUpdate.comment_count || 0) + 1,
+          updated_at: new Date().toISOString(),
         });
       }
 
@@ -6171,7 +6299,7 @@ export function WorkloadBoard({
                 <PopoverTrigger asChild>
                   <button
                     className={cn(
-                      "flex items-center px-3 py-1.5 gap-2 text-sm font-medium transition-all rounded-md cursor-pointer",
+                      "flex items-center px-3 py-1.5 gap-2 text-sm font-medium transition-all rounded-md cursor-pointer whitespace-nowrap",
                       filterState.taskFilters.persons.size > 0 ||
                         filterState.taskFilters.statuses.size > 0 ||
                         filterState.taskFilters.priorities.size > 0 ||
@@ -6654,7 +6782,8 @@ export function WorkloadBoard({
                     filterState.taskFilters.statuses.size > 0 ||
                     filterState.taskFilters.priorities.size > 0 ||
                     filterState.taskFilters.labels.size > 0 ||
-                    filterState.taskFilters.groups.size > 0) && (
+                    filterState.taskFilters.groups.size > 0 ||
+                    !!filterState.taskFilters.commentDateFilter) && (
                     <div className="border-t border-primary/20 bg-primary/5 p-2 shrink-0">
                       <Button
                         variant="outline"
@@ -6675,7 +6804,7 @@ export function WorkloadBoard({
               {activeTab === "Main Table" && (
                 <button
                   disabled={!hasUnsavedChanges}
-                  className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   onClick={async () => {
                     try {
                       // Build the columns payload with labels and positions
@@ -6743,11 +6872,51 @@ export function WorkloadBoard({
                 </button>
               )}
 
+              {/* Comment Date Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer border rounded-md h-8 bg-background hover:bg-hover transition-colors whitespace-nowrap">
+                    <CalendarIcon className="h-4 w-4" />
+                    {filterState.taskFilters.commentDateFilter ? (
+                      <span>
+                        {format(parseISO(filterState.taskFilters.commentDateFilter), "MMM d, yyyy")}
+                      </span>
+                    ) : (
+                      <span>Date</span>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={
+                      filterState.taskFilters.commentDateFilter
+                        ? parseISO(filterState.taskFilters.commentDateFilter)
+                        : undefined
+                    }
+                    onSelect={(date) => {
+                      if (date) {
+                        // Add local timezone offset compensation
+                        const localDate = new Date(
+                          date.getTime() - date.getTimezoneOffset() * 60000
+                        );
+                        filterState.addFilter("commentDateFilter", localDate.toISOString().split("T")[0]);
+                      } else {
+                        filterState.removeFilter("commentDateFilter", "");
+                      }
+                    }}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+
               {/* Show/Hide Columns Popover */}
               {(activeTab === "Main Table" || activeTab === "List") && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
+                    <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer whitespace-nowrap">
                       <Eye className="h-4 w-4" />
                       Show/Hide
                     </button>
@@ -6860,9 +7029,10 @@ export function WorkloadBoard({
                   filterState.taskFilters.priorities.size === 0 &&
                   filterState.taskFilters.labels.size === 0 &&
                   filterState.taskFilters.groups.size === 0 &&
+                  !filterState.taskFilters.commentDateFilter &&
                   !mainTableSearchQuery.trim()
                 }
-                className="flex items-center px-3 gap-2 text-sm font-medium text-destructive disabled:opacity-30 disabled:hover:bg-transparent hover:bg-destructive/10 cursor-pointer disabled:cursor-not-allowed rounded transition-colors py-1"
+                className="flex items-center px-3 gap-2 text-sm font-medium text-destructive disabled:opacity-30 disabled:hover:bg-transparent hover:bg-destructive/10 cursor-pointer disabled:cursor-not-allowed rounded transition-colors py-1 whitespace-nowrap"
                 title="Clear All Filters"
               >
                 <X className="h-4 w-4" />
@@ -9586,6 +9756,7 @@ export function WorkloadBoard({
                     0,
                     (t.comment_count || 0) + incrementBy,
                   ),
+                  updated_at: new Date().toISOString(),
                 });
               }
             }}
