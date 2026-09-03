@@ -13,7 +13,7 @@ export const isViewLive = {
   doc: false,
   updates: false,
   dashboard: false,
-  devboardDaily: false,
+  devboardDaily: true,
 };
 
 export const appName = "WorkFlowPM";

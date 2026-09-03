@@ -1312,12 +1312,9 @@ export function WorkloadBoard({
             tabs.forEach((tab: any) => {
               const rows = Array.isArray(tab?.rows) ? tab.rows : [];
               rows.forEach((row: any) => {
-                const columns = Array.isArray(row?.columns)
-                  ? row.columns
-                  : [];
+                const columns = Array.isArray(row?.columns) ? row.columns : [];
                 columns.forEach((column: any) => {
-                  if (!column?.name?.toLowerCase?.().includes("status"))
-                    return;
+                  if (!column?.name?.toLowerCase?.().includes("status")) return;
                   (column.rows || []).forEach((r: any) => {
                     const status = (r?.name || "").trim().toLowerCase();
                     if (!status || status === "n/a") return;
@@ -5982,7 +5979,8 @@ export function WorkloadBoard({
                     .filter((tab: string) => {
                       if (tab === "Teams" && String(orgId) !== "31")
                         return false;
-                      if (tab === "DevBoard.Daily") return false;
+                      if (tab === "DevBoard.Daily" && !isViewLive.devboardDaily)
+                        return false;
                       return true;
                     })
                     .map((tab: string) => (
@@ -7092,7 +7090,7 @@ export function WorkloadBoard({
                                     className={cn(
                                       "ml-2 h-7 px-2 text-xs",
                                       trackingLayoutStatuses[group.id] ===
-                                      "pending"
+                                        "pending"
                                         ? "!bg-red-500 !text-white !border-red-500 hover:!bg-red-600"
                                         : trackingLayoutStatuses[group.id] ===
                                             "complete"
