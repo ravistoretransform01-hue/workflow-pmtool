@@ -193,12 +193,14 @@ export interface CreateCommentRequest {
   parent_id: number | null;
   is_internal: number;
   isclient?: number | boolean;
+  mentioned_users?: number[];
 }
 
 export interface UpdateCommentRequest {
   content?: string;
   sop?: number | boolean;
   isclient?: number | boolean;
+  mentioned_users?: number[];
 }
 
 export interface DeleteTaskRequest {

@@ -84,6 +84,7 @@ export function FilterBar({
           <span className="text-sm font-medium">Done Items</span>
         </label>
 
+
         {/* Show/Hide Filter Popover */}
         <Popover>
           <PopoverTrigger asChild>
@@ -433,12 +434,14 @@ export function FilterBar({
               </div>
             </div>
 
+
             {/* Clear Filters Button - Fixed at bottom */}
             {(filterState.taskFilters.persons.size > 0 ||
               filterState.taskFilters.statuses.size > 0 ||
               filterState.taskFilters.priorities.size > 0 ||
               filterState.taskFilters.labels.size > 0 ||
-              filterState.taskFilters.groups.size > 0) && (
+              filterState.taskFilters.groups.size > 0 ||
+              filterState.taskFilters.commentDateFilter !== null) && (
               <div className="border-t border-primary/20 bg-primary/5 p-2 shrink-0">
                 <Button
                   variant="outline"
