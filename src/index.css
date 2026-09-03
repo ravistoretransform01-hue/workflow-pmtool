@@ -435,3 +435,12 @@ button:focus-visible {
     radial-gradient(farthest-side at 0 50%, rgba(0,0,0,0.15) 0%, transparent 100%) left / 15px 100% no-repeat scroll,
     radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,0.15) 0%, transparent 100%) right / 15px 100% no-repeat scroll;
 }
+
+@keyframes runningShadeAnim {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -100;
+  }
+}

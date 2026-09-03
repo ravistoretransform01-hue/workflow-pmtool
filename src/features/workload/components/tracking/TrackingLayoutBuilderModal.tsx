@@ -15,9 +15,15 @@ import {
   Loader2,
   Download,
   Upload,
+  Pencil,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/api/groupsApi";
+import { tasksApi } from "@/features/tasks/api/tasksApi";
+import type { CreateTaskRequest } from "@/features/tasks/types/types";
+import type { Status, Priority } from "@/features/cms/types/types";
+import type { Task } from "@/features/workload/types/workload-types";
 import * as XLSX from "xlsx";
 import * as ExcelJS from "exceljs";
 
@@ -48,7 +54,10 @@ interface TrackingLayoutBuilderModalProps {
   boardId: string | number;
   boardName: string;
   organizationId: string | number;
+  statuses?: Status[];
+  priorities?: Priority[];
   onLayoutStatusChange?: (status: "default" | "pending" | "complete") => void;
+  onTaskCreated?: (task: Task) => void;
 }
 
 export function TrackingLayoutBuilderModal({
@@ -59,7 +68,10 @@ export function TrackingLayoutBuilderModal({
   boardId,
   boardName,
   organizationId,
+  statuses,
+  priorities,
   onLayoutStatusChange,
+  onTaskCreated,
 }: TrackingLayoutBuilderModalProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -67,6 +79,29 @@ export function TrackingLayoutBuilderModal({
   const [tabs, setTabs] = useState<TrackingLayoutTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [tempTabName, setTempTabName] = useState<string>("");
+  const [addingTaskKey, setAddingTaskKey] = useState<string | null>(null);
+
+  const handleStartEditingTab = (
+    tab: TrackingLayoutTab,
+    e: React.MouseEvent,
+  ) => {
+    e.stopPropagation();
+    setEditingTabId(tab.id);
+    setTempTabName(tab.name);
+  };
+
+  const handleSaveTabName = (tabId: string) => {
+    if (tempTabName.trim()) {
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === tabId ? { ...t, name: tempTabName.trim() } : t,
+        ),
+      );
+    }
+    setEditingTabId(null);
+  };
 
   useEffect(() => {
     let hasTrackingData = false;
@@ -81,7 +116,9 @@ export function TrackingLayoutBuilderModal({
           if (!status || status === "n/a") return;
 
           hasTrackingData = true;
-          if (status === "pending") hasPendingStatus = true;
+          if (status === "pending" || status === "not started") {
+            hasPendingStatus = true;
+          }
         });
       }),
     );
@@ -480,12 +517,10 @@ export function TrackingLayoutBuilderModal({
     setExistingLayoutId(null);
     try {
       const data = await groupsApi.getTrackingLayout(groupId);
-      // The endpoint can return a list containing layouts for other groups;
-      // make sure we only treat *this* group's record as "existing data".
       const layoutData = Array.isArray(data)
         ? (data.find(
-            (item: any) => String(item?.group_id) === String(groupId),
-          ) ?? null)
+          (item: any) => String(item?.group_id) === String(groupId),
+        ) ?? null)
         : data;
 
       if (layoutData) {
@@ -496,11 +531,6 @@ export function TrackingLayoutBuilderModal({
           layoutData.layout_id;
         if (resolvedId != null) {
           setExistingLayoutId(resolvedId);
-        } else {
-          console.warn(
-            "[TrackingLayoutBuilderModal] Existing layout data found but no id field detected on it:",
-            layoutData,
-          );
         }
       }
 
@@ -525,10 +555,8 @@ export function TrackingLayoutBuilderModal({
             parsedLayoutJson.tabs.length > 0 &&
             typeof parsedLayoutJson.tabs[0] === "object"
           ) {
-            // Parses specific payload: tabs[] -> rows[] -> columns[]
             const parsedTabs = parsedLayoutJson.tabs.map(
               (tab: any, i: number) => {
-                // Extract all columns from all rows in this tab
                 let allColumns: TrackingLayoutColumn[] = [];
                 if (Array.isArray(tab.rows)) {
                   tab.rows.forEach((row: any) => {
@@ -538,9 +566,9 @@ export function TrackingLayoutBuilderModal({
                         name: c.name || "",
                         rows: Array.isArray(c.rows)
                           ? c.rows.map((r: any) => ({
-                              id: r.id || `row_${generateId()}`,
-                              name: r.name || "",
-                            }))
+                            id: r.id || `row_${generateId()}`,
+                            name: r.name || "",
+                          }))
                           : [],
                       }));
                       allColumns = [...allColumns, ...rowCols];
@@ -560,7 +588,6 @@ export function TrackingLayoutBuilderModal({
             setLoading(false);
             return;
           } else {
-            // Legacy string array parser
             const parsedTabs = parsedLayoutJson.tabs.map(
               (tabName: string, i: number) => {
                 let tabCols: TrackingLayoutColumn[] = [];
@@ -587,7 +614,7 @@ export function TrackingLayoutBuilderModal({
                 return {
                   id: `tab_${i}`,
                   name: tabName || "Tab",
-                  columns: i === 0 ? tabCols : [], // only apply legacy rows to first tab
+                  columns: i === 0 ? tabCols : [],
                 };
               },
             );
@@ -616,7 +643,6 @@ export function TrackingLayoutBuilderModal({
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Build payload matching strict backend schema: tabs -> rows -> columns
       const tabsPayload = tabs.map((tab) => {
         const rowId = `row_${generateId()}`;
         return {
@@ -627,9 +653,9 @@ export function TrackingLayoutBuilderModal({
               columns: tab.columns.map((col) => ({
                 id: col.id,
                 name: col.name || "",
-                width: "50%", // Satisfy layout_json defaults
-                widget: "tasks_list", // Satisfy layout_json defaults
-                rows: col.rows.map((r) => ({ id: r.id, name: r.name || "" })), // Keep UI rows if backed accepts them
+                width: "50%",
+                widget: "tasks_list",
+                rows: col.rows.map((r) => ({ id: r.id, name: r.name || "" })),
               })),
             },
           ],
@@ -696,11 +722,11 @@ export function TrackingLayoutBuilderModal({
       prev.map((t) =>
         t.id === tabId
           ? {
-              ...t,
-              columns: t.columns.map((c) =>
-                c.id === colId ? { ...c, name } : c,
-              ),
-            }
+            ...t,
+            columns: t.columns.map((c) =>
+              c.id === colId ? { ...c, name } : c,
+            ),
+          }
           : t,
       ),
     );
@@ -717,21 +743,23 @@ export function TrackingLayoutBuilderModal({
     );
   };
 
-  const addRow = (tabId: string, colId: string) => {
-    const newRowId = `row_${generateId()}`;
+  const addRow = (tabId: string) => {
     setTabs((prev) =>
       prev.map((t) => {
         if (t.id === tabId) {
+          const maxRows = Math.max(
+            0,
+            ...t.columns.map((c) => c.rows?.length || 0),
+          );
           return {
             ...t,
             columns: t.columns.map((c) => {
-              if (c.id === colId) {
-                return {
-                  ...c,
-                  rows: [...c.rows, { id: newRowId }],
-                };
+              const currentRows = [...(c.rows || [])];
+              while (currentRows.length < maxRows) {
+                currentRows.push({ id: `row_${generateId()}`, name: "" });
               }
-              return c;
+              currentRows.push({ id: `row_${generateId()}`, name: "" });
+              return { ...c, rows: currentRows };
             }),
           };
         }
@@ -769,7 +797,16 @@ export function TrackingLayoutBuilderModal({
     );
   };
 
-  const removeRow = (tabId: string, colId: string, rowId: string) => {
+  const removeRow = (
+    tabId: string,
+    colId: string,
+    rowId: string,
+    rowIndex?: number,
+  ) => {
+    if (rowIndex !== undefined) {
+      removeGlobalRow(tabId, rowIndex);
+      return;
+    }
     setTabs((prev) =>
       prev.map((t) => {
         if (t.id === tabId) {
@@ -806,6 +843,199 @@ export function TrackingLayoutBuilderModal({
         return t;
       }),
     );
+  };
+
+  /**
+   * Mappings:
+   * Inprogress / In Progress -> Working on it
+   * Pending -> Not Started
+   * Not Added / N/A / NA / Empty -> Need a Meeting
+   * Done -> Done
+   */
+  const resolveStatusId = (trackingStatus?: string): number | undefined => {
+    if (!statuses || statuses.length === 0) return undefined;
+
+    const normalized = (trackingStatus || "").trim().toLowerCase();
+
+    let targetNames: string[] = [];
+    if (
+      normalized === "in progress" ||
+      normalized === "inprogress" ||
+      normalized === "working on it"
+    ) {
+      targetNames = ["working on it", "in progress", "inprogress"];
+    } else if (normalized === "pending" || normalized === "not started") {
+      targetNames = ["not started", "pending"];
+    } else if (
+      normalized === "not added" ||
+      normalized === "need a meeting" ||
+      normalized === "n/a" ||
+      normalized === "na" ||
+      !normalized
+    ) {
+      targetNames = ["need a meeting", "not added", "not started", "pending"];
+    } else if (normalized === "done" || normalized === "completed") {
+      targetNames = ["done", "complete", "completed"];
+    } else {
+      targetNames = [normalized, "need a meeting"];
+    }
+
+    for (const target of targetNames) {
+      const found = statuses.find(
+        (s) => s.name?.trim().toLowerCase() === target.toLowerCase(),
+      );
+      if (found) return parseInt(found.id, 10);
+    }
+
+    for (const target of targetNames) {
+      const found = statuses.find(
+        (s) =>
+          s.name?.trim().toLowerCase().includes(target.toLowerCase()) ||
+          target.toLowerCase().includes(s.name?.trim().toLowerCase()),
+      );
+      if (found) return parseInt(found.id, 10);
+    }
+
+    const needMeetingStatus = statuses.find(
+      (s) => s.name?.trim().toLowerCase() === "need a meeting",
+    );
+    if (needMeetingStatus) return parseInt(needMeetingStatus.id, 10);
+
+    return parseInt(statuses[0].id, 10);
+  };
+
+
+
+  const handleAddTaskFromGlobalRow = async (
+    tabId: string,
+    rowIndex: number,
+  ) => {
+    const targetTab = tabs.find((t) => t.id === tabId);
+    if (!targetTab || !targetTab.columns || targetTab.columns.length === 0) {
+      toast.error("No columns found in active tab");
+      return;
+    }
+
+    let taskName = "";
+    const nameCol = targetTab.columns.find((c) => {
+      const colLower = (c.name || "").toLowerCase();
+      return (
+        (colLower.includes("task") ||
+          colLower.includes("title") ||
+          colLower.includes("name") ||
+          colLower.includes("item") ||
+          colLower.includes("feature")) &&
+        !colLower.includes("status")
+      );
+    });
+
+    if (nameCol && nameCol.rows?.[rowIndex]?.name?.trim()) {
+      taskName = nameCol.rows[rowIndex].name!.trim();
+    } else {
+      const nonStatusCol = targetTab.columns.find(
+        (c) =>
+          !c.name?.toLowerCase().includes("status") &&
+          c.rows?.[rowIndex]?.name?.trim(),
+      );
+      if (nonStatusCol && nonStatusCol.rows?.[rowIndex]?.name?.trim()) {
+        taskName = nonStatusCol.rows[rowIndex].name!.trim();
+      } else if (targetTab.columns[0]?.rows?.[rowIndex]?.name?.trim()) {
+        taskName = targetTab.columns[0].rows[rowIndex].name!.trim();
+      }
+    }
+
+    if (!taskName) {
+      toast.error("Please enter a task name for this row first");
+      return;
+    }
+
+    const descCol = targetTab.columns.find((c) => {
+      const colLower = (c.name || "").toLowerCase();
+      return (
+        colLower.includes("desc") ||
+        colLower.includes("notes") ||
+        colLower.includes("detail")
+      );
+    });
+    const description = descCol?.rows?.[rowIndex]?.name?.trim() || undefined;
+
+    const statusColumn = targetTab.columns.find((c) =>
+      c.name?.toLowerCase().includes("status"),
+    );
+    const rowStatus = statusColumn?.rows?.[rowIndex]?.name?.trim() || "";
+
+    const key = `global_${rowIndex}`;
+    setAddingTaskKey(key);
+
+    try {
+      const boardIdNum = parseInt(String(boardId), 10);
+      const groupIdNum = parseInt(String(groupId), 10);
+      const orgIdNum = parseInt(String(organizationId), 10);
+
+      const defaultStatusId = resolveStatusId(rowStatus);
+      const defaultPriorityId =
+        priorities && priorities.length > 0
+          ? parseInt(priorities[0].id, 10)
+          : undefined;
+
+      const payload: CreateTaskRequest = {
+        group_id: groupIdNum,
+        organization_id: orgIdNum,
+        name: taskName,
+        description,
+        board_id: boardIdNum,
+        parent_id: null,
+        status_id: defaultStatusId,
+        task_priority_id: defaultPriorityId,
+      };
+
+      const res = await tasksApi.createTask(payload);
+
+      const matchedStatusName =
+        res.status_label ||
+        statuses?.find((s) => String(s.id) === String(defaultStatusId))?.name ||
+        "Need a Meeting";
+
+      const newTask: Task = {
+        id: String(res.id),
+        name: res.name,
+        description: res.description,
+        status: matchedStatusName,
+        status_id: String(res.status_id || defaultStatusId),
+        priority: res.priority_label,
+        priority_id: String(res.task_priority_id || defaultPriorityId),
+        estimatedDate: res.due_date || "-",
+        person:
+          res.assignee?.name ||
+          (res.assignees && res.assignees.length > 0
+            ? res.assignees[0].name
+            : undefined),
+        assigned_to_id:
+          res.assignee?.id ||
+          (res.assignees && res.assignees.length > 0
+            ? String(res.assignees[0].user_id)
+            : undefined),
+        assigned_to_ids: res.assignees?.map((a) => String(a.user_id)),
+        timeSpent: `${res.time_spent_hours || 0}h`,
+        group_id: String(res.group_id),
+        subitems: [],
+        assignee_names:
+          res.assignees?.map((a) => a.name || a.username || "") ||
+          (res.assignee?.name ? [res.assignee.name] : []),
+      };
+
+      onTaskCreated?.(newTask);
+      toast.success(
+        `Task "${taskName}" added to main page with status "${matchedStatusName}"!`,
+      );
+    } catch (err: any) {
+      console.error("Failed to create task from tracking layout:", err);
+      const errMsg =
+        err.response?.data?.message || err.message || "Failed to create task";
+      toast.error(errMsg);
+    } finally {
+      setAddingTaskKey(null);
+    }
   };
 
   const [draggedColId, setDraggedColId] = useState<string | null>(null);
@@ -868,7 +1098,6 @@ export function TrackingLayoutBuilderModal({
             } else if (status === "pending") {
               pendingCount++;
             } else {
-              // this captures "in progress", "not added", AND empty "" strings
               inProgressCount++;
             }
           }
@@ -900,7 +1129,6 @@ export function TrackingLayoutBuilderModal({
         : "bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 text-sm";
     }
 
-    // Explicitly require ALL actionable tracking rows to be exclusively marked "done"
     if (doneCount === totalActionable) {
       return isActive
         ? "bg-green-500/20 text-green-600 dark:bg-green-500/30 dark:text-green-400 font-medium"
@@ -979,47 +1207,88 @@ export function TrackingLayoutBuilderModal({
                   </Button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                  {tabs.map((tab) => (
-                    <div
-                      key={tab.id}
-                      className={`flex items-center gap-2 p-2 rounded-md cursor-pointer group transition-colors ${getTabStatusStyle(tab, activeTabId === tab.id)}`}
-                      onClick={() => setActiveTabId(tab.id)}
-                    >
-                      <Layout className="h-4 w-4 shrink-0" />
-                      <Input
-                        value={tab.name}
-                        onChange={(e) => {
-                          setTabs((prev) =>
-                            prev.map((t) =>
-                              t.id === tab.id
-                                ? { ...t, name: e.target.value }
-                                : t,
-                            ),
-                          );
-                        }}
-                        className="h-7 text-xs bg-transparent border-none focus-visible:ring-1 px-1 -ml-1"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeTab(tab.id);
+                  {tabs.map((tab) => {
+                    const isEditing = editingTabId === tab.id;
+                    const isActive = activeTabId === tab.id;
+
+                    return (
+                      <div
+                        key={tab.id}
+                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer group transition-colors ${getTabStatusStyle(tab, isActive)}`}
+                        onClick={() => {
+                          if (!isEditing) {
+                            setActiveTabId(tab.id);
+                          }
                         }}
                       >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                        <Layout className="h-4 w-4 shrink-0" />
+                        {isEditing ? (
+                          <div
+                            className="flex-1 flex items-center gap-1 min-w-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Input
+                              value={tempTabName}
+                              onChange={(e) => setTempTabName(e.target.value)}
+                              onBlur={() => handleSaveTabName(tab.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  handleSaveTabName(tab.id);
+                                } else if (e.key === "Escape") {
+                                  setEditingTabId(null);
+                                }
+                              }}
+                              autoFocus
+                              className="h-6 text-xs bg-background border px-1.5 py-0.5 rounded shadow-sm focus-visible:ring-1"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0 text-primary hover:bg-primary/10"
+                              title="Save name"
+                              onClick={() => handleSaveTabName(tab.id)}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="flex-1 text-xs truncate select-none font-medium text-left">
+                              {tab.name}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent"
+                              title="Edit tab name"
+                              onClick={(e) => handleStartEditingTab(tab, e)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 text-destructive hover:bg-destructive/10"
+                              title="Delete tab"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeTab(tab.id);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="flex-1 overflow-x-auto overflow-y-hidden bg-background">
+              <div className="flex-1 overflow-auto bg-background">
                 {activeTab ? (
-                  <div className="h-full flex flex-col p-4">
-                    <div className="flex items-center justify-between mb-4 shrink-0">
+                  <div className="p-4 flex flex-col gap-4 min-h-full">
+                    <div className="flex items-center justify-between shrink-0">
                       <h3 className="font-semibold text-lg">
                         {activeTab.name} Dashboard
                       </h3>
@@ -1072,19 +1341,19 @@ export function TrackingLayoutBuilderModal({
                       </div>
                     </div>
 
-                    <div className="flex-1 overflow-x-auto overflow-y-hidden flex items-stretch gap-4 pb-4">
+                    <div className="flex items-start gap-4">
                       {/* GLOBAL ROW ACTIONS GUTTER */}
                       {activeTab.columns &&
                         activeTab.columns.length > 0 &&
                         activeTab.columns[0].rows &&
                         activeTab.columns[0].rows.length > 0 && (
-                          <div className="w-8 shrink-0 flex flex-col bg-transparent">
+                          <div className="w-16 shrink-0 flex flex-col bg-transparent">
                             {/* Header spacer to match the exact 57px of the column headers */}
                             <div className="p-3 border-b border-transparent flex items-center justify-center invisible">
                               <div className="h-8 w-full" />
                             </div>
-                            {/* Rows spacer */}
-                            <div className="flex-1 overflow-y-auto p-3 space-y-3 px-0 flex flex-col items-center">
+                            {/* Rows */}
+                            <div className="p-3 space-y-3 px-0 flex flex-col items-center">
                               {Array.from({
                                 length: Math.max(
                                   ...activeTab.columns.map(
@@ -1104,13 +1373,35 @@ export function TrackingLayoutBuilderModal({
                                 }
                                 return (
                                   <div
-                                    key={`global_del_${rowIndex}`}
-                                    className="h-[46px] w-full flex items-center justify-center group/globalrow opacity-60 hover:opacity-100 transition-opacity"
+                                    key={`global_row_actions_${rowIndex}`}
+                                    className="h-[46px] w-full flex items-center justify-center gap-1 group/globalrow opacity-60 hover:opacity-100 transition-opacity"
                                   >
                                     <Button
                                       size="icon"
                                       variant="ghost"
-                                      className="h-7 w-7 text-destructive shrink-0 ml-1 hover:bg-destructive/10"
+                                      className="h-7 w-7 text-primary shrink-0 hover:bg-primary/10"
+                                      title="Add row as task to main page"
+                                      onClick={() =>
+                                        handleAddTaskFromGlobalRow(
+                                          activeTab.id,
+                                          rowIndex,
+                                        )
+                                      }
+                                      disabled={
+                                        addingTaskKey === `global_${rowIndex}`
+                                      }
+                                    >
+                                      {addingTaskKey ===
+                                        `global_${rowIndex}` ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <Plus className="h-3.5 w-3.5" />
+                                      )}
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-7 w-7 text-destructive shrink-0 hover:bg-destructive/10"
                                       title="Delete row from all columns"
                                       onClick={() =>
                                         removeGlobalRow(activeTab.id, rowIndex)
@@ -1163,7 +1454,7 @@ export function TrackingLayoutBuilderModal({
                             </Button>
                           </div>
 
-                          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                          <div className="p-3 space-y-3 flex-1 flex flex-col">
                             {!col.rows || col.rows.length === 0 ? (
                               <div className="border border-dashed rounded-md flex flex-col items-center justify-center text-muted-foreground p-6 bg-muted/10 h-32">
                                 <span className="text-xs mb-3">
@@ -1173,7 +1464,7 @@ export function TrackingLayoutBuilderModal({
                                   size="sm"
                                   variant="secondary"
                                   className="h-7 text-xs"
-                                  onClick={() => addRow(activeTab.id, col.id)}
+                                  onClick={() => addRow(activeTab.id)}
                                 >
                                   Add Row
                                 </Button>
@@ -1197,7 +1488,7 @@ export function TrackingLayoutBuilderModal({
                                       key={row.id}
                                       className="border rounded-md bg-background p-2 flex flex-col relative group/row transition-all shadow-sm"
                                     >
-                                      <div className="flex items-center justify-between gap-2">
+                                      <div className="flex items-center justify-between gap-1.5">
                                         {col.name
                                           ?.toLowerCase()
                                           .includes("status") ? (
@@ -1259,11 +1550,13 @@ export function TrackingLayoutBuilderModal({
                                           size="icon"
                                           variant="ghost"
                                           className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0"
+                                          title="Delete row"
                                           onClick={() =>
                                             removeRow(
                                               activeTab.id,
                                               col.id,
                                               row.id,
+                                              rowIndex,
                                             )
                                           }
                                         >
@@ -1275,7 +1568,7 @@ export function TrackingLayoutBuilderModal({
                                 })}
 
                                 <button
-                                  onClick={() => addRow(activeTab.id, col.id)}
+                                  onClick={() => addRow(activeTab.id)}
                                   className="w-full h-[46px] border border-dashed border-border rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/30 hover:border-primary/40 hover:text-primary transition-all bg-card/10 shadow-sm"
                                   title="Add a new row"
                                 >
@@ -1289,18 +1582,18 @@ export function TrackingLayoutBuilderModal({
 
                       {(!activeTab.columns ||
                         activeTab.columns.length === 0) && (
-                        <div className="w-full flex-1 border border-dashed rounded-xl p-12 flex flex-col items-center justify-center text-muted-foreground mr-1 mb-1">
-                          <Layout className="h-10 w-10 mb-4 opacity-30" />
-                          <p className="mb-4">
-                            This dashboard has no columns yet
-                          </p>
-                          <div className="flex items-center justify-center">
-                            <Button onClick={() => addColumn(activeTab.id)}>
-                              Add First Column
-                            </Button>
+                          <div className="w-full flex-1 border border-dashed rounded-xl p-12 flex flex-col items-center justify-center text-muted-foreground mr-1 mb-1">
+                            <Layout className="h-10 w-10 mb-4 opacity-30" />
+                            <p className="mb-4">
+                              This dashboard has no columns yet
+                            </p>
+                            <div className="flex items-center justify-center">
+                              <Button onClick={() => addColumn(activeTab.id)}>
+                                Add First Column
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
                   </div>
                 ) : (

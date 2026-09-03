@@ -31,6 +31,8 @@ export function RatingStars({
 }: RatingStarsProps) {
   const [hoveredRating, setHoveredRating] = useState(0);
 
+  const isReviewPending = isDone && (!rating || rating === 0);
+
   const handleRatingClick = (ratingValue: number) => {
     if (!hasAssignee) {
       toast.error("Please assign a person before rating");
@@ -63,7 +65,7 @@ export function RatingStars({
     >
       <PopoverTrigger asChild>
         <button
-          className={`w-full h-8 flex items-center justify-center gap-1 ${
+          className={`relative w-full h-8 flex items-center justify-center gap-1 rounded transition-colors ${
             !hasAssignee || !isDone ? "opacity-50 cursor-not-allowed" : ""
           }`}
           aria-label={`Rating ${rating}${
@@ -77,20 +79,58 @@ export function RatingStars({
               ? "Assign a person first"
               : !isDone
                 ? "Task must be marked as Done"
-                : ratingCount
-                  ? `${ratingCount} rating${ratingCount !== 1 ? "s" : ""}`
-                  : "No ratings"
+                : isReviewPending
+                  ? "Task completed! Click to give review & rating"
+                  : ratingCount
+                    ? `${ratingCount} rating${ratingCount !== 1 ? "s" : ""}`
+                    : "No ratings"
           }
           disabled={!hasAssignee || !isDone}
         >
+          {isReviewPending && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none rounded overflow-visible"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              {/* Base single solid border */}
+              <rect
+                x="1"
+                y="1"
+                width="calc(100% - 2px)"
+                height="calc(100% - 2px)"
+                rx="4"
+                ry="4"
+                fill="none"
+                stroke="rgba(245, 158, 11, 0.35)"
+                strokeWidth="1.5"
+              />
+              {/* Single running shade traveling around the border */}
+              <rect
+                x="1"
+                y="1"
+                width="calc(100% - 2px)"
+                height="calc(100% - 2px)"
+                rx="4"
+                ry="4"
+                fill="none"
+                stroke="#f59e0b"
+                strokeWidth="1.5"
+                pathLength="100"
+                strokeDasharray="15 85"
+                style={{
+                  animation: "runningShadeAnim 4s linear infinite",
+                }}
+              />
+            </svg>
+          )}
           {[1, 2, 3, 4, 5].map((i) => (
             <svg
               key={i}
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              className={`h-4 w-4 ${
-                i <= rating ? "text-yellow-400" : "text-muted-foreground"
+              className={`h-4 w-4 relative z-10 ${
+                i <= rating ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground"
               }`}
             >
               <path
@@ -123,7 +163,7 @@ export function RatingStars({
                   xmlns="http://www.w3.org/2000/svg"
                   className={`h-6 w-6 transition-colors ${
                     i <= (hoveredRating || rating)
-                      ? "text-yellow-400"
+                      ? "text-yellow-400 fill-yellow-400"
                       : "text-muted-foreground"
                   }`}
                 >

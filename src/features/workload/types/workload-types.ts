@@ -96,6 +96,7 @@ export interface TaskFilters {
   priorities: Set<string>;
   labels: Set<string>;
   groups: Set<string>;
+  commentDateFilter: string | null;
 }
 
 /**

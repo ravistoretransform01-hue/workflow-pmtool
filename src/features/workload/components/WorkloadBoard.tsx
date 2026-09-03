@@ -21,6 +21,7 @@ import { cmsApi } from "@/features/cms/api/cmsApi";
 // import { boardsApi } from "@/features/boards/api/boardsApi";
 import {
   getCMSData,
+  getMembers,
   clearCMSCache,
   getUserColumnsFromCache,
 } from "@/features/cms/services/cmsStorage";
@@ -45,6 +46,8 @@ import {
   Pencil,
   FolderSymlink,
   Calendar as CalendarIcon,
+  X,
+  Award,
 } from "lucide-react";
 import { cn, getCurrentUserId, copyToClipboard } from "@/utils/utils";
 import { sortBy } from "@/utils/sorting";
@@ -202,6 +205,9 @@ export interface Task {
   rating?: number; // Display rating as average number (1-5)
   ratingCount?: number; // Number of ratings
   comment_count?: number;
+  updated_at?: string;
+  created_at?: string;
+  latest_comment_date?: string;
   ratings?: Array<{
     id: string;
     task_id?: string;
@@ -978,6 +984,32 @@ export function WorkloadBoard({
     },
     [trackingGroupId],
   );
+
+  const handleTaskCreatedFromTracking = useCallback(
+    (newTask: Task) => {
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => {
+          if (String(group.id) === String(newTask.group_id)) {
+            if (group.tasks.some((t) => String(t.id) === String(newTask.id))) {
+              return group;
+            }
+            return {
+              ...group,
+              tasks: [
+                ...group.tasks,
+                {
+                  ...newTask,
+                  label_id: groupLabels[String(newTask.group_id)],
+                },
+              ],
+            };
+          }
+          return group;
+        }),
+      );
+    },
+    [groupLabels],
+  );
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [addingItemToGroup, setAddingItemToGroup] = useState<string | null>(
     null,
@@ -995,6 +1027,67 @@ export function WorkloadBoard({
   const [loadedCommentsTaskId, setLoadedCommentsTaskId] = useState<
     string | null
   >(null);
+  
+  const [taskCommentsCache, setTaskCommentsCache] = useState<Record<string, TaskComment[]>>({});
+  const fetchedTasksForComments = useRef<Set<string>>(new Set());
+
+  // Fetch comments for date filtering when a date is selected
+  useEffect(() => {
+    const selectedDate = filterState.taskFilters.commentDateFilter;
+    if (!selectedDate) return;
+
+    const fetchCommentsForFilter = async () => {
+      const tasksToFetch: string[] = [];
+      
+      groups.forEach(group => {
+        group.tasks?.forEach(task => {
+          if ((task.comment_count || 0) > 0 && !fetchedTasksForComments.current.has(task.id)) {
+            tasksToFetch.push(task.id);
+            fetchedTasksForComments.current.add(task.id);
+          }
+          task.subitems?.forEach(sub => {
+            if ((sub.comment_count || 0) > 0 && !fetchedTasksForComments.current.has(sub.id)) {
+              tasksToFetch.push(sub.id);
+              fetchedTasksForComments.current.add(sub.id);
+            }
+          });
+        });
+      });
+
+      if (tasksToFetch.length === 0) return;
+
+      // Fetch in batches of 5 to avoid overwhelming the server
+      for (let i = 0; i < tasksToFetch.length; i += 5) {
+        const batch = tasksToFetch.slice(i, i + 5);
+        const results = await Promise.all(
+          batch.map(async (taskId) => {
+            try {
+              const response = await tasksApi.getComments(taskId, { mode: "threaded", per_page: 150 });
+              let comments = [];
+              if (Array.isArray(response)) {
+                comments = response;
+              } else if (response && Array.isArray(response.data)) {
+                comments = response.data;
+              }
+              return { taskId, comments };
+            } catch (err) {
+              return { taskId, comments: [] };
+            }
+          })
+        );
+        
+        setTaskCommentsCache(prev => {
+          const next = { ...prev };
+          results.forEach(res => {
+            next[res.taskId] = res.comments;
+          });
+          return next;
+        });
+      }
+    };
+
+    fetchCommentsForFilter();
+  }, [filterState.taskFilters.commentDateFilter, groups]);
 
   // Timer conflict dialog state
   const [timerConflictDialogOpen, setTimerConflictDialogOpen] = useState(false);
@@ -1006,6 +1099,19 @@ export function WorkloadBoard({
   const [members, setMembers] = useState<any[]>([]);
   const [labels, setLabels] = useState<any[]>([]);
   const [tags, setTags] = useState<any[]>([]);
+
+  // Search state for filters
+  const [personSearch, setPersonSearch] = useState("");
+  const [statusSearch, setStatusSearch] = useState("");
+  const [prioritySearch, setPrioritySearch] = useState("");
+  const [labelSearch, setLabelSearch] = useState("");
+  const [groupSearch, setGroupSearch] = useState("");
+
+  const filteredMembers = (members || []).filter(m => (m?.name || "").toLowerCase().includes(personSearch.toLowerCase()));
+  const filteredStatuses = (statuses || []).filter(s => (s?.name || "").toLowerCase().includes(statusSearch.toLowerCase()));
+  const filteredPriorities = (priorities || []).filter(p => (p?.name || "").toLowerCase().includes(prioritySearch.toLowerCase()));
+  const filteredLabels = (labels || []).filter(l => (l?.label_name || "").toLowerCase().includes(labelSearch.toLowerCase()));
+  const filteredGroups = (groups || []).filter(g => (g?.name || "").toLowerCase().includes(groupSearch.toLowerCase()));
 
   // Color picker popover states
   const [editGroupColorPickerOpen, setEditGroupColorPickerOpen] =
@@ -1387,7 +1493,13 @@ export function WorkloadBoard({
         );
 
         setPriorities(sortedPriorities);
-        setMembers(cmsData.members || []);
+        const membersWithGroups = await getMembers({
+          organization_id: organizationIdNum,
+          board_id: boardIdNum,
+          user_id: userId,
+          forceRefresh: false,
+        });
+        setMembers(membersWithGroups || []);
         setLabels(cmsData.labels || []);
         setTags(cmsData.tags || []);
 
@@ -2042,28 +2154,70 @@ export function WorkloadBoard({
 
           switch (columnId) {
             case "item":
-              valA = a.name?.toLowerCase() || "";
-              valB = b.name?.toLowerCase() || "";
+              valA = (a.name || "").trim().toLowerCase();
+              valB = (b.name || "").trim().toLowerCase();
               break;
-            case "status":
-              valA = a.status || "";
-              valB = b.status || "";
+            case "status": {
+              const statusA = statuses.find(
+                (s) =>
+                  (a.status_id && String(s.id) === String(a.status_id)) ||
+                  (a.status &&
+                    s.name?.trim().toLowerCase() ===
+                      a.status.trim().toLowerCase()),
+              );
+              const statusB = statuses.find(
+                (s) =>
+                  (b.status_id && String(s.id) === String(b.status_id)) ||
+                  (b.status &&
+                    s.name?.trim().toLowerCase() ===
+                      b.status.trim().toLowerCase()),
+              );
+              valA = (statusA?.name || a.status || "").trim().toLowerCase();
+              valB = (statusB?.name || b.status || "").trim().toLowerCase();
               break;
-            case "priority":
-              valA = a.priority || "";
-              valB = b.priority || "";
+            }
+            case "priority": {
+              const priorityA = priorities.find(
+                (p) =>
+                  (a.priority_id && String(p.id) === String(a.priority_id)) ||
+                  (a.priority &&
+                    p.name?.trim().toLowerCase() ===
+                      a.priority.trim().toLowerCase()),
+              );
+              const priorityB = priorities.find(
+                (p) =>
+                  (b.priority_id && String(p.id) === String(b.priority_id)) ||
+                  (b.priority &&
+                    p.name?.trim().toLowerCase() ===
+                      b.priority.trim().toLowerCase()),
+              );
+              valA = (priorityA?.name || a.priority || "").trim().toLowerCase();
+              valB = (priorityB?.name || b.priority || "").trim().toLowerCase();
               break;
+            }
             case "person":
-              valA = a.person || "";
-              valB = b.person || "";
+              valA = (
+                a.person ||
+                (a.assignee_names && a.assignee_names[0]) ||
+                ""
+              )
+                .trim()
+                .toLowerCase();
+              valB = (
+                b.person ||
+                (b.assignee_names && b.assignee_names[0]) ||
+                ""
+              )
+                .trim()
+                .toLowerCase();
               break;
             case "rating":
-              valA = a.rating || 0;
-              valB = b.rating || 0;
+              valA = Number(a.rating) || 0;
+              valB = Number(b.rating) || 0;
               break;
             case "estimatedDate":
-              valA = a.estimatedDate || "";
-              valB = b.estimatedDate || "";
+              valA = a.estimatedDateRaw || a.estimatedDate || "";
+              valB = b.estimatedDateRaw || b.estimatedDate || "";
               break;
             case "estimatedTime":
               valA = Number(a.estimatedHours) || 0;
@@ -2073,6 +2227,8 @@ export function WorkloadBoard({
               return 0;
           }
 
+          if (!valA && valB) return 1;
+          if (valA && !valB) return -1;
           if (valA < valB) return direction === "asc" ? -1 : 1;
           if (valA > valB) return direction === "asc" ? 1 : -1;
           return 0;
@@ -3587,11 +3743,25 @@ export function WorkloadBoard({
         taskState.clearCheckedTasks();
       }
 
+      const targetStatus = statuses.find((s) => String(s.id) === String(statusId));
+      const isMovedToDone =
+        targetStatus?.name?.trim().toLowerCase() === "done" ||
+        targetStatus?.name?.trim().toLowerCase() === "completed";
+
       toast.success(
         tasksToUpdate.length > 1
           ? `${tasksToUpdate.length} Tasks Status Updated Successfully`
           : "Status Updated Successfully",
       );
+
+      if (isMovedToDone) {
+        toast.success("Notification email sent to assigned members ✉️", {
+          duration: 4000,
+        });
+        toast.info("Task completed! Please provide a review and rating ⭐", {
+          duration: 4000,
+        });
+      }
 
       // Refresh task data from the server to ensure consistency
       try {
@@ -4077,6 +4247,101 @@ export function WorkloadBoard({
                   return false;
               }
 
+              // Check comment date filter
+              if (filterState.taskFilters.commentDateFilter) {
+                const selectedDate = filterState.taskFilters.commentDateFilter;
+                let hasCommentOnDate = false;
+                
+                // 1. Check local cache if we fetched comments for this task
+                if (taskCommentsCache[item.id] && taskCommentsCache[item.id].length > 0) {
+                  const ddMMyyyy = selectedDate.split("-").reverse().join("-");
+                  
+                  const checkCommentDate = (comment: any): boolean => {
+                    const cDate = comment.updated_at || comment.created_at;
+                    if (!cDate) return false;
+
+                    // 1. Direct string match (handles pre-formatted dates and DD-MM-YYYY)
+                    if (cDate.includes(selectedDate) || cDate.includes(ddMMyyyy)) {
+                      return true;
+                    }
+
+                    // 2. Parsed Date match (handles UTC timezone shifts)
+                    try {
+                      // Only parse if it's YYYY-MM-DD
+                      if (cDate.match(/^\d{4}-\d{2}-\d{2}/)) {
+                        // Normalize format to ISO string (e.g. "2026-08-28 22:24:00" -> "2026-08-28T22:24:00Z")
+                        // so Javascript correctly interprets it as UTC rather than Local time.
+                        let isoStr = cDate;
+                        if (!isoStr.includes('T') && isoStr.includes(' ')) {
+                          isoStr = isoStr.replace(' ', 'T');
+                        }
+                        if (isoStr.includes('T') && !isoStr.endsWith('Z')) {
+                          isoStr += 'Z';
+                        }
+                        
+                        const d = new Date(isoStr); // Parsed as UTC
+                        const d2 = new Date(cDate); // Parsed natively
+                        
+                        // Check both interpretations just to be absolutely certain
+                        for (const dateObj of [d, d2]) {
+                          if (!isNaN(dateObj.getTime())) {
+                            const year = dateObj.getFullYear();
+                            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                            const day = String(dateObj.getDate()).padStart(2, '0');
+                            if (`${year}-${month}-${day}` === selectedDate) return true;
+                          }
+                        }
+                      }
+                    } catch (e) {}
+
+                    if (comment.children && Array.isArray(comment.children)) {
+                      return comment.children.some(checkCommentDate);
+                    }
+                    return false;
+                  };
+
+                  hasCommentOnDate = taskCommentsCache[item.id].some(checkCommentDate);
+                }
+                
+                // 2. Fallbacks if cache hasn't loaded yet or task has no comments fetched
+                if (!hasCommentOnDate) {
+                  if (item.comments && Array.isArray(item.comments)) {
+                    hasCommentOnDate = item.comments.some((comment: any) => 
+                      comment.created_at && comment.created_at.startsWith(selectedDate)
+                    );
+                  } 
+                  else if (item.comment_dates && Array.isArray(item.comment_dates)) {
+                    hasCommentOnDate = item.comment_dates.some((dateStr: string) => dateStr.startsWith(selectedDate));
+                  } 
+                  else if (item.latest_comment_date && typeof item.latest_comment_date === 'string') {
+                    hasCommentOnDate = item.latest_comment_date.startsWith(selectedDate);
+                  }
+                  else if (item.updated_at && typeof item.updated_at === 'string') {
+                    // Our previous proxy logic
+                    try {
+                      const itemDate = new Date(item.updated_at);
+                      if (!isNaN(itemDate.getTime())) {
+                        const year = itemDate.getFullYear();
+                        const month = String(itemDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(itemDate.getDate()).padStart(2, '0');
+                        const itemDateStr = `${year}-${month}-${day}`;
+                        if (itemDateStr === selectedDate) {
+                          hasCommentOnDate = true;
+                        } else {
+                          hasCommentOnDate = item.updated_at.startsWith(selectedDate) || item.updated_at.includes(selectedDate.split("-").reverse().join("-"));
+                        }
+                      } else {
+                        hasCommentOnDate = item.updated_at.startsWith(selectedDate) || item.updated_at.includes(selectedDate.split("-").reverse().join("-"));
+                      }
+                    } catch (e) {
+                      hasCommentOnDate = item.updated_at.startsWith(selectedDate);
+                    }
+                  }
+                }
+                
+                if (!hasCommentOnDate) return false;
+              }
+
               // Note: Label filter is now at group level so we don't check item.label_id here
               return true;
             };
@@ -4128,6 +4393,7 @@ export function WorkloadBoard({
                 filterState.taskFilters.persons.size > 0 ||
                 filterState.taskFilters.statuses.size > 0 ||
                 filterState.taskFilters.priorities.size > 0 ||
+                !!filterState.taskFilters.commentDateFilter ||
                 filterState.showDoneItemsOnly;
 
               if (hasActiveFilters && matchingSubitems.length > 0) {
@@ -4158,6 +4424,7 @@ export function WorkloadBoard({
           filterState.taskFilters.priorities.size > 0 ||
           filterState.taskFilters.labels.size > 0 ||
           filterState.taskFilters.groups.size > 0 ||
+          !!filterState.taskFilters.commentDateFilter ||
           filterState.showDoneItemsOnly;
 
         // If filtering, only show groups with matching tasks or if the group name matches the query
@@ -4173,6 +4440,7 @@ export function WorkloadBoard({
               filterState.taskFilters.persons.size > 0 ||
               filterState.taskFilters.statuses.size > 0 ||
               filterState.taskFilters.priorities.size > 0 ||
+              filterState.taskFilters.commentDateFilter !== null ||
               filterState.showDoneItemsOnly;
 
             // If no other filters are active, show the group (even if empty)
@@ -4199,6 +4467,7 @@ export function WorkloadBoard({
     statuses,
     labels,
     groupLabels,
+    taskCommentsCache,
   ]);
 
   // Compatibility function to return groups (maintains existing usage)
@@ -4746,6 +5015,7 @@ export function WorkloadBoard({
       if (taskToUpdate) {
         updateTaskInGroups(selectedCommentsId, {
           comment_count: (taskToUpdate.comment_count || 0) + 1,
+          updated_at: new Date().toISOString(),
         });
       }
 
@@ -6063,7 +6333,7 @@ export function WorkloadBoard({
                 <PopoverTrigger asChild>
                   <button
                     className={cn(
-                      "flex items-center px-3 py-1.5 gap-2 text-sm font-medium transition-all rounded-md cursor-pointer",
+                      "flex items-center px-3 py-1.5 gap-2 text-sm font-medium transition-all rounded-md cursor-pointer whitespace-nowrap",
                       filterState.taskFilters.persons.size > 0 ||
                         filterState.taskFilters.statuses.size > 0 ||
                         filterState.taskFilters.priorities.size > 0 ||
@@ -6115,292 +6385,427 @@ export function WorkloadBoard({
                   <div className="space-y-1 overflow-y-auto flex-1 p-2 scrollbar-hide">
                     {/* Person Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("persons")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      <div
+                        onClick={() => filterState.toggleFilterDropdown("persons")}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors cursor-pointer"
                       >
                         <span className="text-sm font-medium">Person</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.persons
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
+                        <div className="flex items-center gap-2">
+                          {filterState.taskFilters.persons.size > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  persons: new Set(),
+                                });
+                              }}
+                              className="text-xs text-muted-foreground hover:text-destructive z-10 px-1 rounded transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              filterState.openFilterDropdowns.persons
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
                       {filterState.openFilterDropdowns.persons && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {members.map((member) => (
-                            <label
-                              key={member.user_id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.persons.has(
-                                  String(member.user_id),
-                                )}
-                                onChange={(e) => {
-                                  const newPersons = new Set(
-                                    filterState.taskFilters.persons,
-                                  );
-                                  if (e.target.checked) {
-                                    newPersons.add(String(member.user_id));
-                                  } else {
-                                    newPersons.delete(String(member.user_id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    persons: newPersons,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <span className="flex-1 min-w-0 truncate">
-                                {member.name}
-                              </span>
-                            </label>
-                          ))}
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Search person..."
+                              value={personSearch}
+                              onChange={(e) => setPersonSearch(e.target.value)}
+                              className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                            {filteredMembers.map((member) => (
+                              <label
+                                key={member.user_id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filterState.taskFilters.persons.has(
+                                    String(member.user_id),
+                                  )}
+                                  onChange={(e) => {
+                                    const newPersons = new Set(
+                                      filterState.taskFilters.persons,
+                                    );
+                                    if (e.target.checked) {
+                                      newPersons.add(String(member.user_id));
+                                    } else {
+                                      newPersons.delete(String(member.user_id));
+                                    }
+                                    filterState.setTaskFilters({
+                                      ...filterState.taskFilters,
+                                      persons: newPersons,
+                                    });
+                                  }}
+                                  className="cursor-pointer"
+                                />
+                                <span className="flex-1 min-w-0 truncate">
+                                  {member.name}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
 
                     {/* Status Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("statuses")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      <div
+                        onClick={() => filterState.toggleFilterDropdown("statuses")}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors cursor-pointer"
                       >
                         <span className="text-sm font-medium">Status</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.statuses
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
+                        <div className="flex items-center gap-2">
+                          {filterState.taskFilters.statuses.size > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  statuses: new Set(),
+                                });
+                              }}
+                              className="text-xs text-muted-foreground hover:text-destructive z-10 px-1 rounded transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              filterState.openFilterDropdowns.statuses
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
                       {filterState.openFilterDropdowns.statuses && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {statuses.map((status) => (
-                            <label
-                              key={status.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.statuses.has(
-                                  String(status.id),
-                                )}
-                                onChange={(e) => {
-                                  const newStatuses = new Set(
-                                    filterState.taskFilters.statuses,
-                                  );
-                                  if (e.target.checked) {
-                                    newStatuses.add(String(status.id));
-                                  } else {
-                                    newStatuses.delete(String(status.id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    statuses: newStatuses,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{
-                                    backgroundColor: status.color_code,
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Search status..."
+                              value={statusSearch}
+                              onChange={(e) => setStatusSearch(e.target.value)}
+                              className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                            {filteredStatuses.map((status) => (
+                              <label
+                                key={status.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filterState.taskFilters.statuses.has(
+                                    String(status.id),
+                                  )}
+                                  onChange={(e) => {
+                                    const newStatuses = new Set(
+                                      filterState.taskFilters.statuses,
+                                    );
+                                    if (e.target.checked) {
+                                      newStatuses.add(String(status.id));
+                                    } else {
+                                      newStatuses.delete(String(status.id));
+                                    }
+                                    filterState.setTaskFilters({
+                                      ...filterState.taskFilters,
+                                      statuses: newStatuses,
+                                    });
                                   }}
+                                  className="cursor-pointer"
                                 />
-                                <span>{status.name}</span>
-                              </div>
-                            </label>
-                          ))}
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <div
+                                    className="w-3 h-3 rounded-full shrink-0"
+                                    style={{
+                                      backgroundColor: status.color_code,
+                                    }}
+                                  />
+                                  <span className="truncate">{status.name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
 
                     {/* Priority Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("priorities")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      <div
+                        onClick={() => filterState.toggleFilterDropdown("priorities")}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors cursor-pointer"
                       >
                         <span className="text-sm font-medium">Priority</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.priorities
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
+                        <div className="flex items-center gap-2">
+                          {filterState.taskFilters.priorities.size > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  priorities: new Set(),
+                                });
+                              }}
+                              className="text-xs text-muted-foreground hover:text-destructive z-10 px-1 rounded transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              filterState.openFilterDropdowns.priorities
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
                       {filterState.openFilterDropdowns.priorities && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {priorities.map((priority) => (
-                            <label
-                              key={priority.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.priorities.has(
-                                  String(priority.id),
-                                )}
-                                onChange={(e) => {
-                                  const newPriorities = new Set(
-                                    filterState.taskFilters.priorities,
-                                  );
-                                  if (e.target.checked) {
-                                    newPriorities.add(String(priority.id));
-                                  } else {
-                                    newPriorities.delete(String(priority.id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    priorities: newPriorities,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{
-                                    backgroundColor: priority.color_code,
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Search priority..."
+                              value={prioritySearch}
+                              onChange={(e) => setPrioritySearch(e.target.value)}
+                              className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                            {filteredPriorities.map((priority) => (
+                              <label
+                                key={priority.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filterState.taskFilters.priorities.has(
+                                    String(priority.id),
+                                  )}
+                                  onChange={(e) => {
+                                    const newPriorities = new Set(
+                                      filterState.taskFilters.priorities,
+                                    );
+                                    if (e.target.checked) {
+                                      newPriorities.add(String(priority.id));
+                                    } else {
+                                      newPriorities.delete(String(priority.id));
+                                    }
+                                    filterState.setTaskFilters({
+                                      ...filterState.taskFilters,
+                                      priorities: newPriorities,
+                                    });
                                   }}
+                                  className="cursor-pointer"
                                 />
-                                <span>{priority.name}</span>
-                              </div>
-                            </label>
-                          ))}
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <div
+                                    className="w-3 h-3 rounded-full shrink-0"
+                                    style={{
+                                      backgroundColor: priority.color_code,
+                                    }}
+                                  />
+                                  <span className="truncate">{priority.name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
 
                     {/* Label Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("labels")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      <div
+                        onClick={() => filterState.toggleFilterDropdown("labels")}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors cursor-pointer"
                       >
                         <span className="text-sm font-medium">Label</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.labels
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
+                        <div className="flex items-center gap-2">
+                          {filterState.taskFilters.labels.size > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  labels: new Set(),
+                                });
+                              }}
+                              className="text-xs text-muted-foreground hover:text-destructive z-10 px-1 rounded transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              filterState.openFilterDropdowns.labels
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
                       {filterState.openFilterDropdowns.labels && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {labels.map((label) => (
-                            <label
-                              key={label.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.labels.has(
-                                  String(label.id),
-                                )}
-                                onChange={(e) => {
-                                  const newLabels = new Set(
-                                    filterState.taskFilters.labels,
-                                  );
-                                  if (e.target.checked) {
-                                    newLabels.add(String(label.id));
-                                  } else {
-                                    newLabels.delete(String(label.id));
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    labels: newLabels,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{
-                                    backgroundColor: label.label_color,
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Search label..."
+                              value={labelSearch}
+                              onChange={(e) => setLabelSearch(e.target.value)}
+                              className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                            {filteredLabels.map((label) => (
+                              <label
+                                key={label.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filterState.taskFilters.labels.has(
+                                    String(label.id),
+                                  )}
+                                  onChange={(e) => {
+                                    const newLabels = new Set(
+                                      filterState.taskFilters.labels,
+                                    );
+                                    if (e.target.checked) {
+                                      newLabels.add(String(label.id));
+                                    } else {
+                                      newLabels.delete(String(label.id));
+                                    }
+                                    filterState.setTaskFilters({
+                                      ...filterState.taskFilters,
+                                      labels: newLabels,
+                                    });
                                   }}
+                                  className="cursor-pointer"
                                 />
-                                <span>{label.label_name}</span>
-                              </div>
-                            </label>
-                          ))}
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <div
+                                    className="w-3 h-3 rounded-full shrink-0"
+                                    style={{
+                                      backgroundColor: label.label_color,
+                                    }}
+                                  />
+                                  <span className="truncate">{label.label_name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
 
                     {/* Group Filter Dropdown */}
                     <div className="border border-primary/30 rounded-md bg-background">
-                      <button
-                        onClick={() =>
-                          filterState.toggleFilterDropdown("groups")
-                        }
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors"
+                      <div
+                        onClick={() => filterState.toggleFilterDropdown("groups")}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 transition-colors cursor-pointer"
                       >
                         <span className="text-sm font-medium">Group</span>
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            filterState.openFilterDropdowns.groups
-                              ? "rotate-180"
-                              : ""
-                          }`}
-                        />
-                      </button>
+                        <div className="flex items-center gap-2">
+                          {filterState.taskFilters.groups.size > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                filterState.setTaskFilters({
+                                  ...filterState.taskFilters,
+                                  groups: new Set(),
+                                });
+                              }}
+                              className="text-xs text-muted-foreground hover:text-destructive z-10 px-1 rounded transition-colors"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              filterState.openFilterDropdowns.groups
+                                ? "rotate-180"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
                       {filterState.openFilterDropdowns.groups && (
                         <div className="border-t border-primary/20 bg-primary/5 p-2 space-y-1">
-                          {groups.map((group) => (
-                            <label
-                              key={group.id}
-                              className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={filterState.taskFilters.groups.has(
-                                  group.id,
-                                )}
-                                onChange={(e) => {
-                                  const newGroups = new Set(
-                                    filterState.taskFilters.groups,
-                                  );
-                                  if (e.target.checked) {
-                                    newGroups.add(group.id);
-                                  } else {
-                                    newGroups.delete(group.id);
-                                  }
-                                  filterState.setTaskFilters({
-                                    ...filterState.taskFilters,
-                                    groups: newGroups,
-                                  });
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{ backgroundColor: group.color }}
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Search group..."
+                              value={groupSearch}
+                              onChange={(e) => setGroupSearch(e.target.value)}
+                              className="pl-7 h-7 text-xs bg-background/50 border-primary/20"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div className="max-h-40 overflow-y-auto scrollbar-hide space-y-1">
+                            {filteredGroups.map((group) => (
+                              <label
+                                key={group.id}
+                                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-primary/10 text-sm transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filterState.taskFilters.groups.has(
+                                    group.id,
+                                  )}
+                                  onChange={(e) => {
+                                    const newGroups = new Set(
+                                      filterState.taskFilters.groups,
+                                    );
+                                    if (e.target.checked) {
+                                      newGroups.add(group.id);
+                                    } else {
+                                      newGroups.delete(group.id);
+                                    }
+                                    filterState.setTaskFilters({
+                                      ...filterState.taskFilters,
+                                      groups: newGroups,
+                                    });
+                                  }}
+                                  className="cursor-pointer"
                                 />
-                                <span>{group.name}</span>
-                              </div>
-                            </label>
-                          ))}
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <div
+                                    className="w-3 h-3 rounded-full shrink-0"
+                                    style={{ backgroundColor: group.color }}
+                                  />
+                                  <span className="truncate">{group.name}</span>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -6411,7 +6816,8 @@ export function WorkloadBoard({
                     filterState.taskFilters.statuses.size > 0 ||
                     filterState.taskFilters.priorities.size > 0 ||
                     filterState.taskFilters.labels.size > 0 ||
-                    filterState.taskFilters.groups.size > 0) && (
+                    filterState.taskFilters.groups.size > 0 ||
+                    !!filterState.taskFilters.commentDateFilter) && (
                     <div className="border-t border-primary/20 bg-primary/5 p-2 shrink-0">
                       <Button
                         variant="outline"
@@ -6432,7 +6838,7 @@ export function WorkloadBoard({
               {activeTab === "Main Table" && (
                 <button
                   disabled={!hasUnsavedChanges}
-                  className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   onClick={async () => {
                     try {
                       // Build the columns payload with labels and positions
@@ -6500,11 +6906,51 @@ export function WorkloadBoard({
                 </button>
               )}
 
+              {/* Comment Date Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer border rounded-md h-8 bg-background hover:bg-hover transition-colors whitespace-nowrap">
+                    <CalendarIcon className="h-4 w-4" />
+                    {filterState.taskFilters.commentDateFilter ? (
+                      <span>
+                        {format(parseISO(filterState.taskFilters.commentDateFilter), "MMM d, yyyy")}
+                      </span>
+                    ) : (
+                      <span>Date</span>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={
+                      filterState.taskFilters.commentDateFilter
+                        ? parseISO(filterState.taskFilters.commentDateFilter)
+                        : undefined
+                    }
+                    onSelect={(date) => {
+                      if (date) {
+                        // Add local timezone offset compensation
+                        const localDate = new Date(
+                          date.getTime() - date.getTimezoneOffset() * 60000
+                        );
+                        filterState.addFilter("commentDateFilter", localDate.toISOString().split("T")[0]);
+                      } else {
+                        filterState.removeFilter("commentDateFilter", "");
+                      }
+                    }}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+
               {/* Show/Hide Columns Popover */}
               {(activeTab === "Main Table" || activeTab === "List") && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer">
+                    <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer whitespace-nowrap">
                       <Eye className="h-4 w-4" />
                       Show/Hide
                     </button>
@@ -6604,6 +7050,28 @@ export function WorkloadBoard({
                   </PopoverContent>
                 </Popover>
               )}
+
+              {/* Global Clear Filters Button */}
+              <button
+                onClick={() => {
+                  filterState.clearFilters();
+                  setMainTableSearchQuery("");
+                }}
+                disabled={
+                  filterState.taskFilters.persons.size === 0 &&
+                  filterState.taskFilters.statuses.size === 0 &&
+                  filterState.taskFilters.priorities.size === 0 &&
+                  filterState.taskFilters.labels.size === 0 &&
+                  filterState.taskFilters.groups.size === 0 &&
+                  !filterState.taskFilters.commentDateFilter &&
+                  !mainTableSearchQuery.trim()
+                }
+                className="flex items-center px-3 gap-2 text-sm font-medium text-destructive disabled:opacity-30 disabled:hover:bg-transparent hover:bg-destructive/10 cursor-pointer disabled:cursor-not-allowed rounded transition-colors py-1 whitespace-nowrap"
+                title="Clear All Filters"
+              >
+                <X className="h-4 w-4" />
+                Clear Filters
+              </button>
             </div>
           </div>
         )}
@@ -6779,14 +7247,16 @@ export function WorkloadBoard({
                                 </button>
 
                                 <span
-                                  className="font-semibold text-lg text-primary"
+                                  className="font-semibold text-lg text-primary flex items-center gap-2"
                                   style={{
                                     color: group.color || "#3b82f6",
                                   }}
                                 >
-                                  {groupNames[group.id] || group.name}
-                                  {group.abbreviation &&
-                                    ` (${group.abbreviation})`}
+                                  <span>
+                                    {groupNames[group.id] || group.name}
+                                    {group.abbreviation &&
+                                      ` (${group.abbreviation})`}
+                                  </span>
                                 </span>
 
                                 {/* Label Chip (optional) */}
@@ -7165,6 +7635,24 @@ export function WorkloadBoard({
                                     </div>
                                   );
                                 })()}
+
+                                {/* Client Group Badge on the right side */}
+                                {members.some(
+                                  (m) =>
+                                    m.group_ids?.map(String).includes(String(group.id)) &&
+                                    (m.board_role_label?.toLowerCase() === "client" ||
+                                      (m as any).role?.toLowerCase() === "client" ||
+                                      (m as any).role_name?.toLowerCase() === "client" ||
+                                      m.role_id === "client" ||
+                                      String(m.role_id) === "client")
+                                ) && (
+                                  <span
+                                    className="ml-2 inline-flex items-center justify-center rounded-full bg-amber-100 p-1 ring-1 ring-inset ring-amber-600/20 shadow-sm shrink-0"
+                                    title="Client Group"
+                                  >
+                                    <Award className="h-4 w-4 text-amber-500" />
+                                  </span>
+                                )}
                               </div>
 
                               {/* Task Table */}
@@ -9302,6 +9790,7 @@ export function WorkloadBoard({
                     0,
                     (t.comment_count || 0) + incrementBy,
                   ),
+                  updated_at: new Date().toISOString(),
                 });
               }
             }}
@@ -9839,7 +10328,10 @@ export function WorkloadBoard({
           boardId={boardId}
           boardName={boardName}
           organizationId={getOrganizationId() || ""}
+          statuses={statuses}
+          priorities={priorities}
           onLayoutStatusChange={handleTrackingLayoutStatusChange}
+          onTaskCreated={handleTaskCreatedFromTracking}
         />
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/components/label";
@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/components/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2, LogIn } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/shared/ui/button";
 import { requestNotificationPermission } from "@/config/firebase";
@@ -18,24 +18,122 @@ import { authApi } from "@/features/auth/api/authApi";
 import { debugLog } from "@/utils/debugLog";
 import { appName } from "@/constants";
 
+import loginLogo from "@/assets/login-logo.png";
+import api from "@/config/axios";
+import { useDispatch } from "react-redux";
+import { switchOrganization } from "@/features/auth/services/authSlice";
+import { loginThunk } from "@/features/auth/services/authThunks";
+import type { AppDispatch } from "@/store";
+
+interface InvitationData {
+  email: string;
+  user_exists: boolean;
+  organization_id: number;
+  organization_name?: string;
+  board_id?: number;
+  board_name?: string;
+  role_id: number;
+  role_label?: string;
+  invited_by?: string;
+}
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, loading, error, isAuthenticated, clearAuthError } = useAuth();
+  const [searchParams] = useSearchParams();
+  const dispatch = useDispatch<AppDispatch>();
+  const { login, loading, error, isAuthenticated, user, clearAuthError } = useAuth();
+
+  const inviteToken = searchParams.get("token");
+  const redirectParam = searchParams.get("redirect");
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [invitationData, setInvitationData] = useState<InvitationData | null>(null);
+  const [isValidatingToken, setIsValidatingToken] = useState(false);
 
-  // Redirect to home if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate("/");
+  // Helper to compute target redirect URL after accepting invite / logging in
+  const getTargetRedirectUrl = (data?: InvitationData | null) => {
+    if (data?.board_id && data?.organization_id) {
+      return `/org/${data.organization_id}/board/${data.board_id}`;
     }
-  }, [isAuthenticated, navigate]);
+    if (data?.organization_id) {
+      return `/org/${data.organization_id}/home`;
+    }
+    if (redirectParam) {
+      return redirectParam;
+    }
+    return "/";
+  };
+
+  // Check invitation token if present
+  useEffect(() => {
+    if (inviteToken) {
+      const validateToken = async () => {
+        setIsValidatingToken(true);
+        try {
+          const response = await api.post(
+            "/validate-invitation-token",
+            { token: inviteToken },
+            { skipAuth: true },
+          );
+
+          if (response.data && response.data.code === 200) {
+            const data: InvitationData = response.data.data;
+            setInvitationData(data);
+
+            if (data.email) {
+              setUsername(data.email);
+            }
+
+            // If user doesn't exist yet, redirect to signup
+            if (!data.user_exists) {
+              navigate(`/signup?token=${inviteToken}`, { replace: true });
+              return;
+            }
+
+            // If user is ALREADY authenticated
+            if (isAuthenticated && user) {
+              // Accept invitation on backend
+              try {
+                await api.post("/accept-invitation", { token: inviteToken });
+              } catch (acceptErr) {
+                console.warn("accept-invitation error:", acceptErr);
+              }
+
+              if (data.organization_id && user.organization_id !== data.organization_id) {
+                dispatch(switchOrganization(data.organization_id));
+              }
+
+              const targetUrl = getTargetRedirectUrl(data);
+              toast.success("Welcome!", {
+                description: `You have joined ${data.board_name ? `board "${data.board_name}"` : data.organization_name || "the workspace"}.`,
+              });
+
+              navigate(targetUrl, { replace: true });
+            }
+          }
+        } catch (err) {
+          console.error("Login page invitation check error:", err);
+        } finally {
+          setIsValidatingToken(false);
+        }
+      };
+
+      validateToken();
+    }
+  }, [inviteToken, isAuthenticated, user, navigate, dispatch]);
+
+  // Redirect to home or target if already authenticated and no pending invite check
+  useEffect(() => {
+    if (isAuthenticated && !inviteToken) {
+      const target = redirectParam || "/";
+      navigate(target, { replace: true });
+    }
+  }, [isAuthenticated, inviteToken, redirectParam, navigate]);
 
   // Show error toast if login fails
   useEffect(() => {
     if (error) {
-      // Determine error title based on error message
       let title = "Login failed";
       let description = error;
 
@@ -57,7 +155,6 @@ const LoginPage = () => {
 
       toast.error(title, {
         description: description,
-        className: "bg-red-500 text-white",
       });
       clearAuthError();
     }
@@ -65,7 +162,6 @@ const LoginPage = () => {
 
   // Validation helper
   const validateForm = (): boolean => {
-    // Check if username is empty
     if (!username || username.trim() === "") {
       toast.error("Validation error", {
         description: "Username or email is required",
@@ -73,7 +169,6 @@ const LoginPage = () => {
       return false;
     }
 
-    // Check if username is valid email or has minimum length
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const isValidEmail = emailRegex.test(username);
     const isValidUsername = username.trim().length >= 3;
@@ -85,7 +180,6 @@ const LoginPage = () => {
       return false;
     }
 
-    // Check if password is empty
     if (!password || password.trim() === "") {
       toast.error("Validation error", {
         description: "Password is required",
@@ -93,7 +187,6 @@ const LoginPage = () => {
       return false;
     }
 
-    // Check if password has minimum length
     if (password.length < 6) {
       toast.error("Validation error", {
         description: "Password must be at least 6 characters",
@@ -107,7 +200,6 @@ const LoginPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate form
     if (!validateForm()) {
       return;
     }
@@ -117,11 +209,30 @@ const LoginPage = () => {
       password,
     });
 
-    if (result.type === "auth/login/fulfilled") {
+    if (loginThunk.fulfilled.match(result)) {
+      const loggedUser = result.payload.user;
       toast.success("Login Successful!", {
         description: "Welcome Back!",
       });
-      navigate("/");
+
+      // Accept invitation after login if token is present
+      if (inviteToken) {
+        try {
+          await api.post("/accept-invitation", { token: inviteToken });
+        } catch (acceptErr) {
+          console.warn("accept-invitation after login error:", acceptErr);
+        }
+      }
+
+      if (
+        invitationData?.organization_id &&
+        loggedUser.organization_id !== invitationData.organization_id
+      ) {
+        dispatch(switchOrganization(invitationData.organization_id));
+      }
+
+      const targetUrl = getTargetRedirectUrl(invitationData);
+      navigate(targetUrl, { replace: true });
 
       // Register FCM token in the background (non-blocking)
       requestNotificationPermission().then((token) => {
@@ -133,26 +244,78 @@ const LoginPage = () => {
     }
   };
 
+  if (isValidatingToken) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground">Checking invitation...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-full bg-gradient-dark flex items-center justify-center p-4 animate-fade-in">
-      <div className="w-full max-w-md space-y-8 animate-slide-up">
+      <div className="w-full max-w-md space-y-6 animate-slide-up">
         {/* Logo and Title */}
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-3">
+          <img src={loginLogo} alt={appName} className="mx-auto h-16 object-contain" />
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">
               {appName}
             </h1>
-            <p className="text-muted-foreground text-lg">
-              Welcome back! Sign in to continue
+            <p className="text-muted-foreground text-sm mt-1">
+              {invitationData
+                ? "Sign in to accept your invitation"
+                : "Welcome back! Sign in to continue"}
             </p>
           </div>
         </div>
 
+        {/* Invitation Info Banner */}
+        {invitationData && (
+          <div className="bg-primary/10 border border-primary/25 rounded-xl p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
+              <span className="text-sm font-semibold text-foreground">
+                You've been invited!
+              </span>
+              {invitationData.role_label && (
+                <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
+                  {invitationData.role_label}
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {invitationData.invited_by && (
+                <span>
+                  <strong>{invitationData.invited_by}</strong> invited you to join{" "}
+                </span>
+              )}
+              {invitationData.board_name ? (
+                <span>
+                  board <strong>{invitationData.board_name}</strong>
+                  {invitationData.organization_name
+                    ? ` in ${invitationData.organization_name}`
+                    : ""}
+                </span>
+              ) : (
+                <span>
+                  organization <strong>{invitationData.organization_name || "Workspace"}</strong>
+                </span>
+              )}
+              . Please enter your password to sign in.
+            </p>
+          </div>
+        )}
+
         {/* Login Card */}
         <Card className="shadow-card border-border bg-card">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-semibold">Sign In</CardTitle>
-            <CardDescription>
+          <CardHeader className="space-y-1 pb-4">
+            <CardTitle className="text-xl font-semibold">Sign In</CardTitle>
+            <CardDescription className="text-xs">
               Enter your credentials to access your account
             </CardDescription>
           </CardHeader>
@@ -167,34 +330,37 @@ const LoginPage = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
-                  disabled={loading}
-                  className="h-12 bg-background border-border"
+                  disabled={loading || (!!inviteToken && !!invitationData?.email)}
+                  className="h-11 bg-background border-border"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="h-12 bg-background border-border"
-                />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs text-primary hover:underline font-medium"
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={loading}
+                    className="h-11 bg-background border-border"
+                  />
+                </div>
               </div>
-              <div className="flex justify-end">
-                <Link
-                  to="/forgot-password"
-                  className="text-sm text-primary hover:underline font-medium"
-                >
-                  Forgot Password?
-                </Link>
-              </div>
+
               <Button
                 type="submit"
-                className="w-full h-12 text-base font-medium shadow-lg"
+                className="w-full h-11 text-base font-medium shadow-lg gap-2"
                 disabled={loading}
               >
                 {loading ? (
@@ -203,22 +369,27 @@ const LoginPage = () => {
                     Signing in...
                   </>
                 ) : (
-                  "Sign In"
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    {invitationData ? "Sign In & Join" : "Sign In"}
+                  </>
                 )}
               </Button>
             </form>
 
-            {/* <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <Link
-                  to="/signup"
-                  className="text-primary font-medium hover:underline"
-                >
-                  Create Account
-                </Link>
-              </p>
-            </div> */}
+            {inviteToken && (
+              <div className="mt-5 text-center">
+                <p className="text-xs text-muted-foreground">
+                  Need to create a new account?{" "}
+                  <Link
+                    to={`/signup?token=${inviteToken}`}
+                    className="text-primary font-medium hover:underline"
+                  >
+                    Create Account
+                  </Link>
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
