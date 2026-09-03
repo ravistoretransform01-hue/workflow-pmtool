@@ -92,3 +92,21 @@ export const isContentEmpty = (html: string) => {
 
   return true;
 };
+
+/**
+ * Helper to extract mentioned user IDs from Tiptap HTML content
+ */
+export const extractMentionedUserIds = (html: string): number[] => {
+  if (typeof window === "undefined" || !html) return [];
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const mentions = doc.querySelectorAll('[data-type="mention"]');
+    const ids = Array.from(mentions)
+      .map(el => parseInt(el.getAttribute("data-id") || "0", 10))
+      .filter(id => !isNaN(id) && id > 0);
+    return Array.from(new Set(ids));
+  } catch (error) {
+    console.error("Failed to extract mentions:", error);
+    return [];
+  }
+};
