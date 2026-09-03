@@ -179,7 +179,7 @@ export const groupsApi = {
   getTrackingLayout: async (groupId: string | number): Promise<any> => {
     try {
       const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-      const baseURL = isProd ? "https://www.workflowpm.com/wp-json/wp-platform/v1" : undefined;
+      const baseURL = isProd ? `${window.location.origin}/wp-json/wp-platform/v1` : undefined;
       
       const response = await api.get(`/group-tracking/?group_id=${groupId}`, { baseURL });
       return response.data?.data || response.data;
@@ -192,7 +192,7 @@ export const groupsApi = {
   saveTrackingLayout: async (payload: any): Promise<any> => {
     try {
       const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-      const baseURL = isProd ? "https://www.workflowpm.com/wp-json/wp-platform/v1" : undefined;
+      const baseURL = isProd ? `${window.location.origin}/wp-json/wp-platform/v1` : undefined;
 
       let response;
       if (payload.id) {
