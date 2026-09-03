@@ -4261,9 +4261,32 @@ export function WorkloadBoard({
                   
                   const checkCommentDate = (comment: any): boolean => {
                     const cDate = comment.updated_at || comment.created_at;
-                    if (cDate && (cDate.includes(selectedDate) || cDate.includes(ddMMyyyy))) {
+                    if (!cDate) return false;
+
+                    // 1. Direct string match (handles pre-formatted dates and DD-MM-YYYY)
+                    if (cDate.includes(selectedDate) || cDate.includes(ddMMyyyy)) {
                       return true;
                     }
+
+                    // 2. Parsed Date match (handles UTC timezone shifts, e.g., an ISO string from 9PM yesterday that is 3AM today locally)
+                    try {
+                      // Only parse if it's YYYY-MM-DD to avoid DD/MM vs MM/DD ambiguity
+                      if (cDate.match(/^\d{4}-\d{2}-\d{2}/)) {
+                        const d = new Date(cDate + (cDate.includes('T') && !cDate.endsWith('Z') ? 'Z' : '')); // Ensure UTC parsing if it's an ISO-like string from PHP
+                        const d2 = new Date(cDate);
+                        
+                        // Check both interpretations (local parse and UTC parse) just to be absolutely certain
+                        for (const dateObj of [d, d2]) {
+                          if (!isNaN(dateObj.getTime())) {
+                            const year = dateObj.getFullYear();
+                            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                            const day = String(dateObj.getDate()).padStart(2, '0');
+                            if (`${year}-${month}-${day}` === selectedDate) return true;
+                          }
+                        }
+                      }
+                    } catch (e) {}
+
                     if (comment.children && Array.isArray(comment.children)) {
                       return comment.children.some(checkCommentDate);
                     }
