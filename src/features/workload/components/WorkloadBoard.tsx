@@ -4257,15 +4257,20 @@ export function WorkloadBoard({
                 
                 // 1. Check local cache if we fetched comments for this task
                 if (taskCommentsCache[item.id] && taskCommentsCache[item.id].length > 0) {
-                  hasCommentOnDate = taskCommentsCache[item.id].some(comment => {
+                  const ddMMyyyy = selectedDate.split("-").reverse().join("-");
+                  
+                  const checkCommentDate = (comment: any): boolean => {
                     const cDate = comment.updated_at || comment.created_at;
-                    if (!cDate) return false;
-                    
-                    // Direct string matching is safest against timezone drift
-                    const ddMMyyyy = selectedDate.split("-").reverse().join("-");
-                    
-                    return cDate.includes(selectedDate) || cDate.includes(ddMMyyyy);
-                  });
+                    if (cDate && (cDate.includes(selectedDate) || cDate.includes(ddMMyyyy))) {
+                      return true;
+                    }
+                    if (comment.children && Array.isArray(comment.children)) {
+                      return comment.children.some(checkCommentDate);
+                    }
+                    return false;
+                  };
+
+                  hasCommentOnDate = taskCommentsCache[item.id].some(checkCommentDate);
                 }
                 
                 // 2. Fallbacks if cache hasn't loaded yet or task has no comments fetched
