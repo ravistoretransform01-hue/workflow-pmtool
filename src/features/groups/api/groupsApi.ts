@@ -178,11 +178,7 @@ export const groupsApi = {
    */
   getTrackingLayout: async (groupId: string | number): Promise<any> => {
     try {
-      const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-      const url = isProd ? `/wp-json/wp-platform/v1/group-tracking/?group_id=${groupId}` : `/group-tracking/?group_id=${groupId}`;
-      const baseURL = isProd ? "" : undefined;
-      
-      const response = await api.get(url, { baseURL });
+      const response = await api.get(`/group-tracking?group_id=${groupId}`);
       return response.data?.data || response.data;
     } catch (error) {
       console.error("Get tracking layout error:", error);
@@ -192,15 +188,11 @@ export const groupsApi = {
 
   saveTrackingLayout: async (payload: any): Promise<any> => {
     try {
-      const isProd = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-      const baseURL = isProd ? "" : undefined;
-      const basePath = isProd ? `/wp-json/wp-platform/v1/group-tracking` : `/group-tracking`;
-
       let response;
       if (payload.id) {
-        response = await api.put(`${basePath}/${payload.id}`, payload, { baseURL });
+        response = await api.put(`/group-tracking/${payload.id}`, payload);
       } else {
-        response = await api.post(`${basePath}/`, payload, { baseURL });
+        response = await api.post("/group-tracking", payload);
       }
       return response.data;
     } catch (error) {
