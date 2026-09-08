@@ -17,7 +17,10 @@ import {
   Upload,
   Pencil,
   Check,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
+import { cn } from "@/utils/utils";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/api/groupsApi";
 import { tasksApi } from "@/features/tasks/api/tasksApi";
@@ -82,6 +85,49 @@ export function TrackingLayoutBuilderModal({
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [tempTabName, setTempTabName] = useState<string>("");
   const [addingTaskKey, setAddingTaskKey] = useState<string | null>(null);
+  const [isFullScreen, setIsFullScreen] = useState<boolean>(() => {
+    try {
+      return (
+        sessionStorage.getItem(`tracking_fullscreen_${groupId}`) === "true"
+      );
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (!open) {
+      setIsFullScreen(false);
+      try {
+        sessionStorage.removeItem(`tracking_fullscreen_${groupId}`);
+      } catch {}
+    }
+  }, [open, groupId]);
+
+  useEffect(() => {
+    if (open && groupId) {
+      try {
+        sessionStorage.setItem(
+          `tracking_fullscreen_${groupId}`,
+          String(isFullScreen),
+        );
+      } catch {}
+    }
+  }, [isFullScreen, open, groupId]);
+
+  useEffect(() => {
+    if (activeTabId && tabs.length > 0 && groupId) {
+      const currentTab = tabs.find((t) => t.id === activeTabId);
+      if (currentTab?.name) {
+        try {
+          sessionStorage.setItem(
+            `tracking_active_tab_${groupId}`,
+            currentTab.name,
+          );
+        } catch {}
+      }
+    }
+  }, [activeTabId, tabs, groupId]);
 
   const handleStartEditingTab = (
     tab: TrackingLayoutTab,
@@ -584,7 +630,15 @@ export function TrackingLayoutBuilderModal({
               },
             );
             setTabs(parsedTabs);
-            if (parsedTabs.length > 0) setActiveTabId(parsedTabs[0].id);
+            if (parsedTabs.length > 0) {
+              const savedTabName = sessionStorage.getItem(
+                `tracking_active_tab_${groupId}`,
+              );
+              const matchedTab = parsedTabs.find(
+                (t: TrackingLayoutTab) => t.name === savedTabName,
+              );
+              setActiveTabId(matchedTab ? matchedTab.id : parsedTabs[0].id);
+            }
             setLoading(false);
             return;
           } else {
@@ -619,7 +673,15 @@ export function TrackingLayoutBuilderModal({
               },
             );
             setTabs(parsedTabs);
-            if (parsedTabs.length > 0) setActiveTabId(parsedTabs[0].id);
+            if (parsedTabs.length > 0) {
+              const savedTabName = sessionStorage.getItem(
+                `tracking_active_tab_${groupId}`,
+              );
+              const matchedTab = parsedTabs.find(
+                (t: TrackingLayoutTab) => t.name === savedTabName,
+              );
+              setActiveTabId(matchedTab ? matchedTab.id : parsedTabs[0].id);
+            }
             setLoading(false);
             return;
           }
@@ -1163,7 +1225,14 @@ export function TrackingLayoutBuilderModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[70vw] w-full h-[85vh] flex flex-col p-0">
+        <DialogContent
+          className={cn(
+            "w-full flex flex-col p-0 transition-all duration-200",
+            isFullScreen
+              ? "w-screen h-screen max-w-none sm:max-w-none max-h-screen rounded-none sm:rounded-none border-0"
+              : "max-w-[70vw] h-[85vh]",
+          )}
+        >
           <DialogHeader className="p-4 border-b">
             <DialogTitle className="flex items-center justify-between">
               <div>
@@ -1180,6 +1249,17 @@ export function TrackingLayoutBuilderModal({
                   ref={globalFileInputRef}
                   onChange={handleGlobalFileUpload}
                 />
+                <Button
+                  variant="outline"
+                  onClick={() => setIsFullScreen((prev) => !prev)}
+                >
+                  {isFullScreen ? (
+                    <Minimize2 className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4 mr-2" />
+                  )}
+                  {isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                </Button>
                 <Button variant="outline" onClick={handleGlobalExport}>
                   <Upload className="h-4 w-4 mr-2" />
                   Export Global

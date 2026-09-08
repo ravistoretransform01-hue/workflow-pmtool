@@ -849,6 +849,24 @@ export function WorkloadBoard({
         setSelectedCommentsId(null);
       }
     }
+
+    // Sync Tracking Modal State
+    const trackingFromUrl = searchParams.get("tracking");
+    if (trackingFromUrl) {
+      if (String(trackingGroupId) !== trackingFromUrl) {
+        setTrackingGroupId(trackingFromUrl);
+      }
+      if (!trackingModalOpen) {
+        setTrackingModalOpen(true);
+      }
+    } else {
+      if (trackingModalOpen) {
+        setTrackingModalOpen(false);
+      }
+      if (trackingGroupId) {
+        setTrackingGroupId(null);
+      }
+    }
   }, [searchParams, viewName, decodedViewName, boardId, activeTab]);
 
   // Handle horizontal scrolling on Teams board using wheel
@@ -959,17 +977,83 @@ export function WorkloadBoard({
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   // Tracking modal state
-  // @ts-ignore
-  const [trackingModalOpen, setTrackingModalOpen] = useState(false);
-  // @ts-ignore
+  const trackingParamFromUrl = searchParams.get("tracking");
+  const [trackingModalOpen, setTrackingModalOpen] = useState<boolean>(
+    Boolean(trackingParamFromUrl),
+  );
   const [trackingGroupId, setTrackingGroupId] = useState<
     string | number | null
-  >(null);
-  // @ts-ignore
-  const [trackingGroupName, setTrackingGroupName] = useState("");
+  >(trackingParamFromUrl || null);
+  const [trackingGroupName, setTrackingGroupName] = useState<string>(() => {
+    if (trackingParamFromUrl) {
+      try {
+        return (
+          sessionStorage.getItem(
+            `tracking_group_name_${trackingParamFromUrl}`,
+          ) || ""
+        );
+      } catch {
+        return "";
+      }
+    }
+    return "";
+  });
   const [trackingLayoutStatuses, setTrackingLayoutStatuses] = useState<
     Record<string, "default" | "pending" | "complete">
   >({});
+
+  // Sync group name for tracking modal once groups are loaded
+  useEffect(() => {
+    const trackingFromUrl = searchParams.get("tracking");
+    if (trackingFromUrl && groups.length > 0) {
+      const matchedGroup = groups.find(
+        (g) => String(g.id) === String(trackingFromUrl),
+      );
+      if (matchedGroup) {
+        const name = groupNames[matchedGroup.id] || matchedGroup.name;
+        setTrackingGroupName(name);
+        try {
+          sessionStorage.setItem(
+            `tracking_group_name_${trackingFromUrl}`,
+            name,
+          );
+        } catch {}
+      }
+    }
+  }, [searchParams, groups, groupNames]);
+
+  const openTrackingModal = useCallback(
+    (groupId: string | number, name: string) => {
+      setTrackingGroupId(groupId);
+      setTrackingGroupName(name);
+      setTrackingModalOpen(true);
+      try {
+        sessionStorage.setItem(`tracking_group_name_${groupId}`, name);
+      } catch {}
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tracking", String(groupId));
+          return next;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const closeTrackingModal = useCallback(() => {
+    setTrackingModalOpen(false);
+    setTrackingGroupId(null);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("tracking");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
   // Stable identity so the modal's status-sync effect doesn't re-fire on
   // every WorkloadBoard render, and skip the update entirely when the
   // status hasn't actually changed to avoid needless re-renders while
@@ -7551,11 +7635,10 @@ export function WorkloadBoard({
                                     variant="outline"
                                     size="sm"
                                     onClick={() => {
-                                      setTrackingGroupId(group.id);
-                                      setTrackingGroupName(
+                                      openTrackingModal(
+                                        group.id,
                                         groupNames[group.id] || group.name,
                                       );
-                                      setTrackingModalOpen(true);
                                     }}
                                     className={cn(
                                       "ml-2 h-7 px-2 text-xs",
@@ -10322,7 +10405,13 @@ export function WorkloadBoard({
       {trackingGroupId && (
         <TrackingLayoutBuilderModal
           open={trackingModalOpen}
-          onOpenChange={setTrackingModalOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              closeTrackingModal();
+            } else {
+              setTrackingModalOpen(true);
+            }
+          }}
           groupId={trackingGroupId}
           groupName={trackingGroupName}
           boardId={boardId}
