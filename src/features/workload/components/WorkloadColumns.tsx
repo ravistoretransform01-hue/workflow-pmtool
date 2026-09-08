@@ -72,6 +72,7 @@ interface ColumnDefinitionProps {
   ) => void;
   onTimerConflict?: (taskId: string) => void;
   onTimeUpdate?: (taskId: string, seconds: number) => void;
+  isDialog?: boolean;
 }
 
 // Local component removed, using shared TruncatedTaskName from ./TruncatedTaskName
@@ -112,6 +113,7 @@ export const getWorkloadColumns = ({
   onTimeUpdate,
   onTagToggle,
   checkedTasks,
+  isDialog = false,
 }: ColumnDefinitionProps): Column[] => {
   // Create lookup maps for statuses and priorities
   // Ensure keys are strings to match task.status_id (which is stored as string)
@@ -401,6 +403,7 @@ export const getWorkloadColumns = ({
 
         return (
           <RatingStars
+            key={task.id}
             task={task}
             rating={rating}
             ratingCount={ratingCount}
@@ -410,6 +413,7 @@ export const getWorkloadColumns = ({
             onRatingChange={onRatingChange}
             hasAssignee={hasAssignee}
             isDone={isDone}
+            isDialog={isDialog}
           />
         );
       },
