@@ -917,6 +917,7 @@ export function TrackingLayoutBuilderModal({
     }
 
     let taskName = "";
+    const firstCol = targetTab.columns[0];
     const nameCol = targetTab.columns.find((c) => {
       const colLower = (c.name || "").toLowerCase();
       return (
@@ -929,8 +930,9 @@ export function TrackingLayoutBuilderModal({
       );
     });
 
+    let mainTaskName = "";
     if (nameCol && nameCol.rows?.[rowIndex]?.name?.trim()) {
-      taskName = nameCol.rows[rowIndex].name!.trim();
+      mainTaskName = nameCol.rows[rowIndex].name!.trim();
     } else {
       const nonStatusCol = targetTab.columns.find(
         (c) =>
@@ -938,10 +940,22 @@ export function TrackingLayoutBuilderModal({
           c.rows?.[rowIndex]?.name?.trim(),
       );
       if (nonStatusCol && nonStatusCol.rows?.[rowIndex]?.name?.trim()) {
-        taskName = nonStatusCol.rows[rowIndex].name!.trim();
-      } else if (targetTab.columns[0]?.rows?.[rowIndex]?.name?.trim()) {
-        taskName = targetTab.columns[0].rows[rowIndex].name!.trim();
+        mainTaskName = nonStatusCol.rows[rowIndex].name!.trim();
+      } else if (firstCol?.rows?.[rowIndex]?.name?.trim()) {
+        mainTaskName = firstCol.rows[rowIndex].name!.trim();
       }
+    }
+
+    const firstColValue = firstCol?.rows?.[rowIndex]?.name?.trim();
+    if (
+      firstColValue &&
+      firstColValue !== mainTaskName &&
+      !firstCol?.name?.toLowerCase().includes("status") &&
+      !firstCol?.name?.toLowerCase().includes("desc")
+    ) {
+      taskName = `${firstColValue} - ${mainTaskName}`;
+    } else {
+      taskName = mainTaskName;
     }
 
     if (!taskName) {
