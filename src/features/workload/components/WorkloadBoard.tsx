@@ -6,7 +6,7 @@ import { format, parseISO } from "date-fns";
 // Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
 // const _loadedGroupsForBoard = new Set<string>();
 // const _loadedCMSForBoard = new Set<string>();
-import { useNavigate, useSearchParams, useParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/hooks";
 import type { RootState } from "@/store";
@@ -473,9 +473,10 @@ const SortableGroupCard = ({ group, children }: SortableGroupProps) => {
 
   return (
     <div
+      id={`group-${group.id}`}
       ref={setNodeRef}
       style={style}
-      className="mb-6"
+      className="mb-6 scroll-mt-4"
       role="group"
       aria-label={`Group: ${group.name}`}
     >
@@ -609,6 +610,7 @@ export function WorkloadBoard({
     viewName?: string;
   }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const refreshCounter = useAppSelector(
     (state: RootState) => state.ui.refreshCounter,
@@ -1021,6 +1023,63 @@ export function WorkloadBoard({
       }
     }
   }, [searchParams, groups, groupNames]);
+
+  // Auto-scroll to target group if specified in URL hash (e.g., #group-123)
+  useEffect(() => {
+    if (!location.hash || !location.hash.startsWith("#group-")) {
+      return;
+    }
+
+    const targetId = location.hash.slice(1);
+    const rawGroupId = targetId.replace("group-", "");
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 30; // Wait up to 3 seconds for async board data to finish loading
+
+    const checkAndScroll = () => {
+      if (cancelled) return;
+
+      const el = document.getElementById(targetId);
+      if (el) {
+        // Ensure group is expanded if collapsed
+        if (rawGroupId) {
+          setExpandedGroups((prev) => {
+            if (prev && prev[rawGroupId] === false) {
+              return { ...prev, [rawGroupId]: true };
+            }
+            return prev;
+          });
+        }
+
+        el.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+
+        // Subtle brief highlight to emphasize target group
+        el.classList.add(
+          "ring-2",
+          "ring-primary",
+          "ring-offset-2",
+          "transition-all",
+          "duration-500",
+        );
+        setTimeout(() => {
+          el.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+        }, 2000);
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(checkAndScroll, 100);
+      }
+    };
+
+    const timerId = setTimeout(checkAndScroll, 60);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+    };
+  }, [location.hash, boardId, activeTab, groups.length]);
 
   const openTrackingModal = useCallback(
     (groupId: string | number, name: string) => {

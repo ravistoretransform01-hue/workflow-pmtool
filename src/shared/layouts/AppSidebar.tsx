@@ -11,6 +11,9 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarMenuAction,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarSeparator,
   useSidebar,
 } from "@/shared/ui/sidebar";
@@ -44,11 +47,15 @@ import {
   Pencil,
   Trash2,
   ChevronsLeft,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useBoards } from "@/hooks/useBoards";
 import { boardsApi } from "@/features/boards/api/boardsApi";
+import { groupsApi } from "@/features/groups/api/groupsApi";
+import type { Group } from "@/features/groups/types/types";
 import { useAppSelector } from "@/hooks";
 import { appName } from "@/constants";
 import { cmsApi } from "@/features/cms/api/cmsApi";
@@ -66,6 +73,42 @@ export const AppSidebar = () => {
   const { boardId } = useParams();
   const { toggleSidebar } = useSidebar();
   const { boards, fetchLoading, fetchBoards } = useBoards();
+
+  const [expandedBoardIds, setExpandedBoardIds] = useState<
+    Set<string | number>
+  >(new Set());
+  const [boardGroups, setBoardGroups] = useState<Record<string, Group[]>>({});
+  const [loadingGroups, setLoadingGroups] = useState<
+    Record<string, boolean>
+  >({});
+
+  const toggleBoardExpand = async (targetBoardId: string | number) => {
+    const key = String(targetBoardId);
+    const willExpand = !expandedBoardIds.has(targetBoardId);
+
+    setExpandedBoardIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(targetBoardId)) {
+        next.delete(targetBoardId);
+      } else {
+        next.add(targetBoardId);
+      }
+      return next;
+    });
+
+    if (willExpand && !boardGroups[key]) {
+      setLoadingGroups((prev) => ({ ...prev, [key]: true }));
+      try {
+        const groups = await groupsApi.getGroupsByBoard(Number(targetBoardId));
+        setBoardGroups((prev) => ({ ...prev, [key]: groups }));
+      } catch (err) {
+        console.error("Failed to load groups for board:", err);
+        toast.error("Failed to load groups");
+      } finally {
+        setLoadingGroups((prev) => ({ ...prev, [key]: false }));
+      }
+    }
+  };
 
   const [dynamicLogo, setDynamicLogo] = useState<string | null>(null);
 
@@ -613,85 +656,175 @@ export const AppSidebar = () => {
 
                 {/* Boards from API */}
                 {!fetchLoading && boards.length > 0 ? (
-                  boards.map((board) => (
-                    <SidebarMenuItem key={board.id}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={boardId === board.id}
-                        tooltip={board.name}
-                      >
-                        <button
-                          onClick={() =>
-                            navigate(
-                              `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}`,
-                            )
-                          }
-                          className="flex items-center gap-2"
+                  boards.map((board) => {
+                    const isExpanded = expandedBoardIds.has(board.id);
+                    const groups = boardGroups[String(board.id)];
+                    const isGroupsLoading = loadingGroups[String(board.id)];
+
+                    return (
+                      <SidebarMenuItem key={board.id}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={boardId === board.id}
+                          tooltip={board.name}
                         >
                           <div
-                            className="h-5 w-5 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:w-4 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 transition-all"
-                            style={{
-                              backgroundColor:
-                                board.icon_color || "hsl(221, 83%, 53%)",
-                            }}
+                            onClick={() =>
+                              navigate(
+                                `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}`,
+                              )
+                            }
+                            className="flex items-center gap-2 cursor-pointer w-full"
                           >
-                            {board.name.charAt(0).toUpperCase()}
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleBoardExpand(board.id);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  toggleBoardExpand(board.id);
+                                }
+                              }}
+                              className="h-5 w-5 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:w-4 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 transition-all cursor-pointer hover:opacity-90 hover:scale-105 active:scale-95"
+                              style={{
+                                backgroundColor:
+                                  board.icon_color || "hsl(221, 83%, 53%)",
+                              }}
+                              title={
+                                isExpanded ? "Collapse groups" : "Expand groups"
+                              }
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-3.5 w-3.5 text-white" />
+                              ) : (
+                                <>
+                                  <span className="group-hover/menu-item:hidden group-data-[collapsible=icon]:!inline-block">
+                                    {(board.name || "B").charAt(0).toUpperCase()}
+                                  </span>
+                                  <ChevronRight className="h-3.5 w-3.5 text-white hidden group-hover/menu-item:block group-data-[collapsible=icon]:!hidden" />
+                                </>
+                              )}
+                            </div>
+                            <span className="truncate flex-1">{board.name}</span>
                           </div>
-                          <span>{board.name}</span>
-                        </button>
-                      </SidebarMenuButton>
+                        </SidebarMenuButton>
 
-                      {/* Dropdown Menu */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <SidebarMenuAction showOnHover>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </SidebarMenuAction>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-48">
-                          <DropdownMenuItem
-                            onClick={() => handleOpenBoardInNewTab(board.id)}
-                          >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            <span>Open in new tab</span>
-                          </DropdownMenuItem>
+                        {/* Dropdown Menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <SidebarMenuAction showOnHover>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </SidebarMenuAction>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuItem
+                              onClick={() => handleOpenBoardInNewTab(board.id)}
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              <span>Open in new tab</span>
+                            </DropdownMenuItem>
 
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleRenameBoard(board.id, board.name)
-                            }
-                          >
-                            <Pencil className="h-4 w-4 mr-2" />
-                            <span>Rename</span>
-                          </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleRenameBoard(board.id, board.name)
+                              }
+                            >
+                              <Pencil className="h-4 w-4 mr-2" />
+                              <span>Rename</span>
+                            </DropdownMenuItem>
 
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleDuplicateBoard(board.id, board.name)
-                            }
-                            disabled={isDuplicating}
-                          >
-                            {isDuplicating ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleDuplicateBoard(board.id, board.name)
+                              }
+                              disabled={isDuplicating}
+                            >
+                              {isDuplicating ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <Copy className="h-4 w-4 mr-2" />
+                              )}
+                              <span>Duplicate</span>
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleDeleteBoard(board.id, board.name)
+                              }
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              <span>Delete Project</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        {/* Expanded Groups Submenu */}
+                        {isExpanded && (
+                          <SidebarMenuSub className="my-1 space-y-0.5">
+                            {isGroupsLoading ? (
+                              <SidebarMenuSubItem>
+                                <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <span>Loading groups...</span>
+                                </div>
+                              </SidebarMenuSubItem>
+                            ) : groups && groups.length > 0 ? (
+                              groups.map((group) => (
+                                <SidebarMenuSubItem key={group.id}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    size="sm"
+                                    className="h-7 text-xs hover:bg-sidebar-accent cursor-pointer"
+                                  >
+                                    <div
+                                      onClick={() => {
+                                        const targetId = `group-${group.id}`;
+                                        navigate(
+                                          `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}#${targetId}`,
+                                        );
+                                        const el = document.getElementById(targetId);
+                                        if (el) {
+                                          el.scrollIntoView({
+                                            behavior: "smooth",
+                                            block: "start",
+                                          });
+                                        }
+                                      }}
+                                      className="flex items-center gap-2 w-full text-left truncate cursor-pointer"
+                                      title={group.name}
+                                    >
+                                      <span
+                                        className="h-2 w-2 rounded-full shrink-0"
+                                        style={{
+                                          backgroundColor:
+                                            group.color || "#3b82f6",
+                                        }}
+                                      />
+                                      <span className="truncate">
+                                        {group.name}
+                                      </span>
+                                    </div>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))
                             ) : (
-                              <Copy className="h-4 w-4 mr-2" />
+                              <SidebarMenuSubItem>
+                                <div className="px-2 py-1 text-xs text-muted-foreground italic">
+                                  No groups
+                                </div>
+                              </SidebarMenuSubItem>
                             )}
-                            <span>Duplicate</span>
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleDeleteBoard(board.id, board.name)
-                            }
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            <span>Delete Project</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </SidebarMenuItem>
-                  ))
+                          </SidebarMenuSub>
+                        )}
+                      </SidebarMenuItem>
+                    );
+                  })
                 ) : !fetchLoading && boards.length === 0 ? (
                   <SidebarMenuItem>
                     <div className="px-2 py-1.5 text-sm text-muted-foreground">
