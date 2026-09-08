@@ -1026,7 +1026,11 @@ export function WorkloadBoard({
 
   // Auto-scroll to target group if specified in URL hash (e.g., #group-123)
   useEffect(() => {
-    if (!location.hash || !location.hash.startsWith("#group-")) {
+    if (
+      !location.hash ||
+      !location.hash.startsWith("#group-") ||
+      activeTab !== "Main Table"
+    ) {
       return;
     }
 
