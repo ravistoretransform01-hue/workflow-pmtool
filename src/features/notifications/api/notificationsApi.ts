@@ -63,10 +63,44 @@ export const notificationsApi = {
     limit: number = 20,
   ): Promise<NotificationsResponse> => {
     let url = organizationId
-      ? `/notifications/all?status=all&organization_id=${organizationId}&page=${page}&per_page=${limit}`
-      : `/notifications/all?status=all&page=${page}&per_page=${limit}`;
-    const response = await api.get<NotificationsResponse>(url);
-    return response.data;
+      ? `/notifications/all?status=all&organization_id=${organizationId}&page=${page}&per_page=${limit}&limit=${limit}`
+      : `/notifications/all?status=all&page=${page}&per_page=${limit}&limit=${limit}`;
+    const response = await api.get<any>(url);
+    const data = response.data || {};
+
+    const headerTotal = response.headers?.["x-wp-total"]
+      ? Number(response.headers["x-wp-total"])
+      : undefined;
+    const headerTotalPages = response.headers?.["x-wp-totalpages"]
+      ? Number(response.headers["x-wp-totalpages"])
+      : undefined;
+
+    const meta = data.meta || data.pagination;
+
+    const totalItems =
+      meta?.total_items ??
+      meta?.total ??
+      headerTotal ??
+      data.total_items ??
+      data.total ??
+      data.count ??
+      (Array.isArray(data.data) ? data.data.length : 0);
+
+    const totalPages =
+      meta?.total_pages ??
+      data.total_pages ??
+      headerTotalPages ??
+      (meta?.total_items ? Math.ceil(meta.total_items / limit) : undefined) ??
+      (headerTotal ? Math.ceil(headerTotal / limit) : undefined) ??
+      (totalItems > 0 ? Math.ceil(totalItems / limit) : 1);
+
+    return {
+      ...data,
+      total_items: totalItems,
+      total_pages: totalPages,
+      current_page: meta?.current_page ?? page,
+      per_page: meta?.per_page ?? limit,
+    };
   },
 
   getUnreadNotifications: async (
@@ -75,10 +109,44 @@ export const notificationsApi = {
     limit: number = 20,
   ): Promise<NotificationsResponse> => {
     let url = organizationId
-      ? `/notifications/all?status=unread&organization_id=${organizationId}&page=${page}&per_page=${limit}`
-      : `/notifications/all?status=unread&page=${page}&per_page=${limit}`;
-    const response = await api.get<NotificationsResponse>(url);
-    return response.data;
+      ? `/notifications/all?status=unread&organization_id=${organizationId}&page=${page}&per_page=${limit}&limit=${limit}`
+      : `/notifications/all?status=unread&page=${page}&per_page=${limit}&limit=${limit}`;
+    const response = await api.get<any>(url);
+    const data = response.data || {};
+
+    const headerTotal = response.headers?.["x-wp-total"]
+      ? Number(response.headers["x-wp-total"])
+      : undefined;
+    const headerTotalPages = response.headers?.["x-wp-totalpages"]
+      ? Number(response.headers["x-wp-totalpages"])
+      : undefined;
+
+    const meta = data.meta || data.pagination;
+
+    const totalItems =
+      meta?.total_items ??
+      meta?.total ??
+      headerTotal ??
+      data.total_items ??
+      data.total ??
+      data.count ??
+      (Array.isArray(data.data) ? data.data.length : 0);
+
+    const totalPages =
+      meta?.total_pages ??
+      data.total_pages ??
+      headerTotalPages ??
+      (meta?.total_items ? Math.ceil(meta.total_items / limit) : undefined) ??
+      (headerTotal ? Math.ceil(headerTotal / limit) : undefined) ??
+      (totalItems > 0 ? Math.ceil(totalItems / limit) : 1);
+
+    return {
+      ...data,
+      total_items: totalItems,
+      total_pages: totalPages,
+      current_page: meta?.current_page ?? page,
+      per_page: meta?.per_page ?? limit,
+    };
   },
 
   markAsRead: async (params: {
