@@ -634,6 +634,7 @@ export function TaskCardDialog({
 
   // Get columns with all the interactive components
   const columns = getWorkloadColumns({
+    isDialog: true,
     expandedTasks,
     toggleTask: () => { },
     statuses,
