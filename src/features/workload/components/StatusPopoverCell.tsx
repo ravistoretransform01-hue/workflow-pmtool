@@ -292,6 +292,47 @@ export default function StatusPopoverCell({
     }
   };
 
+  const isCurrentStatus = (
+    targetStatusId: string | number,
+    targetStatusName?: string,
+  ) => {
+    const targetIdStr = String(targetStatusId);
+    if (
+      statusObj?.id !== undefined &&
+      statusObj?.id !== null &&
+      String(statusObj.id) === targetIdStr
+    ) {
+      return true;
+    }
+    if (
+      task?.status_id !== undefined &&
+      task?.status_id !== null &&
+      String(task.status_id) === targetIdStr
+    ) {
+      return true;
+    }
+    if (
+      task?.status !== undefined &&
+      task?.status !== null &&
+      String(task.status) === targetIdStr
+    ) {
+      return true;
+    }
+    if (targetStatusName) {
+      const lowerName = targetStatusName.trim().toLowerCase();
+      if (statusObj?.name && statusObj.name.trim().toLowerCase() === lowerName) {
+        return true;
+      }
+      if (
+        typeof task?.status === "string" &&
+        task.status.trim().toLowerCase() === lowerName
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   /* ---------------------------------------------
    * Initialize displayStatuses ONCE per open
    * ------------------------------------------- */
@@ -506,6 +547,10 @@ export default function StatusPopoverCell({
                           (s) => s.name?.toLowerCase() === "done",
                         );
                         if (doneStatus && onStatusChange) {
+                          if (isCurrentStatus(doneStatus.id, doneStatus.name)) {
+                            setOpenPopoverId?.(null);
+                            return;
+                          }
                           onStatusChange(task.id, String(doneStatus.id));
                           setOpenPopoverId?.(null);
                         } else if (!doneStatus) {
@@ -558,6 +603,10 @@ export default function StatusPopoverCell({
                     <button
                       key={s.id}
                       onClick={() => {
+                        if (isCurrentStatus(s.id, s.name)) {
+                          setOpenPopoverId?.(null);
+                          return;
+                        }
                         onStatusChange?.(task.id, String(s.id));
                         setOpenPopoverId?.(null);
                       }}
