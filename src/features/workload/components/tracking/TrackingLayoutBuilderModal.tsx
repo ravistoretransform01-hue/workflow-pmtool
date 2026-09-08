@@ -17,7 +17,10 @@ import {
   Upload,
   Pencil,
   Check,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
+import { cn } from "@/utils/utils";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/api/groupsApi";
 import { tasksApi } from "@/features/tasks/api/tasksApi";
@@ -82,6 +85,49 @@ export function TrackingLayoutBuilderModal({
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [tempTabName, setTempTabName] = useState<string>("");
   const [addingTaskKey, setAddingTaskKey] = useState<string | null>(null);
+  const [isFullScreen, setIsFullScreen] = useState<boolean>(() => {
+    try {
+      return (
+        sessionStorage.getItem(`tracking_fullscreen_${groupId}`) === "true"
+      );
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (!open) {
+      setIsFullScreen(false);
+      try {
+        sessionStorage.removeItem(`tracking_fullscreen_${groupId}`);
+      } catch {}
+    }
+  }, [open, groupId]);
+
+  useEffect(() => {
+    if (open && groupId) {
+      try {
+        sessionStorage.setItem(
+          `tracking_fullscreen_${groupId}`,
+          String(isFullScreen),
+        );
+      } catch {}
+    }
+  }, [isFullScreen, open, groupId]);
+
+  useEffect(() => {
+    if (activeTabId && tabs.length > 0 && groupId) {
+      const currentTab = tabs.find((t) => t.id === activeTabId);
+      if (currentTab?.name) {
+        try {
+          sessionStorage.setItem(
+            `tracking_active_tab_${groupId}`,
+            currentTab.name,
+          );
+        } catch {}
+      }
+    }
+  }, [activeTabId, tabs, groupId]);
 
   const handleStartEditingTab = (
     tab: TrackingLayoutTab,
@@ -584,7 +630,15 @@ export function TrackingLayoutBuilderModal({
               },
             );
             setTabs(parsedTabs);
-            if (parsedTabs.length > 0) setActiveTabId(parsedTabs[0].id);
+            if (parsedTabs.length > 0) {
+              const savedTabName = sessionStorage.getItem(
+                `tracking_active_tab_${groupId}`,
+              );
+              const matchedTab = parsedTabs.find(
+                (t: TrackingLayoutTab) => t.name === savedTabName,
+              );
+              setActiveTabId(matchedTab ? matchedTab.id : parsedTabs[0].id);
+            }
             setLoading(false);
             return;
           } else {
@@ -619,7 +673,15 @@ export function TrackingLayoutBuilderModal({
               },
             );
             setTabs(parsedTabs);
-            if (parsedTabs.length > 0) setActiveTabId(parsedTabs[0].id);
+            if (parsedTabs.length > 0) {
+              const savedTabName = sessionStorage.getItem(
+                `tracking_active_tab_${groupId}`,
+              );
+              const matchedTab = parsedTabs.find(
+                (t: TrackingLayoutTab) => t.name === savedTabName,
+              );
+              setActiveTabId(matchedTab ? matchedTab.id : parsedTabs[0].id);
+            }
             setLoading(false);
             return;
           }
@@ -917,6 +979,7 @@ export function TrackingLayoutBuilderModal({
     }
 
     let taskName = "";
+    const firstCol = targetTab.columns[0];
     const nameCol = targetTab.columns.find((c) => {
       const colLower = (c.name || "").toLowerCase();
       return (
@@ -929,8 +992,9 @@ export function TrackingLayoutBuilderModal({
       );
     });
 
+    let mainTaskName = "";
     if (nameCol && nameCol.rows?.[rowIndex]?.name?.trim()) {
-      taskName = nameCol.rows[rowIndex].name!.trim();
+      mainTaskName = nameCol.rows[rowIndex].name!.trim();
     } else {
       const nonStatusCol = targetTab.columns.find(
         (c) =>
@@ -938,10 +1002,22 @@ export function TrackingLayoutBuilderModal({
           c.rows?.[rowIndex]?.name?.trim(),
       );
       if (nonStatusCol && nonStatusCol.rows?.[rowIndex]?.name?.trim()) {
-        taskName = nonStatusCol.rows[rowIndex].name!.trim();
-      } else if (targetTab.columns[0]?.rows?.[rowIndex]?.name?.trim()) {
-        taskName = targetTab.columns[0].rows[rowIndex].name!.trim();
+        mainTaskName = nonStatusCol.rows[rowIndex].name!.trim();
+      } else if (firstCol?.rows?.[rowIndex]?.name?.trim()) {
+        mainTaskName = firstCol.rows[rowIndex].name!.trim();
       }
+    }
+
+    const firstColValue = firstCol?.rows?.[rowIndex]?.name?.trim();
+    if (
+      firstColValue &&
+      firstColValue !== mainTaskName &&
+      !firstCol?.name?.toLowerCase().includes("status") &&
+      !firstCol?.name?.toLowerCase().includes("desc")
+    ) {
+      taskName = `${firstColValue} - ${mainTaskName}`;
+    } else {
+      taskName = mainTaskName;
     }
 
     if (!taskName) {
@@ -1149,7 +1225,14 @@ export function TrackingLayoutBuilderModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[70vw] w-full h-[85vh] flex flex-col p-0">
+        <DialogContent
+          className={cn(
+            "w-full flex flex-col p-0 transition-all duration-200",
+            isFullScreen
+              ? "w-screen h-screen max-w-none sm:max-w-none max-h-screen rounded-none sm:rounded-none border-0"
+              : "max-w-[70vw] h-[85vh]",
+          )}
+        >
           <DialogHeader className="p-4 border-b">
             <DialogTitle className="flex items-center justify-between">
               <div>
@@ -1166,6 +1249,17 @@ export function TrackingLayoutBuilderModal({
                   ref={globalFileInputRef}
                   onChange={handleGlobalFileUpload}
                 />
+                <Button
+                  variant="outline"
+                  onClick={() => setIsFullScreen((prev) => !prev)}
+                >
+                  {isFullScreen ? (
+                    <Minimize2 className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4 mr-2" />
+                  )}
+                  {isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                </Button>
                 <Button variant="outline" onClick={handleGlobalExport}>
                   <Upload className="h-4 w-4 mr-2" />
                   Export Global
