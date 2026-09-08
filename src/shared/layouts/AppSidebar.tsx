@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/utils/utils";
 import {
   Sidebar,
@@ -50,7 +50,7 @@ import {
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
-import { NavLink, useNavigate, useParams } from "react-router-dom";
+import { NavLink, useNavigate, useParams, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useBoards } from "@/hooks/useBoards";
 import { boardsApi } from "@/features/boards/api/boardsApi";
@@ -70,7 +70,23 @@ export const AppSidebar = () => {
   const displayName = currentOrg?.organization_name || appName;
 
   const navigate = useNavigate();
-  const { boardId } = useParams();
+  const location = useLocation();
+  const { boardId, viewName } = useParams<{
+    boardId?: string;
+    viewName?: string;
+  }>();
+
+  const currentView = useMemo(() => {
+    const match = location.pathname.match(/\/view\/([^/#?]+)/);
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+    if (viewName) {
+      return decodeURIComponent(viewName);
+    }
+    return String(orgId) === "27" ? "Kanban" : "Main Table";
+  }, [location.pathname, viewName, orgId]);
+
   const { toggleSidebar } = useSidebar();
   const { boards, fetchLoading, fetchBoards } = useBoards();
 
@@ -82,33 +98,53 @@ export const AppSidebar = () => {
     Record<string, boolean>
   >({});
 
-  const toggleBoardExpand = async (targetBoardId: string | number) => {
-    const key = String(targetBoardId);
-    const willExpand = !expandedBoardIds.has(targetBoardId);
-
-    setExpandedBoardIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(targetBoardId)) {
-        next.delete(targetBoardId);
-      } else {
+  const expandBoard = useCallback(
+    async (targetBoardId: string | number) => {
+      const key = String(targetBoardId);
+      setExpandedBoardIds((prev) => {
+        if (prev.has(targetBoardId)) return prev;
+        const next = new Set(prev);
         next.add(targetBoardId);
-      }
-      return next;
-    });
+        return next;
+      });
 
-    if (willExpand && !boardGroups[key]) {
-      setLoadingGroups((prev) => ({ ...prev, [key]: true }));
-      try {
-        const groups = await groupsApi.getGroupsByBoard(Number(targetBoardId));
-        setBoardGroups((prev) => ({ ...prev, [key]: groups }));
-      } catch (err) {
-        console.error("Failed to load groups for board:", err);
-        toast.error("Failed to load groups");
-      } finally {
-        setLoadingGroups((prev) => ({ ...prev, [key]: false }));
+      if (!boardGroups[key]) {
+        setLoadingGroups((prev) => ({ ...prev, [key]: true }));
+        try {
+          const groups = await groupsApi.getGroupsByBoard(Number(targetBoardId));
+          setBoardGroups((prev) => ({ ...prev, [key]: groups }));
+        } catch (err) {
+          console.error("Failed to load groups for board:", err);
+          toast.error("Failed to load groups");
+        } finally {
+          setLoadingGroups((prev) => ({ ...prev, [key]: false }));
+        }
       }
+    },
+    [boardGroups],
+  );
+
+  const toggleBoardExpand = useCallback(
+    async (targetBoardId: string | number) => {
+      if (expandedBoardIds.has(targetBoardId)) {
+        setExpandedBoardIds((prev) => {
+          const next = new Set(prev);
+          next.delete(targetBoardId);
+          return next;
+        });
+      } else {
+        await expandBoard(targetBoardId);
+      }
+    },
+    [expandedBoardIds, expandBoard],
+  );
+
+  // Auto-expand board groups when current active boardId is present
+  useEffect(() => {
+    if (boardId) {
+      expandBoard(boardId);
     }
-  };
+  }, [boardId, expandBoard]);
 
   const [dynamicLogo, setDynamicLogo] = useState<string | null>(null);
 
@@ -669,11 +705,13 @@ export const AppSidebar = () => {
                           tooltip={board.name}
                         >
                           <div
-                            onClick={() =>
+                            onClick={() => {
+                              const encodedView = encodeURIComponent(currentView);
                               navigate(
-                                `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}`,
-                              )
-                            }
+                                `/org/${orgId}/board/${board.id}/view/${encodedView}`,
+                              );
+                              expandBoard(board.id);
+                            }}
                             className="flex items-center gap-2 cursor-pointer w-full"
                           >
                             <div
@@ -785,15 +823,18 @@ export const AppSidebar = () => {
                                     <div
                                       onClick={() => {
                                         const targetId = `group-${group.id}`;
+                                        const encodedView = encodeURIComponent(currentView);
                                         navigate(
-                                          `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}#${targetId}`,
+                                          `/org/${orgId}/board/${board.id}/view/${encodedView}#${targetId}`,
                                         );
-                                        const el = document.getElementById(targetId);
-                                        if (el) {
-                                          el.scrollIntoView({
-                                            behavior: "smooth",
-                                            block: "start",
-                                          });
+                                        if (currentView === "Main Table") {
+                                          const el = document.getElementById(targetId);
+                                          if (el) {
+                                            el.scrollIntoView({
+                                              behavior: "smooth",
+                                              block: "start",
+                                            });
+                                          }
                                         }
                                       }}
                                       className="flex items-center gap-2 w-full text-left truncate cursor-pointer"
@@ -924,9 +965,11 @@ export const AppSidebar = () => {
                     <button
                       key={board.id}
                       onClick={() => {
+                        const encodedView = encodeURIComponent(currentView);
                         navigate(
-                          `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}`,
+                          `/org/${orgId}/board/${board.id}/view/${encodedView}`,
                         );
+                        expandBoard(board.id);
                         setBoardSearchOpen(false);
                         setBoardSearchQuery("");
                       }}
