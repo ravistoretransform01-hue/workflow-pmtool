@@ -183,10 +183,11 @@ export function KanbanCard({
             </div>
           )}
 
-          {showAssignees &&
+          <div className="mt-3 flex items-center justify-between gap-2 -mr-5">
+            {showAssignees &&
             task.assigned_to_ids &&
-            task.assigned_to_ids.length > 0 && (
-              <div className="mt-3 flex items-center -space-x-2">
+            task.assigned_to_ids.length > 0 ? (
+              <div className="flex items-center -space-x-2">
                 {task.assigned_to_ids.slice(0, 3).map((memberId) => {
                   const member = members.find(
                     (m) => String(m.user_id) === String(memberId),
@@ -211,7 +212,7 @@ export function KanbanCard({
                     >
                       <AvatarFallback
                         style={{ background: bgColor, color: "white" }}
-                        className="text-[10px]  "
+                        className="text-[10px]"
                       >
                         {initials || "U"}
                       </AvatarFallback>
@@ -220,13 +221,22 @@ export function KanbanCard({
                 })}
                 {task.assigned_to_ids.length > 3 && (
                   <div className="h-6 w-6 rounded-full bg-muted border-2 border-card flex items-center justify-center">
-                    <span className="text-[10px]   text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground">
                       +{task.assigned_to_ids.length - 3}
                     </span>
                   </div>
                 )}
               </div>
+            ) : (
+              <div />
             )}
+
+            {task.id && (
+              <span className="text-[13px] font-mono font-medium text-muted-foreground/60 group-hover:text-muted-foreground transition-colors select-all shrink-0">
+                #{String(task.id).replace(/^#/, "")}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
