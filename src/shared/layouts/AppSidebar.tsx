@@ -49,6 +49,7 @@ import {
   ChevronsLeft,
   ChevronRight,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { NavLink, useNavigate, useParams, useLocation } from "react-router-dom";
 import { toast } from "sonner";
@@ -97,6 +98,9 @@ export const AppSidebar = () => {
   const [loadingGroups, setLoadingGroups] = useState<
     Record<string, boolean>
   >({});
+  const [groupSearchQueries, setGroupSearchQueries] = useState<
+    Record<string, string>
+  >({});
 
   const expandBoard = useCallback(
     async (targetBoardId: string | number) => {
@@ -112,7 +116,14 @@ export const AppSidebar = () => {
         setLoadingGroups((prev) => ({ ...prev, [key]: true }));
         try {
           const groups = await groupsApi.getGroupsByBoard(Number(targetBoardId));
-          setBoardGroups((prev) => ({ ...prev, [key]: groups }));
+          const sortedGroups = Array.isArray(groups)
+            ? [...groups].sort((a, b) =>
+                (a.name || "").localeCompare(b.name || "", undefined, {
+                  sensitivity: "base",
+                }),
+              )
+            : [];
+          setBoardGroups((prev) => ({ ...prev, [key]: sortedGroups }));
         } catch (err) {
           console.error("Failed to load groups for board:", err);
           toast.error("Failed to load groups");
@@ -126,10 +137,17 @@ export const AppSidebar = () => {
 
   const toggleBoardExpand = useCallback(
     async (targetBoardId: string | number) => {
+      const key = String(targetBoardId);
       if (expandedBoardIds.has(targetBoardId)) {
         setExpandedBoardIds((prev) => {
           const next = new Set(prev);
           next.delete(targetBoardId);
+          return next;
+        });
+        setGroupSearchQueries((prev) => {
+          if (!prev[key]) return prev;
+          const next = { ...prev };
+          delete next[key];
           return next;
         });
       } else {
@@ -696,6 +714,22 @@ export const AppSidebar = () => {
                     const isExpanded = expandedBoardIds.has(board.id);
                     const groups = boardGroups[String(board.id)];
                     const isGroupsLoading = loadingGroups[String(board.id)];
+                    const groupSearch = groupSearchQueries[String(board.id)] || "";
+                    const sortedGroups = groups
+                      ? [...groups].sort((a, b) =>
+                          (a.name || "").localeCompare(b.name || "", undefined, {
+                            sensitivity: "base",
+                          }),
+                        )
+                      : [];
+                    const filteredGroups =
+                      !groupSearch.trim() || sortedGroups.length <= 10
+                        ? sortedGroups
+                        : sortedGroups.filter((g) =>
+                            (g.name || "")
+                              .toLowerCase()
+                              .includes(groupSearch.trim().toLowerCase()),
+                          );
 
                     return (
                       <SidebarMenuItem key={board.id}>
@@ -813,47 +847,110 @@ export const AppSidebar = () => {
                                 </div>
                               </SidebarMenuSubItem>
                             ) : groups && groups.length > 0 ? (
-                              groups.map((group) => (
-                                <SidebarMenuSubItem key={group.id}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    size="sm"
-                                    className="h-7 text-xs hover:bg-sidebar-accent cursor-pointer"
-                                  >
-                                    <div
-                                      onClick={() => {
-                                        const targetId = `group-${group.id}`;
-                                        const encodedView = encodeURIComponent(currentView);
-                                        navigate(
-                                          `/org/${orgId}/board/${board.id}/view/${encodedView}#${targetId}`,
-                                        );
-                                        if (currentView === "Main Table") {
-                                          const el = document.getElementById(targetId);
-                                          if (el) {
-                                            el.scrollIntoView({
-                                              behavior: "smooth",
-                                              block: "start",
-                                            });
-                                          }
+                              <>
+                                {/* Search bar for groups in this project/board (visible only if more than 10 groups) */}
+                                {groups.length > 10 && (
+                                  <SidebarMenuSubItem className="pb-1 pt-0.5">
+                                    <div className="relative flex items-center w-full">
+                                      <Search className="absolute left-2 h-3.5 w-3.5 text-muted-foreground/60 pointer-events-none" />
+                                      <input
+                                        type="text"
+                                        value={groupSearch}
+                                        onChange={(e) =>
+                                          setGroupSearchQueries((prev) => ({
+                                            ...prev,
+                                            [String(board.id)]: e.target.value,
+                                          }))
                                         }
-                                      }}
-                                      className="flex items-center gap-2 w-full text-left truncate cursor-pointer"
-                                      title={group.name}
-                                    >
-                                      <span
-                                        className="h-2 w-2 rounded-full shrink-0"
-                                        style={{
-                                          backgroundColor:
-                                            group.color || "#3b82f6",
-                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                        placeholder="Search groups..."
+                                        className="w-full h-7 pl-7 pr-6 text-xs rounded-md bg-muted/40 hover:bg-muted/60 focus:bg-background border border-sidebar-border/60 focus:border-primary/50 focus:outline-none placeholder:text-muted-foreground/60 transition-colors"
                                       />
-                                      <span className="truncate">
-                                        {group.name}
-                                      </span>
+                                      {groupSearch && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setGroupSearchQueries((prev) => ({
+                                              ...prev,
+                                              [String(board.id)]: "",
+                                            }));
+                                          }}
+                                          className="absolute right-1.5 p-0.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                          title="Clear search"
+                                          aria-label="Clear group search"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      )}
                                     </div>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))
+                                  </SidebarMenuSubItem>
+                                )}
+
+                                {filteredGroups.length > 0 ? (
+                                  filteredGroups.map((group) => (
+                                    <SidebarMenuSubItem key={group.id}>
+                                      <SidebarMenuSubButton
+                                        asChild
+                                        size="sm"
+                                        className="h-7 text-xs hover:bg-sidebar-accent cursor-pointer"
+                                      >
+                                        <div
+                                          onClick={() => {
+                                            const targetId = `group-${group.id}`;
+                                            const encodedView = encodeURIComponent(currentView);
+                                            navigate(
+                                              `/org/${orgId}/board/${board.id}/view/${encodedView}#${targetId}`,
+                                            );
+                                            if (currentView === "Main Table") {
+                                              const el = document.getElementById(targetId);
+                                              if (el) {
+                                                el.scrollIntoView({
+                                                  behavior: "smooth",
+                                                  block: "start",
+                                                });
+                                              }
+                                            }
+                                          }}
+                                          className="flex items-center gap-2 w-full text-left truncate cursor-pointer"
+                                          title={group.name}
+                                        >
+                                          <span
+                                            className="h-2 w-2 rounded-full shrink-0"
+                                            style={{
+                                              backgroundColor:
+                                                group.color || "#3b82f6",
+                                            }}
+                                          />
+                                          <span className="truncate">
+                                            {group.name}
+                                          </span>
+                                        </div>
+                                      </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                  ))
+                                ) : (
+                                  <SidebarMenuSubItem>
+                                    <div className="px-2 py-1.5 text-xs text-muted-foreground italic flex items-center justify-between">
+                                      <span>No matching groups</span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setGroupSearchQueries((prev) => ({
+                                            ...prev,
+                                            [String(board.id)]: "",
+                                          }));
+                                        }}
+                                        className="text-[10px] text-primary hover:underline not-italic cursor-pointer"
+                                      >
+                                        Clear
+                                      </button>
+                                    </div>
+                                  </SidebarMenuSubItem>
+                                )}
+                              </>
                             ) : (
                               <SidebarMenuSubItem>
                                 <div className="px-2 py-1 text-xs text-muted-foreground italic">
