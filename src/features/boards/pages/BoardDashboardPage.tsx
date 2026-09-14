@@ -8,16 +8,7 @@ import {
   ChevronDown,
   Check,
 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/shared/ui/alert-dialog";
+import { DeleteBoardDialog } from "@/shared/modals/DeleteBoardDialog";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Button } from "@/shared/ui/button";
@@ -1281,24 +1272,13 @@ export default function BoardDashboardPage() {
         </Tabs>
       </div>
 
-      {/* Delete Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete project?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{currentName}"? This action
-              cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Delete Project Confirmation Dialog */}
+      <DeleteBoardDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        boardId={boardId || null}
+        boardName={currentName || boardName}
+      />
 
       <BoardInviteDialog
         open={inviteDialogOpen}

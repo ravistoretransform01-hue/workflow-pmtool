@@ -60,6 +60,7 @@ import type { Group } from "@/features/groups/types/types";
 import { useAppSelector } from "@/hooks";
 import { appName } from "@/constants";
 import { cmsApi } from "@/features/cms/api/cmsApi";
+import { DeleteBoardDialog } from "@/shared/modals/DeleteBoardDialog";
 
 export const AppSidebar = () => {
   const user = useAppSelector((state) => state.auth.user);
@@ -247,7 +248,6 @@ export const AppSidebar = () => {
   const [renamingBoardName, setRenamingBoardName] = useState("");
   const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null);
   const [deletingBoardName, setDeletingBoardName] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
 
   // Fetch boards when organization changes or component mounts
@@ -382,29 +382,6 @@ export const AppSidebar = () => {
     setDeletingBoardName(boardName);
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deletingBoardId) return;
-
-    setIsDeleting(true);
-    try {
-      await boardsApi.deleteBoard(deletingBoardId);
-      toast.success(`Board "${deletingBoardName}" Deleted Successfully`);
-
-      // Navigate away only if the deleted board is the one currently open
-      if (boardId && String(deletingBoardId) === String(boardId)) {
-        navigate(`/org/${orgId}/home`);
-      }
-
-      setDeletingBoardId(null);
-      setDeletingBoardName("");
-      fetchBoards();
-    } catch (error: any) {
-      console.error("Delete board error:", error);
-      toast.error(error.response?.data?.message || "Failed to Delete Board");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   return (
     <>
@@ -1141,7 +1118,7 @@ export const AppSidebar = () => {
         </Dialog>
 
         {/* Delete Board Confirmation Dialog */}
-        <Dialog
+        <DeleteBoardDialog
           open={!!deletingBoardId}
           onOpenChange={(open) => {
             if (!open) {
@@ -1149,39 +1126,9 @@ export const AppSidebar = () => {
               setDeletingBoardName("");
             }
           }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Board</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <p className="text-sm text-muted-foreground">
-                Are you sure you want to delete{" "}
-                <strong>{deletingBoardName}</strong>? This action cannot be
-                undone.
-              </p>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setDeletingBoardId(null);
-                    setDeletingBoardName("");
-                  }}
-                  disabled={isDeleting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleConfirmDelete}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? "Deleting..." : "Delete"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+          boardId={deletingBoardId}
+          boardName={deletingBoardName}
+        />
       </Sidebar>
     </>
   );
