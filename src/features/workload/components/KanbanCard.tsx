@@ -136,7 +136,7 @@ export function KanbanCard({
                     e.stopPropagation();
                     onClick?.();
                   }}
-                  className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0 opacity-0 group-hover:opacity-100 group/commentbtn"
+                  className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0 group/commentbtn"
                 >
                   <div className="relative">
                     <Pencil className="h-4 w-4 text-muted-foreground group-hover/commentbtn:text-foreground transition-colors" />
@@ -150,7 +150,7 @@ export function KanbanCard({
                 {onDeleteTask && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100">
+                      <button className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0">
                         <MoreVertical className="h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>
