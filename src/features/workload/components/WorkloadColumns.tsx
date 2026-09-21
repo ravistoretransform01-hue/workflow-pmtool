@@ -20,6 +20,7 @@ import {
 } from "@/features/workload/components/cells";
 import { TruncatedTaskName } from "@/features/workload/components/TruncatedTaskName";
 import type { Column, Task } from "@/features/workload/utils";
+import { getCurrentUserId, isClientRole } from "@/utils/utils";
 
 interface ColumnDefinitionProps {
   expandedTasks: Record<string, boolean>;
@@ -73,6 +74,8 @@ interface ColumnDefinitionProps {
   onTimerConflict?: (taskId: string) => void;
   onTimeUpdate?: (taskId: string, seconds: number) => void;
   isDialog?: boolean;
+  currentUserRole?: string | null;
+  isClient?: boolean;
 }
 
 // Local component removed, using shared TruncatedTaskName from ./TruncatedTaskName
@@ -114,7 +117,33 @@ export const getWorkloadColumns = ({
   onTagToggle,
   checkedTasks,
   isDialog = false,
+  currentUserRole,
+  isClient: isClientParam,
 }: ColumnDefinitionProps): Column[] => {
+  const resolvedIsClient = (() => {
+    if (typeof isClientParam === "boolean") return isClientParam;
+    if (currentUserRole) return isClientRole(currentUserRole);
+    const currentUserId = getCurrentUserId();
+    if (currentUserId && members && members.length > 0) {
+      const currentMember = members.find(
+        (m) => String(m.user_id) === String(currentUserId),
+      );
+      if (currentMember?.board_role_label || (currentMember as any)?.role) {
+        return isClientRole(
+          currentMember.board_role_label || (currentMember as any).role,
+        );
+      }
+    }
+    try {
+      const userDataRaw = localStorage.getItem("user_data");
+      if (userDataRaw) {
+        const userData = JSON.parse(userDataRaw);
+        return isClientRole(userData?.role_label || userData?.role?.[0]);
+      }
+    } catch {}
+    return false;
+  })();
+
   // Create lookup maps for statuses and priorities
   // Ensure keys are strings to match task.status_id (which is stored as string)
   const statusMap = new Map(statuses.map((s) => [String(s.id), s]));
@@ -414,6 +443,7 @@ export const getWorkloadColumns = ({
             hasAssignee={hasAssignee}
             isDone={isDone}
             isDialog={isDialog}
+            isClient={resolvedIsClient}
           />
         );
       },

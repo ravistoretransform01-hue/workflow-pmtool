@@ -147,6 +147,16 @@ export function TaskCardDialog({
 
   useEffect(() => {
     if (open && boardId) {
+      const currentUserId = getCurrentUserId();
+      if (currentUserId && members && members.length > 0) {
+        const localMember = members.find(
+          (m) => String(m.user_id) === String(currentUserId),
+        );
+        if (localMember?.board_role_label) {
+          setCurrentUserRole(localMember.board_role_label);
+        }
+      }
+
       const loadUserRole = async () => {
         try {
           const organizationId = getOrganizationId() || 2;
@@ -175,7 +185,7 @@ export function TaskCardDialog({
     } else if (!open) {
       setCurrentUserRole(null);
     }
-  }, [open, boardId]);
+  }, [open, boardId, members]);
 
   useEffect(() => {
     if (
@@ -632,9 +642,50 @@ export function TaskCardDialog({
   // Use task directly - it will update in real-time from parent
   const displayTask = task;
 
+  const isCurrentUserClient = (() => {
+    if (currentUserRole) return isClientRole(currentUserRole);
+    const currentUserId = getCurrentUserId();
+    if (currentUserId && members && members.length > 0) {
+      const currentMember = members.find(
+        (m) => String(m.user_id) === String(currentUserId),
+      );
+      if (currentMember?.board_role_label || (currentMember as any)?.role) {
+        return isClientRole(
+          currentMember.board_role_label || (currentMember as any).role,
+        );
+      }
+    }
+    try {
+      if (boardId) {
+        const cached = localStorage.getItem(`cms_data_board_${boardId}`);
+        if (cached) {
+          const cmsData = JSON.parse(cached);
+          const currentMember = cmsData?.members?.find(
+            (m: any) => String(m.user_id) === String(currentUserId),
+          );
+          if (currentMember?.board_role_label || currentMember?.role) {
+            return isClientRole(
+              currentMember.board_role_label || currentMember.role,
+            );
+          }
+        }
+      }
+    } catch {}
+    try {
+      const userDataRaw = localStorage.getItem("user_data");
+      if (userDataRaw) {
+        const userData = JSON.parse(userDataRaw);
+        return isClientRole(userData?.role_label || userData?.role?.[0]);
+      }
+    } catch {}
+    return false;
+  })();
+
   // Get columns with all the interactive components
   const columns = getWorkloadColumns({
     isDialog: true,
+    isClient: isCurrentUserClient,
+    currentUserRole: currentUserRole || (isCurrentUserClient ? "Client" : null),
     expandedTasks,
     toggleTask: () => { },
     statuses,
@@ -643,7 +694,13 @@ export function TaskCardDialog({
     onStatusChange,
     onPriorityChange,
     onPersonChange,
-    onRatingChange,
+    onRatingChange: (taskId: string, rating: number) => {
+      if (!isCurrentUserClient) {
+        toast.error("Only clients can rate tasks");
+        return;
+      }
+      onRatingChange?.(taskId, rating);
+    },
     onEstimatedDateChange,
     onEstimatedTimeChange,
     onTagChange,
