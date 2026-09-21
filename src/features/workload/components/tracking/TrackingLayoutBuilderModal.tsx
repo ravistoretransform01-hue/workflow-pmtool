@@ -51,7 +51,7 @@ export interface TrackingLayoutTab {
   columns: TrackingLayoutColumn[];
 }
 
-export const getRowTaskName = (
+const getRowTaskName = (
   tab: TrackingLayoutTab,
   rowIndex: number,
 ): string => {

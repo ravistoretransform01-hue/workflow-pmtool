@@ -12,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/shared/ui/tooltip";
+import { getCurrentUserId, isClientRole } from "@/utils/utils";
 
 interface RatingStarsProps {
   task: any;
@@ -24,6 +25,7 @@ interface RatingStarsProps {
   hasAssignee?: boolean;
   isDone?: boolean;
   isDialog?: boolean;
+  isClient?: boolean;
 }
 
 export function RatingStars({
@@ -37,7 +39,43 @@ export function RatingStars({
   hasAssignee = false,
   isDone = false,
   isDialog = false,
+  isClient: isClientProp,
 }: RatingStarsProps) {
+  const isClient = (() => {
+    if (typeof isClientProp === "boolean") {
+      return isClientProp;
+    }
+    try {
+      const match = window.location.pathname.match(/\/board\/(\d+)/);
+      const boardId = match ? match[1] : null;
+      const currentUserId = getCurrentUserId();
+      if (boardId && currentUserId) {
+        const cached = localStorage.getItem(`cms_data_board_${boardId}`);
+        if (cached) {
+          const cmsData = JSON.parse(cached);
+          const currentMember = cmsData?.members?.find(
+            (m: any) => String(m.user_id) === String(currentUserId),
+          );
+          if (currentMember?.board_role_label || currentMember?.role) {
+            return isClientRole(
+              currentMember.board_role_label || currentMember.role,
+            );
+          }
+        }
+      }
+    } catch {}
+
+    try {
+      const userDataRaw = localStorage.getItem("user_data");
+      if (userDataRaw) {
+        const userData = JSON.parse(userDataRaw);
+        return isClientRole(userData?.role_label || userData?.role?.[0]);
+      }
+    } catch {}
+
+    return false;
+  })();
+
   const [hoveredRating, setHoveredRating] = useState(0);
   const [isDismissed, setIsDismissed] = useState(() => {
     try {
@@ -60,10 +98,11 @@ export function RatingStars({
   }, [task.id]);
 
   const hasRating = Boolean(rating && Number(rating) > 0);
-  const isReviewPending = isDone && !hasRating && hasAssignee;
+  const isReviewPending = isClient && isDone && !hasRating && hasAssignee;
   const isPopoverOpen = openPopoverId === popoverId;
   const showCallout =
-    isReviewPending && isDialog && !isDismissed && !isPopoverOpen;
+    isClient && isReviewPending && isDialog && !isDismissed && !isPopoverOpen;
+  const canRate = isClient && hasAssignee && isDone;
 
   const handleDismiss = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -74,15 +113,22 @@ export function RatingStars({
     } catch {}
   };
 
-  const tooltipText = isReviewPending
-    ? "Your rating is appreciated"
-    : !hasAssignee
-      ? "Assign a person first"
-      : !isDone
-        ? "Task must be marked as Done"
-        : "";
+  const tooltipText = !isClient
+    ? "Only clients can rate tasks"
+    : isReviewPending
+      ? "Your rating is appreciated"
+      : !hasAssignee
+        ? "Assign a person first"
+        : !isDone
+          ? "Task must be marked as Done"
+          : "";
 
   const handleRatingClick = (ratingValue: number) => {
+    if (!isClient) {
+      toast.error("Only clients can rate tasks");
+      setOpenPopoverId?.(null);
+      return;
+    }
     if (!hasAssignee) {
       toast.error("Please assign a person before rating");
       setOpenPopoverId?.(null);
@@ -99,8 +145,12 @@ export function RatingStars({
 
   return (
     <Popover
-      open={isPopoverOpen}
+      open={isPopoverOpen && isClient}
       onOpenChange={(open) => {
+        if (!isClient) {
+          toast.error("Only clients can rate tasks");
+          return;
+        }
         if (open && !hasAssignee) {
           toast.error("Please assign a person before rating");
           return;
@@ -135,8 +185,7 @@ export function RatingStars({
         <TooltipProvider delayDuration={150}>
           <Tooltip
             open={
-              hasRating ||
-              isDismissed ||
+              (isClient && (hasRating || isDismissed)) ||
               showCallout ||
               isPopoverOpen ||
               !tooltipText
@@ -149,7 +198,7 @@ export function RatingStars({
                 <PopoverTrigger asChild>
                   <button
                     className={`relative w-full h-8 flex items-center justify-center gap-1 rounded transition-colors ${
-                      !hasAssignee || !isDone ? "opacity-50 cursor-not-allowed" : ""
+                      !canRate ? "opacity-50 cursor-not-allowed" : ""
                     }`}
                     aria-label={`Rating ${rating}${
                       ratingCount
@@ -157,7 +206,7 @@ export function RatingStars({
                         : ""
                     }`}
                     onClick={(e) => e.stopPropagation()}
-                    disabled={!hasAssignee || !isDone}
+                    disabled={!canRate}
                   >
                     {isReviewPending && (
                       <svg
