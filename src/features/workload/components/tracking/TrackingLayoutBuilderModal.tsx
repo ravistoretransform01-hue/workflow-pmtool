@@ -35,6 +35,8 @@ export type WidgetType = "tasks_list" | "calendar_view" | "chart" | "notes";
 export interface TrackingLayoutRow {
   id: string;
   name?: string;
+  task_id?: string | number | null;
+  task_created?: boolean;
 }
 
 export interface TrackingLayoutColumn {
@@ -49,6 +51,52 @@ export interface TrackingLayoutTab {
   columns: TrackingLayoutColumn[];
 }
 
+export const getRowTaskName = (
+  tab: TrackingLayoutTab,
+  rowIndex: number,
+): string => {
+  if (!tab || !tab.columns || tab.columns.length === 0) return "";
+  const firstCol = tab.columns[0];
+  const nameCol = tab.columns.find((c) => {
+    const colLower = (c.name || "").toLowerCase();
+    return (
+      (colLower.includes("task") ||
+        colLower.includes("title") ||
+        colLower.includes("name") ||
+        colLower.includes("item") ||
+        colLower.includes("feature")) &&
+      !colLower.includes("status")
+    );
+  });
+
+  let mainTaskName = "";
+  if (nameCol && nameCol.rows?.[rowIndex]?.name?.trim()) {
+    mainTaskName = nameCol.rows[rowIndex].name!.trim();
+  } else {
+    const nonStatusCol = tab.columns.find(
+      (c) =>
+        !c.name?.toLowerCase().includes("status") &&
+        c.rows?.[rowIndex]?.name?.trim(),
+    );
+    if (nonStatusCol && nonStatusCol.rows?.[rowIndex]?.name?.trim()) {
+      mainTaskName = nonStatusCol.rows[rowIndex].name!.trim();
+    } else if (firstCol?.rows?.[rowIndex]?.name?.trim()) {
+      mainTaskName = firstCol.rows[rowIndex].name!.trim();
+    }
+  }
+
+  const firstColValue = firstCol?.rows?.[rowIndex]?.name?.trim();
+  if (
+    firstColValue &&
+    firstColValue !== mainTaskName &&
+    !firstCol?.name?.toLowerCase().includes("status") &&
+    !firstCol?.name?.toLowerCase().includes("desc")
+  ) {
+    return `${firstColValue} - ${mainTaskName}`;
+  }
+  return mainTaskName;
+};
+
 interface TrackingLayoutBuilderModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -59,6 +107,7 @@ interface TrackingLayoutBuilderModalProps {
   organizationId: string | number;
   statuses?: Status[];
   priorities?: Priority[];
+  existingTasks?: Task[];
   onLayoutStatusChange?: (status: "default" | "pending" | "complete") => void;
   onTaskCreated?: (task: Task) => void;
 }
@@ -73,6 +122,7 @@ export function TrackingLayoutBuilderModal({
   organizationId,
   statuses,
   priorities,
+  existingTasks,
   onLayoutStatusChange,
   onTaskCreated,
 }: TrackingLayoutBuilderModalProps) {
@@ -85,6 +135,7 @@ export function TrackingLayoutBuilderModal({
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [tempTabName, setTempTabName] = useState<string>("");
   const [addingTaskKey, setAddingTaskKey] = useState<string | null>(null);
+  const [createdRowKeys, setCreatedRowKeys] = useState<Set<string>>(new Set());
   const [isFullScreen, setIsFullScreen] = useState<boolean>(() => {
     try {
       return (
@@ -614,6 +665,10 @@ export function TrackingLayoutBuilderModal({
                           ? c.rows.map((r: any) => ({
                             id: r.id || `row_${generateId()}`,
                             name: r.name || "",
+                            task_id: r.task_id ?? r.taskId ?? null,
+                            task_created: Boolean(
+                              r.task_created || r.task_id || r.taskId,
+                            ),
                           }))
                           : [],
                       }));
@@ -650,7 +705,16 @@ export function TrackingLayoutBuilderModal({
                   tabCols = parsedLayoutJson.columns.map((c: any) => ({
                     id: c.id || `col_${generateId()}`,
                     name: c.name || "",
-                    rows: Array.isArray(c.rows) ? c.rows : [],
+                    rows: Array.isArray(c.rows)
+                      ? c.rows.map((r: any) => ({
+                        id: r.id || `row_${generateId()}`,
+                        name: r.name || "",
+                        task_id: r.task_id ?? r.taskId ?? null,
+                        task_created: Boolean(
+                          r.task_created || r.task_id || r.taskId,
+                        ),
+                      }))
+                      : [],
                   }));
                 } else if (Array.isArray(parsedLayoutJson.rows)) {
                   tabCols = [
@@ -660,6 +724,10 @@ export function TrackingLayoutBuilderModal({
                       rows: parsedLayoutJson.rows.map((r: any) => ({
                         id: r.id || `row_${generateId()}`,
                         name: r.name || "",
+                        task_id: r.task_id ?? r.taskId ?? null,
+                        task_created: Boolean(
+                          r.task_created || r.task_id || r.taskId,
+                        ),
                       })),
                     },
                   ];
@@ -702,40 +770,57 @@ export function TrackingLayoutBuilderModal({
     }
   };
 
+  const persistLayoutToBackend = async (
+    tabsToSave: TrackingLayoutTab[],
+    layoutId?: string | number | null,
+  ) => {
+    const tabsPayload = tabsToSave.map((tab) => {
+      const rowId = `row_${generateId()}`;
+      return {
+        name: tab.name,
+        rows: [
+          {
+            id: rowId,
+            columns: tab.columns.map((col) => ({
+              id: col.id,
+              name: col.name || "",
+              width: "50%",
+              widget: "tasks_list",
+              rows: col.rows.map((r) => ({
+                id: r.id,
+                name: r.name || "",
+                ...(r.task_id ? { task_id: r.task_id, task_created: true } : {}),
+              })),
+            })),
+          },
+        ],
+      };
+    });
+
+    const payload: any = {
+      group_id: groupId,
+      organization_id: organizationId,
+      board_id: boardId,
+      layout_json: { tabs: tabsPayload },
+    };
+
+    const targetId = layoutId ?? existingLayoutId;
+    if (targetId) {
+      payload.id = targetId;
+    }
+
+    const res = await groupsApi.saveTrackingLayout(payload);
+    const newLayoutId = res?.data?.id || res?.id;
+    if (newLayoutId && !existingLayoutId) {
+      setExistingLayoutId(newLayoutId);
+    }
+    return res;
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const tabsPayload = tabs.map((tab) => {
-        const rowId = `row_${generateId()}`;
-        return {
-          name: tab.name,
-          rows: [
-            {
-              id: rowId,
-              columns: tab.columns.map((col) => ({
-                id: col.id,
-                name: col.name || "",
-                width: "50%",
-                widget: "tasks_list",
-                rows: col.rows.map((r) => ({ id: r.id, name: r.name || "" })),
-              })),
-            },
-          ],
-        };
-      });
-
-      const payload: any = {
-        group_id: groupId,
-        organization_id: organizationId,
-        board_id: boardId,
-        layout_json: { tabs: tabsPayload },
-      };
-
-      if (existingLayoutId) {
-        payload.id = existingLayoutId;
-      }
-
-      await groupsApi.saveTrackingLayout(payload);
+      await persistLayoutToBackend(tabs);
       toast.success("Layout saved successfully!");
     } catch (e: any) {
       console.error(e);
@@ -978,48 +1063,7 @@ export function TrackingLayoutBuilderModal({
       return;
     }
 
-    let taskName = "";
-    const firstCol = targetTab.columns[0];
-    const nameCol = targetTab.columns.find((c) => {
-      const colLower = (c.name || "").toLowerCase();
-      return (
-        (colLower.includes("task") ||
-          colLower.includes("title") ||
-          colLower.includes("name") ||
-          colLower.includes("item") ||
-          colLower.includes("feature")) &&
-        !colLower.includes("status")
-      );
-    });
-
-    let mainTaskName = "";
-    if (nameCol && nameCol.rows?.[rowIndex]?.name?.trim()) {
-      mainTaskName = nameCol.rows[rowIndex].name!.trim();
-    } else {
-      const nonStatusCol = targetTab.columns.find(
-        (c) =>
-          !c.name?.toLowerCase().includes("status") &&
-          c.rows?.[rowIndex]?.name?.trim(),
-      );
-      if (nonStatusCol && nonStatusCol.rows?.[rowIndex]?.name?.trim()) {
-        mainTaskName = nonStatusCol.rows[rowIndex].name!.trim();
-      } else if (firstCol?.rows?.[rowIndex]?.name?.trim()) {
-        mainTaskName = firstCol.rows[rowIndex].name!.trim();
-      }
-    }
-
-    const firstColValue = firstCol?.rows?.[rowIndex]?.name?.trim();
-    if (
-      firstColValue &&
-      firstColValue !== mainTaskName &&
-      !firstCol?.name?.toLowerCase().includes("status") &&
-      !firstCol?.name?.toLowerCase().includes("desc")
-    ) {
-      taskName = `${firstColValue} - ${mainTaskName}`;
-    } else {
-      taskName = mainTaskName;
-    }
-
+    const taskName = getRowTaskName(targetTab, rowIndex);
     if (!taskName) {
       toast.error("Please enter a task name for this row first");
       return;
@@ -1066,6 +1110,41 @@ export function TrackingLayoutBuilderModal({
       };
 
       const res = await tasksApi.createTask(payload);
+      const createdTaskId = String(res.id);
+
+      // 1. Mark row as created across all columns at rowIndex
+      const updatedTabs = tabs.map((t) => {
+        if (t.id === tabId) {
+          return {
+            ...t,
+            columns: t.columns.map((col) => ({
+              ...col,
+              rows: col.rows.map((r, idx) => {
+                if (idx === rowIndex) {
+                  return {
+                    ...r,
+                    task_id: createdTaskId,
+                    task_created: true,
+                  };
+                }
+                return r;
+              }),
+            })),
+          };
+        }
+        return t;
+      });
+
+      setTabs(updatedTabs);
+      setCreatedRowKeys((prev) => new Set(prev).add(`${tabId}_${rowIndex}`));
+
+      // 2. Persist layout with updated task_id in background
+      persistLayoutToBackend(updatedTabs).catch((saveErr) => {
+        console.warn(
+          "Could not auto-save tracking layout after creating task:",
+          saveErr,
+        );
+      });
 
       const matchedStatusName =
         res.status_label ||
@@ -1073,7 +1152,7 @@ export function TrackingLayoutBuilderModal({
         "Need a Meeting";
 
       const newTask: Task = {
-        id: String(res.id),
+        id: createdTaskId,
         name: res.name,
         description: res.description,
         status: matchedStatusName,
@@ -1465,33 +1544,77 @@ export function TrackingLayoutBuilderModal({
                                   )
                                     return null;
                                 }
+                                const isRowCreated = (() => {
+                                  if (
+                                    createdRowKeys.has(
+                                      `${activeTab.id}_${rowIndex}`,
+                                    )
+                                  ) {
+                                    return true;
+                                  }
+                                  const rowHasTaskId = activeTab.columns.some(
+                                    (c) =>
+                                      c.rows?.[rowIndex]?.task_id ||
+                                      c.rows?.[rowIndex]?.task_created,
+                                  );
+                                  if (rowHasTaskId) return true;
+
+                                  if (existingTasks && existingTasks.length > 0) {
+                                    const rowTaskName = getRowTaskName(
+                                      activeTab,
+                                      rowIndex,
+                                    );
+                                    if (rowTaskName) {
+                                      return existingTasks.some(
+                                        (t) =>
+                                          t.name.trim().toLowerCase() ===
+                                          rowTaskName.trim().toLowerCase(),
+                                      );
+                                    }
+                                  }
+
+                                  return false;
+                                })();
+
                                 return (
                                   <div
                                     key={`global_row_actions_${rowIndex}`}
                                     className="h-[46px] w-full flex items-center justify-center gap-1 group/globalrow opacity-60 hover:opacity-100 transition-opacity"
                                   >
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-7 w-7 text-primary shrink-0 hover:bg-primary/10"
-                                      title="Add row as task to main page"
-                                      onClick={() =>
-                                        handleAddTaskFromGlobalRow(
-                                          activeTab.id,
-                                          rowIndex,
-                                        )
-                                      }
-                                      disabled={
-                                        addingTaskKey === `global_${rowIndex}`
-                                      }
-                                    >
-                                      {addingTaskKey ===
+                                    {isRowCreated ? (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-emerald-600 bg-emerald-500/10 cursor-not-allowed opacity-90 hover:bg-emerald-500/10 hover:text-emerald-600 shrink-0"
+                                        title="Task already created on board"
+                                        disabled
+                                      >
+                                        <Check className="h-3.5 w-3.5" />
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-primary shrink-0 hover:bg-primary/10"
+                                        title="Add row as task to main page"
+                                        onClick={() =>
+                                          handleAddTaskFromGlobalRow(
+                                            activeTab.id,
+                                            rowIndex,
+                                          )
+                                        }
+                                        disabled={
+                                          addingTaskKey === `global_${rowIndex}`
+                                        }
+                                      >
+                                        {addingTaskKey ===
                                         `global_${rowIndex}` ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                      ) : (
-                                        <Plus className="h-3.5 w-3.5" />
-                                      )}
-                                    </Button>
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <Plus className="h-3.5 w-3.5" />
+                                        )}
+                                      </Button>
+                                    )}
                                     <Button
                                       size="icon"
                                       variant="ghost"

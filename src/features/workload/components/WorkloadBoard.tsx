@@ -10482,6 +10482,10 @@ export function WorkloadBoard({
           organizationId={getOrganizationId() || ""}
           statuses={statuses}
           priorities={priorities}
+          existingTasks={
+            groups.find((g) => String(g.id) === String(trackingGroupId))
+              ?.tasks || []
+          }
           onLayoutStatusChange={handleTrackingLayoutStatusChange}
           onTaskCreated={handleTaskCreatedFromTracking}
         />
