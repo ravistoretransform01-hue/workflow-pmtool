@@ -110,6 +110,7 @@ interface TrackingLayoutBuilderModalProps {
   existingTasks?: Task[];
   onLayoutStatusChange?: (status: "default" | "pending" | "complete") => void;
   onTaskCreated?: (task: Task) => void;
+  onTaskUpdated?: (updatedTask: Partial<Task> & { id: string }) => void;
 }
 
 export function TrackingLayoutBuilderModal({
@@ -125,6 +126,7 @@ export function TrackingLayoutBuilderModal({
   existingTasks,
   onLayoutStatusChange,
   onTaskCreated,
+  onTaskUpdated,
 }: TrackingLayoutBuilderModalProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -136,6 +138,7 @@ export function TrackingLayoutBuilderModal({
   const [tempTabName, setTempTabName] = useState<string>("");
   const [addingTaskKey, setAddingTaskKey] = useState<string | null>(null);
   const [createdRowKeys, setCreatedRowKeys] = useState<Set<string>>(new Set());
+  const [rowTaskIdMap, setRowTaskIdMap] = useState<Record<string, string>>({});
   const [isFullScreen, setIsFullScreen] = useState<boolean>(() => {
     try {
       return (
@@ -149,6 +152,8 @@ export function TrackingLayoutBuilderModal({
   useEffect(() => {
     if (!open) {
       setIsFullScreen(false);
+      setCreatedRowKeys(new Set());
+      setRowTaskIdMap({});
       try {
         sessionStorage.removeItem(`tracking_fullscreen_${groupId}`);
       } catch {}
@@ -647,6 +652,14 @@ export function TrackingLayoutBuilderModal({
         }
 
         if (parsedLayoutJson && parsedLayoutJson.tabs) {
+          const isTaskAlive = (candidateId: any): boolean => {
+            if (candidateId == null) return false;
+            if (!Array.isArray(existingTasks)) return false;
+            return existingTasks.some(
+              (t) => String(t.id) === String(candidateId),
+            );
+          };
+
           if (
             Array.isArray(parsedLayoutJson.tabs) &&
             parsedLayoutJson.tabs.length > 0 &&
@@ -662,14 +675,16 @@ export function TrackingLayoutBuilderModal({
                         id: c.id || `col_${generateId()}`,
                         name: c.name || "",
                         rows: Array.isArray(c.rows)
-                          ? c.rows.map((r: any) => ({
-                            id: r.id || `row_${generateId()}`,
-                            name: r.name || "",
-                            task_id: r.task_id ?? r.taskId ?? null,
-                            task_created: Boolean(
-                              r.task_created || r.task_id || r.taskId,
-                            ),
-                          }))
+                          ? c.rows.map((r: any) => {
+                              const rawTaskId = r.task_id ?? r.taskId ?? null;
+                              const alive = isTaskAlive(rawTaskId);
+                              return {
+                                id: r.id || `row_${generateId()}`,
+                                name: r.name || "",
+                                task_id: alive ? rawTaskId : null,
+                                task_created: alive,
+                              };
+                            })
                           : [],
                       }));
                       allColumns = [...allColumns, ...rowCols];
@@ -706,14 +721,16 @@ export function TrackingLayoutBuilderModal({
                     id: c.id || `col_${generateId()}`,
                     name: c.name || "",
                     rows: Array.isArray(c.rows)
-                      ? c.rows.map((r: any) => ({
-                        id: r.id || `row_${generateId()}`,
-                        name: r.name || "",
-                        task_id: r.task_id ?? r.taskId ?? null,
-                        task_created: Boolean(
-                          r.task_created || r.task_id || r.taskId,
-                        ),
-                      }))
+                      ? c.rows.map((r: any) => {
+                          const rawTaskId = r.task_id ?? r.taskId ?? null;
+                          const alive = isTaskAlive(rawTaskId);
+                          return {
+                            id: r.id || `row_${generateId()}`,
+                            name: r.name || "",
+                            task_id: alive ? rawTaskId : null,
+                            task_created: alive,
+                          };
+                        })
                       : [],
                   }));
                 } else if (Array.isArray(parsedLayoutJson.rows)) {
@@ -721,14 +738,16 @@ export function TrackingLayoutBuilderModal({
                     {
                       id: `col_legacy_${i}`,
                       name: "Main Column",
-                      rows: parsedLayoutJson.rows.map((r: any) => ({
-                        id: r.id || `row_${generateId()}`,
-                        name: r.name || "",
-                        task_id: r.task_id ?? r.taskId ?? null,
-                        task_created: Boolean(
-                          r.task_created || r.task_id || r.taskId,
-                        ),
-                      })),
+                      rows: parsedLayoutJson.rows.map((r: any) => {
+                        const rawTaskId = r.task_id ?? r.taskId ?? null;
+                        const alive = isTaskAlive(rawTaskId);
+                        return {
+                          id: r.id || `row_${generateId()}`,
+                          name: r.name || "",
+                          task_id: alive ? rawTaskId : null,
+                          task_created: alive,
+                        };
+                      }),
                     },
                   ];
                 }
@@ -786,11 +805,19 @@ export function TrackingLayoutBuilderModal({
               name: col.name || "",
               width: "50%",
               widget: "tasks_list",
-              rows: col.rows.map((r) => ({
-                id: r.id,
-                name: r.name || "",
-                ...(r.task_id ? { task_id: r.task_id, task_created: true } : {}),
-              })),
+              rows: col.rows.map((r) => {
+                const isAlive =
+                  r.task_id != null &&
+                  Array.isArray(existingTasks) &&
+                  existingTasks.some(
+                    (t) => String(t.id) === String(r.task_id),
+                  );
+                return {
+                  id: r.id,
+                  name: r.name || "",
+                  ...(isAlive ? { task_id: r.task_id, task_created: true } : {}),
+                };
+              }),
             })),
           },
         ],
@@ -1111,6 +1138,14 @@ export function TrackingLayoutBuilderModal({
 
       const res = await tasksApi.createTask(payload);
       const createdTaskId = String(res.id);
+      const rowKey = `${tabId}_${rowIndex}`;
+      const firstColRowId = targetTab.columns[0]?.rows?.[rowIndex]?.id;
+
+      setRowTaskIdMap((prev) => ({
+        ...prev,
+        [rowKey]: createdTaskId,
+        ...(firstColRowId ? { [firstColRowId]: createdTaskId } : {}),
+      }));
 
       // 1. Mark row as created across all columns at rowIndex
       const updatedTabs = tabs.map((t) => {
@@ -1192,6 +1227,241 @@ export function TrackingLayoutBuilderModal({
       setAddingTaskKey(null);
     }
   };
+
+  const findLinkedTaskId = (
+    tab: TrackingLayoutTab,
+    rowIndex: number,
+  ): string | null => {
+    if (!existingTasks || existingTasks.length === 0) {
+      return null;
+    }
+
+    const rowKey = `${tab.id}_${rowIndex}`;
+    const firstColRowId = tab.columns[0]?.rows?.[rowIndex]?.id;
+
+    // 1. Check if we have an explicit candidate ID from rowTaskIdMap or column rows
+    const explicitCandidateId =
+      rowTaskIdMap[rowKey] ||
+      (firstColRowId ? rowTaskIdMap[firstColRowId] : null) ||
+      tab.columns.find((c) => c.rows?.[rowIndex]?.task_id)?.rows?.[rowIndex]?.task_id;
+
+    if (explicitCandidateId) {
+      const match = existingTasks.find(
+        (t) => String(t.id) === String(explicitCandidateId),
+      );
+      if (match) {
+        return String(match.id);
+      }
+      // Explicit task_id was recorded for this row but that task is no longer
+      // in existingTasks (deleted from board). Do not fall back to loose name matches.
+      return null;
+    }
+
+    // 2. Fallback: match by task name in existingTasks if never assigned an explicit task_id
+    const firstColVal = tab.columns[0]?.rows?.[rowIndex]?.name?.trim() || "";
+    const nameCol = tab.columns.find((c) => {
+      const colLower = (c.name || "").toLowerCase();
+      return (
+        (colLower.includes("task") ||
+          colLower.includes("title") ||
+          colLower.includes("name") ||
+          colLower.includes("item") ||
+          colLower.includes("feature")) &&
+        !colLower.includes("status")
+      );
+    });
+    const mainVal = nameCol?.rows?.[rowIndex]?.name?.trim() || "";
+    const computedName = getRowTaskName(tab, rowIndex);
+
+    const match = existingTasks.find((t) => {
+      const tName = t.name.trim().toLowerCase();
+      if (computedName && tName === computedName.trim().toLowerCase())
+        return true;
+      if (mainVal && tName === mainVal.toLowerCase()) return true;
+      if (
+        firstColVal &&
+        firstColVal.length > 4 &&
+        tName === firstColVal.toLowerCase()
+      )
+        return true;
+      return false;
+    });
+
+    if (match) {
+      return String(match.id);
+    }
+
+    return null;
+  };
+
+  const syncTaskToBoard = async (
+    tab: TrackingLayoutTab,
+    col: TrackingLayoutColumn,
+    rowIndex: number,
+    newValue: string,
+  ) => {
+    const rowKey = `${tab.id}_${rowIndex}`;
+    const firstColRowId = tab.columns[0]?.rows?.[rowIndex]?.id;
+    const targetTaskIdRaw = findLinkedTaskId(tab, rowIndex);
+
+    if (!targetTaskIdRaw) {
+      console.warn("No active linked task found on board for row", rowIndex);
+      return;
+    }
+
+    const targetTaskId = String(targetTaskIdRaw);
+
+    // Ensure it's cached in map for subsequent edits
+    setRowTaskIdMap((prev) => ({
+      ...prev,
+      [rowKey]: targetTaskId,
+      ...(firstColRowId ? { [firstColRowId]: targetTaskId } : {}),
+    }));
+
+    const colLower = (col.name || "").toLowerCase();
+    const boardIdNum = parseInt(String(boardId), 10);
+
+    try {
+      if (colLower.includes("status")) {
+        const newStatusId = resolveStatusId(newValue);
+        if (newStatusId) {
+          // Use dedicated updateTaskStatus endpoint (PATCH /tasks/update)
+          await tasksApi.updateTaskStatus({
+            taskId: targetTaskId,
+            board_id: boardIdNum,
+            status_id: newStatusId,
+          });
+
+          const matchedStatusName =
+            statuses?.find((s) => String(s.id) === String(newStatusId))
+              ?.name || newValue;
+
+          onTaskUpdated?.({
+            id: targetTaskId,
+            status_id: String(newStatusId),
+            status: matchedStatusName,
+          });
+          toast.success(
+            `Task status updated to "${matchedStatusName}" on main page!`,
+          );
+        }
+      } else if (
+        colLower.includes("desc") ||
+        colLower.includes("notes") ||
+        colLower.includes("detail")
+      ) {
+        await tasksApi.updateTask({
+          id: targetTaskId,
+          board_id: boardIdNum,
+          description: newValue.trim(),
+        });
+        onTaskUpdated?.({
+          id: targetTaskId,
+          description: newValue.trim(),
+        });
+        toast.success("Task description updated on main page!");
+      } else {
+        const currentTask = existingTasks?.find(
+          (t) => String(t.id) === String(targetTaskId),
+        );
+        const firstCol = tab.columns[0];
+        const firstColValue = firstCol?.rows?.[rowIndex]?.name?.trim();
+        const updatedTaskName = getRowTaskName(tab, rowIndex);
+
+        let finalTaskName = updatedTaskName;
+        if (currentTask && firstColValue) {
+          const hadPrefix = currentTask.name
+            .toLowerCase()
+            .includes(firstColValue.toLowerCase());
+          if (!hadPrefix && !col.name?.toLowerCase().includes("id")) {
+            finalTaskName = newValue.trim();
+          }
+        }
+
+        if (finalTaskName) {
+          await tasksApi.updateTask({
+            id: targetTaskId,
+            board_id: boardIdNum,
+            name: finalTaskName,
+          });
+          onTaskUpdated?.({
+            id: targetTaskId,
+            name: finalTaskName,
+          });
+          toast.success(`Task "${finalTaskName}" updated on main page!`);
+        }
+      }
+    } catch (err: any) {
+      console.error("Failed to sync tracking layout edit to board task:", err);
+      const errMsg =
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to update task on main page";
+      toast.error(errMsg);
+    }
+  };
+
+  useEffect(() => {
+    if (!existingTasks) return;
+
+    // 1. Clean up tabs if any row has a task_id that is no longer in existingTasks
+    setTabs((prevTabs) => {
+      let changed = false;
+      const nextTabs = prevTabs.map((tab) => ({
+        ...tab,
+        columns: tab.columns.map((col) => ({
+          ...col,
+          rows: col.rows.map((r) => {
+            if (
+              r.task_id != null &&
+              !existingTasks.some((t) => String(t.id) === String(r.task_id))
+            ) {
+              changed = true;
+              return {
+                ...r,
+                task_id: null,
+                task_created: false,
+              };
+            }
+            return r;
+          }),
+        })),
+      }));
+      return changed ? nextTabs : prevTabs;
+    });
+
+    // 2. Rebuild rowTaskIdMap using findLinkedTaskId so deleted tasks are purged
+    const newMap: Record<string, string> = {};
+    tabs.forEach((tab) => {
+      const maxRows = Math.max(...tab.columns.map((c) => c.rows?.length || 0));
+      for (let i = 0; i < maxRows; i++) {
+        const foundId = findLinkedTaskId(tab, i);
+        if (foundId) {
+          newMap[`${tab.id}_${i}`] = foundId;
+          const firstColRowId = tab.columns[0]?.rows?.[i]?.id;
+          if (firstColRowId) {
+            newMap[firstColRowId] = foundId;
+          }
+        }
+      }
+    });
+    setRowTaskIdMap(newMap);
+
+    // 3. Purge createdRowKeys whose tasks no longer exist
+    setCreatedRowKeys((prev) => {
+      const next = new Set<string>();
+      prev.forEach((key) => {
+        const linkedId = newMap[key];
+        if (
+          linkedId &&
+          existingTasks.some((t) => String(t.id) === String(linkedId))
+        ) {
+          next.add(key);
+        }
+      });
+      return next;
+    });
+  }, [existingTasks, tabs.length]);
 
   const [draggedColId, setDraggedColId] = useState<string | null>(null);
 
@@ -1544,37 +1814,17 @@ export function TrackingLayoutBuilderModal({
                                   )
                                     return null;
                                 }
-                                const isRowCreated = (() => {
-                                  if (
-                                    createdRowKeys.has(
-                                      `${activeTab.id}_${rowIndex}`,
-                                    )
-                                  ) {
-                                    return true;
-                                  }
-                                  const rowHasTaskId = activeTab.columns.some(
-                                    (c) =>
-                                      c.rows?.[rowIndex]?.task_id ||
-                                      c.rows?.[rowIndex]?.task_created,
-                                  );
-                                  if (rowHasTaskId) return true;
-
-                                  if (existingTasks && existingTasks.length > 0) {
-                                    const rowTaskName = getRowTaskName(
-                                      activeTab,
-                                      rowIndex,
-                                    );
-                                    if (rowTaskName) {
-                                      return existingTasks.some(
-                                        (t) =>
-                                          t.name.trim().toLowerCase() ===
-                                          rowTaskName.trim().toLowerCase(),
-                                      );
-                                    }
-                                  }
-
-                                  return false;
-                                })();
+                                const linkedTaskId = findLinkedTaskId(
+                                  activeTab,
+                                  rowIndex,
+                                );
+                                const isRowCreated = Boolean(
+                                  linkedTaskId &&
+                                    existingTasks?.some(
+                                      (t) =>
+                                        String(t.id) === String(linkedTaskId),
+                                    ),
+                                );
 
                                 return (
                                   <div
@@ -1712,14 +1962,21 @@ export function TrackingLayoutBuilderModal({
                                           <select
                                             className="flex h-7 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                             value={row.name || ""}
-                                            onChange={(e) =>
+                                            onChange={(e) => {
+                                              const val = e.target.value;
                                               updateRow(
                                                 activeTab.id,
                                                 col.id,
                                                 row.id,
-                                                e.target.value,
-                                              )
-                                            }
+                                                val,
+                                              );
+                                              syncTaskToBoard(
+                                                activeTab,
+                                                col,
+                                                rowIndex,
+                                                val,
+                                              );
+                                            }}
                                           >
                                             <option value="" disabled>
                                               Select Status
@@ -1761,6 +2018,14 @@ export function TrackingLayoutBuilderModal({
                                                 e.target.value,
                                               )
                                             }
+                                            onBlur={(e) => {
+                                              syncTaskToBoard(
+                                                activeTab,
+                                                col,
+                                                rowIndex,
+                                                e.target.value,
+                                              );
+                                            }}
                                           />
                                         )}
                                         <Button

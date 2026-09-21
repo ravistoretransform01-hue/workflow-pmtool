@@ -1157,6 +1157,23 @@ export function WorkloadBoard({
     },
     [groupLabels],
   );
+
+  const handleTaskUpdatedFromTracking = useCallback(
+    (updatedTask: Partial<Task> & { id: string }) => {
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            if (String(task.id) === String(updatedTask.id)) {
+              return { ...task, ...updatedTask };
+            }
+            return task;
+          }),
+        })),
+      );
+    },
+    [],
+  );
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [addingItemToGroup, setAddingItemToGroup] = useState<string | null>(
     null,
@@ -10488,6 +10505,7 @@ export function WorkloadBoard({
           }
           onLayoutStatusChange={handleTrackingLayoutStatusChange}
           onTaskCreated={handleTaskCreatedFromTracking}
+          onTaskUpdated={handleTaskUpdatedFromTracking}
         />
       )}
     </div>
