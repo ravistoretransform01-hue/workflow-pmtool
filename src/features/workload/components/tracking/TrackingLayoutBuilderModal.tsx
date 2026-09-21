@@ -137,7 +137,6 @@ export function TrackingLayoutBuilderModal({
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [tempTabName, setTempTabName] = useState<string>("");
   const [addingTaskKey, setAddingTaskKey] = useState<string | null>(null);
-  const [createdRowKeys, setCreatedRowKeys] = useState<Set<string>>(new Set());
   const [rowTaskIdMap, setRowTaskIdMap] = useState<Record<string, string>>({});
   const [isFullScreen, setIsFullScreen] = useState<boolean>(() => {
     try {
@@ -152,7 +151,6 @@ export function TrackingLayoutBuilderModal({
   useEffect(() => {
     if (!open) {
       setIsFullScreen(false);
-      setCreatedRowKeys(new Set());
       setRowTaskIdMap({});
       try {
         sessionStorage.removeItem(`tracking_fullscreen_${groupId}`);
@@ -1171,7 +1169,6 @@ export function TrackingLayoutBuilderModal({
       });
 
       setTabs(updatedTabs);
-      setCreatedRowKeys((prev) => new Set(prev).add(`${tabId}_${rowIndex}`));
 
       // 2. Persist layout with updated task_id in background
       persistLayoutToBackend(updatedTabs).catch((saveErr) => {
@@ -1446,21 +1443,6 @@ export function TrackingLayoutBuilderModal({
       }
     });
     setRowTaskIdMap(newMap);
-
-    // 3. Purge createdRowKeys whose tasks no longer exist
-    setCreatedRowKeys((prev) => {
-      const next = new Set<string>();
-      prev.forEach((key) => {
-        const linkedId = newMap[key];
-        if (
-          linkedId &&
-          existingTasks.some((t) => String(t.id) === String(linkedId))
-        ) {
-          next.add(key);
-        }
-      });
-      return next;
-    });
   }, [existingTasks, tabs.length]);
 
   const [draggedColId, setDraggedColId] = useState<string | null>(null);
