@@ -237,11 +237,13 @@
 
 const HomePage = () => {
   return (
-    <div className="p-8 text-3xl min-h-screen flex justify-center items-center">
+    <div className="p-4 sm:p-8 h-full min-h-[calc(100svh-5rem)] flex justify-center items-center">
       {/* <h1 className="text-3xl font-bold mb-6">Welcome to Home</h1> */}
-      <div className="space-y-4">
+      <div className="space-y-4 text-center">
         {/* <p>This is your homepage with the sidebar and header layout.</p> */}
-        <p>Welcome to WorkFlowPM</p>
+        <p className="text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight whitespace-nowrap">
+          Welcome to WorkFlowPM
+        </p>
         {/* Add your content here */}
       </div>
     </div>

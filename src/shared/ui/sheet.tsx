@@ -5,7 +5,55 @@ import * as React from "react";
 
 import { cn } from "@/utils/utils";
 
-const Sheet = SheetPrimitive.Root;
+import { useOverlayHistory } from "@/shared/hooks/useOverlayHistory";
+
+export interface SheetProps
+  extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Root> {
+  disableBackNavigation?: boolean;
+}
+
+const Sheet: React.FC<SheetProps> = ({
+  open: openProp,
+  defaultOpen,
+  onOpenChange: onOpenChangeProp,
+  disableBackNavigation = false,
+  children,
+  ...props
+}) => {
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(
+    defaultOpen ?? false,
+  );
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : uncontrolledOpen;
+
+  const handleOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      if (!isControlled) {
+        setUncontrolledOpen(nextOpen);
+      }
+      onOpenChangeProp?.(nextOpen);
+    },
+    [isControlled, onOpenChangeProp],
+  );
+
+  useOverlayHistory({
+    open: Boolean(open),
+    onOpenChange: handleOpenChange,
+    enabled: !disableBackNavigation,
+  });
+
+  return (
+    <SheetPrimitive.Root
+      open={open}
+      defaultOpen={defaultOpen}
+      onOpenChange={handleOpenChange}
+      {...props}
+    >
+      {children}
+    </SheetPrimitive.Root>
+  );
+};
+Sheet.displayName = "Sheet";
 
 const SheetTrigger = SheetPrimitive.Trigger;
 

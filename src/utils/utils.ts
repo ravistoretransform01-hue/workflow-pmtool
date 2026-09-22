@@ -87,6 +87,19 @@ export function isClientRole(roleName: string | null | undefined): boolean {
   return roleName.toLowerCase().includes("client");
 }
 
+export function isProjectManagerRole(roleName: string | null | undefined): boolean {
+  if (!roleName) return false;
+  const lower = String(roleName).toLowerCase().trim();
+  return (
+    lower === "project manager" ||
+    lower === "project_manager" ||
+    lower === "projectmanager" ||
+    lower === "pm" ||
+    lower.includes("project manager") ||
+    lower.includes("project_manager")
+  );
+}
+
 export {
   parseApiDateTime,
   formatApiDateTimeToLocale,

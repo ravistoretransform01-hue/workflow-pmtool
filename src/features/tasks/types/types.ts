@@ -58,28 +58,20 @@ export interface TaskResponse {
     created_at: string;
     updated_at: string;
   } | null;
-  // New rating structure from API
-  ratings?: Array<{
-    id: string;
-    task_id: string;
-    assignee_id: string | number;
-    assigner_id: string | number;
-    rating: string | number;
-    created_at: string;
-    updated_at: string;
-    assignee?: {
-      id: number;
-      name: string;
-      email: string;
-    };
-    assigner?: {
-      id: number;
-      name: string;
-      email: string;
-    };
-  }>;
+  // Rating structure from API
+  ratings?: TaskRating[];
   average_rating: number | null;
   rating_count: number;
+  // Leader rating structure from API
+  leader_ratings?: LeaderRating[];
+  leader_rating_average?: number | null;
+  board_name?: string;
+  group_name?: string;
+  kunal_var?: string;
+  external_task_id?: string | null;
+  sync_status?: string;
+  last_sync_hash?: string | null;
+  is_archived?: string | number;
   // Tags array
   tags?: Array<{
     task_tag_id: number;
@@ -92,6 +84,46 @@ export interface TaskResponse {
     tagged_at: string;
   }>;
   recurrence?: any;
+}
+
+export interface TaskRating {
+  id: string | number;
+  task_id: string | number;
+  assignee_id: string | number;
+  assigner_id: string | number;
+  rating: string | number;
+  created_at: string;
+  updated_at: string;
+  assignee?: {
+    id: number | string;
+    name: string;
+    email: string;
+  };
+  assigner?: {
+    id: number | string;
+    name: string;
+    email: string;
+  };
+}
+
+export interface LeaderRating {
+  id: number | string;
+  task_id: number | string;
+  assignee_id: number | string;
+  assignee?: {
+    id: number | string;
+    name: string;
+    email: string;
+  };
+  leader_id: number | string;
+  leader?: {
+    id: number | string;
+    name: string;
+    email: string;
+  };
+  rating: number | string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface GetTasksResponse {
@@ -151,6 +183,12 @@ export interface UpdateTaskRequest {
   rating?: {
     rating: string | number;
     assignee_id: number;
+  };
+  // optional leader rating update
+  leader_rating?: {
+    rating: string | number;
+    assignee_id?: number;
+    leader_id?: number;
   };
 }
 

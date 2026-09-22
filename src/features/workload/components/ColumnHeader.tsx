@@ -116,8 +116,8 @@ export const SortableColumnHeader = ({
         minWidth: column.minWidth || column.width,
         maxWidth: column.maxWidth || column.width,
       }}
-      className={`p-4 font-medium border-r border-b border-border last:border-r-0 bg-card ${
-        column.id === "item" ? "sticky left-12 z-30" : "z-20"
+      className={`p-2.5 sm:p-4 text-xs sm:text-sm font-medium border-r border-b border-border last:border-r-0 bg-card ${
+        column.id === "item" ? "md:sticky md:left-12 z-10 md:z-30" : "z-10 md:z-20"
       }`}
       {...attributes}
     >
