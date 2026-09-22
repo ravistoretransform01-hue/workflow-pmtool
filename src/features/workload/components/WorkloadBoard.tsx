@@ -61,8 +61,11 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
-import { parseGroupCompletionDate } from "@/features/workload/utils/workload-utils";
 import { Progress } from "@/shared/ui/progress";
+import {
+  parseGroupCompletionDate,
+  extractRating,
+} from "@/features/workload/utils/workload-utils";
 import {
   Dialog,
   DialogContent,
@@ -107,6 +110,7 @@ import type {
   TaskResponse,
   TaskComment,
   UpdateCommentRequest,
+  TaskRating,
 } from "@/features/tasks/types/types";
 import { ProfileDialog } from "@/shared/modals/ProfileDialog";
 import {
@@ -208,25 +212,11 @@ export interface Task {
   updated_at?: string;
   created_at?: string;
   latest_comment_date?: string;
-  ratings?: Array<{
-    id: string;
-    task_id?: string;
-    assignee_id: string | number;
-    assigner_id?: string | number;
-    rating: string | number;
-    created_at?: string;
-    updated_at?: string;
-    assignee?: {
-      id: number;
-      name: string;
-      email: string;
-    };
-    assigner?: {
-      id: number;
-      name: string;
-      email: string;
-    };
-  }>;
+  ratings?: TaskRating[];
+  leader_rating_average?: number | null;
+  board_name?: string;
+  group_name?: string;
+  kunal_var?: string;
   label_id?: string; // Label ID for the task
   group_id?: string;
   tags?: Array<{
@@ -256,6 +246,7 @@ const ALL_AVAILABLE_COLUMNS = [
   "priority",
   "description",
   "rating",
+  "leaderRating",
   "estimatedDate",
   "estimatedTime",
   "progress",
@@ -270,6 +261,7 @@ const COLUMN_DEFAULT_LABELS: Record<string, string> = {
   priority: "Priority",
   description: "Description",
   rating: "Rating",
+  leaderRating: "Leader Rating",
   estimatedDate: "Estimated Date",
   estimatedTime: "Estimated Time",
   progress: "Progress",
@@ -1357,28 +1349,6 @@ export function WorkloadBoard({
 
         // 2️⃣ Normalize tasks into UI Task model
         const tasksWithSubtasks: Task[] = parentTasks.map((task) => {
-          // Extract numeric rating from average_rating field
-          const extractRating = (taskData: any): number | undefined => {
-            if (!taskData) return undefined;
-            // Use average_rating if available, otherwise check old format
-            if (
-              typeof taskData.average_rating === "number" &&
-              taskData.average_rating !== null
-            ) {
-              return Math.round(taskData.average_rating);
-            }
-            if (
-              typeof taskData.rating === "object" &&
-              "rating" in taskData.rating
-            ) {
-              return Number(taskData.rating.rating);
-            }
-            if (typeof taskData.rating === "number") {
-              return taskData.rating;
-            }
-            return undefined;
-          };
-
           return {
             id: String(task.id),
             name: task.name,
@@ -1413,6 +1383,10 @@ export function WorkloadBoard({
             ratingCount: task.rating_count || 0,
             comment_count: task.comment_count,
             ratings: task.ratings,
+            leader_rating_average: task.leader_rating_average ?? null,
+            board_name: task.board_name,
+            group_name: task.group_name,
+            kunal_var: task.kunal_var,
             tags: task.tags || [],
             group_id: String(task.group_id),
             timeSpent: task.time_spent_hours
@@ -1461,6 +1435,10 @@ export function WorkloadBoard({
                 ratingCount: st.rating_count || 0,
                 comment_count: st.comment_count,
                 ratings: st.ratings,
+                leader_rating_average: st.leader_rating_average ?? null,
+                board_name: st.board_name,
+                group_name: st.group_name,
+                kunal_var: st.kunal_var,
                 tags: st.tags || [],
                 timeSpent: st.time_spent_hours
                   ? `${st.time_spent_hours}h`
@@ -2379,6 +2357,10 @@ export function WorkloadBoard({
               valA = Number(a.rating) || 0;
               valB = Number(b.rating) || 0;
               break;
+            case "leaderRating":
+              valA = Number(a.leader_rating_average) || 0;
+              valB = Number(b.leader_rating_average) || 0;
+              break;
             case "estimatedDate":
               valA = a.estimatedDateRaw || a.estimatedDate || "";
               valB = b.estimatedDateRaw || b.estimatedDate || "";
@@ -2800,6 +2782,12 @@ export function WorkloadBoard({
         ),
         timeSpent: `${newTaskResponse.time_spent_hours}h`,
         group_id: String(newTaskResponse.group_id),
+        rating: extractRating(newTaskResponse),
+        ratingCount: newTaskResponse.rating_count || 0,
+        ratings: newTaskResponse.ratings || [],
+        leader_rating_average: newTaskResponse.leader_rating_average ?? null,
+        board_name: newTaskResponse.board_name,
+        group_name: newTaskResponse.group_name,
         subitems: [],
         assignee_names:
           newTaskResponse.assignees?.map((a) => a.name || a.username || "") ||
@@ -2887,6 +2875,12 @@ export function WorkloadBoard({
         ),
         timeSpent: `${newTaskResponse.time_spent_hours}h`,
         group_id: String(newTaskResponse.group_id),
+        rating: extractRating(newTaskResponse),
+        ratingCount: newTaskResponse.rating_count || 0,
+        ratings: newTaskResponse.ratings || [],
+        leader_rating_average: newTaskResponse.leader_rating_average ?? null,
+        board_name: newTaskResponse.board_name,
+        group_name: newTaskResponse.group_name,
         subitems: [],
         assignee_names:
           newTaskResponse.assignees?.map((a) => a.name || a.username || "") ||
@@ -3018,6 +3012,12 @@ export function WorkloadBoard({
         ),
         timeSpent: `${newTaskResponse.time_spent_hours}h`,
         group_id: String(newTaskResponse.group_id),
+        rating: extractRating(newTaskResponse),
+        ratingCount: newTaskResponse.rating_count || 0,
+        ratings: newTaskResponse.ratings || [],
+        leader_rating_average: newTaskResponse.leader_rating_average ?? null,
+        board_name: newTaskResponse.board_name,
+        group_name: newTaskResponse.group_name,
         subitems: [],
         assignee_names:
           newTaskResponse.assignees?.map((a) => a.name || a.username || "") ||
@@ -3270,6 +3270,7 @@ export function WorkloadBoard({
                 ratingCount: updated.rating_count || 0,
                 comment_count: updated.comment_count,
                 ratings: updated.ratings,
+                leader_rating_average: updated.leader_rating_average ?? task.leader_rating_average,
               };
             }
 
@@ -3285,6 +3286,7 @@ export function WorkloadBoard({
                         ratingCount: updated.rating_count || 0,
                         comment_count: updated.comment_count,
                         ratings: updated.ratings,
+                        leader_rating_average: updated.leader_rating_average ?? sub.leader_rating_average,
                       }
                     : sub,
                 ),
@@ -3302,6 +3304,87 @@ export function WorkloadBoard({
     } catch (err) {
       console.error(err);
       toast.error("Failed to Update Rating");
+    }
+  };
+
+  const handleLeaderRatingChange = async (taskId: string, rating: number) => {
+    try {
+      const boardIdNum = parseInt(boardId, 10);
+      let assigneeId = 0;
+
+      for (const group of groups) {
+        const task = group.tasks.find((t) => String(t.id) === String(taskId));
+        if (task) {
+          assigneeId = task.assigned_to_ids?.[0]
+            ? Number(task.assigned_to_ids[0])
+            : 0;
+          break;
+        }
+        const subitem = group.tasks
+          .flatMap((t) => t.subitems || [])
+          .find((s) => String(s.id) === String(taskId));
+        if (subitem) {
+          assigneeId = subitem.assigned_to_ids?.[0]
+            ? Number(subitem.assigned_to_ids[0])
+            : 0;
+          break;
+        }
+      }
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        leader_rating: {
+          rating: Number(rating),
+          assignee_id: assigneeId,
+        },
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      const leaderAvg =
+        updated.leader_rating_average !== undefined && updated.leader_rating_average !== null
+          ? updated.leader_rating_average
+          : Number(rating);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (String(task.id) === String(taskId)) {
+              return {
+                ...task,
+                leader_rating_average: leaderAvg,
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  String(sub.id) === String(taskId)
+                    ? {
+                        ...sub,
+                        leader_rating_average: leaderAvg,
+                      }
+                    : sub,
+                ),
+              };
+            }
+
+            return task;
+          }),
+        })),
+      );
+
+      // Close popover after update
+      popoverState.closePopover();
+      toast.success("Leader Rating Updated Successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to Update Leader Rating");
     }
   };
 
@@ -3951,6 +4034,8 @@ export function WorkloadBoard({
                   status_id: String(match.status_id),
                   completed_at: match.completed_at,
                   started_at: match.started_at,
+                  ratings: match.ratings ?? task.ratings,
+                  leader_rating_average: match.leader_rating_average ?? task.leader_rating_average,
                 };
               }
 
@@ -3966,6 +4051,8 @@ export function WorkloadBoard({
                           status_id: String(subMatch.status_id),
                           completed_at: subMatch.completed_at,
                           started_at: subMatch.started_at,
+                          ratings: subMatch.ratings ?? sub.ratings,
+                          leader_rating_average: subMatch.leader_rating_average ?? sub.leader_rating_average,
                         }
                       : sub;
                   }),
@@ -5552,6 +5639,7 @@ export function WorkloadBoard({
         onPriorityChange: handlePriorityChange,
         onPersonChange: handlePersonChange,
         onRatingChange: handleRatingChange,
+        onLeaderRatingChange: handleLeaderRatingChange,
         onEstimatedDateChange: handleEstimatedDateChange,
         onEstimatedTimeChange: handleEstimatedTimeChange,
         onTagChange: handleTagChange,
@@ -5761,6 +5849,7 @@ export function WorkloadBoard({
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
+      onLeaderRatingChange: handleLeaderRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
       onEstimatedTimeChange: handleEstimatedTimeChange,
       onTagChange: handleTagChange,
@@ -5849,6 +5938,7 @@ export function WorkloadBoard({
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
+      onLeaderRatingChange: handleLeaderRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
       onEstimatedTimeChange: handleEstimatedTimeChange,
       onTagChange: handleTagChange,
@@ -9927,6 +10017,7 @@ export function WorkloadBoard({
             onPriorityChange={handlePriorityChange}
             onPersonChange={handlePersonChange}
             onRatingChange={handleRatingChange}
+            onLeaderRatingChange={handleLeaderRatingChange}
             onEstimatedDateChange={handleEstimatedDateChange}
             boardId={Number(boardId)}
             groupName={

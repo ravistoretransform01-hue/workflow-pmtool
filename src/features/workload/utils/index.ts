@@ -5,6 +5,7 @@ export {
   calculateGroupProgress,
   parseEstimatedTime,
   extractRating,
+  extractLeaderRating,
   formatTimeDisplay,
   renderFormattedContent,
 } from "@/features/workload/utils/workload-utils";
@@ -21,6 +22,8 @@ export type {
   CMSDataState,
   PopoverCellProps,
   SelectionCellProps,
+  LeaderRating,
+  TaskRating,
 } from "@/features/workload/types/workload-types";
 
 export { API_ENDPOINTS } from "@/config/apiEndpoints";

@@ -14,6 +14,7 @@ import {
   Users,
   AlertCircle,
   Star,
+  Award,
   Tag,
   AlignLeft,
   Pencil,
@@ -68,6 +69,7 @@ interface TaskCardDialogProps {
   onPriorityChange?: (taskId: string, priorityId: string) => Promise<void>;
   onPersonChange?: (taskId: string, memberIds: string[]) => Promise<void>;
   onRatingChange?: (taskId: string, rating: number) => Promise<void>;
+  onLeaderRatingChange?: (taskId: string, rating: number) => Promise<void> | void;
   onEstimatedDateChange?: (
     taskId: string,
     fromDate: string | null,
@@ -139,6 +141,7 @@ export function TaskCardDialog({
   onTimerConflict,
   onTimeUpdate,
   onCommentCountChange,
+  onLeaderRatingChange,
 }: TaskCardDialogProps) {
   const [activeTab, setActiveTab] = useState("description");
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
@@ -701,6 +704,7 @@ export function TaskCardDialog({
       }
       onRatingChange?.(taskId, rating);
     },
+    onLeaderRatingChange,
     onEstimatedDateChange,
     onEstimatedTimeChange,
     onTagChange,
@@ -960,6 +964,19 @@ export function TaskCardDialog({
               </div>
               <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
                 {columns.find((c) => c.id === "rating")?.render(displayTask)}
+              </div>
+            </div>
+
+            {/* Leader Rating */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-32 text-muted-foreground text-[13px] font-medium">
+                <Award className="h-4 w-4 text-amber-500" />
+                <span>Leader Rating</span>
+              </div>
+              <div className="flex-1 bg-gray-500/10 rounded px-2.5 py-1.5 min-h-[36px] flex items-center justify-center">
+                {columns
+                  .find((c) => c.id === "leaderRating")
+                  ?.render(displayTask)}
               </div>
             </div>
 

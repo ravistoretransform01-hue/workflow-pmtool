@@ -15,12 +15,13 @@ import { PriorityPopoverCell } from "@/features/workload/components/PriorityPopo
 import {
   PersonPopover,
   RatingStars,
+  LeaderRatingCell,
   EstimatedDatePicker,
   EstimatedTimePicker,
 } from "@/features/workload/components/cells";
 import { TruncatedTaskName } from "@/features/workload/components/TruncatedTaskName";
 import type { Column, Task } from "@/features/workload/utils";
-import { getCurrentUserId, isClientRole } from "@/utils/utils";
+import { getCurrentUserId, isClientRole, isProjectManagerRole } from "@/utils/utils";
 
 interface ColumnDefinitionProps {
   expandedTasks: Record<string, boolean>;
@@ -76,6 +77,8 @@ interface ColumnDefinitionProps {
   isDialog?: boolean;
   currentUserRole?: string | null;
   isClient?: boolean;
+  isProjectManager?: boolean;
+  onLeaderRatingChange?: (taskId: string, rating: number) => void;
 }
 
 // Local component removed, using shared TruncatedTaskName from ./TruncatedTaskName
@@ -119,6 +122,8 @@ export const getWorkloadColumns = ({
   isDialog = false,
   currentUserRole,
   isClient: isClientParam,
+  isProjectManager: isProjectManagerParam,
+  onLeaderRatingChange,
 }: ColumnDefinitionProps): Column[] => {
   const resolvedIsClient = (() => {
     if (typeof isClientParam === "boolean") return isClientParam;
@@ -139,6 +144,38 @@ export const getWorkloadColumns = ({
       if (userDataRaw) {
         const userData = JSON.parse(userDataRaw);
         return isClientRole(userData?.role_label || userData?.role?.[0]);
+      }
+    } catch {}
+    return false;
+  })();
+
+  const resolvedIsProjectManager = (() => {
+    if (typeof isProjectManagerParam === "boolean") return isProjectManagerParam;
+    if (currentUserRole && isProjectManagerRole(currentUserRole)) return true;
+    const currentUserId = getCurrentUserId();
+    if (currentUserId && members && members.length > 0) {
+      const currentMember = members.find(
+        (m) => String(m.user_id) === String(currentUserId),
+      );
+      if (
+        isProjectManagerRole(currentMember?.board_role_label) ||
+        isProjectManagerRole((currentMember as any)?.role) ||
+        isProjectManagerRole((currentMember as any)?.role_name)
+      ) {
+        return true;
+      }
+    }
+    try {
+      const userDataRaw = localStorage.getItem("user_data");
+      if (userDataRaw) {
+        const userData = JSON.parse(userDataRaw);
+        return (
+          isProjectManagerRole(userData?.role_label) ||
+          isProjectManagerRole(userData?.role_name) ||
+          isProjectManagerRole(userData?.board_role_label) ||
+          isProjectManagerRole(userData?.role?.[0]) ||
+          isProjectManagerRole(userData?.role)
+        );
       }
     } catch {}
     return false;
@@ -447,6 +484,23 @@ export const getWorkloadColumns = ({
           />
         );
       },
+    },
+    {
+      id: "leaderRating",
+      label: "Leader Rating",
+      width: "140px",
+      align: "center",
+      render: (task: Task) => (
+        <LeaderRatingCell
+          key={task.id}
+          task={task}
+          popoverId={`leader-rating-${task.id}`}
+          openPopoverId={openPopoverId}
+          setOpenPopoverId={setOpenPopoverId}
+          onLeaderRatingChange={onLeaderRatingChange}
+          isProjectManager={resolvedIsProjectManager}
+        />
+      ),
     },
     {
       id: "estimatedDate",
