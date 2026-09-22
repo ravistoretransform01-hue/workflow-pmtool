@@ -490,17 +490,24 @@ export const getWorkloadColumns = ({
       label: "Leader Rating",
       width: "140px",
       align: "center",
-      render: (task: Task) => (
-        <LeaderRatingCell
-          key={task.id}
-          task={task}
-          popoverId={`leader-rating-${task.id}`}
-          openPopoverId={openPopoverId}
-          setOpenPopoverId={setOpenPopoverId}
-          onLeaderRatingChange={onLeaderRatingChange}
-          isProjectManager={resolvedIsProjectManager}
-        />
-      ),
+      render: (task: Task) => {
+        const statusObj = statusMap.get(task.status_id || "");
+        const statusName = (statusObj?.name || task.status || "").trim().toLowerCase();
+        const isDone = statusName === "done" || statusName === "completed";
+
+        return (
+          <LeaderRatingCell
+            key={task.id}
+            task={task}
+            popoverId={`leader-rating-${task.id}`}
+            openPopoverId={openPopoverId}
+            setOpenPopoverId={setOpenPopoverId}
+            onLeaderRatingChange={onLeaderRatingChange}
+            isProjectManager={resolvedIsProjectManager}
+            isDone={isDone}
+          />
+        );
+      },
     },
     {
       id: "estimatedDate",

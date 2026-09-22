@@ -21,6 +21,7 @@ interface LeaderRatingCellProps {
   setOpenPopoverId?: (id: string | null) => void;
   onLeaderRatingChange?: (taskId: string, rating: number) => void;
   isProjectManager?: boolean;
+  isDone?: boolean;
 }
 
 export function LeaderRatingCell({
@@ -30,6 +31,7 @@ export function LeaderRatingCell({
   setOpenPopoverId,
   onLeaderRatingChange,
   isProjectManager: isProjectManagerProp,
+  isDone: isDoneProp,
 }: LeaderRatingCellProps) {
   // Check if current user is Project Manager
   const isProjectManager = (() => {
@@ -54,6 +56,17 @@ export function LeaderRatingCell({
     return false;
   })();
 
+  // Check if task is marked as Done
+  const isDone =
+    typeof isDoneProp === "boolean"
+      ? isDoneProp
+      : (() => {
+          const status = (task?.status || "").trim().toLowerCase();
+          return status === "done" || status === "completed";
+        })();
+
+  const canRate = isProjectManager && isDone;
+
   const [hoveredRating, setHoveredRating] = useState(0);
   const [localPopoverOpen, setLocalPopoverOpen] = useState(false);
 
@@ -65,6 +78,10 @@ export function LeaderRatingCell({
       if (open) {
         toast.error("Only Project Managers can rate tasks");
       }
+      return;
+    }
+    if (open && !isDone) {
+      toast.error("Task must be marked as Done before rating");
       return;
     }
     if (isControlled) {
@@ -90,13 +107,18 @@ export function LeaderRatingCell({
       handleOpenChange(false);
       return;
     }
+    if (!isDone) {
+      toast.error("Task must be marked as Done before rating");
+      handleOpenChange(false);
+      return;
+    }
 
     handleOpenChange(false);
     onLeaderRatingChange?.(task.id, ratingValue);
   };
 
   return (
-    <Popover open={isPopoverOpen && isProjectManager} onOpenChange={handleOpenChange}>
+    <Popover open={isPopoverOpen && canRate} onOpenChange={handleOpenChange}>
       <div className="relative w-full flex items-center justify-center">
         <TooltipProvider delayDuration={150}>
           <Tooltip open={isPopoverOpen ? false : undefined}>
@@ -106,14 +128,21 @@ export function LeaderRatingCell({
                   <button
                     type="button"
                     className={`relative w-full h-8 flex items-center justify-center gap-1 rounded transition-all ${
-                      isProjectManager
+                      canRate
                         ? "cursor-pointer hover:bg-muted/40"
-                        : "cursor-default opacity-80"
+                        : isProjectManager && !isDone
+                          ? "cursor-not-allowed opacity-60"
+                          : "cursor-default opacity-80"
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!isProjectManager) {
                         toast.error("Only Project Managers can rate tasks");
+                        return;
+                      }
+                      if (!isDone) {
+                        toast.error("Task must be marked as Done before rating");
+                        return;
                       }
                     }}
                     aria-label={`Leader Rating: ${leaderRatingAvg ?? "None"}`}
@@ -149,18 +178,24 @@ export function LeaderRatingCell({
                   <p className="font-semibold text-foreground">
                     Leader Rating: {leaderRatingAvg} / 5
                   </p>
-                  {!isProjectManager && (
+                  {!isProjectManager ? (
                     <p className="text-[11px] text-amber-500 font-normal">
                       Only Project Managers can edit this rating
                     </p>
-                  )}
+                  ) : !isDone ? (
+                    <p className="text-[11px] text-amber-500 font-normal">
+                      Task must be marked as Done to edit rating
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <div className="text-left">
                   <span>
-                    {isProjectManager
-                      ? "Click to rate as Project Manager"
-                      : "No leader rating yet"}
+                    {!isProjectManager
+                      ? "Only Project Managers can rate tasks"
+                      : !isDone
+                        ? "Task must be marked as Done before rating"
+                        : "Click to rate as Project Manager"}
                   </span>
                 </div>
               )}
