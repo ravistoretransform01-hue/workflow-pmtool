@@ -154,7 +154,7 @@ export const getWorkloadColumns = ({
       id: "item",
       label: "Item",
       width: "300px",
-      minWidth: "300px",
+      minWidth: "250px",
       maxWidth: "800px",
       align: "left",
       fixed: true,
@@ -163,7 +163,7 @@ export const getWorkloadColumns = ({
           return (
             <div
               onClick={() => onOpenComments?.(task)}
-              className="flex items-center gap-2 pl-8 justify-between group cursor-pointer w-full h-full min-h-[36px]"
+              className="flex items-center gap-2 pl-4 sm:pl-8 justify-between group cursor-pointer w-full h-full min-h-[36px]"
             >
               <div className="flex-1 flex items-center gap-2 min-w-0">
                 <span className="text-muted-foreground shrink-0"> {"├"}</span>

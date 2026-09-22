@@ -6435,11 +6435,12 @@ export function WorkloadBoard({
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Global Toolbar for all views */}
         {activeTab !== "SOP" && (
-          <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
+          <div className="border-b border-border px-3 py-2.5 sm:px-6 sm:py-4 flex items-center gap-2 sm:gap-3 flex-wrap flex-shrink-0">
             {activeTab === "Main Table" && Number(orgId) === 31 && (
               <Button
                 variant="default"
                 size="sm"
+                className="h-8 text-xs sm:text-sm px-2.5 sm:px-3"
                 onClick={addNewGroup}
                 disabled={isLoadingGroups}
               >
@@ -6456,7 +6457,7 @@ export function WorkloadBoard({
               Get S3 Link (Temp)
             </Button> */}
             {/* Search and Filters */}
-            <div className="flex items-center gap-3 flex-1">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
               {/* Search */}
               <div className="relative max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
@@ -6464,7 +6465,7 @@ export function WorkloadBoard({
                   placeholder="Search items..."
                   value={mainTableSearchQuery}
                   onChange={setMainTableSearchQuery}
-                  className="pl-9 h-8 bg-background border-border w-48"
+                  className="pl-9 h-8 bg-background border-border w-36 sm:w-48 text-xs sm:text-sm"
                 />
               </div>
 
@@ -7002,7 +7003,7 @@ export function WorkloadBoard({
               {activeTab === "Main Table" && (
                 <button
                   disabled={!hasUnsavedChanges}
-                  className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  className="flex items-center px-2.5 sm:px-3 gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap h-8"
                   onClick={async () => {
                     try {
                       // Build the columns payload with labels and positions
@@ -7073,7 +7074,7 @@ export function WorkloadBoard({
               {/* Comment Date Filter */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer border rounded-md h-8 bg-background hover:bg-hover transition-colors whitespace-nowrap">
+                  <button className="flex items-center px-2.5 sm:px-3 gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-foreground cursor-pointer border rounded-md h-8 bg-background hover:bg-hover transition-colors whitespace-nowrap">
                     <CalendarIcon className="h-4 w-4" />
                     {filterState.taskFilters.commentDateFilter ? (
                       <span>
@@ -7114,7 +7115,7 @@ export function WorkloadBoard({
               {(activeTab === "Main Table" || activeTab === "List") && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer whitespace-nowrap">
+                    <button className="flex items-center px-2.5 sm:px-3 gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-foreground cursor-pointer whitespace-nowrap h-8">
                       <Eye className="h-4 w-4" />
                       Show/Hide
                     </button>
@@ -7244,7 +7245,7 @@ export function WorkloadBoard({
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Task Groups Container - ONLY scrollable element */}
             <div
-              className="flex-1 overflow-y-auto overflow-x-hidden px-6"
+              className="flex-1 overflow-y-auto overflow-x-hidden px-2 sm:px-6"
               ref={groupsContainerRef}
               onWheel={(e) => {
                 // If Shift + mouse wheel is used in the empty space of the board,
@@ -7325,12 +7326,14 @@ export function WorkloadBoard({
                               {/* Group Header */}
 
                               <div
-                                className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-50 bg-muted border-b border-border`}
+                                className={`group/header w-full flex flex-col md:flex-row md:items-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-50 bg-muted border-b border-border`}
                                 data-group-header
                                 data-group-id={group.id}
                               >
-                                {/* Group Actions Dropdown */}
-                                <DropdownMenu
+                                {/* Row 1: Title, Controls, Actions */}
+                                <div className="flex items-center gap-2 w-full md:w-auto flex-wrap sm:flex-nowrap min-w-0">
+                                  {/* Group Actions Dropdown */}
+                                  <DropdownMenu
                                   open={groupDropdownOpen === group.id}
                                   onOpenChange={(open) =>
                                     setGroupDropdownOpen(open ? group.id : null)
@@ -7734,88 +7737,92 @@ export function WorkloadBoard({
                                     Tracking
                                   </Button>
                                 </div>
+                              </div>
 
-                                {/* Group Progress Bar - Time Spent vs Estimated Time */}
-                                {(() => {
-                                  const progress = calculateGroupProgress(
-                                    group.tasks,
-                                    timerState.activeTimerId,
-                                    timerState.timerStartTime,
-                                  );
-                                  return (
-                                    <div className="flex items-center gap-3 flex-1 ml-4">
-                                      <div className="flex-1 max-w-[250px]">
-                                        <Progress
-                                          value={progress.percentage}
-                                          className="h-2 border border-[#3e4360] bg-[#3e4360]"
-                                        />
+                                {/* Row 2: Progress bar, Due date, Client group badge */}
+                                <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end ml-0 md:ml-auto flex-wrap sm:flex-nowrap">
+                                  {/* Group Progress Bar - Time Spent vs Estimated Time */}
+                                  {(() => {
+                                    const progress = calculateGroupProgress(
+                                      group.tasks,
+                                      timerState.activeTimerId,
+                                      timerState.timerStartTime,
+                                    );
+                                    return (
+                                      <div className="flex items-center gap-2 sm:gap-3 flex-1 max-w-[280px]">
+                                        <div className="flex-1 max-w-[150px] sm:max-w-[200px]">
+                                          <Progress
+                                            value={progress.percentage}
+                                            className="h-2 border border-[#3e4360] bg-[#3e4360]"
+                                          />
+                                        </div>
+                                        <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
+                                          {formatSecondsToTime(
+                                            progress.timeSpentSeconds,
+                                            true,
+                                          )}{" "}
+                                          /{" "}
+                                          {progress.estimatedTimeSeconds > 0
+                                            ? formatSecondsToTime(
+                                                progress.estimatedTimeSeconds,
+                                                true,
+                                              )
+                                            : "—"}
+                                        </span>
                                       </div>
-                                      <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
-                                        {formatSecondsToTime(
-                                          progress.timeSpentSeconds,
-                                          true,
-                                        )}{" "}
-                                        /{" "}
-                                        {progress.estimatedTimeSeconds > 0
-                                          ? formatSecondsToTime(
-                                              progress.estimatedTimeSeconds,
-                                              true,
-                                            )
-                                          : "—"}
-                                      </span>
-                                    </div>
-                                  );
-                                })()}
+                                    );
+                                  })()}
 
-                                {(() => {
-                                  const parsedDate = parseGroupCompletionDate(
-                                    group.completion_date,
-                                  );
-                                  if (!parsedDate) return null;
-                                  const isPastDate =
-                                    parsedDate <
-                                    new Date(new Date().setHours(0, 0, 0, 0));
-                                  return (
-                                    <div
-                                      className={cn(
-                                        "ml-auto text-xs font-semibold flex items-center gap-1.5 px-3 py-1 rounded-md border shadow-sm shrink-0",
-                                        isPastDate
-                                          ? "bg-destructive/10 text-destructive border-destructive/25"
-                                          : "bg-background text-muted-foreground border-border",
-                                      )}
-                                    >
-                                      <CalendarIcon
+                                  {(() => {
+                                    const parsedDate = parseGroupCompletionDate(
+                                      group.completion_date,
+                                    );
+                                    if (!parsedDate) return null;
+                                    const isPastDate =
+                                      parsedDate <
+                                      new Date(new Date().setHours(0, 0, 0, 0));
+                                    return (
+                                      <div
                                         className={cn(
-                                          "h-3.5 w-3.5",
+                                          "ml-auto text-xs font-semibold flex items-center gap-1.5 px-3 py-1 rounded-md border shadow-sm shrink-0",
                                           isPastDate
-                                            ? "text-destructive"
-                                            : "text-muted-foreground",
+                                            ? "bg-destructive/10 text-destructive border-destructive/25"
+                                            : "bg-background text-muted-foreground border-border",
                                         )}
-                                      />
-                                      <span>
-                                        Due: {format(parsedDate, "PP")}
-                                      </span>
-                                    </div>
-                                  );
-                                })()}
+                                      >
+                                        <CalendarIcon
+                                          className={cn(
+                                            "h-3.5 w-3.5",
+                                            isPastDate
+                                              ? "text-destructive"
+                                              : "text-muted-foreground",
+                                          )}
+                                        />
+                                        <span>
+                                          Due: {format(parsedDate, "PP")}
+                                        </span>
+                                      </div>
+                                    );
+                                  })()}
 
-                                {/* Client Group Badge on the right side */}
-                                {members.some(
-                                  (m) =>
-                                    m.group_ids?.map(String).includes(String(group.id)) &&
-                                    (m.board_role_label?.toLowerCase() === "client" ||
-                                      (m as any).role?.toLowerCase() === "client" ||
-                                      (m as any).role_name?.toLowerCase() === "client" ||
-                                      m.role_id === "client" ||
-                                      String(m.role_id) === "client")
-                                ) && (
-                                  <span
-                                    className="ml-2 inline-flex items-center justify-center rounded-full bg-amber-100 p-1 ring-1 ring-inset ring-amber-600/20 shadow-sm shrink-0"
-                                    title="Client Group"
-                                  >
-                                    <Award className="h-4 w-4 text-amber-500" />
-                                  </span>
-                                )}
+                                  {/* Client Group Badge on the right side */}
+                                  {members.some(
+                                    (m) =>
+                                      m.group_ids?.map(String).includes(String(group.id)) &&
+                                      (m.board_role_label?.toLowerCase() === "client" ||
+                                        (m as any).role?.toLowerCase() === "client" ||
+                                        (m as any).role_name?.toLowerCase() === "client" ||
+                                        m.role_id === "client" ||
+                                        String(m.role_id) === "client")
+                                  ) && (
+                                    <span
+                                      className="ml-2 inline-flex items-center justify-center rounded-full bg-amber-100 p-1 ring-1 ring-inset ring-amber-600/20 shadow-sm shrink-0"
+                                      title="Client Group"
+                                    >
+                                      <Award className="h-4 w-4 text-amber-500" />
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Task Table */}
@@ -7885,7 +7892,7 @@ export function WorkloadBoard({
                                         >
                                           <thead className="bg-muted/30">
                                             <tr className="text-sm text-muted-foreground group">
-                                              <th className="p-4 w-12 border-b border-r border-border text-center sticky left-0 z-30 bg-card">
+                                              <th className="p-2.5 sm:p-4 w-10 sm:w-12 border-b border-r border-border text-center md:sticky md:left-0 z-10 md:z-30 bg-card">
                                                 <input
                                                   type="checkbox"
                                                   checked={
@@ -8072,7 +8079,7 @@ export function WorkloadBoard({
                                                       <>
                                                         <td
                                                           className={cn(
-                                                            "p-4 text-center border-b border-border border-r sticky left-0 z-30",
+                                                            "p-2.5 sm:p-4 text-center border-b border-border border-r md:sticky md:left-0 z-10 md:z-30",
                                                           )}
                                                           style={{
                                                             backgroundColor:
@@ -8121,7 +8128,7 @@ export function WorkloadBoard({
                                                               <td
                                                                 key={col.id}
                                                                 className={cn(
-                                                                  "p-4 border-r border-b border-border last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
+                                                                  "p-2.5 sm:p-4 border-r border-b border-border text-xs sm:text-sm last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
                                                                   col.align ===
                                                                     "center" &&
                                                                     "text-center",
@@ -8130,7 +8137,7 @@ export function WorkloadBoard({
                                                                     "text-left",
                                                                   col.id ===
                                                                     "item"
-                                                                    ? "sticky left-12 z-30 hover:bg-secondary"
+                                                                    ? "md:sticky md:left-12 z-10 md:z-30 hover:bg-secondary"
                                                                     : "hover:bg-muted/30 hover:relative",
                                                                   isBulkHighlighted &&
                                                                     (col.id ===
@@ -8274,7 +8281,7 @@ export function WorkloadBoard({
                                                           >
                                                             <td
                                                               className={cn(
-                                                                "p-4 text-center border-b border-r border-border sticky left-0 z-30",
+                                                                "p-2.5 sm:p-4 text-center border-b border-r border-border md:sticky md:left-0 z-10 md:z-30",
                                                               )}
                                                               style={{
                                                                 width: "48px",
@@ -8328,7 +8335,7 @@ export function WorkloadBoard({
                                                                   <td
                                                                     key={col.id}
                                                                     className={cn(
-                                                                      "p-4 border-r border-b border-border last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
+                                                                      "p-2.5 sm:p-4 border-r border-b border-border text-xs sm:text-sm last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
                                                                       col.align ===
                                                                         "center" &&
                                                                         "text-center",
@@ -8337,7 +8344,7 @@ export function WorkloadBoard({
                                                                         "text-left",
                                                                       col.id ===
                                                                         "item"
-                                                                        ? "sticky left-12 z-30 hover:bg-secondary"
+                                                                        ? "md:sticky md:left-12 z-10 md:z-30 hover:bg-secondary"
                                                                         : "hover:bg-muted/30 hover:relative",
                                                                       isBulkHighlighted &&
                                                                         (col.id ===
@@ -8438,7 +8445,7 @@ export function WorkloadBoard({
                                                   ] && (
                                                     <tr>
                                                       <td
-                                                        className="p-4 text-center border-b border-r border-border sticky left-0 z-30 bg-card"
+                                                        className="p-2.5 sm:p-4 text-center border-b border-r border-border md:sticky md:left-0 z-10 md:z-30 bg-card"
                                                         style={{
                                                           width: "48px",
                                                           minWidth: "48px",
@@ -8449,7 +8456,7 @@ export function WorkloadBoard({
                                                       </td>
                                                       <td
                                                         colSpan={2}
-                                                        className="p-4 border-t border-border sticky left-12 z-30 bg-card"
+                                                        className="p-2.5 sm:p-4 border-t border-border md:sticky md:left-12 z-10 md:z-30 bg-card"
                                                       >
                                                         {addingSubitemToTask ===
                                                         task.id ? (
@@ -8543,7 +8550,7 @@ export function WorkloadBoard({
                                           {/* ================= ADD ITEM ROW ================= */}
                                           <tr>
                                             <td
-                                              className="p-4 text-center border-r border-border sticky left-0 z-30 bg-card"
+                                              className="p-2.5 sm:p-4 text-center border-r border-border md:sticky md:left-0 z-10 md:z-30 bg-card"
                                               style={{
                                                 width: "48px",
                                                 minWidth: "48px",
@@ -8554,7 +8561,7 @@ export function WorkloadBoard({
                                             </td>
                                             <td
                                               colSpan={2}
-                                              className="p-4 border-t border-border sticky left-12 z-30 bg-card"
+                                              className="p-2.5 sm:p-4 border-t border-border md:sticky md:left-12 z-10 md:z-30 bg-card"
                                             >
                                               {addingItemToGroup ===
                                               group.id ? (
@@ -9763,37 +9770,37 @@ export function WorkloadBoard({
 
         {/* Bulk Actions Toolbar */}
         {Object.values(taskState.checkedTasks).some((checked) => checked) && (
-          <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50 py-4 px-6">
-            <div className="max-w-[1400px] mx-auto flex items-center justify-between">
-              <div className="flex items-center gap-8">
+          <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50 py-3 px-3 sm:py-4 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 sm:gap-8">
                 <div className="flex items-center gap-2">
-                  <div className="bg-primary rounded-full w-8 h-8 flex items-center justify-center text-white font-semibold text-sm">
+                  <div className="bg-primary rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-white font-semibold text-xs sm:text-sm shrink-0">
                     {
                       Object.values(taskState.checkedTasks).filter(
                         (checked) => checked,
                       ).length
                     }
                   </div>
-                  <span className="text-foreground font-medium">
+                  <span className="text-foreground font-medium text-xs sm:text-sm whitespace-nowrap hidden xs:inline sm:inline">
                     Items selected
                   </span>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4">
                   <button
-                    className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex flex-col items-center gap-0.5 sm:gap-1 text-muted-foreground hover:text-foreground transition-colors p-1"
                     onClick={deleteCheckedTasks}
                   >
-                    <Trash2 className="h-5 w-5" />
-                    <span className="text-xs">Delete</span>
+                    <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span className="text-[10px] sm:text-xs">Delete</span>
                   </button>
 
                   <button
-                    className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex flex-col items-center gap-0.5 sm:gap-1 text-muted-foreground hover:text-foreground transition-colors p-1"
                     onClick={archiveCheckedTasks}
                   >
-                    <Archive className="h-5 w-5" />
-                    <span className="text-xs">Archive</span>
+                    <Archive className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span className="text-[10px] sm:text-xs">Archive</span>
                   </button>
 
                   <Popover
@@ -9801,13 +9808,13 @@ export function WorkloadBoard({
                     onOpenChange={setIsMoveDialogOpen}
                   >
                     <PopoverTrigger asChild>
-                      <button className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
-                        <FolderSymlink className="h-5 w-5" />
-                        <span className="text-xs">Move to</span>
+                      <button className="flex flex-col items-center gap-0.5 sm:gap-1 text-muted-foreground hover:text-foreground transition-colors p-1">
+                        <FolderSymlink className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="text-[10px] sm:text-xs">Move to</span>
                       </button>
                     </PopoverTrigger>
                     <PopoverContent
-                      className="w-80 p-4"
+                      className="w-[calc(100vw-2rem)] sm:w-80 p-4"
                       align="center"
                       side="top"
                     >
@@ -9894,7 +9901,7 @@ export function WorkloadBoard({
 
               <button
                 onClick={() => taskState.clearCheckedTasks()}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
               >
                 Clear
               </button>
