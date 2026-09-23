@@ -4,31 +4,59 @@ import { Loader2 } from "lucide-react";
 import { boardsApi } from "@/features/boards/api/boardsApi";
 import type { Board } from "@/features/boards/types/types";
 import { WorkloadBoard } from "@/features/workload/components/WorkloadBoard";
+import { useBoards } from "@/hooks/useBoards";
 
 const DynamicBoard = () => {
   const { boardId } = useParams<{ boardId: string }>();
-  const [board, setBoard] = useState<Board | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { boards } = useBoards();
+
+  // Find board from Redux store if available
+  const existingBoard = boards.find(
+    (b) => String(b.id) === String(boardId),
+  );
+
+  const [board, setBoard] = useState<Board | null>(existingBoard || null);
+  const [loading, setLoading] = useState(!existingBoard);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!boardId) return;
 
+    let isMounted = true;
+
+    // If already in store, use it immediately
+    if (existingBoard) {
+      setBoard(existingBoard);
+      setLoading(false);
+    }
+
     const fetchBoard = async () => {
-      setLoading(true);
+      if (!existingBoard) {
+        setLoading(true);
+      }
       setError(null);
       try {
         const boardData = await boardsApi.getBoardById(boardId);
-        setBoard(boardData);
+        if (isMounted) {
+          setBoard(boardData);
+        }
       } catch (err) {
         console.error("Failed to fetch board:", err);
-        setError("Failed to load board");
+        if (isMounted && !existingBoard) {
+          setError("Failed to load board");
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchBoard();
+
+    return () => {
+      isMounted = false;
+    };
   }, [boardId]);
 
   if (loading) {

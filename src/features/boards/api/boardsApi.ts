@@ -18,8 +18,21 @@ const BOARD_ENDPOINTS = {
 
 // const CACHE_CONTROL_HEADERS = {
 //   'Cache-Control': 'no-cache, no-store, must-revalidate',
-//   'Pragma': 'no-cache',
-// };
+// In-flight deduplication and cache for getBoardById
+const inFlightBoardRequests = new Map<string, Promise<Board>>();
+const boardCache = new Map<string, { data: Board; timestamp: number }>();
+const BOARD_CACHE_TTL_MS = 30000; // 30 seconds
+
+export const invalidateBoardCache = (boardId?: string | number) => {
+  if (boardId !== undefined) {
+    const key = String(boardId);
+    boardCache.delete(key);
+    inFlightBoardRequests.delete(key);
+  } else {
+    boardCache.clear();
+    inFlightBoardRequests.clear();
+  }
+};
 
 export const boardsApi = {
   /**
@@ -104,24 +117,45 @@ export const boardsApi = {
   },
 
   /**
-   * Get board by ID
+   * Get board by ID with in-flight deduplication and caching
    */
-  getBoardById: async (id: string): Promise<Board> => {
-    const response = await api.get<any>(BOARD_ENDPOINTS.GET_BY_ID(id), {
-      // headers: CACHE_CONTROL_HEADERS
-    });
-
-    // Handle the API response format: { code, status, data: { board_data } }
-    if (response.data && response.data.data) {
-      return response.data.data;
+  getBoardById: async (id: string, forceRefresh = false): Promise<Board> => {
+    const key = String(id);
+    if (!forceRefresh) {
+      const cached = boardCache.get(key);
+      if (cached && Date.now() - cached.timestamp < BOARD_CACHE_TTL_MS) {
+        return cached.data;
+      }
     }
 
-    // Fallback if response is the board object directly
-    if (response.data && response.data.id) {
-      return response.data;
+    const inFlight = inFlightBoardRequests.get(key);
+    if (inFlight) {
+      return inFlight;
     }
 
-    return response.data;
+    const requestPromise = (async () => {
+      try {
+        const response = await api.get<any>(BOARD_ENDPOINTS.GET_BY_ID(key));
+
+        let result: Board;
+        // Handle the API response format: { code, status, data: { board_data } }
+        if (response.data && response.data.data) {
+          result = response.data.data;
+        } else if (response.data && response.data.id) {
+          result = response.data;
+        } else {
+          result = response.data;
+        }
+
+        boardCache.set(key, { data: result, timestamp: Date.now() });
+        return result;
+      } finally {
+        inFlightBoardRequests.delete(key);
+      }
+    })();
+
+    inFlightBoardRequests.set(key, requestPromise);
+    return requestPromise;
   },
 
   /**
@@ -131,6 +165,7 @@ export const boardsApi = {
     id: string,
     data: Partial<CreateBoardRequest>,
   ): Promise<Board> => {
+    invalidateBoardCache(id);
     const response = await api.put<Board>(
       BOARD_ENDPOINTS.UPDATE,
       {
@@ -147,11 +182,9 @@ export const boardsApi = {
   /**
    * Delete board
    */
-  // deleteBoard: async (id: string): Promise<void> => {
-  //   await api.delete(BOARD_ENDPOINTS.DELETE(id));
-  // },
   deleteBoard: async (id: string | number): Promise<void> => {
     try {
+      invalidateBoardCache(id);
       await api.delete(BOARD_ENDPOINTS.DELETE, {
         data: { id: id },
         // headers: CACHE_CONTROL_HEADERS

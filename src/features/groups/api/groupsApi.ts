@@ -16,35 +16,77 @@ const GROUP_ENDPOINTS = {
   DELETE: "/groups",
 };
 
+// In-flight request deduplication and memory caching
+const inFlightGroupRequests = new Map<number, Promise<Group[]>>();
+const groupCache = new Map<number, { data: Group[]; timestamp: number }>();
+const GROUP_CACHE_TTL_MS = 15000; // 15 seconds
+
+/**
+ * Invalidate groups cache for a specific board or all boards
+ */
+export const invalidateGroupsCache = (boardId?: number) => {
+  if (boardId !== undefined) {
+    groupCache.delete(boardId);
+    inFlightGroupRequests.delete(boardId);
+  } else {
+    groupCache.clear();
+    inFlightGroupRequests.clear();
+  }
+};
+
 export const groupsApi = {
   /**
-   * Fetch all groups for a board
+   * Fetch all groups for a board with in-flight deduplication and memory caching
    */
-  getGroupsByBoard: async (boardId: number): Promise<Group[]> => {
-    try {
-      const response = await api.get<GetGroupsResponse>(
-        GROUP_ENDPOINTS.GET_BY_BOARD(boardId)
-      );
-
-      // Handle the API response format
-      if (
-        response.data &&
-        response.data.data &&
-        Array.isArray(response.data.data)
-      ) {
-        return response.data.data;
+  getGroupsByBoard: async (
+    boardId: number,
+    forceRefresh = false
+  ): Promise<Group[]> => {
+    // 1. Check memory cache (if not force refresh)
+    if (!forceRefresh) {
+      const cached = groupCache.get(boardId);
+      if (cached && Date.now() - cached.timestamp < GROUP_CACHE_TTL_MS) {
+        return cached.data;
       }
-
-      // Fallback if response is array directly
-      if (Array.isArray(response.data)) {
-        return response.data;
-      }
-
-      return [];
-    } catch (error) {
-      console.error("Get groups API error:", error);
-      throw error;
     }
+
+    // 2. Return in-flight promise if one is already running for this board
+    const inFlight = inFlightGroupRequests.get(boardId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    // 3. Initiate request and track in-flight promise
+    const requestPromise = (async () => {
+      try {
+        const response = await api.get<GetGroupsResponse>(
+          GROUP_ENDPOINTS.GET_BY_BOARD(boardId)
+        );
+
+        let result: Group[] = [];
+        // Handle the API response format
+        if (
+          response.data &&
+          response.data.data &&
+          Array.isArray(response.data.data)
+        ) {
+          result = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          result = response.data;
+        }
+
+        groupCache.set(boardId, { data: result, timestamp: Date.now() });
+        return result;
+      } catch (error) {
+        console.error("Get groups API error:", error);
+        throw error;
+      } finally {
+        inFlightGroupRequests.delete(boardId);
+      }
+    })();
+
+    inFlightGroupRequests.set(boardId, requestPromise);
+    return requestPromise;
   },
 
   /**
@@ -53,6 +95,12 @@ export const groupsApi = {
   createGroup: async (data: CreateGroupRequest): Promise<Group> => {
     try {
       const response = await api.post<any>(GROUP_ENDPOINTS.CREATE, data);
+
+      if (data.board_id) {
+        invalidateGroupsCache(Number(data.board_id));
+      } else {
+        invalidateGroupsCache();
+      }
 
       // Handle the API response format
       if (response.data && response.data.data) {
@@ -109,6 +157,8 @@ export const groupsApi = {
       });
 
       // Handle the API response format
+      invalidateGroupsCache();
+
       if (response.data && response.data.data) {
         return response.data.data;
       }
@@ -128,19 +178,12 @@ export const groupsApi = {
   /**
    * Delete a group
    */
-  // deleteGroup: async (id: string | number): Promise<void> => {
-  //   try {
-  //     await api.delete(GROUP_ENDPOINTS.DELETE(id));
-  //   } catch (error) {
-  //     console.error("Delete group API error:", error);
-  //     throw error;
-  //   }
-  // },
   deleteGroup: async (id: string | number): Promise<void> => {
     try {
       await api.delete(GROUP_ENDPOINTS.DELETE, {
         data: { id: id },
       });
+      invalidateGroupsCache();
     } catch (error) {
       console.error("Delete group API error:", error);
       throw error;
