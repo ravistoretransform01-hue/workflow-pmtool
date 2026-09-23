@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { cn } from "@/utils/utils";
 import {
   Sidebar,
@@ -59,7 +59,7 @@ import { groupsApi } from "@/features/groups/api/groupsApi";
 import type { Group } from "@/features/groups/types/types";
 import { useAppSelector } from "@/hooks";
 import { appName } from "@/constants";
-import { cmsApi } from "@/features/cms/api/cmsApi";
+import { getCMSData } from "@/features/cms/services/cmsStorage";
 import { DeleteBoardDialog } from "@/shared/modals/DeleteBoardDialog";
 
 export const AppSidebar = () => {
@@ -96,6 +96,10 @@ export const AppSidebar = () => {
     Set<string | number>
   >(new Set());
   const [boardGroups, setBoardGroups] = useState<Record<string, Group[]>>({});
+  const boardGroupsRef = useRef<Record<string, Group[]>>({});
+  boardGroupsRef.current = boardGroups;
+  const inFlightBoardGroups = useRef<Set<string>>(new Set());
+
   const [loadingGroups, setLoadingGroups] = useState<
     Record<string, boolean>
   >({});
@@ -113,27 +117,32 @@ export const AppSidebar = () => {
         return next;
       });
 
-      if (!boardGroups[key]) {
-        setLoadingGroups((prev) => ({ ...prev, [key]: true }));
-        try {
-          const groups = await groupsApi.getGroupsByBoard(Number(targetBoardId));
-          const sortedGroups = Array.isArray(groups)
-            ? [...groups].sort((a, b) =>
-                (a.name || "").localeCompare(b.name || "", undefined, {
-                  sensitivity: "base",
-                }),
-              )
-            : [];
-          setBoardGroups((prev) => ({ ...prev, [key]: sortedGroups }));
-        } catch (err) {
-          console.error("Failed to load groups for board:", err);
-          toast.error("Failed to load groups");
-        } finally {
-          setLoadingGroups((prev) => ({ ...prev, [key]: false }));
-        }
+      // Avoid re-fetching if already loaded or currently being fetched
+      if (boardGroupsRef.current[key] || inFlightBoardGroups.current.has(key)) {
+        return;
+      }
+
+      inFlightBoardGroups.current.add(key);
+      setLoadingGroups((prev) => ({ ...prev, [key]: true }));
+      try {
+        const groups = await groupsApi.getGroupsByBoard(Number(targetBoardId));
+        const sortedGroups = Array.isArray(groups)
+          ? [...groups].sort((a, b) =>
+              (a.name || "").localeCompare(b.name || "", undefined, {
+                sensitivity: "base",
+              }),
+            )
+          : [];
+        setBoardGroups((prev) => ({ ...prev, [key]: sortedGroups }));
+      } catch (err) {
+        console.error("Failed to load groups for board:", err);
+        toast.error("Failed to load groups");
+      } finally {
+        inFlightBoardGroups.current.delete(key);
+        setLoadingGroups((prev) => ({ ...prev, [key]: false }));
       }
     },
-    [boardGroups],
+    [],
   );
 
   const toggleBoardExpand = useCallback(
@@ -167,24 +176,28 @@ export const AppSidebar = () => {
 
   const [dynamicLogo, setDynamicLogo] = useState<string | null>(null);
 
-  // Fetch dynamic logo from CMS
+  // Fetch dynamic logo from CMS (cached via getCMSData)
   useEffect(() => {
+    let isMounted = true;
     const fetchLogo = async () => {
       if (orgId) {
         try {
-          const res = await cmsApi.getCMSData({
+          const res = await getCMSData({
             organization_id: Number(orgId),
             board_id: Number(boardId) || 0,
             user_id: user?.user_id ? Number(user.user_id) : null,
           });
           const logo = res.ord_logo || res.org_logo;
-          if (logo) setDynamicLogo(logo);
+          if (logo && isMounted) setDynamicLogo(logo);
         } catch (error) {
           console.error("Failed to fetch dynamic logo from CMS:", error);
         }
       }
     };
     fetchLogo();
+    return () => {
+      isMounted = false;
+    };
   }, [orgId, boardId, user?.user_id]);
 
   // Resize logic
@@ -718,9 +731,10 @@ export const AppSidebar = () => {
                           <div
                             onClick={() => {
                               const encodedView = encodeURIComponent(currentView);
-                              navigate(
-                                `/org/${orgId}/board/${board.id}/view/${encodedView}`,
-                              );
+                              const targetPath = `/org/${orgId}/board/${board.id}/view/${encodedView}`;
+                              if (location.pathname !== targetPath) {
+                                navigate(targetPath);
+                              }
                               expandBoard(board.id);
                             }}
                             className="flex items-center gap-2 cursor-pointer w-full"
@@ -877,17 +891,26 @@ export const AppSidebar = () => {
                                           onClick={() => {
                                             const targetId = `group-${group.id}`;
                                             const encodedView = encodeURIComponent(currentView);
-                                            navigate(
-                                              `/org/${orgId}/board/${board.id}/view/${encodedView}#${targetId}`,
-                                            );
-                                            if (currentView === "Main Table") {
-                                              const el = document.getElementById(targetId);
-                                              if (el) {
-                                                el.scrollIntoView({
-                                                  behavior: "smooth",
-                                                  block: "start",
-                                                });
+                                            const targetPath = `/org/${orgId}/board/${board.id}/view/${encodedView}`;
+
+                                            if (String(boardId) === String(board.id)) {
+                                              if (
+                                                location.pathname !== targetPath ||
+                                                window.location.hash !== `#${targetId}`
+                                              ) {
+                                                navigate(`${targetPath}#${targetId}`, { replace: true });
                                               }
+                                              if (currentView === "Main Table") {
+                                                const el = document.getElementById(targetId);
+                                                if (el) {
+                                                  el.scrollIntoView({
+                                                    behavior: "smooth",
+                                                    block: "start",
+                                                  });
+                                                }
+                                              }
+                                            } else {
+                                              navigate(`${targetPath}#${targetId}`);
                                             }
                                           }}
                                           className="flex items-center gap-2 w-full text-left truncate cursor-pointer"

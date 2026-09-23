@@ -82,6 +82,8 @@ export async function getCMSData(payload: CMSRequest): Promise<CMSData> {
       timestamp: Date.now(),
       all_board_groups: apiResponse.all_board_groups || [],
       groups: apiResponse.groups || [],
+      ord_logo: apiResponse.ord_logo,
+      org_logo: apiResponse.org_logo,
     };
 
     saveToLocalStorage(payload.board_id, cmsData);

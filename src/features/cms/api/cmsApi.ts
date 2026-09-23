@@ -17,26 +17,56 @@ const CMS_ENDPOINTS = {
   USER_GROUP_COLUMNS: `/user-group-columns`,
 };
 
+// In-flight deduplication for CMS data
+const inFlightCMSRequests = new Map<string, Promise<CMSResponse>>();
+
+export const getCMSRequestKey = (payload: CMSRequest): string => {
+  return `${payload.organization_id}_${payload.board_id}_${payload.user_id || 0}`;
+};
+
+export const invalidateCMSInFlight = (key?: string) => {
+  if (key) {
+    inFlightCMSRequests.delete(key);
+  } else {
+    inFlightCMSRequests.clear();
+  }
+};
+
 export const cmsApi = {
   /**
-   * Get CMS data (statuses and priorities)
+   * Get CMS data (statuses and priorities) with in-flight deduplication
    */
   getCMSData: async (payload: CMSRequest): Promise<CMSResponse> => {
-    try {
-      const response = await axios.post<CMSResponse>(
-        CMS_ENDPOINTS.GET_CMS_DATA,
-        payload,
-      );
-
-      if (!response.data.status) {
-        throw new Error("CMS API returned status: false");
+    const key = getCMSRequestKey(payload);
+    if (!payload.forceRefresh) {
+      const inFlight = inFlightCMSRequests.get(key);
+      if (inFlight) {
+        return inFlight;
       }
-
-      return response.data;
-    } catch (error) {
-      debugError("Failed to fetch CMS data:", error);
-      throw error;
     }
+
+    const requestPromise = (async () => {
+      try {
+        const response = await axios.post<CMSResponse>(
+          CMS_ENDPOINTS.GET_CMS_DATA,
+          payload,
+        );
+
+        if (!response.data.status) {
+          throw new Error("CMS API returned status: false");
+        }
+
+        return response.data;
+      } catch (error) {
+        debugError("Failed to fetch CMS data:", error);
+        throw error;
+      } finally {
+        inFlightCMSRequests.delete(key);
+      }
+    })();
+
+    inFlightCMSRequests.set(key, requestPromise);
+    return requestPromise;
   },
 
   /**
