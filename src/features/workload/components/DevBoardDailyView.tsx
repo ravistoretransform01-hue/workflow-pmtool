@@ -35,6 +35,7 @@ import { useBeforeUnload } from "@/features/workload/hooks/useBeforeUnload";
 import {
   DevBoardDailyTeamBoard,
   getInitials,
+  type DailyTaskMove,
 } from "@/features/workload/components/DevBoardDailyTeamBoard";
 
 interface DevBoardDailyViewProps {
@@ -498,19 +499,56 @@ export function DevBoardDailyView({
     setViewMode("plan");
   };
 
-  const handleSave = () => {
+  const persistDateMap = (map: DateMap) => {
     try {
       localStorage.setItem(
         getStorageKey(boardId),
-        JSON.stringify({ dateMap, savedAt: new Date().toISOString() }),
+        JSON.stringify({ dateMap: map, savedAt: new Date().toISOString() }),
       );
-      setSavedDateMap(dateMap);
-      setViewMode("board");
-      toast.success("Daily plan saved");
+      setSavedDateMap(map);
+      return true;
     } catch {
       toast.error("Could not save", {
         description: "Browser storage is unavailable or full.",
       });
+      return false;
+    }
+  };
+
+  const handleSave = () => {
+    if (!persistDateMap(dateMap)) return;
+    setViewMode("board");
+    toast.success("Daily plan saved");
+  };
+
+  // Team Board drag & drop: move a task from one assignee to another. Saved
+  // straight away; also applied to the working plan so unsaved edits stay intact.
+  const handleBoardMoveTask = ({ projectId, taskId, from, to }: DailyTaskMove) => {
+    if (!activeDateStr) return;
+    const applyMove = (map: DateMap): DateMap => {
+      const dayProjects = map[activeDateStr];
+      if (!dayProjects) return map;
+      return {
+        ...map,
+        [activeDateStr]: dayProjects.map((p) =>
+          p.id !== projectId
+            ? p
+            : {
+                ...p,
+                tasks: p.tasks.map((t) => {
+                  if (t.id !== taskId) return t;
+                  const assigneeIds = (t.assigneeIds ?? []).filter(
+                    (id) => id !== from,
+                  );
+                  if (to && !assigneeIds.includes(to)) assigneeIds.push(to);
+                  return { ...t, assigneeIds };
+                }),
+              },
+        ),
+      };
+    };
+    if (persistDateMap(applyMove(savedDateMap))) {
+      setDateMap((prev) => applyMove(prev));
     }
   };
 
@@ -893,6 +931,7 @@ export function DevBoardDailyView({
               boardColors={boardColors}
               searchQuery={searchQuery}
               filter={filter}
+              onMoveTask={handleBoardMoveTask}
             />
           ) : activeDateStr ? (
             <div
