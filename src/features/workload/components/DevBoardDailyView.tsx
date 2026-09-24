@@ -7,7 +7,6 @@ import {
   Calendar,
   Pencil,
   Trash2,
-  Circle,
   X,
   CheckCircle2,
   ClipboardList,
@@ -23,6 +22,7 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { Calendar as DatePickerCalendar } from "@/shared/ui/calendar";
+import { Checkbox } from "@/shared/ui/checkbox";
 import { useAppSelector } from "@/hooks";
 import { tasksApi } from "@/features/tasks/api/tasksApi";
 import type { TaskResponse } from "@/features/tasks/types/types";
@@ -1461,43 +1461,22 @@ export function DevBoardDailyView({
                                     setEditingTaskHours(task.hours || "");
                                   }}
                                 >
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
+                                  <Checkbox
+                                    checked={task.status === "completed"}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onCheckedChange={() =>
                                       handleToggleTaskStatus(
                                         project.id,
                                         task.id,
-                                      );
-                                    }}
-                                    style={{
-                                      background: "none",
-                                      border: "none",
-                                      cursor: "pointer",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      padding: 0,
-                                    }}
-                                  >
-                                    {task.status === "completed" ? (
-                                      <CheckCircle2
-                                        style={{
-                                          width: 15,
-                                          height: 15,
-                                          color: "hsl(var(--primary))",
-                                          flexShrink: 0,
-                                        }}
-                                      />
-                                    ) : (
-                                      <Circle
-                                        style={{
-                                          width: 15,
-                                          height: 15,
-                                          color: "hsl(var(--muted-foreground))",
-                                          flexShrink: 0,
-                                        }}
-                                      />
-                                    )}
-                                  </button>
+                                      )
+                                    }
+                                    aria-label={
+                                      task.status === "completed"
+                                        ? "Mark as pending"
+                                        : "Mark as completed"
+                                    }
+                                    className="h-4 w-4 rounded-[4px] border-muted-foreground/60 transition-colors hover:border-primary data-[state=checked]:bg-primary data-[state=checked]:border-primary [&_svg]:h-3 [&_svg]:w-3"
+                                  />
                                   <span
                                     style={{
                                       color:
