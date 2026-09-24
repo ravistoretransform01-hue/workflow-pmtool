@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { switchOrganization } from "@/features/auth/services/authSlice";
@@ -71,8 +71,30 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+
+  // Persistent limit and page number saved in localStorage
+  const [limit, setLimit] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("pm_notification_limit");
+      if (saved) {
+        const parsed = Number(saved);
+        if ([10, 20, 50].includes(parsed)) return parsed;
+      }
+    } catch {}
+    return 20;
+  });
+
+  const [page, setPage] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("pm_notification_page");
+      if (saved) {
+        const parsed = Number(saved);
+        if (parsed > 0) return parsed;
+      }
+    } catch {}
+    return 1;
+  });
+
   const [totalPages, setTotalPages] = useState(1);
   const [serverUnreadCount, setServerUnreadCount] = useState(0);
 
@@ -81,28 +103,36 @@ export function NotificationBell() {
   );
   const user = useSelector((state: RootState) => state.auth.user);
 
+  const handlePageChange = (newPage: number) => {
+    const targetPage = Math.max(1, newPage);
+    setPage(targetPage);
+    try {
+      localStorage.setItem("pm_notification_page", String(targetPage));
+    } catch {}
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit);
+    setPage(1);
+    try {
+      localStorage.setItem("pm_notification_limit", String(newLimit));
+      localStorage.setItem("pm_notification_page", "1");
+    } catch {}
+  };
+
+  // Seed unread count badge in background on mount (when closed)
   useEffect(() => {
-    if (user?.organization_id) {
-      // Just seed first page for the bell icon dot on mount
-      setPage(1);
-      loadNotifications(user.organization_id, false, 1);
+    if (user?.organization_id && !open) {
+      loadNotifications(user.organization_id, false, 1, limit);
     }
   }, [user?.organization_id]);
 
-  useEffect(() => {
-    if (open || refreshCounter > 0) {
-      if (user?.organization_id) {
-        setPage(1);
-        loadNotifications(user.organization_id, showUnreadOnly, 1);
-      }
-    }
-  }, [open, refreshCounter, showUnreadOnly]);
-
+  // Main load when sheet is opened, refreshed, or pagination/filters change
   useEffect(() => {
     if (open && user?.organization_id) {
       loadNotifications(user.organization_id, showUnreadOnly, page, limit);
     }
-  }, [page, limit]);
+  }, [open, refreshCounter, showUnreadOnly, page, limit, user?.organization_id]);
 
   const loadNotifications = async (
     orgId: string | number,
@@ -122,16 +152,28 @@ export function NotificationBell() {
         const newData = response.data || [];
         setNotifications(newData);
 
-        const metaObj = response.meta || response.pagination || response;
-        if (metaObj.total_pages !== undefined)
-          setTotalPages(metaObj.total_pages);
-        else
-          setTotalPages(
-            newData.length === currentLimit ? currentPage + 1 : currentPage,
-          );
+        const metaObj: any = response.meta || response.pagination || response;
+        const totalPagesVal =
+          metaObj?.total_pages !== undefined
+            ? Number(metaObj.total_pages)
+            : response.total_pages !== undefined
+              ? Number(response.total_pages)
+              : metaObj?.total_items !== undefined
+                ? Math.ceil(Number(metaObj.total_items) / currentLimit)
+                : metaObj?.total !== undefined
+                  ? Math.ceil(Number(metaObj.total) / currentLimit)
+                  : metaObj?.count !== undefined && Number(metaObj.count) > currentLimit
+                    ? Math.ceil(Number(metaObj.count) / currentLimit)
+                    : newData.length === currentLimit
+                      ? currentPage + 1
+                      : currentPage;
+
+        setTotalPages(Math.max(1, totalPagesVal));
 
         if (metaObj.total_unread !== undefined)
           setServerUnreadCount(metaObj.total_unread);
+        else if (response.total_unread !== undefined)
+          setServerUnreadCount(response.total_unread);
       }
     } catch (error) {
       console.error("Error loading notifications:", error);
@@ -230,6 +272,16 @@ export function NotificationBell() {
 
   const [filterTab, setFilterTab] = useState("all");
 
+  const isInitialFilterMount = useRef(true);
+  useEffect(() => {
+    if (isInitialFilterMount.current) {
+      isInitialFilterMount.current = false;
+      return;
+    }
+    // When user actively changes tab, search, or unread toggle, reset to page 1
+    handlePageChange(1);
+  }, [filterTab, showUnreadOnly, searchQuery]);
+
   const filteredNotifications = notifications.filter((n) => {
     // If showUnreadOnly is true, only include if is_read implies false/0
     if (
@@ -262,61 +314,98 @@ export function NotificationBell() {
     return true;
   });
 
+  // If backend returned more items than limit (unpaginated on backend), slice client-side
+  const isClientPaged = notifications.length > limit;
+  const effectiveTotalPages = isClientPaged
+    ? Math.max(1, Math.ceil(filteredNotifications.length / limit))
+    : Math.max(1, totalPages);
+
+  // Auto-clamp page if it exceeds effectiveTotalPages
+  useEffect(() => {
+    if (effectiveTotalPages > 0 && page > effectiveTotalPages) {
+      handlePageChange(effectiveTotalPages);
+    }
+  }, [effectiveTotalPages, page]);
+
+  // Notifications to display on current page
+  const displayedNotifications = isClientPaged
+    ? filteredNotifications.slice((page - 1) * limit, page * limit)
+    : filteredNotifications;
+
   const renderPageNumbers = () => {
-    const pages = [];
-    let startPage = Math.max(1, page - 1);
-    let endPage = Math.min(totalPages, page + 1);
-
-    if (page <= 2) {
-      endPage = Math.min(totalPages, 3);
-      startPage = 1;
+    if (effectiveTotalPages <= 1) {
+      return (
+        <button
+          type="button"
+          key={1}
+          onClick={() => handlePageChange(1)}
+          className={cn(
+            "relative inline-flex h-8 w-8 items-center justify-center border text-[13px] font-medium transition-colors cursor-pointer",
+            page === 1
+              ? "z-10 border-blue-500 bg-blue-50/50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400"
+              : "border-border bg-transparent text-blue-500 hover:bg-muted/50",
+          )}
+        >
+          1
+        </button>
+      );
     }
-    if (page >= totalPages - 1) {
-      startPage = Math.max(1, totalPages - 2);
-      endPage = totalPages;
-    }
-
-    const Ellipsis = () => (
-      <span className="relative inline-flex h-8 w-8 items-center justify-center border border-border bg-transparent text-[13px] font-medium text-blue-500 -ml-px">
-        ...
-      </span>
-    );
 
     const PageBtn = ({ i }: { i: number }) => (
       <button
-        onClick={() => setPage(i)}
+        type="button"
+        key={i}
+        onClick={() => handlePageChange(i)}
         className={cn(
-          "relative inline-flex h-8 w-8 items-center justify-center border text-[13px] font-medium -ml-px transition-colors hover:bg-muted/50",
+          "relative inline-flex h-8 w-8 items-center justify-center border text-[13px] font-medium -ml-px transition-colors cursor-pointer",
           page === i
-            ? "z-10 border-blue-500 bg-blue-50/50 text-blue-600"
-            : "border-border bg-transparent text-blue-500",
+            ? "z-10 border-blue-500 bg-blue-50/50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400"
+            : "border-border bg-transparent text-blue-500 hover:bg-muted/50",
         )}
       >
         {i}
       </button>
     );
 
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(<PageBtn key={i} i={i} />);
+    const Ellipsis = ({ keyName }: { keyName: string }) => (
+      <span
+        key={keyName}
+        className="relative inline-flex h-8 w-8 items-center justify-center border border-border bg-transparent text-[13px] font-medium text-muted-foreground -ml-px select-none"
+      >
+        ...
+      </span>
+    );
+
+    if (effectiveTotalPages <= 5) {
+      return Array.from({ length: effectiveTotalPages }, (_, idx) => (
+        <PageBtn key={idx + 1} i={idx + 1} />
+      ));
     }
 
-    return (
-      <>
-        {startPage > 1 && (
-          <>
-            <PageBtn i={1} />
-            {startPage > 2 && <Ellipsis />}
-          </>
-        )}
-        {pages}
-        {endPage < totalPages && (
-          <>
-            {endPage < totalPages - 1 && <Ellipsis />}
-            <PageBtn i={totalPages} />
-          </>
-        )}
-      </>
-    );
+    const items: React.ReactNode[] = [];
+
+    // Always render first page
+    items.push(<PageBtn key={1} i={1} />);
+
+    if (page > 3) {
+      items.push(<Ellipsis keyName="ellipsis-start" />);
+    }
+
+    const start = Math.max(2, page - 1);
+    const end = Math.min(effectiveTotalPages - 1, page + 1);
+
+    for (let i = start; i <= end; i++) {
+      items.push(<PageBtn key={i} i={i} />);
+    }
+
+    if (page < effectiveTotalPages - 2) {
+      items.push(<Ellipsis keyName="ellipsis-end" />);
+    }
+
+    // Always render last page
+    items.push(<PageBtn key={effectiveTotalPages} i={effectiveTotalPages} />);
+
+    return items;
   };
 
   const renderNotificationList = (
@@ -587,7 +676,7 @@ export function NotificationBell() {
             <div className="flex-1 min-h-0 overflow-hidden relative">
               <ScrollArea className="h-full w-full min-h-0 px-0 overflow-x-hidden [&_[data-radix-scroll-area-viewport]>div]:!block">
                 {renderNotificationList(
-                  filteredNotifications,
+                  displayedNotifications,
                   filterTab === "all"
                     ? "No notifications"
                     : filterTab === "mentioned"
@@ -603,7 +692,7 @@ export function NotificationBell() {
             </div>
 
             {/* Sticky Pagination Controls Footer */}
-            {filteredNotifications.length > 0 && (
+            {notifications.length > 0 && (
               <div className="shrink-0 flex items-center justify-between py-4 px-6 border-t border-border bg-card shadow-[0_-4px_6px_-4px_rgba(0,0,0,0.1)] gap-4">
                 <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-4">
                   {/* Show Limit Dropdown */}
@@ -613,15 +702,12 @@ export function NotificationBell() {
                     </span>
                     <Select
                       value={String(limit)}
-                      onValueChange={(val) => {
-                        setLimit(Number(val));
-                        setPage(1);
-                      }}
+                      onValueChange={(val) => handleLimitChange(Number(val))}
                     >
                       <SelectTrigger className="h-8 w-[70px] text-sm">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[100]">
                         <SelectItem value="10">10</SelectItem>
                         <SelectItem value="20">20</SelectItem>
                         <SelectItem value="50">50</SelectItem>
@@ -635,9 +721,11 @@ export function NotificationBell() {
                   {/* Pagination Steps */}
                   <div className="inline-flex items-center overflow-x-auto pb-1 sm:pb-0 hide-scroll rounded-md shadow-sm">
                     <button
-                      className="relative inline-flex h-8 w-8 items-center justify-center rounded-l-md border border-border bg-transparent text-blue-500 transition-colors hover:bg-muted/50 disabled:opacity-50 disabled:pointer-events-none"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
+                      type="button"
+                      className="relative inline-flex h-8 w-8 items-center justify-center rounded-l-md border border-border bg-transparent text-blue-500 transition-colors hover:bg-muted/50 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                      onClick={() => handlePageChange(page - 1)}
+                      disabled={page <= 1}
+                      aria-label="Previous Page"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </button>
@@ -645,11 +733,11 @@ export function NotificationBell() {
                     {renderPageNumbers()}
 
                     <button
-                      className="relative inline-flex h-8 w-8 items-center justify-center rounded-r-md border border-border bg-transparent text-blue-500 transition-colors hover:bg-muted/50 disabled:opacity-50 disabled:pointer-events-none -ml-px"
-                      onClick={() =>
-                        setPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      disabled={page >= totalPages}
+                      type="button"
+                      className="relative inline-flex h-8 w-8 items-center justify-center rounded-r-md border border-border bg-transparent text-blue-500 transition-colors hover:bg-muted/50 disabled:opacity-50 disabled:pointer-events-none -ml-px cursor-pointer"
+                      onClick={() => handlePageChange(page + 1)}
+                      disabled={page >= effectiveTotalPages}
+                      aria-label="Next Page"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </button>

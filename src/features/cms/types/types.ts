@@ -137,4 +137,6 @@ export interface CMSData {
   timestamp: number;
   all_board_groups?: BoardGroup[];
   groups?: Group[];
+  ord_logo?: string;
+  org_logo?: string;
 }

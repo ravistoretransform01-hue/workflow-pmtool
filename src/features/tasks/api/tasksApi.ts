@@ -78,26 +78,50 @@ const checkIfCurrentUserIsClient = (): boolean => {
   }
 };
 
+// In-flight deduplication for getTasksByBoardId
+const inFlightTaskRequests = new Map<string, Promise<TaskResponse[]>>();
+
+export const invalidateTasksByBoardInFlight = (key?: string) => {
+  if (key) {
+    inFlightTaskRequests.delete(key);
+  } else {
+    inFlightTaskRequests.clear();
+  }
+};
+
 export const tasksApi = {
   /**
-   * Get all tasks for a board or group
+   * Get all tasks for a board or group with in-flight deduplication
    */
   getTasksByBoardId: async (
     boardId: string | number,
     organizationId?: number | null,
   ): Promise<TaskResponse[]> => {
-    try {
-      const response = await axios.get<{ data: TaskResponse[] }>(
-        TASKS_ENDPOINTS.GET_ALL_TASKS_BY_BOARDID(boardId),
-        {
-          params: { organization_id: organizationId },
-        },
-      );
-      return response.data.data || [];
-    } catch (error) {
-      console.error("Failed to fetch tasks:", error);
-      throw error;
+    const key = `${boardId}_${organizationId || 0}`;
+    const inFlight = inFlightTaskRequests.get(key);
+    if (inFlight) {
+      return inFlight;
     }
+
+    const requestPromise = (async () => {
+      try {
+        const response = await axios.get<{ data: TaskResponse[] }>(
+          TASKS_ENDPOINTS.GET_ALL_TASKS_BY_BOARDID(boardId),
+          {
+            params: { organization_id: organizationId },
+          },
+        );
+        return response.data.data || [];
+      } catch (error) {
+        console.error("Failed to fetch tasks:", error);
+        throw error;
+      } finally {
+        inFlightTaskRequests.delete(key);
+      }
+    })();
+
+    inFlightTaskRequests.set(key, requestPromise);
+    return requestPromise;
   },
 
   getSingleTasks: async (

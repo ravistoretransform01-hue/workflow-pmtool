@@ -6,7 +6,7 @@ import { format, parseISO } from "date-fns";
 // Module-level guards to prevent duplicate API calls during React StrictMode double mount/unmount in dev
 // const _loadedGroupsForBoard = new Set<string>();
 // const _loadedCMSForBoard = new Set<string>();
-import { useNavigate, useSearchParams, useParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/hooks";
 import type { RootState } from "@/store";
@@ -62,8 +62,11 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
-import { parseGroupCompletionDate } from "@/features/workload/utils/workload-utils";
 import { Progress } from "@/shared/ui/progress";
+import {
+  parseGroupCompletionDate,
+  extractRating,
+} from "@/features/workload/utils/workload-utils";
 import {
   Dialog,
   DialogContent,
@@ -108,6 +111,7 @@ import type {
   TaskResponse,
   TaskComment,
   UpdateCommentRequest,
+  TaskRating,
 } from "@/features/tasks/types/types";
 import { ProfileDialog } from "@/shared/modals/ProfileDialog";
 import {
@@ -209,25 +213,11 @@ export interface Task {
   updated_at?: string;
   created_at?: string;
   latest_comment_date?: string;
-  ratings?: Array<{
-    id: string;
-    task_id?: string;
-    assignee_id: string | number;
-    assigner_id?: string | number;
-    rating: string | number;
-    created_at?: string;
-    updated_at?: string;
-    assignee?: {
-      id: number;
-      name: string;
-      email: string;
-    };
-    assigner?: {
-      id: number;
-      name: string;
-      email: string;
-    };
-  }>;
+  ratings?: TaskRating[];
+  leader_rating_average?: number | null;
+  board_name?: string;
+  group_name?: string;
+  kunal_var?: string;
   label_id?: string; // Label ID for the task
   group_id?: string;
   tags?: Array<{
@@ -257,6 +247,7 @@ const ALL_AVAILABLE_COLUMNS = [
   "priority",
   "description",
   "rating",
+  "leaderRating",
   "estimatedDate",
   "estimatedTime",
   "progress",
@@ -271,6 +262,7 @@ const COLUMN_DEFAULT_LABELS: Record<string, string> = {
   priority: "Priority",
   description: "Description",
   rating: "Rating",
+  leaderRating: "Leader Rating",
   estimatedDate: "Estimated Date",
   estimatedTime: "Estimated Time",
   progress: "Progress",
@@ -474,9 +466,10 @@ const SortableGroupCard = ({ group, children }: SortableGroupProps) => {
 
   return (
     <div
+      id={`group-${group.id}`}
       ref={setNodeRef}
       style={style}
-      className="mb-6"
+      className="mb-6 scroll-mt-4"
       role="group"
       aria-label={`Group: ${group.name}`}
     >
@@ -610,6 +603,7 @@ export function WorkloadBoard({
     viewName?: string;
   }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const refreshCounter = useAppSelector(
     (state: RootState) => state.ui.refreshCounter,
@@ -850,6 +844,24 @@ export function WorkloadBoard({
         setSelectedCommentsId(null);
       }
     }
+
+    // Sync Tracking Modal State
+    const trackingFromUrl = searchParams.get("tracking");
+    if (trackingFromUrl) {
+      if (String(trackingGroupId) !== trackingFromUrl) {
+        setTrackingGroupId(trackingFromUrl);
+      }
+      if (!trackingModalOpen) {
+        setTrackingModalOpen(true);
+      }
+    } else {
+      if (trackingModalOpen) {
+        setTrackingModalOpen(false);
+      }
+      if (trackingGroupId) {
+        setTrackingGroupId(null);
+      }
+    }
   }, [searchParams, viewName, decodedViewName, boardId, activeTab]);
 
   // Handle horizontal scrolling on Teams board using wheel
@@ -960,17 +972,144 @@ export function WorkloadBoard({
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   // Tracking modal state
-  // @ts-ignore
-  const [trackingModalOpen, setTrackingModalOpen] = useState(false);
-  // @ts-ignore
+  const trackingParamFromUrl = searchParams.get("tracking");
+  const [trackingModalOpen, setTrackingModalOpen] = useState<boolean>(
+    Boolean(trackingParamFromUrl),
+  );
   const [trackingGroupId, setTrackingGroupId] = useState<
     string | number | null
-  >(null);
-  // @ts-ignore
-  const [trackingGroupName, setTrackingGroupName] = useState("");
+  >(trackingParamFromUrl || null);
+  const [trackingGroupName, setTrackingGroupName] = useState<string>(() => {
+    if (trackingParamFromUrl) {
+      try {
+        return (
+          sessionStorage.getItem(
+            `tracking_group_name_${trackingParamFromUrl}`,
+          ) || ""
+        );
+      } catch {
+        return "";
+      }
+    }
+    return "";
+  });
   const [trackingLayoutStatuses, setTrackingLayoutStatuses] = useState<
     Record<string, "default" | "pending" | "complete">
   >({});
+
+  // Sync group name for tracking modal once groups are loaded
+  useEffect(() => {
+    const trackingFromUrl = searchParams.get("tracking");
+    if (trackingFromUrl && groups.length > 0) {
+      const matchedGroup = groups.find(
+        (g) => String(g.id) === String(trackingFromUrl),
+      );
+      if (matchedGroup) {
+        const name = groupNames[matchedGroup.id] || matchedGroup.name;
+        setTrackingGroupName(name);
+        try {
+          sessionStorage.setItem(
+            `tracking_group_name_${trackingFromUrl}`,
+            name,
+          );
+        } catch {}
+      }
+    }
+  }, [searchParams, groups, groupNames]);
+
+  // Auto-scroll to target group if specified in URL hash (e.g., #group-123)
+  useEffect(() => {
+    if (
+      !location.hash ||
+      !location.hash.startsWith("#group-") ||
+      activeTab !== "Main Table"
+    ) {
+      return;
+    }
+
+    const targetId = location.hash.slice(1);
+    const rawGroupId = targetId.replace("group-", "");
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 30; // Wait up to 3 seconds for async board data to finish loading
+
+    const checkAndScroll = () => {
+      if (cancelled) return;
+
+      const el = document.getElementById(targetId);
+      if (el) {
+        // Ensure group is expanded if collapsed
+        if (rawGroupId) {
+          setExpandedGroups((prev) => {
+            if (prev && prev[rawGroupId] === false) {
+              return { ...prev, [rawGroupId]: true };
+            }
+            return prev;
+          });
+        }
+
+        el.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+
+        // Subtle brief highlight to emphasize target group
+        el.classList.add(
+          "ring-2",
+          "ring-primary",
+          "ring-offset-2",
+          "transition-all",
+          "duration-500",
+        );
+        setTimeout(() => {
+          el.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+        }, 2000);
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(checkAndScroll, 100);
+      }
+    };
+
+    const timerId = setTimeout(checkAndScroll, 60);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+    };
+  }, [location.hash, boardId, activeTab, groups.length]);
+
+  const openTrackingModal = useCallback(
+    (groupId: string | number, name: string) => {
+      setTrackingGroupId(groupId);
+      setTrackingGroupName(name);
+      setTrackingModalOpen(true);
+      try {
+        sessionStorage.setItem(`tracking_group_name_${groupId}`, name);
+      } catch {}
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tracking", String(groupId));
+          return next;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const closeTrackingModal = useCallback(() => {
+    setTrackingModalOpen(false);
+    setTrackingGroupId(null);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("tracking");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
   // Stable identity so the modal's status-sync effect doesn't re-fire on
   // every WorkloadBoard render, and skip the update entirely when the
   // status hasn't actually changed to avoid needless re-renders while
@@ -1010,6 +1149,23 @@ export function WorkloadBoard({
       );
     },
     [groupLabels],
+  );
+
+  const handleTaskUpdatedFromTracking = useCallback(
+    (updatedTask: Partial<Task> & { id: string }) => {
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            if (String(task.id) === String(updatedTask.id)) {
+              return { ...task, ...updatedTask };
+            }
+            return task;
+          }),
+        })),
+      );
+    },
+    [],
   );
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [addingItemToGroup, setAddingItemToGroup] = useState<string | null>(
@@ -1194,28 +1350,6 @@ export function WorkloadBoard({
 
         // 2️⃣ Normalize tasks into UI Task model
         const tasksWithSubtasks: Task[] = parentTasks.map((task) => {
-          // Extract numeric rating from average_rating field
-          const extractRating = (taskData: any): number | undefined => {
-            if (!taskData) return undefined;
-            // Use average_rating if available, otherwise check old format
-            if (
-              typeof taskData.average_rating === "number" &&
-              taskData.average_rating !== null
-            ) {
-              return Math.round(taskData.average_rating);
-            }
-            if (
-              typeof taskData.rating === "object" &&
-              "rating" in taskData.rating
-            ) {
-              return Number(taskData.rating.rating);
-            }
-            if (typeof taskData.rating === "number") {
-              return taskData.rating;
-            }
-            return undefined;
-          };
-
           return {
             id: String(task.id),
             name: task.name,
@@ -1250,6 +1384,10 @@ export function WorkloadBoard({
             ratingCount: task.rating_count || 0,
             comment_count: task.comment_count,
             ratings: task.ratings,
+            leader_rating_average: task.leader_rating_average ?? null,
+            board_name: task.board_name,
+            group_name: task.group_name,
+            kunal_var: task.kunal_var,
             tags: task.tags || [],
             group_id: String(task.group_id),
             timeSpent: task.time_spent_hours
@@ -1298,6 +1436,10 @@ export function WorkloadBoard({
                 ratingCount: st.rating_count || 0,
                 comment_count: st.comment_count,
                 ratings: st.ratings,
+                leader_rating_average: st.leader_rating_average ?? null,
+                board_name: st.board_name,
+                group_name: st.group_name,
+                kunal_var: st.kunal_var,
                 tags: st.tags || [],
                 timeSpent: st.time_spent_hours
                   ? `${st.time_spent_hours}h`
@@ -2216,6 +2358,10 @@ export function WorkloadBoard({
               valA = Number(a.rating) || 0;
               valB = Number(b.rating) || 0;
               break;
+            case "leaderRating":
+              valA = Number(a.leader_rating_average) || 0;
+              valB = Number(b.leader_rating_average) || 0;
+              break;
             case "estimatedDate":
               valA = a.estimatedDateRaw || a.estimatedDate || "";
               valB = b.estimatedDateRaw || b.estimatedDate || "";
@@ -2637,6 +2783,12 @@ export function WorkloadBoard({
         ),
         timeSpent: `${newTaskResponse.time_spent_hours}h`,
         group_id: String(newTaskResponse.group_id),
+        rating: extractRating(newTaskResponse),
+        ratingCount: newTaskResponse.rating_count || 0,
+        ratings: newTaskResponse.ratings || [],
+        leader_rating_average: newTaskResponse.leader_rating_average ?? null,
+        board_name: newTaskResponse.board_name,
+        group_name: newTaskResponse.group_name,
         subitems: [],
         assignee_names:
           newTaskResponse.assignees?.map((a) => a.name || a.username || "") ||
@@ -2724,6 +2876,12 @@ export function WorkloadBoard({
         ),
         timeSpent: `${newTaskResponse.time_spent_hours}h`,
         group_id: String(newTaskResponse.group_id),
+        rating: extractRating(newTaskResponse),
+        ratingCount: newTaskResponse.rating_count || 0,
+        ratings: newTaskResponse.ratings || [],
+        leader_rating_average: newTaskResponse.leader_rating_average ?? null,
+        board_name: newTaskResponse.board_name,
+        group_name: newTaskResponse.group_name,
         subitems: [],
         assignee_names:
           newTaskResponse.assignees?.map((a) => a.name || a.username || "") ||
@@ -2855,6 +3013,12 @@ export function WorkloadBoard({
         ),
         timeSpent: `${newTaskResponse.time_spent_hours}h`,
         group_id: String(newTaskResponse.group_id),
+        rating: extractRating(newTaskResponse),
+        ratingCount: newTaskResponse.rating_count || 0,
+        ratings: newTaskResponse.ratings || [],
+        leader_rating_average: newTaskResponse.leader_rating_average ?? null,
+        board_name: newTaskResponse.board_name,
+        group_name: newTaskResponse.group_name,
         subitems: [],
         assignee_names:
           newTaskResponse.assignees?.map((a) => a.name || a.username || "") ||
@@ -3107,6 +3271,7 @@ export function WorkloadBoard({
                 ratingCount: updated.rating_count || 0,
                 comment_count: updated.comment_count,
                 ratings: updated.ratings,
+                leader_rating_average: updated.leader_rating_average ?? task.leader_rating_average,
               };
             }
 
@@ -3122,6 +3287,7 @@ export function WorkloadBoard({
                         ratingCount: updated.rating_count || 0,
                         comment_count: updated.comment_count,
                         ratings: updated.ratings,
+                        leader_rating_average: updated.leader_rating_average ?? sub.leader_rating_average,
                       }
                     : sub,
                 ),
@@ -3139,6 +3305,87 @@ export function WorkloadBoard({
     } catch (err) {
       console.error(err);
       toast.error("Failed to Update Rating");
+    }
+  };
+
+  const handleLeaderRatingChange = async (taskId: string, rating: number) => {
+    try {
+      const boardIdNum = parseInt(boardId, 10);
+      let assigneeId = 0;
+
+      for (const group of groups) {
+        const task = group.tasks.find((t) => String(t.id) === String(taskId));
+        if (task) {
+          assigneeId = task.assigned_to_ids?.[0]
+            ? Number(task.assigned_to_ids[0])
+            : 0;
+          break;
+        }
+        const subitem = group.tasks
+          .flatMap((t) => t.subitems || [])
+          .find((s) => String(s.id) === String(taskId));
+        if (subitem) {
+          assigneeId = subitem.assigned_to_ids?.[0]
+            ? Number(subitem.assigned_to_ids[0])
+            : 0;
+          break;
+        }
+      }
+
+      const payload: UpdateTaskRequest = {
+        id: taskId,
+        board_id: boardIdNum,
+        leader_rating: {
+          rating: Number(rating),
+          assignee_id: assigneeId,
+        },
+      };
+
+      const updated = await tasksApi.updateTask(payload);
+
+      const leaderAvg =
+        updated.leader_rating_average !== undefined && updated.leader_rating_average !== null
+          ? updated.leader_rating_average
+          : Number(rating);
+
+      setGroups((prevGroups) =>
+        prevGroups.map((group) => ({
+          ...group,
+          tasks: group.tasks.map((task) => {
+            // ✅ parent task
+            if (String(task.id) === String(taskId)) {
+              return {
+                ...task,
+                leader_rating_average: leaderAvg,
+              };
+            }
+
+            // ✅ subtask
+            if (task.subitems?.length) {
+              return {
+                ...task,
+                subitems: task.subitems.map((sub) =>
+                  String(sub.id) === String(taskId)
+                    ? {
+                        ...sub,
+                        leader_rating_average: leaderAvg,
+                      }
+                    : sub,
+                ),
+              };
+            }
+
+            return task;
+          }),
+        })),
+      );
+
+      // Close popover after update
+      popoverState.closePopover();
+      toast.success("Leader Rating Updated Successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to Update Leader Rating");
     }
   };
 
@@ -3788,6 +4035,8 @@ export function WorkloadBoard({
                   status_id: String(match.status_id),
                   completed_at: match.completed_at,
                   started_at: match.started_at,
+                  ratings: match.ratings ?? task.ratings,
+                  leader_rating_average: match.leader_rating_average ?? task.leader_rating_average,
                 };
               }
 
@@ -3803,6 +4052,8 @@ export function WorkloadBoard({
                           status_id: String(subMatch.status_id),
                           completed_at: subMatch.completed_at,
                           started_at: subMatch.started_at,
+                          ratings: subMatch.ratings ?? sub.ratings,
+                          leader_rating_average: subMatch.leader_rating_average ?? sub.leader_rating_average,
                         }
                       : sub;
                   }),
@@ -5389,6 +5640,7 @@ export function WorkloadBoard({
         onPriorityChange: handlePriorityChange,
         onPersonChange: handlePersonChange,
         onRatingChange: handleRatingChange,
+        onLeaderRatingChange: handleLeaderRatingChange,
         onEstimatedDateChange: handleEstimatedDateChange,
         onEstimatedTimeChange: handleEstimatedTimeChange,
         onTagChange: handleTagChange,
@@ -5598,6 +5850,7 @@ export function WorkloadBoard({
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
+      onLeaderRatingChange: handleLeaderRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
       onEstimatedTimeChange: handleEstimatedTimeChange,
       onTagChange: handleTagChange,
@@ -5686,6 +5939,7 @@ export function WorkloadBoard({
       onPriorityChange: handlePriorityChange,
       onPersonChange: handlePersonChange,
       onRatingChange: handleRatingChange,
+      onLeaderRatingChange: handleLeaderRatingChange,
       onEstimatedDateChange: handleEstimatedDateChange,
       onEstimatedTimeChange: handleEstimatedTimeChange,
       onTagChange: handleTagChange,
@@ -6272,11 +6526,12 @@ export function WorkloadBoard({
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Global Toolbar for all views */}
         {activeTab !== "SOP" && (
-          <div className="border-b border-border px-6 py-4 flex items-center gap-3 flex-wrap flex-shrink-0">
+          <div className="border-b border-border px-3 py-2.5 sm:px-6 sm:py-4 flex items-center gap-2 sm:gap-3 flex-wrap flex-shrink-0">
             {activeTab === "Main Table" && Number(orgId) === 31 && (
               <Button
                 variant="default"
                 size="sm"
+                className="h-8 text-xs sm:text-sm px-2.5 sm:px-3"
                 onClick={addNewGroup}
                 disabled={isLoadingGroups}
               >
@@ -6293,7 +6548,7 @@ export function WorkloadBoard({
               Get S3 Link (Temp)
             </Button> */}
             {/* Search and Filters */}
-            <div className="flex items-center gap-3 flex-1">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
               {/* Search */}
               <div className="relative max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
@@ -6301,7 +6556,7 @@ export function WorkloadBoard({
                   placeholder="Search items..."
                   value={mainTableSearchQuery}
                   onChange={setMainTableSearchQuery}
-                  className="pl-9 h-8 bg-background border-border w-48"
+                  className="pl-9 h-8 bg-background border-border w-36 sm:w-48 text-xs sm:text-sm"
                 />
               </div>
 
@@ -6839,7 +7094,7 @@ export function WorkloadBoard({
               {activeTab === "Main Table" && (
                 <button
                   disabled={!hasUnsavedChanges}
-                  className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  className="flex items-center px-2.5 sm:px-3 gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-foreground cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap h-8"
                   onClick={async () => {
                     try {
                       // Build the columns payload with labels and positions
@@ -6910,7 +7165,7 @@ export function WorkloadBoard({
               {/* Comment Date Filter */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer border rounded-md h-8 bg-background hover:bg-hover transition-colors whitespace-nowrap">
+                  <button className="flex items-center px-2.5 sm:px-3 gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-foreground cursor-pointer border rounded-md h-8 bg-background hover:bg-hover transition-colors whitespace-nowrap">
                     <CalendarIcon className="h-4 w-4" />
                     {filterState.taskFilters.commentDateFilter ? (
                       <span>
@@ -6951,7 +7206,7 @@ export function WorkloadBoard({
               {(activeTab === "Main Table" || activeTab === "List") && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="flex items-center px-3 gap-2 text-sm font-medium text-foreground cursor-pointer whitespace-nowrap">
+                    <button className="flex items-center px-2.5 sm:px-3 gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-foreground cursor-pointer whitespace-nowrap h-8">
                       <Eye className="h-4 w-4" />
                       Show/Hide
                     </button>
@@ -7081,7 +7336,7 @@ export function WorkloadBoard({
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Task Groups Container - ONLY scrollable element */}
             <div
-              className="flex-1 overflow-y-auto overflow-x-hidden px-6"
+              className="flex-1 overflow-y-auto overflow-x-hidden px-2 sm:px-6"
               ref={groupsContainerRef}
               onWheel={(e) => {
                 // If Shift + mouse wheel is used in the empty space of the board,
@@ -7162,12 +7417,14 @@ export function WorkloadBoard({
                               {/* Group Header */}
 
                               <div
-                                className={`group/header w-full flex items-center gap-2 px-4 py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-50 bg-muted border-b border-border`}
+                                className={`group/header w-full flex flex-col md:flex-row md:items-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 hover:bg-hover transition-colors cursor-grab active:cursor-grabbing sticky top-0 z-50 bg-muted border-b border-border`}
                                 data-group-header
                                 data-group-id={group.id}
                               >
-                                {/* Group Actions Dropdown */}
-                                <DropdownMenu
+                                {/* Row 1: Title, Controls, Actions */}
+                                <div className="flex items-center gap-2 w-full md:w-auto flex-wrap sm:flex-nowrap min-w-0">
+                                  {/* Group Actions Dropdown */}
+                                  <DropdownMenu
                                   open={groupDropdownOpen === group.id}
                                   onOpenChange={(open) =>
                                     setGroupDropdownOpen(open ? group.id : null)
@@ -7552,11 +7809,10 @@ export function WorkloadBoard({
                                     variant="outline"
                                     size="sm"
                                     onClick={() => {
-                                      setTrackingGroupId(group.id);
-                                      setTrackingGroupName(
+                                      openTrackingModal(
+                                        group.id,
                                         groupNames[group.id] || group.name,
                                       );
-                                      setTrackingModalOpen(true);
                                     }}
                                     className={cn(
                                       "ml-2 h-7 px-2 text-xs",
@@ -7572,88 +7828,92 @@ export function WorkloadBoard({
                                     Tracking
                                   </Button>
                                 </div>
+                              </div>
 
-                                {/* Group Progress Bar - Time Spent vs Estimated Time */}
-                                {(() => {
-                                  const progress = calculateGroupProgress(
-                                    group.tasks,
-                                    timerState.activeTimerId,
-                                    timerState.timerStartTime,
-                                  );
-                                  return (
-                                    <div className="flex items-center gap-3 flex-1 ml-4">
-                                      <div className="flex-1 max-w-[250px]">
-                                        <Progress
-                                          value={progress.percentage}
-                                          className="h-2 border border-[#3e4360] bg-[#3e4360]"
-                                        />
+                                {/* Row 2: Progress bar, Due date, Client group badge */}
+                                <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end ml-0 md:ml-auto flex-wrap sm:flex-nowrap">
+                                  {/* Group Progress Bar - Time Spent vs Estimated Time */}
+                                  {(() => {
+                                    const progress = calculateGroupProgress(
+                                      group.tasks,
+                                      timerState.activeTimerId,
+                                      timerState.timerStartTime,
+                                    );
+                                    return (
+                                      <div className="flex items-center gap-2 sm:gap-3 flex-1 max-w-[280px]">
+                                        <div className="flex-1 max-w-[150px] sm:max-w-[200px]">
+                                          <Progress
+                                            value={progress.percentage}
+                                            className="h-2 border border-[#3e4360] bg-[#3e4360]"
+                                          />
+                                        </div>
+                                        <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
+                                          {formatSecondsToTime(
+                                            progress.timeSpentSeconds,
+                                            true,
+                                          )}{" "}
+                                          /{" "}
+                                          {progress.estimatedTimeSeconds > 0
+                                            ? formatSecondsToTime(
+                                                progress.estimatedTimeSeconds,
+                                                true,
+                                              )
+                                            : "—"}
+                                        </span>
                                       </div>
-                                      <span className="text-xs font-medium text-foreground whitespace-nowrap min-w-fit">
-                                        {formatSecondsToTime(
-                                          progress.timeSpentSeconds,
-                                          true,
-                                        )}{" "}
-                                        /{" "}
-                                        {progress.estimatedTimeSeconds > 0
-                                          ? formatSecondsToTime(
-                                              progress.estimatedTimeSeconds,
-                                              true,
-                                            )
-                                          : "—"}
-                                      </span>
-                                    </div>
-                                  );
-                                })()}
+                                    );
+                                  })()}
 
-                                {(() => {
-                                  const parsedDate = parseGroupCompletionDate(
-                                    group.completion_date,
-                                  );
-                                  if (!parsedDate) return null;
-                                  const isPastDate =
-                                    parsedDate <
-                                    new Date(new Date().setHours(0, 0, 0, 0));
-                                  return (
-                                    <div
-                                      className={cn(
-                                        "ml-auto text-xs font-semibold flex items-center gap-1.5 px-3 py-1 rounded-md border shadow-sm shrink-0",
-                                        isPastDate
-                                          ? "bg-destructive/10 text-destructive border-destructive/25"
-                                          : "bg-background text-muted-foreground border-border",
-                                      )}
-                                    >
-                                      <CalendarIcon
+                                  {(() => {
+                                    const parsedDate = parseGroupCompletionDate(
+                                      group.completion_date,
+                                    );
+                                    if (!parsedDate) return null;
+                                    const isPastDate =
+                                      parsedDate <
+                                      new Date(new Date().setHours(0, 0, 0, 0));
+                                    return (
+                                      <div
                                         className={cn(
-                                          "h-3.5 w-3.5",
+                                          "ml-auto text-xs font-semibold flex items-center gap-1.5 px-3 py-1 rounded-md border shadow-sm shrink-0",
                                           isPastDate
-                                            ? "text-destructive"
-                                            : "text-muted-foreground",
+                                            ? "bg-destructive/10 text-destructive border-destructive/25"
+                                            : "bg-background text-muted-foreground border-border",
                                         )}
-                                      />
-                                      <span>
-                                        Due: {format(parsedDate, "PP")}
-                                      </span>
-                                    </div>
-                                  );
-                                })()}
+                                      >
+                                        <CalendarIcon
+                                          className={cn(
+                                            "h-3.5 w-3.5",
+                                            isPastDate
+                                              ? "text-destructive"
+                                              : "text-muted-foreground",
+                                          )}
+                                        />
+                                        <span>
+                                          Due: {format(parsedDate, "PP")}
+                                        </span>
+                                      </div>
+                                    );
+                                  })()}
 
-                                {/* Client Group Badge on the right side */}
-                                {members.some(
-                                  (m) =>
-                                    m.group_ids?.map(String).includes(String(group.id)) &&
-                                    (m.board_role_label?.toLowerCase() === "client" ||
-                                      (m as any).role?.toLowerCase() === "client" ||
-                                      (m as any).role_name?.toLowerCase() === "client" ||
-                                      m.role_id === "client" ||
-                                      String(m.role_id) === "client")
-                                ) && (
-                                  <span
-                                    className="ml-2 inline-flex items-center justify-center rounded-full bg-amber-100 p-1 ring-1 ring-inset ring-amber-600/20 shadow-sm shrink-0"
-                                    title="Client Group"
-                                  >
-                                    <Award className="h-4 w-4 text-amber-500" />
-                                  </span>
-                                )}
+                                  {/* Client Group Badge on the right side */}
+                                  {members.some(
+                                    (m) =>
+                                      m.group_ids?.map(String).includes(String(group.id)) &&
+                                      (m.board_role_label?.toLowerCase() === "client" ||
+                                        (m as any).role?.toLowerCase() === "client" ||
+                                        (m as any).role_name?.toLowerCase() === "client" ||
+                                        m.role_id === "client" ||
+                                        String(m.role_id) === "client")
+                                  ) && (
+                                    <span
+                                      className="ml-2 inline-flex items-center justify-center rounded-full bg-amber-100 p-1 ring-1 ring-inset ring-amber-600/20 shadow-sm shrink-0"
+                                      title="Client Group"
+                                    >
+                                      <Award className="h-4 w-4 text-amber-500" />
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Task Table */}
@@ -7723,7 +7983,7 @@ export function WorkloadBoard({
                                         >
                                           <thead className="bg-muted/30">
                                             <tr className="text-sm text-muted-foreground group">
-                                              <th className="p-4 w-12 border-b border-r border-border text-center sticky left-0 z-30 bg-card">
+                                              <th className="p-2.5 sm:p-4 w-10 sm:w-12 border-b border-r border-border text-center md:sticky md:left-0 z-10 md:z-30 bg-card">
                                                 <input
                                                   type="checkbox"
                                                   checked={
@@ -7910,7 +8170,7 @@ export function WorkloadBoard({
                                                       <>
                                                         <td
                                                           className={cn(
-                                                            "p-4 text-center border-b border-border border-r sticky left-0 z-30",
+                                                            "p-2.5 sm:p-4 text-center border-b border-border border-r md:sticky md:left-0 z-10 md:z-30",
                                                           )}
                                                           style={{
                                                             backgroundColor:
@@ -7959,7 +8219,7 @@ export function WorkloadBoard({
                                                               <td
                                                                 key={col.id}
                                                                 className={cn(
-                                                                  "p-4 border-r border-b border-border last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
+                                                                  "p-2.5 sm:p-4 border-r border-b border-border text-xs sm:text-sm last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
                                                                   col.align ===
                                                                     "center" &&
                                                                     "text-center",
@@ -7968,7 +8228,7 @@ export function WorkloadBoard({
                                                                     "text-left",
                                                                   col.id ===
                                                                     "item"
-                                                                    ? "sticky left-12 z-30 hover:bg-secondary"
+                                                                    ? "md:sticky md:left-12 z-10 md:z-30 hover:bg-secondary"
                                                                     : "hover:bg-muted/30 hover:relative",
                                                                   isBulkHighlighted &&
                                                                     (col.id ===
@@ -8112,7 +8372,7 @@ export function WorkloadBoard({
                                                           >
                                                             <td
                                                               className={cn(
-                                                                "p-4 text-center border-b border-r border-border sticky left-0 z-30",
+                                                                "p-2.5 sm:p-4 text-center border-b border-r border-border md:sticky md:left-0 z-10 md:z-30",
                                                               )}
                                                               style={{
                                                                 width: "48px",
@@ -8166,7 +8426,7 @@ export function WorkloadBoard({
                                                                   <td
                                                                     key={col.id}
                                                                     className={cn(
-                                                                      "p-4 border-r border-b border-border last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
+                                                                      "p-2.5 sm:p-4 border-r border-b border-border text-xs sm:text-sm last:border-r-0 hover:ring-1 hover:ring-inset hover:ring-primary/40 transition-all hover:z-20",
                                                                       col.align ===
                                                                         "center" &&
                                                                         "text-center",
@@ -8175,7 +8435,7 @@ export function WorkloadBoard({
                                                                         "text-left",
                                                                       col.id ===
                                                                         "item"
-                                                                        ? "sticky left-12 z-30 hover:bg-secondary"
+                                                                        ? "md:sticky md:left-12 z-10 md:z-30 hover:bg-secondary"
                                                                         : "hover:bg-muted/30 hover:relative",
                                                                       isBulkHighlighted &&
                                                                         (col.id ===
@@ -8276,7 +8536,7 @@ export function WorkloadBoard({
                                                   ] && (
                                                     <tr>
                                                       <td
-                                                        className="p-4 text-center border-b border-r border-border sticky left-0 z-30 bg-card"
+                                                        className="p-2.5 sm:p-4 text-center border-b border-r border-border md:sticky md:left-0 z-10 md:z-30 bg-card"
                                                         style={{
                                                           width: "48px",
                                                           minWidth: "48px",
@@ -8287,7 +8547,7 @@ export function WorkloadBoard({
                                                       </td>
                                                       <td
                                                         colSpan={2}
-                                                        className="p-4 border-t border-border sticky left-12 z-30 bg-card"
+                                                        className="p-2.5 sm:p-4 border-t border-border md:sticky md:left-12 z-10 md:z-30 bg-card"
                                                       >
                                                         {addingSubitemToTask ===
                                                         task.id ? (
@@ -8381,7 +8641,7 @@ export function WorkloadBoard({
                                           {/* ================= ADD ITEM ROW ================= */}
                                           <tr>
                                             <td
-                                              className="p-4 text-center border-r border-border sticky left-0 z-30 bg-card"
+                                              className="p-2.5 sm:p-4 text-center border-r border-border md:sticky md:left-0 z-10 md:z-30 bg-card"
                                               style={{
                                                 width: "48px",
                                                 minWidth: "48px",
@@ -8392,7 +8652,7 @@ export function WorkloadBoard({
                                             </td>
                                             <td
                                               colSpan={2}
-                                              className="p-4 border-t border-border sticky left-12 z-30 bg-card"
+                                              className="p-2.5 sm:p-4 border-t border-border md:sticky md:left-12 z-10 md:z-30 bg-card"
                                             >
                                               {addingItemToGroup ===
                                               group.id ? (
@@ -9605,37 +9865,37 @@ export function WorkloadBoard({
 
         {/* Bulk Actions Toolbar */}
         {Object.values(taskState.checkedTasks).some((checked) => checked) && (
-          <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50 py-4 px-6">
-            <div className="max-w-[1400px] mx-auto flex items-center justify-between">
-              <div className="flex items-center gap-8">
+          <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50 py-3 px-3 sm:py-4 sm:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 sm:gap-8">
                 <div className="flex items-center gap-2">
-                  <div className="bg-primary rounded-full w-8 h-8 flex items-center justify-center text-white font-semibold text-sm">
+                  <div className="bg-primary rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-white font-semibold text-xs sm:text-sm shrink-0">
                     {
                       Object.values(taskState.checkedTasks).filter(
                         (checked) => checked,
                       ).length
                     }
                   </div>
-                  <span className="text-foreground font-medium">
+                  <span className="text-foreground font-medium text-xs sm:text-sm whitespace-nowrap hidden xs:inline sm:inline">
                     Items selected
                   </span>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4">
                   <button
-                    className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex flex-col items-center gap-0.5 sm:gap-1 text-muted-foreground hover:text-foreground transition-colors p-1"
                     onClick={deleteCheckedTasks}
                   >
-                    <Trash2 className="h-5 w-5" />
-                    <span className="text-xs">Delete</span>
+                    <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span className="text-[10px] sm:text-xs">Delete</span>
                   </button>
 
                   <button
-                    className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex flex-col items-center gap-0.5 sm:gap-1 text-muted-foreground hover:text-foreground transition-colors p-1"
                     onClick={archiveCheckedTasks}
                   >
-                    <Archive className="h-5 w-5" />
-                    <span className="text-xs">Archive</span>
+                    <Archive className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span className="text-[10px] sm:text-xs">Archive</span>
                   </button>
 
                   <Popover
@@ -9643,13 +9903,13 @@ export function WorkloadBoard({
                     onOpenChange={setIsMoveDialogOpen}
                   >
                     <PopoverTrigger asChild>
-                      <button className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
-                        <FolderSymlink className="h-5 w-5" />
-                        <span className="text-xs">Move to</span>
+                      <button className="flex flex-col items-center gap-0.5 sm:gap-1 text-muted-foreground hover:text-foreground transition-colors p-1">
+                        <FolderSymlink className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="text-[10px] sm:text-xs">Move to</span>
                       </button>
                     </PopoverTrigger>
                     <PopoverContent
-                      className="w-80 p-4"
+                      className="w-[calc(100vw-2rem)] sm:w-80 p-4"
                       align="center"
                       side="top"
                     >
@@ -9736,7 +9996,7 @@ export function WorkloadBoard({
 
               <button
                 onClick={() => taskState.clearCheckedTasks()}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
               >
                 Clear
               </button>
@@ -9762,6 +10022,7 @@ export function WorkloadBoard({
             onPriorityChange={handlePriorityChange}
             onPersonChange={handlePersonChange}
             onRatingChange={handleRatingChange}
+            onLeaderRatingChange={handleLeaderRatingChange}
             onEstimatedDateChange={handleEstimatedDateChange}
             boardId={Number(boardId)}
             groupName={
@@ -10327,7 +10588,13 @@ export function WorkloadBoard({
       {trackingGroupId && (
         <TrackingLayoutBuilderModal
           open={trackingModalOpen}
-          onOpenChange={setTrackingModalOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              closeTrackingModal();
+            } else {
+              setTrackingModalOpen(true);
+            }
+          }}
           groupId={trackingGroupId}
           groupName={trackingGroupName}
           boardId={boardId}
@@ -10335,8 +10602,13 @@ export function WorkloadBoard({
           organizationId={getOrganizationId() || ""}
           statuses={statuses}
           priorities={priorities}
+          existingTasks={
+            groups.find((g) => String(g.id) === String(trackingGroupId))
+              ?.tasks || []
+          }
           onLayoutStatusChange={handleTrackingLayoutStatusChange}
           onTaskCreated={handleTaskCreatedFromTracking}
+          onTaskUpdated={handleTaskUpdatedFromTracking}
         />
       )}
     </div>

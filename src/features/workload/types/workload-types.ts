@@ -1,4 +1,7 @@
 import type { Status, Priority } from "@/features/cms/types/types";
+import type { LeaderRating, TaskRating } from "@/features/tasks/types/types";
+
+export type { LeaderRating, TaskRating };
 
 /**
  * Core Task interface used throughout workload views
@@ -22,25 +25,11 @@ export interface Task {
   rating?: number; // Display rating as average number (1-5)
   ratingCount?: number; // Number of ratings
   comment_count?: number;
-  ratings?: Array<{
-    id: string;
-    task_id?: string;
-    assignee_id: string | number;
-    assigner_id?: string | number;
-    rating: string | number;
-    created_at?: string;
-    updated_at?: string;
-    assignee?: {
-      id: number;
-      name: string;
-      email: string;
-    };
-    assigner?: {
-      id: number;
-      name: string;
-      email: string;
-    };
-  }>;
+  ratings?: TaskRating[];
+  leader_rating_average?: number | null;
+  board_name?: string;
+  group_name?: string;
+  kunal_var?: string;
   label_id?: string; // Label ID for the task
   group_id?: string;
   tags?: Array<{

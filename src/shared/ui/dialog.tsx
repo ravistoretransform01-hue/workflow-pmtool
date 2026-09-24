@@ -4,7 +4,55 @@ import { X } from "lucide-react";
 
 import { cn } from "@/utils/utils";
 
-const Dialog = DialogPrimitive.Root;
+import { useOverlayHistory } from "@/shared/hooks/useOverlayHistory";
+
+export interface DialogProps
+  extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root> {
+  disableBackNavigation?: boolean;
+}
+
+const Dialog: React.FC<DialogProps> = ({
+  open: openProp,
+  defaultOpen,
+  onOpenChange: onOpenChangeProp,
+  disableBackNavigation = false,
+  children,
+  ...props
+}) => {
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(
+    defaultOpen ?? false,
+  );
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : uncontrolledOpen;
+
+  const handleOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      if (!isControlled) {
+        setUncontrolledOpen(nextOpen);
+      }
+      onOpenChangeProp?.(nextOpen);
+    },
+    [isControlled, onOpenChangeProp],
+  );
+
+  useOverlayHistory({
+    open: Boolean(open),
+    onOpenChange: handleOpenChange,
+    enabled: !disableBackNavigation,
+  });
+
+  return (
+    <DialogPrimitive.Root
+      open={open}
+      defaultOpen={defaultOpen}
+      onOpenChange={handleOpenChange}
+      {...props}
+    >
+      {children}
+    </DialogPrimitive.Root>
+  );
+};
+Dialog.displayName = "Dialog";
 
 const DialogTrigger = DialogPrimitive.Trigger;
 

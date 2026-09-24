@@ -17,7 +17,10 @@ import {
   Upload,
   Pencil,
   Check,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
+import { cn } from "@/utils/utils";
 import { toast } from "sonner";
 import { groupsApi } from "@/features/groups/api/groupsApi";
 import { tasksApi } from "@/features/tasks/api/tasksApi";
@@ -32,6 +35,8 @@ export type WidgetType = "tasks_list" | "calendar_view" | "chart" | "notes";
 export interface TrackingLayoutRow {
   id: string;
   name?: string;
+  task_id?: string | number | null;
+  task_created?: boolean;
 }
 
 export interface TrackingLayoutColumn {
@@ -46,6 +51,52 @@ export interface TrackingLayoutTab {
   columns: TrackingLayoutColumn[];
 }
 
+const getRowTaskName = (
+  tab: TrackingLayoutTab,
+  rowIndex: number,
+): string => {
+  if (!tab || !tab.columns || tab.columns.length === 0) return "";
+  const firstCol = tab.columns[0];
+  const nameCol = tab.columns.find((c) => {
+    const colLower = (c.name || "").toLowerCase();
+    return (
+      (colLower.includes("task") ||
+        colLower.includes("title") ||
+        colLower.includes("name") ||
+        colLower.includes("item") ||
+        colLower.includes("feature")) &&
+      !colLower.includes("status")
+    );
+  });
+
+  let mainTaskName = "";
+  if (nameCol && nameCol.rows?.[rowIndex]?.name?.trim()) {
+    mainTaskName = nameCol.rows[rowIndex].name!.trim();
+  } else {
+    const nonStatusCol = tab.columns.find(
+      (c) =>
+        !c.name?.toLowerCase().includes("status") &&
+        c.rows?.[rowIndex]?.name?.trim(),
+    );
+    if (nonStatusCol && nonStatusCol.rows?.[rowIndex]?.name?.trim()) {
+      mainTaskName = nonStatusCol.rows[rowIndex].name!.trim();
+    } else if (firstCol?.rows?.[rowIndex]?.name?.trim()) {
+      mainTaskName = firstCol.rows[rowIndex].name!.trim();
+    }
+  }
+
+  const firstColValue = firstCol?.rows?.[rowIndex]?.name?.trim();
+  if (
+    firstColValue &&
+    firstColValue !== mainTaskName &&
+    !firstCol?.name?.toLowerCase().includes("status") &&
+    !firstCol?.name?.toLowerCase().includes("desc")
+  ) {
+    return `${firstColValue} - ${mainTaskName}`;
+  }
+  return mainTaskName;
+};
+
 interface TrackingLayoutBuilderModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -56,8 +107,10 @@ interface TrackingLayoutBuilderModalProps {
   organizationId: string | number;
   statuses?: Status[];
   priorities?: Priority[];
+  existingTasks?: Task[];
   onLayoutStatusChange?: (status: "default" | "pending" | "complete") => void;
   onTaskCreated?: (task: Task) => void;
+  onTaskUpdated?: (updatedTask: Partial<Task> & { id: string }) => void;
 }
 
 export function TrackingLayoutBuilderModal({
@@ -70,8 +123,10 @@ export function TrackingLayoutBuilderModal({
   organizationId,
   statuses,
   priorities,
+  existingTasks,
   onLayoutStatusChange,
   onTaskCreated,
+  onTaskUpdated,
 }: TrackingLayoutBuilderModalProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -82,6 +137,51 @@ export function TrackingLayoutBuilderModal({
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [tempTabName, setTempTabName] = useState<string>("");
   const [addingTaskKey, setAddingTaskKey] = useState<string | null>(null);
+  const [rowTaskIdMap, setRowTaskIdMap] = useState<Record<string, string>>({});
+  const [isFullScreen, setIsFullScreen] = useState<boolean>(() => {
+    try {
+      return (
+        sessionStorage.getItem(`tracking_fullscreen_${groupId}`) === "true"
+      );
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (!open) {
+      setIsFullScreen(false);
+      setRowTaskIdMap({});
+      try {
+        sessionStorage.removeItem(`tracking_fullscreen_${groupId}`);
+      } catch {}
+    }
+  }, [open, groupId]);
+
+  useEffect(() => {
+    if (open && groupId) {
+      try {
+        sessionStorage.setItem(
+          `tracking_fullscreen_${groupId}`,
+          String(isFullScreen),
+        );
+      } catch {}
+    }
+  }, [isFullScreen, open, groupId]);
+
+  useEffect(() => {
+    if (activeTabId && tabs.length > 0 && groupId) {
+      const currentTab = tabs.find((t) => t.id === activeTabId);
+      if (currentTab?.name) {
+        try {
+          sessionStorage.setItem(
+            `tracking_active_tab_${groupId}`,
+            currentTab.name,
+          );
+        } catch {}
+      }
+    }
+  }, [activeTabId, tabs, groupId]);
 
   const handleStartEditingTab = (
     tab: TrackingLayoutTab,
@@ -550,6 +650,14 @@ export function TrackingLayoutBuilderModal({
         }
 
         if (parsedLayoutJson && parsedLayoutJson.tabs) {
+          const isTaskAlive = (candidateId: any): boolean => {
+            if (candidateId == null) return false;
+            if (!Array.isArray(existingTasks)) return false;
+            return existingTasks.some(
+              (t) => String(t.id) === String(candidateId),
+            );
+          };
+
           if (
             Array.isArray(parsedLayoutJson.tabs) &&
             parsedLayoutJson.tabs.length > 0 &&
@@ -565,10 +673,16 @@ export function TrackingLayoutBuilderModal({
                         id: c.id || `col_${generateId()}`,
                         name: c.name || "",
                         rows: Array.isArray(c.rows)
-                          ? c.rows.map((r: any) => ({
-                            id: r.id || `row_${generateId()}`,
-                            name: r.name || "",
-                          }))
+                          ? c.rows.map((r: any) => {
+                              const rawTaskId = r.task_id ?? r.taskId ?? null;
+                              const alive = isTaskAlive(rawTaskId);
+                              return {
+                                id: r.id || `row_${generateId()}`,
+                                name: r.name || "",
+                                task_id: alive ? rawTaskId : null,
+                                task_created: alive,
+                              };
+                            })
                           : [],
                       }));
                       allColumns = [...allColumns, ...rowCols];
@@ -584,7 +698,15 @@ export function TrackingLayoutBuilderModal({
               },
             );
             setTabs(parsedTabs);
-            if (parsedTabs.length > 0) setActiveTabId(parsedTabs[0].id);
+            if (parsedTabs.length > 0) {
+              const savedTabName = sessionStorage.getItem(
+                `tracking_active_tab_${groupId}`,
+              );
+              const matchedTab = parsedTabs.find(
+                (t: TrackingLayoutTab) => t.name === savedTabName,
+              );
+              setActiveTabId(matchedTab ? matchedTab.id : parsedTabs[0].id);
+            }
             setLoading(false);
             return;
           } else {
@@ -596,17 +718,34 @@ export function TrackingLayoutBuilderModal({
                   tabCols = parsedLayoutJson.columns.map((c: any) => ({
                     id: c.id || `col_${generateId()}`,
                     name: c.name || "",
-                    rows: Array.isArray(c.rows) ? c.rows : [],
+                    rows: Array.isArray(c.rows)
+                      ? c.rows.map((r: any) => {
+                          const rawTaskId = r.task_id ?? r.taskId ?? null;
+                          const alive = isTaskAlive(rawTaskId);
+                          return {
+                            id: r.id || `row_${generateId()}`,
+                            name: r.name || "",
+                            task_id: alive ? rawTaskId : null,
+                            task_created: alive,
+                          };
+                        })
+                      : [],
                   }));
                 } else if (Array.isArray(parsedLayoutJson.rows)) {
                   tabCols = [
                     {
                       id: `col_legacy_${i}`,
                       name: "Main Column",
-                      rows: parsedLayoutJson.rows.map((r: any) => ({
-                        id: r.id || `row_${generateId()}`,
-                        name: r.name || "",
-                      })),
+                      rows: parsedLayoutJson.rows.map((r: any) => {
+                        const rawTaskId = r.task_id ?? r.taskId ?? null;
+                        const alive = isTaskAlive(rawTaskId);
+                        return {
+                          id: r.id || `row_${generateId()}`,
+                          name: r.name || "",
+                          task_id: alive ? rawTaskId : null,
+                          task_created: alive,
+                        };
+                      }),
                     },
                   ];
                 }
@@ -619,7 +758,15 @@ export function TrackingLayoutBuilderModal({
               },
             );
             setTabs(parsedTabs);
-            if (parsedTabs.length > 0) setActiveTabId(parsedTabs[0].id);
+            if (parsedTabs.length > 0) {
+              const savedTabName = sessionStorage.getItem(
+                `tracking_active_tab_${groupId}`,
+              );
+              const matchedTab = parsedTabs.find(
+                (t: TrackingLayoutTab) => t.name === savedTabName,
+              );
+              setActiveTabId(matchedTab ? matchedTab.id : parsedTabs[0].id);
+            }
             setLoading(false);
             return;
           }
@@ -640,40 +787,65 @@ export function TrackingLayoutBuilderModal({
     }
   };
 
+  const persistLayoutToBackend = async (
+    tabsToSave: TrackingLayoutTab[],
+    layoutId?: string | number | null,
+  ) => {
+    const tabsPayload = tabsToSave.map((tab) => {
+      const rowId = `row_${generateId()}`;
+      return {
+        name: tab.name,
+        rows: [
+          {
+            id: rowId,
+            columns: tab.columns.map((col) => ({
+              id: col.id,
+              name: col.name || "",
+              width: "50%",
+              widget: "tasks_list",
+              rows: col.rows.map((r) => {
+                const isAlive =
+                  r.task_id != null &&
+                  Array.isArray(existingTasks) &&
+                  existingTasks.some(
+                    (t) => String(t.id) === String(r.task_id),
+                  );
+                return {
+                  id: r.id,
+                  name: r.name || "",
+                  ...(isAlive ? { task_id: r.task_id, task_created: true } : {}),
+                };
+              }),
+            })),
+          },
+        ],
+      };
+    });
+
+    const payload: any = {
+      group_id: groupId,
+      organization_id: organizationId,
+      board_id: boardId,
+      layout_json: { tabs: tabsPayload },
+    };
+
+    const targetId = layoutId ?? existingLayoutId;
+    if (targetId) {
+      payload.id = targetId;
+    }
+
+    const res = await groupsApi.saveTrackingLayout(payload);
+    const newLayoutId = res?.data?.id || res?.id;
+    if (newLayoutId && !existingLayoutId) {
+      setExistingLayoutId(newLayoutId);
+    }
+    return res;
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const tabsPayload = tabs.map((tab) => {
-        const rowId = `row_${generateId()}`;
-        return {
-          name: tab.name,
-          rows: [
-            {
-              id: rowId,
-              columns: tab.columns.map((col) => ({
-                id: col.id,
-                name: col.name || "",
-                width: "50%",
-                widget: "tasks_list",
-                rows: col.rows.map((r) => ({ id: r.id, name: r.name || "" })),
-              })),
-            },
-          ],
-        };
-      });
-
-      const payload: any = {
-        group_id: groupId,
-        organization_id: organizationId,
-        board_id: boardId,
-        layout_json: { tabs: tabsPayload },
-      };
-
-      if (existingLayoutId) {
-        payload.id = existingLayoutId;
-      }
-
-      await groupsApi.saveTrackingLayout(payload);
+      await persistLayoutToBackend(tabs);
       toast.success("Layout saved successfully!");
     } catch (e: any) {
       console.error(e);
@@ -1004,6 +1176,48 @@ export function TrackingLayoutBuilderModal({
       };
 
       const res = await tasksApi.createTask(payload);
+      const createdTaskId = String(res.id);
+      const rowKey = `${tabId}_${rowIndex}`;
+      const firstColRowId = targetTab.columns[0]?.rows?.[rowIndex]?.id;
+
+      setRowTaskIdMap((prev) => ({
+        ...prev,
+        [rowKey]: createdTaskId,
+        ...(firstColRowId ? { [firstColRowId]: createdTaskId } : {}),
+      }));
+
+      // 1. Mark row as created across all columns at rowIndex
+      const updatedTabs = tabs.map((t) => {
+        if (t.id === tabId) {
+          return {
+            ...t,
+            columns: t.columns.map((col) => ({
+              ...col,
+              rows: col.rows.map((r, idx) => {
+                if (idx === rowIndex) {
+                  return {
+                    ...r,
+                    task_id: createdTaskId,
+                    task_created: true,
+                  };
+                }
+                return r;
+              }),
+            })),
+          };
+        }
+        return t;
+      });
+
+      setTabs(updatedTabs);
+
+      // 2. Persist layout with updated task_id in background
+      persistLayoutToBackend(updatedTabs).catch((saveErr) => {
+        console.warn(
+          "Could not auto-save tracking layout after creating task:",
+          saveErr,
+        );
+      });
 
       const matchedStatusName =
         res.status_label ||
@@ -1011,7 +1225,7 @@ export function TrackingLayoutBuilderModal({
         "Need a Meeting";
 
       const newTask: Task = {
-        id: String(res.id),
+        id: createdTaskId,
         name: res.name,
         description: res.description,
         status: matchedStatusName,
@@ -1051,6 +1265,226 @@ export function TrackingLayoutBuilderModal({
       setAddingTaskKey(null);
     }
   };
+
+  const findLinkedTaskId = (
+    tab: TrackingLayoutTab,
+    rowIndex: number,
+  ): string | null => {
+    if (!existingTasks || existingTasks.length === 0) {
+      return null;
+    }
+
+    const rowKey = `${tab.id}_${rowIndex}`;
+    const firstColRowId = tab.columns[0]?.rows?.[rowIndex]?.id;
+
+    // 1. Check if we have an explicit candidate ID from rowTaskIdMap or column rows
+    const explicitCandidateId =
+      rowTaskIdMap[rowKey] ||
+      (firstColRowId ? rowTaskIdMap[firstColRowId] : null) ||
+      tab.columns.find((c) => c.rows?.[rowIndex]?.task_id)?.rows?.[rowIndex]?.task_id;
+
+    if (explicitCandidateId) {
+      const match = existingTasks.find(
+        (t) => String(t.id) === String(explicitCandidateId),
+      );
+      if (match) {
+        return String(match.id);
+      }
+      // Explicit task_id was recorded for this row but that task is no longer
+      // in existingTasks (deleted from board). Do not fall back to loose name matches.
+      return null;
+    }
+
+    // 2. Fallback: match by task name in existingTasks if never assigned an explicit task_id
+    const firstColVal = tab.columns[0]?.rows?.[rowIndex]?.name?.trim() || "";
+    const nameCol = tab.columns.find((c) => {
+      const colLower = (c.name || "").toLowerCase();
+      return (
+        (colLower.includes("task") ||
+          colLower.includes("title") ||
+          colLower.includes("name") ||
+          colLower.includes("item") ||
+          colLower.includes("feature")) &&
+        !colLower.includes("status")
+      );
+    });
+    const mainVal = nameCol?.rows?.[rowIndex]?.name?.trim() || "";
+    const computedName = getRowTaskName(tab, rowIndex);
+
+    const match = existingTasks.find((t) => {
+      const tName = t.name.trim().toLowerCase();
+      if (computedName && tName === computedName.trim().toLowerCase())
+        return true;
+      if (mainVal && tName === mainVal.toLowerCase()) return true;
+      if (
+        firstColVal &&
+        firstColVal.length > 4 &&
+        tName === firstColVal.toLowerCase()
+      )
+        return true;
+      return false;
+    });
+
+    if (match) {
+      return String(match.id);
+    }
+
+    return null;
+  };
+
+  const syncTaskToBoard = async (
+    tab: TrackingLayoutTab,
+    col: TrackingLayoutColumn,
+    rowIndex: number,
+    newValue: string,
+  ) => {
+    const rowKey = `${tab.id}_${rowIndex}`;
+    const firstColRowId = tab.columns[0]?.rows?.[rowIndex]?.id;
+    const targetTaskIdRaw = findLinkedTaskId(tab, rowIndex);
+
+    if (!targetTaskIdRaw) {
+      console.warn("No active linked task found on board for row", rowIndex);
+      return;
+    }
+
+    const targetTaskId = String(targetTaskIdRaw);
+
+    // Ensure it's cached in map for subsequent edits
+    setRowTaskIdMap((prev) => ({
+      ...prev,
+      [rowKey]: targetTaskId,
+      ...(firstColRowId ? { [firstColRowId]: targetTaskId } : {}),
+    }));
+
+    const colLower = (col.name || "").toLowerCase();
+    const boardIdNum = parseInt(String(boardId), 10);
+
+    try {
+      if (colLower.includes("status")) {
+        const newStatusId = resolveStatusId(newValue);
+        if (newStatusId) {
+          // Use dedicated updateTaskStatus endpoint (PATCH /tasks/update)
+          await tasksApi.updateTaskStatus({
+            taskId: targetTaskId,
+            board_id: boardIdNum,
+            status_id: newStatusId,
+          });
+
+          const matchedStatusName =
+            statuses?.find((s) => String(s.id) === String(newStatusId))
+              ?.name || newValue;
+
+          onTaskUpdated?.({
+            id: targetTaskId,
+            status_id: String(newStatusId),
+            status: matchedStatusName,
+          });
+          toast.success(
+            `Task status updated to "${matchedStatusName}" on main page!`,
+          );
+        }
+      } else if (
+        colLower.includes("desc") ||
+        colLower.includes("notes") ||
+        colLower.includes("detail")
+      ) {
+        await tasksApi.updateTask({
+          id: targetTaskId,
+          board_id: boardIdNum,
+          description: newValue.trim(),
+        });
+        onTaskUpdated?.({
+          id: targetTaskId,
+          description: newValue.trim(),
+        });
+        toast.success("Task description updated on main page!");
+      } else {
+        const currentTask = existingTasks?.find(
+          (t) => String(t.id) === String(targetTaskId),
+        );
+        const firstCol = tab.columns[0];
+        const firstColValue = firstCol?.rows?.[rowIndex]?.name?.trim();
+        const updatedTaskName = getRowTaskName(tab, rowIndex);
+
+        let finalTaskName = updatedTaskName;
+        if (currentTask && firstColValue) {
+          const hadPrefix = currentTask.name
+            .toLowerCase()
+            .includes(firstColValue.toLowerCase());
+          if (!hadPrefix && !col.name?.toLowerCase().includes("id")) {
+            finalTaskName = newValue.trim();
+          }
+        }
+
+        if (finalTaskName) {
+          await tasksApi.updateTask({
+            id: targetTaskId,
+            board_id: boardIdNum,
+            name: finalTaskName,
+          });
+          onTaskUpdated?.({
+            id: targetTaskId,
+            name: finalTaskName,
+          });
+          toast.success(`Task "${finalTaskName}" updated on main page!`);
+        }
+      }
+    } catch (err: any) {
+      console.error("Failed to sync tracking layout edit to board task:", err);
+      const errMsg =
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to update task on main page";
+      toast.error(errMsg);
+    }
+  };
+
+  useEffect(() => {
+    if (!existingTasks) return;
+
+    // 1. Clean up tabs if any row has a task_id that is no longer in existingTasks
+    setTabs((prevTabs) => {
+      let changed = false;
+      const nextTabs = prevTabs.map((tab) => ({
+        ...tab,
+        columns: tab.columns.map((col) => ({
+          ...col,
+          rows: col.rows.map((r) => {
+            if (
+              r.task_id != null &&
+              !existingTasks.some((t) => String(t.id) === String(r.task_id))
+            ) {
+              changed = true;
+              return {
+                ...r,
+                task_id: null,
+                task_created: false,
+              };
+            }
+            return r;
+          }),
+        })),
+      }));
+      return changed ? nextTabs : prevTabs;
+    });
+
+    // 2. Rebuild rowTaskIdMap using findLinkedTaskId so deleted tasks are purged
+    const newMap: Record<string, string> = {};
+    tabs.forEach((tab) => {
+      const maxRows = Math.max(...tab.columns.map((c) => c.rows?.length || 0));
+      for (let i = 0; i < maxRows; i++) {
+        const foundId = findLinkedTaskId(tab, i);
+        if (foundId) {
+          newMap[`${tab.id}_${i}`] = foundId;
+          const firstColRowId = tab.columns[0]?.rows?.[i]?.id;
+          if (firstColRowId) {
+            newMap[firstColRowId] = foundId;
+          }
+        }
+      }
+    });
+    setRowTaskIdMap(newMap);
+  }, [existingTasks, tabs.length]);
 
   const [draggedColId, setDraggedColId] = useState<string | null>(null);
 
@@ -1163,7 +1597,14 @@ export function TrackingLayoutBuilderModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[70vw] w-full h-[85vh] flex flex-col p-0">
+        <DialogContent
+          className={cn(
+            "w-full flex flex-col p-0 transition-all duration-200",
+            isFullScreen
+              ? "w-screen h-screen max-w-none sm:max-w-none max-h-screen rounded-none sm:rounded-none border-0"
+              : "max-w-[70vw] h-[85vh]",
+          )}
+        >
           <DialogHeader className="p-4 border-b">
             <DialogTitle className="flex items-center justify-between">
               <div>
@@ -1180,6 +1621,17 @@ export function TrackingLayoutBuilderModal({
                   ref={globalFileInputRef}
                   onChange={handleGlobalFileUpload}
                 />
+                <Button
+                  variant="outline"
+                  onClick={() => setIsFullScreen((prev) => !prev)}
+                >
+                  {isFullScreen ? (
+                    <Minimize2 className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4 mr-2" />
+                  )}
+                  {isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                </Button>
                 <Button variant="outline" onClick={handleGlobalExport}>
                   <Upload className="h-4 w-4 mr-2" />
                   Export Global
@@ -1385,33 +1837,57 @@ export function TrackingLayoutBuilderModal({
                                   )
                                     return null;
                                 }
+                                const linkedTaskId = findLinkedTaskId(
+                                  activeTab,
+                                  rowIndex,
+                                );
+                                const isRowCreated = Boolean(
+                                  linkedTaskId &&
+                                    existingTasks?.some(
+                                      (t) =>
+                                        String(t.id) === String(linkedTaskId),
+                                    ),
+                                );
+
                                 return (
                                   <div
                                     key={`global_row_actions_${rowIndex}`}
                                     className="h-[46px] w-full flex items-center justify-center gap-1 group/globalrow opacity-60 hover:opacity-100 transition-opacity"
                                   >
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-7 w-7 text-primary shrink-0 hover:bg-primary/10"
-                                      title="Add row as task to main page"
-                                      onClick={() =>
-                                        handleAddTaskFromGlobalRow(
-                                          activeTab.id,
-                                          rowIndex,
-                                        )
-                                      }
-                                      disabled={
-                                        addingTaskKey === `global_${rowIndex}`
-                                      }
-                                    >
-                                      {addingTaskKey ===
+                                    {isRowCreated ? (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-emerald-600 bg-emerald-500/10 cursor-not-allowed opacity-90 hover:bg-emerald-500/10 hover:text-emerald-600 shrink-0"
+                                        title="Task already created on board"
+                                        disabled
+                                      >
+                                        <Check className="h-3.5 w-3.5" />
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-primary shrink-0 hover:bg-primary/10"
+                                        title="Add row as task to main page"
+                                        onClick={() =>
+                                          handleAddTaskFromGlobalRow(
+                                            activeTab.id,
+                                            rowIndex,
+                                          )
+                                        }
+                                        disabled={
+                                          addingTaskKey === `global_${rowIndex}`
+                                        }
+                                      >
+                                        {addingTaskKey ===
                                         `global_${rowIndex}` ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                      ) : (
-                                        <Plus className="h-3.5 w-3.5" />
-                                      )}
-                                    </Button>
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <Plus className="h-3.5 w-3.5" />
+                                        )}
+                                      </Button>
+                                    )}
                                     <Button
                                       size="icon"
                                       variant="ghost"
@@ -1509,14 +1985,21 @@ export function TrackingLayoutBuilderModal({
                                           <select
                                             className="flex h-7 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                             value={row.name || ""}
-                                            onChange={(e) =>
+                                            onChange={(e) => {
+                                              const val = e.target.value;
                                               updateRow(
                                                 activeTab.id,
                                                 col.id,
                                                 row.id,
-                                                e.target.value,
-                                              )
-                                            }
+                                                val,
+                                              );
+                                              syncTaskToBoard(
+                                                activeTab,
+                                                col,
+                                                rowIndex,
+                                                val,
+                                              );
+                                            }}
                                           >
                                             <option value="" disabled>
                                               Select Status
@@ -1558,6 +2041,14 @@ export function TrackingLayoutBuilderModal({
                                                 e.target.value,
                                               )
                                             }
+                                            onBlur={(e) => {
+                                              syncTaskToBoard(
+                                                activeTab,
+                                                col,
+                                                rowIndex,
+                                                e.target.value,
+                                              );
+                                            }}
                                           />
                                         )}
                                         <Button

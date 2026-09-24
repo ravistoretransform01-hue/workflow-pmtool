@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { MoreVertical, Trash2, Pencil, GripVertical } from "lucide-react";
+import { MoreVertical, Trash2, Pencil, GripVertical, Star } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +27,7 @@ interface KanbanCardProps {
   onDeleteTask?: (taskId: string) => Promise<void>;
   onOpenComments?: (task: Task) => void;
   disableDrag?: boolean;
+  onRatingChange?: (taskId: string, rating: number) => void;
 }
 
 export function KanbanCard({
@@ -42,6 +43,7 @@ export function KanbanCard({
   onDeleteTask,
   onOpenComments,
   disableDrag = false,
+  onRatingChange,
 }: KanbanCardProps) {
   const {
     setNodeRef,
@@ -73,6 +75,9 @@ export function KanbanCard({
     : true;
   const showAssignees = visibleCardFields
     ? visibleCardFields.has("assignees")
+    : true;
+  const showRating = visibleCardFields
+    ? visibleCardFields.has("rating")
     : true;
 
   if (isDragging && !overlay) {
@@ -131,7 +136,7 @@ export function KanbanCard({
                     e.stopPropagation();
                     onClick?.();
                   }}
-                  className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0 opacity-0 group-hover:opacity-100 group/commentbtn"
+                  className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0 group/commentbtn"
                 >
                   <div className="relative">
                     <Pencil className="h-4 w-4 text-muted-foreground group-hover/commentbtn:text-foreground transition-colors" />
@@ -145,7 +150,7 @@ export function KanbanCard({
                 {onDeleteTask && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100">
+                      <button className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground transition-all shrink-0">
                         <MoreVertical className="h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>
@@ -183,10 +188,11 @@ export function KanbanCard({
             </div>
           )}
 
-          {showAssignees &&
+          <div className="mt-3 flex items-center justify-between gap-2 -mr-5">
+            {showAssignees &&
             task.assigned_to_ids &&
-            task.assigned_to_ids.length > 0 && (
-              <div className="mt-3 flex items-center -space-x-2">
+            task.assigned_to_ids.length > 0 ? (
+              <div className="flex items-center -space-x-2">
                 {task.assigned_to_ids.slice(0, 3).map((memberId) => {
                   const member = members.find(
                     (m) => String(m.user_id) === String(memberId),
@@ -211,7 +217,7 @@ export function KanbanCard({
                     >
                       <AvatarFallback
                         style={{ background: bgColor, color: "white" }}
-                        className="text-[10px]  "
+                        className="text-[10px]"
                       >
                         {initials || "U"}
                       </AvatarFallback>
@@ -220,13 +226,66 @@ export function KanbanCard({
                 })}
                 {task.assigned_to_ids.length > 3 && (
                   <div className="h-6 w-6 rounded-full bg-muted border-2 border-card flex items-center justify-center">
-                    <span className="text-[10px]   text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground">
                       +{task.assigned_to_ids.length - 3}
                     </span>
                   </div>
                 )}
               </div>
+            ) : (
+              <div />
             )}
+
+            {showRating && (
+              <div
+                className="flex items-center shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((star) => {
+                    const ratingVal = Number(task.rating) || 0;
+                    const isFilled =
+                      ratingVal > 0 && star <= Math.round(ratingVal);
+                    return (
+                      <button
+                        key={star}
+                        type="button"
+                        disabled={!onRatingChange}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRatingChange?.(task.id, star);
+                        }}
+                        className={`p-0 bg-transparent border-0 inline-flex items-center justify-center ${
+                          onRatingChange
+                            ? "cursor-pointer hover:scale-110 transition-transform"
+                            : "cursor-default"
+                        }`}
+                        title={
+                          onRatingChange
+                            ? `Rate ${star} star${star > 1 ? "s" : ""}`
+                            : undefined
+                        }
+                      >
+                        <Star
+                          className={`h-3.5 w-3.5 ${
+                            isFilled
+                              ? "text-amber-400 fill-amber-400"
+                              : "text-muted-foreground/30 fill-transparent"
+                          }`}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {task.id && (
+              <span className="text-[13px] font-mono font-medium text-muted-foreground/60 group-hover:text-muted-foreground transition-colors select-all shrink-0">
+                #{String(task.id).replace(/^#/, "")}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { cn } from "@/utils/utils";
 import {
   Sidebar,
@@ -11,6 +11,9 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarMenuAction,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarSeparator,
   useSidebar,
 } from "@/shared/ui/sidebar";
@@ -44,14 +47,20 @@ import {
   Pencil,
   Trash2,
   ChevronsLeft,
+  ChevronRight,
+  ChevronDown,
+  X,
 } from "lucide-react";
-import { NavLink, useNavigate, useParams } from "react-router-dom";
+import { NavLink, useNavigate, useParams, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useBoards } from "@/hooks/useBoards";
 import { boardsApi } from "@/features/boards/api/boardsApi";
+import { groupsApi } from "@/features/groups/api/groupsApi";
+import type { Group } from "@/features/groups/types/types";
 import { useAppSelector } from "@/hooks";
 import { appName } from "@/constants";
-import { cmsApi } from "@/features/cms/api/cmsApi";
+import { getCMSData } from "@/features/cms/services/cmsStorage";
+import { DeleteBoardDialog } from "@/shared/modals/DeleteBoardDialog";
 
 export const AppSidebar = () => {
   const user = useAppSelector((state) => state.auth.user);
@@ -63,30 +72,132 @@ export const AppSidebar = () => {
   const displayName = currentOrg?.organization_name || appName;
 
   const navigate = useNavigate();
-  const { boardId } = useParams();
+  const location = useLocation();
+  const { boardId, viewName } = useParams<{
+    boardId?: string;
+    viewName?: string;
+  }>();
+
+  const currentView = useMemo(() => {
+    const match = location.pathname.match(/\/view\/([^/#?]+)/);
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+    if (viewName) {
+      return decodeURIComponent(viewName);
+    }
+    return String(orgId) === "27" ? "Kanban" : "Main Table";
+  }, [location.pathname, viewName, orgId]);
+
   const { toggleSidebar } = useSidebar();
   const { boards, fetchLoading, fetchBoards } = useBoards();
 
+  const [expandedBoardIds, setExpandedBoardIds] = useState<
+    Set<string | number>
+  >(new Set());
+  const [boardGroups, setBoardGroups] = useState<Record<string, Group[]>>({});
+  const boardGroupsRef = useRef<Record<string, Group[]>>({});
+  boardGroupsRef.current = boardGroups;
+  const inFlightBoardGroups = useRef<Set<string>>(new Set());
+
+  const [loadingGroups, setLoadingGroups] = useState<
+    Record<string, boolean>
+  >({});
+  const [groupSearchQueries, setGroupSearchQueries] = useState<
+    Record<string, string>
+  >({});
+
+  const expandBoard = useCallback(
+    async (targetBoardId: string | number) => {
+      const key = String(targetBoardId);
+      setExpandedBoardIds((prev) => {
+        if (prev.has(targetBoardId)) return prev;
+        const next = new Set(prev);
+        next.add(targetBoardId);
+        return next;
+      });
+
+      // Avoid re-fetching if already loaded or currently being fetched
+      if (boardGroupsRef.current[key] || inFlightBoardGroups.current.has(key)) {
+        return;
+      }
+
+      inFlightBoardGroups.current.add(key);
+      setLoadingGroups((prev) => ({ ...prev, [key]: true }));
+      try {
+        const groups = await groupsApi.getGroupsByBoard(Number(targetBoardId));
+        const sortedGroups = Array.isArray(groups)
+          ? [...groups].sort((a, b) =>
+              (a.name || "").localeCompare(b.name || "", undefined, {
+                sensitivity: "base",
+              }),
+            )
+          : [];
+        setBoardGroups((prev) => ({ ...prev, [key]: sortedGroups }));
+      } catch (err) {
+        console.error("Failed to load groups for board:", err);
+        toast.error("Failed to load groups");
+      } finally {
+        inFlightBoardGroups.current.delete(key);
+        setLoadingGroups((prev) => ({ ...prev, [key]: false }));
+      }
+    },
+    [],
+  );
+
+  const toggleBoardExpand = useCallback(
+    async (targetBoardId: string | number) => {
+      const key = String(targetBoardId);
+      if (expandedBoardIds.has(targetBoardId)) {
+        setExpandedBoardIds((prev) => {
+          const next = new Set(prev);
+          next.delete(targetBoardId);
+          return next;
+        });
+        setGroupSearchQueries((prev) => {
+          if (!prev[key]) return prev;
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+      } else {
+        await expandBoard(targetBoardId);
+      }
+    },
+    [expandedBoardIds, expandBoard],
+  );
+
+  // Auto-expand board groups when current active boardId is present
+  useEffect(() => {
+    if (boardId) {
+      expandBoard(boardId);
+    }
+  }, [boardId, expandBoard]);
+
   const [dynamicLogo, setDynamicLogo] = useState<string | null>(null);
 
-  // Fetch dynamic logo from CMS
+  // Fetch dynamic logo from CMS (cached via getCMSData)
   useEffect(() => {
+    let isMounted = true;
     const fetchLogo = async () => {
       if (orgId) {
         try {
-          const res = await cmsApi.getCMSData({
+          const res = await getCMSData({
             organization_id: Number(orgId),
             board_id: Number(boardId) || 0,
             user_id: user?.user_id ? Number(user.user_id) : null,
           });
           const logo = res.ord_logo || res.org_logo;
-          if (logo) setDynamicLogo(logo);
+          if (logo && isMounted) setDynamicLogo(logo);
         } catch (error) {
           console.error("Failed to fetch dynamic logo from CMS:", error);
         }
       }
     };
     fetchLogo();
+    return () => {
+      isMounted = false;
+    };
   }, [orgId, boardId, user?.user_id]);
 
   // Resize logic
@@ -150,7 +261,6 @@ export const AppSidebar = () => {
   const [renamingBoardName, setRenamingBoardName] = useState("");
   const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null);
   const [deletingBoardName, setDeletingBoardName] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
 
   // Fetch boards when organization changes or component mounts
@@ -285,29 +395,6 @@ export const AppSidebar = () => {
     setDeletingBoardName(boardName);
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deletingBoardId) return;
-
-    setIsDeleting(true);
-    try {
-      await boardsApi.deleteBoard(deletingBoardId);
-      toast.success(`Board "${deletingBoardName}" Deleted Successfully`);
-
-      // Navigate away only if the deleted board is the one currently open
-      if (boardId && String(deletingBoardId) === String(boardId)) {
-        navigate(`/org/${orgId}/home`);
-      }
-
-      setDeletingBoardId(null);
-      setDeletingBoardName("");
-      fetchBoards();
-    } catch (error: any) {
-      console.error("Delete board error:", error);
-      toast.error(error.response?.data?.message || "Failed to Delete Board");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   return (
     <>
@@ -613,85 +700,269 @@ export const AppSidebar = () => {
 
                 {/* Boards from API */}
                 {!fetchLoading && boards.length > 0 ? (
-                  boards.map((board) => (
-                    <SidebarMenuItem key={board.id}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={boardId === board.id}
-                        tooltip={board.name}
-                      >
-                        <button
-                          onClick={() =>
-                            navigate(
-                              `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}`,
-                            )
-                          }
-                          className="flex items-center gap-2"
+                  boards.map((board) => {
+                    const isExpanded = expandedBoardIds.has(board.id);
+                    const groups = boardGroups[String(board.id)];
+                    const isGroupsLoading = loadingGroups[String(board.id)];
+                    const groupSearch = groupSearchQueries[String(board.id)] || "";
+                    const sortedGroups = groups
+                      ? [...groups].sort((a, b) =>
+                          (a.name || "").localeCompare(b.name || "", undefined, {
+                            sensitivity: "base",
+                          }),
+                        )
+                      : [];
+                    const filteredGroups =
+                      !groupSearch.trim() || sortedGroups.length <= 10
+                        ? sortedGroups
+                        : sortedGroups.filter((g) =>
+                            (g.name || "")
+                              .toLowerCase()
+                              .includes(groupSearch.trim().toLowerCase()),
+                          );
+
+                    return (
+                      <SidebarMenuItem key={board.id}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={boardId === board.id}
+                          tooltip={board.name}
                         >
                           <div
-                            className="h-5 w-5 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:w-4 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 transition-all"
-                            style={{
-                              backgroundColor:
-                                board.icon_color || "hsl(221, 83%, 53%)",
+                            onClick={() => {
+                              const encodedView = encodeURIComponent(currentView);
+                              const targetPath = `/org/${orgId}/board/${board.id}/view/${encodedView}`;
+                              if (location.pathname !== targetPath) {
+                                navigate(targetPath);
+                              }
+                              expandBoard(board.id);
                             }}
+                            className="flex items-center gap-2 cursor-pointer w-full"
                           >
-                            {board.name.charAt(0).toUpperCase()}
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleBoardExpand(board.id);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  toggleBoardExpand(board.id);
+                                }
+                              }}
+                              className="h-5 w-5 group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:w-4 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 transition-all cursor-pointer hover:opacity-90 hover:scale-105 active:scale-95"
+                              style={{
+                                backgroundColor:
+                                  board.icon_color || "hsl(221, 83%, 53%)",
+                              }}
+                              title={
+                                isExpanded ? "Collapse groups" : "Expand groups"
+                              }
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-3.5 w-3.5 text-white" />
+                              ) : (
+                                <>
+                                  <span className="group-hover/menu-item:hidden group-data-[collapsible=icon]:!inline-block">
+                                    {(board.name || "B").charAt(0).toUpperCase()}
+                                  </span>
+                                  <ChevronRight className="h-3.5 w-3.5 text-white hidden group-hover/menu-item:block group-data-[collapsible=icon]:!hidden" />
+                                </>
+                              )}
+                            </div>
+                            <span className="truncate flex-1">{board.name}</span>
                           </div>
-                          <span>{board.name}</span>
-                        </button>
-                      </SidebarMenuButton>
+                        </SidebarMenuButton>
 
-                      {/* Dropdown Menu */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <SidebarMenuAction showOnHover>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </SidebarMenuAction>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-48">
-                          <DropdownMenuItem
-                            onClick={() => handleOpenBoardInNewTab(board.id)}
-                          >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            <span>Open in new tab</span>
-                          </DropdownMenuItem>
+                        {/* Dropdown Menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <SidebarMenuAction showOnHover>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </SidebarMenuAction>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuItem
+                              onClick={() => handleOpenBoardInNewTab(board.id)}
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              <span>Open in new tab</span>
+                            </DropdownMenuItem>
 
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleRenameBoard(board.id, board.name)
-                            }
-                          >
-                            <Pencil className="h-4 w-4 mr-2" />
-                            <span>Rename</span>
-                          </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleRenameBoard(board.id, board.name)
+                              }
+                            >
+                              <Pencil className="h-4 w-4 mr-2" />
+                              <span>Rename</span>
+                            </DropdownMenuItem>
 
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleDuplicateBoard(board.id, board.name)
-                            }
-                            disabled={isDuplicating}
-                          >
-                            {isDuplicating ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleDuplicateBoard(board.id, board.name)
+                              }
+                              disabled={isDuplicating}
+                            >
+                              {isDuplicating ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <Copy className="h-4 w-4 mr-2" />
+                              )}
+                              <span>Duplicate</span>
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleDeleteBoard(board.id, board.name)
+                              }
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              <span>Delete Project</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        {/* Expanded Groups Submenu */}
+                        {isExpanded && (
+                          <SidebarMenuSub className="my-1 space-y-0.5">
+                            {isGroupsLoading ? (
+                              <SidebarMenuSubItem>
+                                <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <span>Loading groups...</span>
+                                </div>
+                              </SidebarMenuSubItem>
+                            ) : groups && groups.length > 0 ? (
+                              <>
+                                {/* Search bar for groups in this project/board (visible only if more than 10 groups) */}
+                                {groups.length > 10 && (
+                                  <SidebarMenuSubItem className="pb-1 pt-0.5">
+                                    <div className="relative flex items-center w-full">
+                                      <Search className="absolute left-2 h-3.5 w-3.5 text-muted-foreground/60 pointer-events-none" />
+                                      <input
+                                        type="text"
+                                        value={groupSearch}
+                                        onChange={(e) =>
+                                          setGroupSearchQueries((prev) => ({
+                                            ...prev,
+                                            [String(board.id)]: e.target.value,
+                                          }))
+                                        }
+                                        onClick={(e) => e.stopPropagation()}
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                        placeholder="Search groups..."
+                                        className="w-full h-7 pl-7 pr-6 text-xs rounded-md bg-muted/40 hover:bg-muted/60 focus:bg-background border border-sidebar-border/60 focus:border-primary/50 focus:outline-none placeholder:text-muted-foreground/60 transition-colors"
+                                      />
+                                      {groupSearch && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setGroupSearchQueries((prev) => ({
+                                              ...prev,
+                                              [String(board.id)]: "",
+                                            }));
+                                          }}
+                                          className="absolute right-1.5 p-0.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                          title="Clear search"
+                                          aria-label="Clear group search"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </SidebarMenuSubItem>
+                                )}
+
+                                {filteredGroups.length > 0 ? (
+                                  filteredGroups.map((group) => (
+                                    <SidebarMenuSubItem key={group.id}>
+                                      <SidebarMenuSubButton
+                                        asChild
+                                        size="sm"
+                                        className="h-7 text-xs hover:bg-sidebar-accent cursor-pointer"
+                                      >
+                                        <div
+                                          onClick={() => {
+                                            const targetId = `group-${group.id}`;
+                                            const encodedView = encodeURIComponent(currentView);
+                                            const targetPath = `/org/${orgId}/board/${board.id}/view/${encodedView}`;
+
+                                            if (String(boardId) === String(board.id)) {
+                                              if (
+                                                location.pathname !== targetPath ||
+                                                window.location.hash !== `#${targetId}`
+                                              ) {
+                                                navigate(`${targetPath}#${targetId}`, { replace: true });
+                                              }
+                                              if (currentView === "Main Table") {
+                                                const el = document.getElementById(targetId);
+                                                if (el) {
+                                                  el.scrollIntoView({
+                                                    behavior: "smooth",
+                                                    block: "start",
+                                                  });
+                                                }
+                                              }
+                                            } else {
+                                              navigate(`${targetPath}#${targetId}`);
+                                            }
+                                          }}
+                                          className="flex items-center gap-2 w-full text-left truncate cursor-pointer"
+                                          title={group.name}
+                                        >
+                                          <span
+                                            className="h-2 w-2 rounded-full shrink-0"
+                                            style={{
+                                              backgroundColor:
+                                                group.color || "#3b82f6",
+                                            }}
+                                          />
+                                          <span className="truncate">
+                                            {group.name}
+                                          </span>
+                                        </div>
+                                      </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                  ))
+                                ) : (
+                                  <SidebarMenuSubItem>
+                                    <div className="px-2 py-1.5 text-xs text-muted-foreground italic flex items-center justify-between">
+                                      <span>No matching groups</span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setGroupSearchQueries((prev) => ({
+                                            ...prev,
+                                            [String(board.id)]: "",
+                                          }));
+                                        }}
+                                        className="text-[10px] text-primary hover:underline not-italic cursor-pointer"
+                                      >
+                                        Clear
+                                      </button>
+                                    </div>
+                                  </SidebarMenuSubItem>
+                                )}
+                              </>
                             ) : (
-                              <Copy className="h-4 w-4 mr-2" />
+                              <SidebarMenuSubItem>
+                                <div className="px-2 py-1 text-xs text-muted-foreground italic">
+                                  No groups
+                                </div>
+                              </SidebarMenuSubItem>
                             )}
-                            <span>Duplicate</span>
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleDeleteBoard(board.id, board.name)
-                            }
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            <span>Delete Project</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </SidebarMenuItem>
-                  ))
+                          </SidebarMenuSub>
+                        )}
+                      </SidebarMenuItem>
+                    );
+                  })
                 ) : !fetchLoading && boards.length === 0 ? (
                   <SidebarMenuItem>
                     <div className="px-2 py-1.5 text-sm text-muted-foreground">
@@ -791,9 +1062,11 @@ export const AppSidebar = () => {
                     <button
                       key={board.id}
                       onClick={() => {
+                        const encodedView = encodeURIComponent(currentView);
                         navigate(
-                          `/org/${orgId}/board/${board.id}/view/${String(orgId) === "27" ? "Kanban" : "Main%20Table"}`,
+                          `/org/${orgId}/board/${board.id}/view/${encodedView}`,
                         );
+                        expandBoard(board.id);
                         setBoardSearchOpen(false);
                         setBoardSearchQuery("");
                       }}
@@ -868,7 +1141,7 @@ export const AppSidebar = () => {
         </Dialog>
 
         {/* Delete Board Confirmation Dialog */}
-        <Dialog
+        <DeleteBoardDialog
           open={!!deletingBoardId}
           onOpenChange={(open) => {
             if (!open) {
@@ -876,39 +1149,9 @@ export const AppSidebar = () => {
               setDeletingBoardName("");
             }
           }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Board</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <p className="text-sm text-muted-foreground">
-                Are you sure you want to delete{" "}
-                <strong>{deletingBoardName}</strong>? This action cannot be
-                undone.
-              </p>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setDeletingBoardId(null);
-                    setDeletingBoardName("");
-                  }}
-                  disabled={isDeleting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleConfirmDelete}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? "Deleting..." : "Delete"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+          boardId={deletingBoardId}
+          boardName={deletingBoardName}
+        />
       </Sidebar>
     </>
   );

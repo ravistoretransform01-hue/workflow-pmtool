@@ -47,6 +47,7 @@ interface KanbanColumnProps {
   groupBy: "status" | "priority";
   onDeleteTask?: (taskId: string) => Promise<void>;
   onOpenComments?: (task: Task) => void;
+  onRatingChange?: (taskId: string, rating: number) => void;
 }
 
 export function KanbanColumn({
@@ -70,6 +71,7 @@ export function KanbanColumn({
   groupBy,
   onDeleteTask,
   onOpenComments,
+  onRatingChange,
 }: KanbanColumnProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingName, setEditingName] = useState(category.name);
@@ -299,6 +301,7 @@ export function KanbanColumn({
                 visibleCardFields={visibleCardFields}
                 onDeleteTask={onDeleteTask}
                 onOpenComments={onOpenComments}
+                onRatingChange={onRatingChange}
               />
             );
           })}

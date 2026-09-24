@@ -292,6 +292,50 @@ export function PriorityPopoverCell({
     }
   };
 
+  const isCurrentPriority = (
+    targetPriorityId: string | number,
+    targetPriorityName?: string,
+  ) => {
+    const targetIdStr = String(targetPriorityId);
+    if (
+      priorityObj?.id !== undefined &&
+      priorityObj?.id !== null &&
+      String(priorityObj.id) === targetIdStr
+    ) {
+      return true;
+    }
+    if (
+      task?.priority_id !== undefined &&
+      task?.priority_id !== null &&
+      String(task.priority_id) === targetIdStr
+    ) {
+      return true;
+    }
+    if (
+      task?.priority !== undefined &&
+      task?.priority !== null &&
+      String(task.priority) === targetIdStr
+    ) {
+      return true;
+    }
+    if (targetPriorityName) {
+      const lowerName = targetPriorityName.trim().toLowerCase();
+      if (
+        priorityObj?.name &&
+        priorityObj.name.trim().toLowerCase() === lowerName
+      ) {
+        return true;
+      }
+      if (
+        typeof task?.priority === "string" &&
+        task.priority.trim().toLowerCase() === lowerName
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   /* ---------------------------------------------
    * Sync displayPriorities whenever priorities prop changes
    * ------------------------------------------- */
@@ -535,6 +579,10 @@ export function PriorityPopoverCell({
                     <button
                       key={p.id}
                       onClick={() => {
+                        if (isCurrentPriority(p.id, p.name)) {
+                          setOpenPopoverId?.(null);
+                          return;
+                        }
                         onPriorityChange?.(task.id, String(p.id));
                         setOpenPopoverId?.(null);
                       }}

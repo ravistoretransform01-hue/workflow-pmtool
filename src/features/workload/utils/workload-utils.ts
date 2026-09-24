@@ -211,6 +211,22 @@ export function extractRating(taskData: any): number | undefined {
 }
 
 /**
+ * Extracts numeric leader rating from task data
+ */
+export function extractLeaderRating(taskData: any): number | undefined {
+  if (!taskData) return undefined;
+
+  if (
+    typeof taskData.leader_rating_average === "number" &&
+    taskData.leader_rating_average !== null
+  ) {
+    return Math.round(taskData.leader_rating_average);
+  }
+
+  return undefined;
+}
+
+/**
  * Formats time for display in timer
  * Examples: "2h 30m 45s", "45m 30s", "30s"
  */

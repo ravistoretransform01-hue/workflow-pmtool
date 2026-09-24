@@ -58,6 +58,7 @@ interface KanbanViewProps {
   onPrioritiesUpdated?: (priorities: Priority[]) => void;
   onDeleteTask?: (taskId: string) => Promise<void>;
   onOpenComments?: (task: Task) => void;
+  onRatingChange?: (taskId: string, rating: number) => void;
 }
 
 export function KanbanView({
@@ -73,6 +74,7 @@ export function KanbanView({
   onPrioritiesUpdated,
   onDeleteTask,
   onOpenComments,
+  onRatingChange,
 }: KanbanViewProps) {
   const [groupBy, setGroupBy] = useState<"status" | "priority">(() => {
     try {
@@ -762,6 +764,7 @@ export function KanbanView({
     { id: "assignees", label: "Assignees" },
     { id: "status", label: "Status" },
     { id: "priority", label: "Priority" },
+    { id: "rating", label: "Rating" },
   ];
 
   const [visibleCardFields, setVisibleCardFields] = useState<Set<string>>(
@@ -771,9 +774,16 @@ export function KanbanView({
         const raw = localStorage.getItem(
           `kanban-visible-card-fields-${boardId}`,
         );
-        return raw
-          ? new Set(JSON.parse(raw))
-          : new Set(CARD_FIELDS.map((f) => f.id));
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const set = new Set<string>(parsed);
+          // If stored before "rating" field was added, default rating to visible as well
+          if (!raw.includes("rating")) {
+            set.add("rating");
+          }
+          return set;
+        }
+        return new Set(CARD_FIELDS.map((f) => f.id));
       } catch {
         return new Set(CARD_FIELDS.map((f) => f.id));
       }
@@ -1118,6 +1128,7 @@ export function KanbanView({
                         groupBy={groupBy}
                         onDeleteTask={onDeleteTask}
                         onOpenComments={onOpenComments}
+                        onRatingChange={onRatingChange}
                       />
                     );
                   })}
@@ -1198,6 +1209,7 @@ export function KanbanView({
                 }
                 members={members}
                 visibleCardFields={visibleCardFields}
+                onRatingChange={onRatingChange}
               />
             ) : activeCategory ? (
               <KanbanColumn
@@ -1218,6 +1230,7 @@ export function KanbanView({
                 groupBy={groupBy}
                 onDeleteTask={onDeleteTask}
                 onOpenComments={onOpenComments}
+                onRatingChange={onRatingChange}
                 isOverlay
               />
             ) : null}

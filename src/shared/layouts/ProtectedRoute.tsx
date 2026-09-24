@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { SidebarProvider } from "@/shared/ui/sidebar";
 import { AppSidebar } from "@/shared/layouts/AppSidebar";
 import { Header } from "@/shared/layouts/Header";
+import { MaintenanceBanner } from "@/features/maintenance";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import {
@@ -109,17 +110,20 @@ function ProtectedRoute() {
 
 function ProtectedLayout() {
   return (
-    <SidebarProvider defaultOpen className="flex h-screen overflow-hidden">
-      <div className="flex w-full h-full overflow-hidden">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-hidden h-full">
-            <Outlet />
-          </main>
+    <div className="flex flex-col h-screen w-screen overflow-hidden">
+      <MaintenanceBanner />
+      <SidebarProvider defaultOpen className="flex-1 flex overflow-hidden min-h-0">
+        <div className="flex w-full h-full overflow-hidden">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+            <Header />
+            <main className="flex-1 overflow-hidden h-full">
+              <Outlet />
+            </main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </div>
   );
 }
 

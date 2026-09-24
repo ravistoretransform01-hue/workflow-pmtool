@@ -15,11 +15,13 @@ import { PriorityPopoverCell } from "@/features/workload/components/PriorityPopo
 import {
   PersonPopover,
   RatingStars,
+  LeaderRatingCell,
   EstimatedDatePicker,
   EstimatedTimePicker,
 } from "@/features/workload/components/cells";
 import { TruncatedTaskName } from "@/features/workload/components/TruncatedTaskName";
 import type { Column, Task } from "@/features/workload/utils";
+import { getCurrentUserId, isClientRole, isProjectManagerRole } from "@/utils/utils";
 
 interface ColumnDefinitionProps {
   expandedTasks: Record<string, boolean>;
@@ -72,6 +74,11 @@ interface ColumnDefinitionProps {
   ) => void;
   onTimerConflict?: (taskId: string) => void;
   onTimeUpdate?: (taskId: string, seconds: number) => void;
+  isDialog?: boolean;
+  currentUserRole?: string | null;
+  isClient?: boolean;
+  isProjectManager?: boolean;
+  onLeaderRatingChange?: (taskId: string, rating: number) => void;
 }
 
 // Local component removed, using shared TruncatedTaskName from ./TruncatedTaskName
@@ -112,7 +119,68 @@ export const getWorkloadColumns = ({
   onTimeUpdate,
   onTagToggle,
   checkedTasks,
+  isDialog = false,
+  currentUserRole,
+  isClient: isClientParam,
+  isProjectManager: isProjectManagerParam,
+  onLeaderRatingChange,
 }: ColumnDefinitionProps): Column[] => {
+  const resolvedIsClient = (() => {
+    if (typeof isClientParam === "boolean") return isClientParam;
+    if (currentUserRole) return isClientRole(currentUserRole);
+    const currentUserId = getCurrentUserId();
+    if (currentUserId && members && members.length > 0) {
+      const currentMember = members.find(
+        (m) => String(m.user_id) === String(currentUserId),
+      );
+      if (currentMember?.board_role_label || (currentMember as any)?.role) {
+        return isClientRole(
+          currentMember.board_role_label || (currentMember as any).role,
+        );
+      }
+    }
+    try {
+      const userDataRaw = localStorage.getItem("user_data");
+      if (userDataRaw) {
+        const userData = JSON.parse(userDataRaw);
+        return isClientRole(userData?.role_label || userData?.role?.[0]);
+      }
+    } catch {}
+    return false;
+  })();
+
+  const resolvedIsProjectManager = (() => {
+    if (typeof isProjectManagerParam === "boolean") return isProjectManagerParam;
+    if (currentUserRole && isProjectManagerRole(currentUserRole)) return true;
+    const currentUserId = getCurrentUserId();
+    if (currentUserId && members && members.length > 0) {
+      const currentMember = members.find(
+        (m) => String(m.user_id) === String(currentUserId),
+      );
+      if (
+        isProjectManagerRole(currentMember?.board_role_label) ||
+        isProjectManagerRole((currentMember as any)?.role) ||
+        isProjectManagerRole((currentMember as any)?.role_name)
+      ) {
+        return true;
+      }
+    }
+    try {
+      const userDataRaw = localStorage.getItem("user_data");
+      if (userDataRaw) {
+        const userData = JSON.parse(userDataRaw);
+        return (
+          isProjectManagerRole(userData?.role_label) ||
+          isProjectManagerRole(userData?.role_name) ||
+          isProjectManagerRole(userData?.board_role_label) ||
+          isProjectManagerRole(userData?.role?.[0]) ||
+          isProjectManagerRole(userData?.role)
+        );
+      }
+    } catch {}
+    return false;
+  })();
+
   // Create lookup maps for statuses and priorities
   // Ensure keys are strings to match task.status_id (which is stored as string)
   const statusMap = new Map(statuses.map((s) => [String(s.id), s]));
@@ -123,7 +191,7 @@ export const getWorkloadColumns = ({
       id: "item",
       label: "Item",
       width: "300px",
-      minWidth: "300px",
+      minWidth: "250px",
       maxWidth: "800px",
       align: "left",
       fixed: true,
@@ -132,7 +200,7 @@ export const getWorkloadColumns = ({
           return (
             <div
               onClick={() => onOpenComments?.(task)}
-              className="flex items-center gap-2 pl-8 justify-between group cursor-pointer w-full h-full min-h-[36px]"
+              className="flex items-center gap-2 pl-4 sm:pl-8 justify-between group cursor-pointer w-full h-full min-h-[36px]"
             >
               <div className="flex-1 flex items-center gap-2 min-w-0">
                 <span className="text-muted-foreground shrink-0"> {"├"}</span>
@@ -401,6 +469,7 @@ export const getWorkloadColumns = ({
 
         return (
           <RatingStars
+            key={task.id}
             task={task}
             rating={rating}
             ratingCount={ratingCount}
@@ -409,6 +478,32 @@ export const getWorkloadColumns = ({
             setOpenPopoverId={setOpenPopoverId}
             onRatingChange={onRatingChange}
             hasAssignee={hasAssignee}
+            isDone={isDone}
+            isDialog={isDialog}
+            isClient={resolvedIsClient}
+          />
+        );
+      },
+    },
+    {
+      id: "leaderRating",
+      label: "Leader Rating",
+      width: "140px",
+      align: "center",
+      render: (task: Task) => {
+        const statusObj = statusMap.get(task.status_id || "");
+        const statusName = (statusObj?.name || task.status || "").trim().toLowerCase();
+        const isDone = statusName === "done" || statusName === "completed";
+
+        return (
+          <LeaderRatingCell
+            key={task.id}
+            task={task}
+            popoverId={`leader-rating-${task.id}`}
+            openPopoverId={openPopoverId}
+            setOpenPopoverId={setOpenPopoverId}
+            onLeaderRatingChange={onLeaderRatingChange}
+            isProjectManager={resolvedIsProjectManager}
             isDone={isDone}
           />
         );
