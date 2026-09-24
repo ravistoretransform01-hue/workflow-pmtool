@@ -20,6 +20,8 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { useAppSelector } from "@/hooks";
+import { tasksApi } from "@/features/tasks/api/tasksApi";
+import type { TaskResponse } from "@/features/tasks/types/types";
 
 interface DevBoardDailyViewProps {
   boardId: string | number;
@@ -36,6 +38,7 @@ interface Task {
 interface Project {
   id: string;
   name: string;
+  boardId?: string;
   tasks: Task[];
   expanded: boolean;
 }
@@ -66,8 +69,16 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
   const [newTaskHours, setNewTaskHours] = useState("");
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectBoardId, setNewProjectBoardId] = useState<string | null>(
+    null,
+  );
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
+  const [isTaskDropdownOpen, setIsTaskDropdownOpen] = useState(false);
+  const [taskSearchQuery, setTaskSearchQuery] = useState("");
+  const [boardTasks, setBoardTasks] = useState<
+    Record<string, { loading: boolean; tasks: TaskResponse[] }>
+  >({});
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState("");
   const [editingTaskDescription, setEditingTaskDescription] = useState("");
@@ -80,6 +91,9 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
   // Organization projects (boards) for the "Add project" dropdown,
   // excluding ones already added to the active date
   const boards = useAppSelector((state) => state.boards.boards);
+  const organizationId = useAppSelector(
+    (state) => state.auth.user?.organization_id,
+  );
   const addedProjectNames = new Set(
     projects.map((p) => p.name.toLowerCase()),
   );
@@ -98,13 +112,64 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
     setIsAddingProject(false);
     setIsProjectDropdownOpen(false);
     setNewProjectName("");
+    setNewProjectBoardId(null);
     setProjectSearchQuery("");
   };
 
-  const selectProjectOption = (name: string) => {
-    setNewProjectName(name);
+  const selectProjectOption = (board: { id: string; name: string }) => {
+    setNewProjectName(board.name);
+    setNewProjectBoardId(String(board.id));
     setProjectSearchQuery("");
     setIsProjectDropdownOpen(false);
+  };
+
+  // Tasks of a project's board, fetched once per board for the "Add task" dropdown
+  const loadBoardTasks = async (boardId: string) => {
+    if (boardTasks[boardId]) return;
+    setBoardTasks((prev) => ({
+      ...prev,
+      [boardId]: { loading: true, tasks: [] },
+    }));
+    try {
+      const tasks = await tasksApi.getTasksByBoardId(boardId, organizationId);
+      setBoardTasks((prev) => ({
+        ...prev,
+        [boardId]: { loading: false, tasks },
+      }));
+    } catch {
+      // Drop the entry so reopening the form retries
+      setBoardTasks((prev) => {
+        const next = { ...prev };
+        delete next[boardId];
+        return next;
+      });
+    }
+  };
+
+  const startAddingTask = (project: Project) => {
+    setAddingTaskToProject(project.id);
+    setIsTaskDropdownOpen(true);
+    if (project.boardId) loadBoardTasks(project.boardId);
+  };
+
+  const getTaskOptions = (project: Project) => {
+    const addedTitles = new Set(
+      project.tasks.map((t) => t.title.toLowerCase()),
+    );
+    const query = taskSearchQuery.trim().toLowerCase();
+    return (project.boardId ? boardTasks[project.boardId]?.tasks ?? [] : [])
+      .filter(
+        (t) =>
+          !t.parent_id &&
+          !addedTitles.has(t.name.toLowerCase()) &&
+          t.name.toLowerCase().includes(query),
+      );
+  };
+
+  const selectTaskOption = (title: string) => {
+    setNewTaskTitle(title);
+    setTaskSearchQuery("");
+    setIsTaskDropdownOpen(false);
   };
 
   const updateActiveProjects = (newProjects: Project[]) => {
@@ -124,6 +189,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
       {
         id: `p${Date.now()}`,
         name: newProjectName.trim(),
+        boardId: newProjectBoardId ?? undefined,
         tasks: [],
         expanded: true,
       },
@@ -136,6 +202,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
     setNewTaskDescription("");
     setNewTaskHours("");
     setAddingTaskToProject(null);
+    setIsTaskDropdownOpen(false);
+    setTaskSearchQuery("");
   };
 
   const handleAddTask = (projectId: string) => {
@@ -686,6 +754,21 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                       return false;
                     return true;
                   });
+                  const isAddingTaskHere = addingTaskToProject === project.id;
+                  const taskOptions = isAddingTaskHere
+                    ? getTaskOptions(project)
+                    : [];
+                  const isLoadingTaskOptions =
+                    isAddingTaskHere &&
+                    !!project.boardId &&
+                    !!boardTasks[project.boardId]?.loading;
+                  const trimmedTaskQuery = taskSearchQuery.trim();
+                  const showCustomTaskOption =
+                    !!trimmedTaskQuery &&
+                    !taskOptions.some(
+                      (t) =>
+                        t.name.toLowerCase() === trimmedTaskQuery.toLowerCase(),
+                    );
 
                   if (
                     (searchQuery || filter !== "All") &&
@@ -813,9 +896,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                           {project.expanded &&
                             addingTaskToProject !== project.id && (
                               <button
-                                onClick={() =>
-                                  setAddingTaskToProject(project.id)
-                                }
+                                onClick={() => startAddingTask(project)}
                                 style={{
                                   background: "hsl(var(--primary))",
                                   color: "hsl(var(--background))",
@@ -1385,28 +1466,137 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                 borderRadius: "10px",
                               }}
                             >
-                              <Input
-                                autoFocus
-                                value={newTaskTitle}
-                                onChange={(e) =>
-                                  setNewTaskTitle(e.target.value)
-                                }
-                                placeholder="Task title..."
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter")
-                                    handleAddTask(project.id);
-                                  if (e.key === "Escape") resetTaskForm();
+                              <Popover
+                                open={isTaskDropdownOpen}
+                                onOpenChange={(open) => {
+                                  setIsTaskDropdownOpen(open);
+                                  if (!open) setTaskSearchQuery("");
                                 }}
-                                className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
-                                style={{
-                                  height: "36px",
-                                  background: "hsl(var(--background))",
-                                  border: "1px solid hsl(var(--border))",
-                                  borderRadius: "8px",
-                                  color: "hsl(var(--foreground))",
-                                  fontSize: "13px",
-                                }}
-                              />
+                              >
+                                <PopoverTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#34d399]"
+                                    style={{
+                                      height: "36px",
+                                      width: "100%",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
+                                      gap: "8px",
+                                      padding: "0 12px",
+                                      background: "hsl(var(--background))",
+                                      border: "1px solid hsl(var(--border))",
+                                      borderRadius: "8px",
+                                      color: newTaskTitle
+                                        ? "hsl(var(--foreground))"
+                                        : "hsl(var(--muted-foreground))",
+                                      fontSize: "13px",
+                                      cursor: "pointer",
+                                      textAlign: "left",
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      {newTaskTitle || "Select task..."}
+                                    </span>
+                                    <ChevronDown
+                                      style={{
+                                        width: 14,
+                                        height: 14,
+                                        flexShrink: 0,
+                                      }}
+                                    />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  align="start"
+                                  className="w-[var(--radix-popover-trigger-width)] min-w-64 p-2 bg-card border border-border shadow-lg rounded-lg"
+                                  onWheel={(e) => e.stopPropagation()}
+                                >
+                                  <div style={{ position: "relative" }}>
+                                    <Search
+                                      style={{
+                                        position: "absolute",
+                                        left: 10,
+                                        top: "50%",
+                                        transform: "translateY(-50%)",
+                                        width: 14,
+                                        height: 14,
+                                        color: "hsl(var(--muted-foreground))",
+                                      }}
+                                    />
+                                    <Input
+                                      autoFocus
+                                      value={taskSearchQuery}
+                                      onChange={(e) =>
+                                        setTaskSearchQuery(e.target.value)
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key !== "Enter") return;
+                                        if (taskOptions[0]) {
+                                          selectTaskOption(taskOptions[0].name);
+                                        } else if (showCustomTaskOption) {
+                                          selectTaskOption(trimmedTaskQuery);
+                                        }
+                                      }}
+                                      placeholder="Search tasks..."
+                                      className="h-8 pl-8 text-sm focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
+                                    />
+                                  </div>
+                                  <div className="mt-2 max-h-60 overflow-y-auto space-y-0.5">
+                                    {isLoadingTaskOptions ? (
+                                      <div className="py-4 text-center text-sm text-muted-foreground">
+                                        Loading tasks...
+                                      </div>
+                                    ) : (
+                                      <>
+                                        {taskOptions.map((t) => (
+                                          <button
+                                            key={t.id}
+                                            type="button"
+                                            onClick={() =>
+                                              selectTaskOption(t.name)
+                                            }
+                                            className={`w-full px-2 py-1.5 rounded-md text-sm text-left truncate transition-colors hover:bg-secondary ${
+                                              t.name === newTaskTitle
+                                                ? "bg-secondary text-foreground"
+                                                : "text-foreground"
+                                            }`}
+                                          >
+                                            {t.name}
+                                          </button>
+                                        ))}
+                                        {showCustomTaskOption && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              selectTaskOption(trimmedTaskQuery)
+                                            }
+                                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                                          >
+                                            <Plus className="w-3.5 h-3.5 flex-shrink-0" />
+                                            <span className="truncate">
+                                              Use "{trimmedTaskQuery}"
+                                            </span>
+                                          </button>
+                                        )}
+                                        {taskOptions.length === 0 &&
+                                          !showCustomTaskOption && (
+                                            <div className="py-4 text-center text-sm text-muted-foreground">
+                                              No tasks found
+                                            </div>
+                                          )}
+                                      </>
+                                    )}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
                               <div
                                 style={{
                                   display: "flex",
@@ -1500,7 +1690,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                             </div>
                           ) : (
                             <button
-                              onClick={() => setAddingTaskToProject(project.id)}
+                              onClick={() => startAddingTask(project)}
                               style={{
                                 background: "none",
                                 border: "none",
@@ -1623,7 +1813,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                               }
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" && projectOptions[0]) {
-                                  selectProjectOption(projectOptions[0].name);
+                                  selectProjectOption(projectOptions[0]);
                                 }
                               }}
                               placeholder="Search projects..."
@@ -1642,9 +1832,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                 <button
                                   key={board.id}
                                   type="button"
-                                  onClick={() =>
-                                    selectProjectOption(board.name)
-                                  }
+                                  onClick={() => selectProjectOption(board)}
                                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors hover:bg-secondary ${
                                     board.name === newProjectName
                                       ? "bg-secondary text-foreground"
