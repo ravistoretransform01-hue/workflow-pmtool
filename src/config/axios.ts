@@ -60,12 +60,15 @@ const getBaseURL = () => {
       return "/api";
     }
   }
-  return import.meta.env.VITE_API_URL || "http://localhost/platform/wp-json/wp-platform/v1";
+  // Local dev: VITE_API_URL (e.g. a local WordPress) if set, otherwise the Vite "/api" proxy
+  return import.meta.env.VITE_API_URL || "/api";
 };
+
+export const API_BASE_URL = getBaseURL();
 
 // Create axios instance with production-ready config
 const api = axios.create({
-  baseURL: getBaseURL(),
+  baseURL: API_BASE_URL,
   timeout: 30000, // 30 seconds
   headers: {
     "Content-Type": "application/json",
@@ -233,7 +236,7 @@ api.interceptors.response.use(
 
             // Make refresh token request using plain axios (not our api instance)
             const response = await axios.post(
-              `${import.meta.env.VITE_API_URL}/refresh`,
+              `${API_BASE_URL}/refresh`,
               {
                 refresh_token: refreshToken,
               },

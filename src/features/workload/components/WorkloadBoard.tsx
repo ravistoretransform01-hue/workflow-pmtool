@@ -10,6 +10,7 @@ import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/hooks";
 import type { RootState } from "@/store";
+import { API_BASE_URL } from "@/config/axios";
 import { groupsApi } from "@/features/groups/api/groupsApi";
 import type {
   CreateGroupRequest,
@@ -1695,7 +1696,7 @@ export function WorkloadBoard({
         try {
           // Use fetch with keepalive: true to ensure the request completes even if the page is unloaded
           const token = localStorage.getItem("access_token");
-          fetch(`${import.meta.env.VITE_API_URL}/tasks/time/stop`, {
+          fetch(`${API_BASE_URL}/tasks/time/stop`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import { useAppSelector } from "@/hooks";
 
 interface DevBoardDailyViewProps {
   boardId: string | number;
@@ -64,6 +66,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
   const [newTaskHours, setNewTaskHours] = useState("");
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+  const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState("");
   const [editingTaskDescription, setEditingTaskDescription] = useState("");
@@ -72,6 +76,36 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
 
   const projects =
     activeDateStr && dateMap[activeDateStr] ? dateMap[activeDateStr] : [];
+
+  // Organization projects (boards) for the "Add project" dropdown,
+  // excluding ones already added to the active date
+  const boards = useAppSelector((state) => state.boards.boards);
+  const addedProjectNames = new Set(
+    projects.map((p) => p.name.toLowerCase()),
+  );
+  const projectOptions = boards.filter(
+    (b) =>
+      !addedProjectNames.has(b.name.toLowerCase()) &&
+      b.name.toLowerCase().includes(projectSearchQuery.trim().toLowerCase()),
+  );
+
+  const startAddingProject = () => {
+    setIsAddingProject(true);
+    setIsProjectDropdownOpen(true);
+  };
+
+  const cancelAddingProject = () => {
+    setIsAddingProject(false);
+    setIsProjectDropdownOpen(false);
+    setNewProjectName("");
+    setProjectSearchQuery("");
+  };
+
+  const selectProjectOption = (name: string) => {
+    setNewProjectName(name);
+    setProjectSearchQuery("");
+    setIsProjectDropdownOpen(false);
+  };
 
   const updateActiveProjects = (newProjects: Project[]) => {
     if (!activeDateStr) return;
@@ -94,8 +128,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
         expanded: true,
       },
     ]);
-    setNewProjectName("");
-    setIsAddingProject(false);
+    cancelAddingProject();
   };
 
   const resetTaskForm = () => {
@@ -1522,29 +1555,121 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                         flexWrap: "wrap",
                       }}
                     >
-                      <Input
-                        autoFocus
-                        value={newProjectName}
-                        onChange={(e) => setNewProjectName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleAddProject();
-                          if (e.key === "Escape") {
-                            setIsAddingProject(false);
-                            setNewProjectName("");
-                          }
+                      <Popover
+                        open={isProjectDropdownOpen}
+                        onOpenChange={(open) => {
+                          setIsProjectDropdownOpen(open);
+                          if (!open) setProjectSearchQuery("");
                         }}
-                        placeholder="Project name..."
-                        className="focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
-                        style={{
-                          height: "36px",
-                          width: "220px",
-                          background: "hsl(var(--background))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "10px",
-                          color: "hsl(var(--foreground))",
-                          fontSize: "13px",
-                        }}
-                      />
+                      >
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#34d399]"
+                            style={{
+                              height: "36px",
+                              width: "220px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: "8px",
+                              padding: "0 12px",
+                              background: "hsl(var(--background))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: "10px",
+                              color: newProjectName
+                                ? "hsl(var(--foreground))"
+                                : "hsl(var(--muted-foreground))",
+                              fontSize: "13px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <span
+                              style={{
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {newProjectName || "Select project..."}
+                            </span>
+                            <ChevronDown
+                              style={{ width: 14, height: 14, flexShrink: 0 }}
+                            />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="start"
+                          className="w-64 p-2 bg-card border border-border shadow-lg rounded-lg"
+                          onWheel={(e) => e.stopPropagation()}
+                        >
+                          <div style={{ position: "relative" }}>
+                            <Search
+                              style={{
+                                position: "absolute",
+                                left: 10,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                width: 14,
+                                height: 14,
+                                color: "hsl(var(--muted-foreground))",
+                              }}
+                            />
+                            <Input
+                              autoFocus
+                              value={projectSearchQuery}
+                              onChange={(e) =>
+                                setProjectSearchQuery(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && projectOptions[0]) {
+                                  selectProjectOption(projectOptions[0].name);
+                                }
+                              }}
+                              placeholder="Search projects..."
+                              className="h-8 pl-8 text-sm focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
+                            />
+                          </div>
+                          <div
+                            className="mt-2 max-h-60 overflow-y-auto space-y-0.5"
+                          >
+                            {projectOptions.length === 0 ? (
+                              <div className="py-4 text-center text-sm text-muted-foreground">
+                                No projects found
+                              </div>
+                            ) : (
+                              projectOptions.map((board) => (
+                                <button
+                                  key={board.id}
+                                  type="button"
+                                  onClick={() =>
+                                    selectProjectOption(board.name)
+                                  }
+                                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors hover:bg-secondary ${
+                                    board.name === newProjectName
+                                      ? "bg-secondary text-foreground"
+                                      : "text-foreground"
+                                  }`}
+                                >
+                                  <span
+                                    className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white"
+                                    style={{
+                                      background:
+                                        board.icon_color ||
+                                        "hsl(var(--primary))",
+                                    }}
+                                  >
+                                    {board.name.charAt(0).toUpperCase()}
+                                  </span>
+                                  <span className="truncate">
+                                    {board.name}
+                                  </span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                       <button
                         onClick={handleAddProject}
                         disabled={!newProjectName.trim()}
@@ -1569,10 +1694,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                         Add
                       </button>
                       <button
-                        onClick={() => {
-                          setIsAddingProject(false);
-                          setNewProjectName("");
-                        }}
+                        onClick={cancelAddingProject}
                         style={{
                           background: "none",
                           border: "none",
@@ -1588,7 +1710,7 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                     </div>
                   ) : (
                     <button
-                      onClick={() => setIsAddingProject(true)}
+                      onClick={startAddingProject}
                       style={{
                         background: "transparent",
                         border: "1px dashed hsl(var(--border))",
