@@ -8609,7 +8609,7 @@ export function WorkloadBoard({
 
         {/* DevBoard Daily VIEW */}
         {activeTab === "DevBoard.Daily" && isViewLive.devboardDaily && (
-          <DevBoardDailyView boardId={boardId} />
+          <DevBoardDailyView boardId={boardId} members={members} />
         )}
 
         {/* Gantt VIEW */}

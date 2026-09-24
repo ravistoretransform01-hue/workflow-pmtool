@@ -22,9 +22,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { useAppSelector } from "@/hooks";
 import { tasksApi } from "@/features/tasks/api/tasksApi";
 import type { TaskResponse } from "@/features/tasks/types/types";
+import type { Member } from "@/features/cms/types/types";
+import { stringToHslColor } from "@/features/workload/utils";
 
 interface DevBoardDailyViewProps {
   boardId: string | number;
+  members?: Member[];
 }
 
 interface Task {
@@ -33,7 +36,18 @@ interface Task {
   status: "pending" | "completed";
   description?: string;
   hours?: string;
+  assigneeIds?: string[];
 }
+
+const getInitials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
 interface Project {
   id: string;
@@ -52,7 +66,10 @@ const collapseStyle = `
 .anim-slide-down { animation: slideDown 150ms ease-out forwards; }
 `;
 
-export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
+export function DevBoardDailyView({
+  boardId,
+  members = [],
+}: DevBoardDailyViewProps) {
   const [activeDateStr, setActiveDateStr] = useState<string | null>(null);
   const [dateMap, setDateMap] = useState<Record<string, Project[]>>({});
   const [isAddingDate, setIsAddingDate] = useState(false);
@@ -74,6 +91,8 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
   );
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
+  const [assigningTaskId, setAssigningTaskId] = useState<string | null>(null);
+  const [assignSearchQuery, setAssignSearchQuery] = useState("");
   const [isTaskDropdownOpen, setIsTaskDropdownOpen] = useState(false);
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
   const [boardTasks, setBoardTasks] = useState<
@@ -164,6 +183,50 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
           !addedTitles.has(t.name.toLowerCase()) &&
           t.name.toLowerCase().includes(query),
       );
+  };
+
+  const filteredMembers = members.filter((m) =>
+    (m.name ?? "")
+      .toLowerCase()
+      .includes(assignSearchQuery.trim().toLowerCase()),
+  );
+
+  const closeAssignDropdown = () => {
+    setAssigningTaskId(null);
+    setAssignSearchQuery("");
+  };
+
+  const setTaskAssignees = (
+    projectId: string,
+    taskId: string,
+    assigneeIds: string[],
+  ) =>
+    updateActiveProjects(
+      projects.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              tasks: p.tasks.map((t) =>
+                t.id === taskId ? { ...t, assigneeIds } : t,
+              ),
+            }
+          : p,
+      ),
+    );
+
+  const toggleTaskAssignee = (
+    projectId: string,
+    task: Task,
+    userId: string,
+  ) => {
+    const current = task.assigneeIds ?? [];
+    setTaskAssignees(
+      projectId,
+      task.id,
+      current.includes(userId)
+        ? current.filter((id) => id !== userId)
+        : [...current, userId],
+    );
   };
 
   const selectTaskOption = (title: string) => {
@@ -1319,41 +1382,232 @@ export function DevBoardDailyView({ boardId }: DevBoardDailyViewProps) {
                                   )}
 
                                   <div className="flex items-center gap-2">
-                                    <button
-                                      style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "6px",
-                                        color: "hsl(var(--muted-foreground))",
-                                        background: "transparent",
-                                        border: "1px dashed hsl(var(--border))",
-                                        borderRadius: "999px",
-                                        padding: "3px 10px",
-                                        fontSize: "12px",
-                                        cursor: "pointer",
-                                        transition:
-                                          "color 150ms, border-color 150ms",
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        const el = e.currentTarget;
-                                        el.style.color =
-                                          "hsl(var(--foreground))";
-                                        el.style.borderColor =
-                                          "hsl(var(--muted-foreground))";
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        const el = e.currentTarget;
-                                        el.style.color =
-                                          "hsl(var(--muted-foreground))";
-                                        el.style.borderColor =
-                                          "hsl(var(--border))";
-                                      }}
-                                    >
-                                      <UserPlus
-                                        style={{ width: 12, height: 12 }}
-                                      />
-                                      assign
-                                    </button>
+                                    {(() => {
+                                      const assigneeIds =
+                                        task.assigneeIds ?? [];
+                                      const assignees = members.filter((m) =>
+                                        assigneeIds.includes(String(m.user_id)),
+                                      );
+                                      const hasAssignees = assignees.length > 0;
+                                      const MAX_AVATARS = 3;
+                                      return (
+                                        <Popover
+                                          open={assigningTaskId === task.id}
+                                          onOpenChange={(open) =>
+                                            open
+                                              ? setAssigningTaskId(task.id)
+                                              : closeAssignDropdown()
+                                          }
+                                        >
+                                          <PopoverTrigger asChild>
+                                            <button
+                                              type="button"
+                                              title={assignees
+                                                .map((m) => m.name)
+                                                .join(", ")}
+                                              style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "6px",
+                                                maxWidth: "180px",
+                                                color: hasAssignees
+                                                  ? "hsl(var(--foreground))"
+                                                  : "hsl(var(--muted-foreground))",
+                                                background: "transparent",
+                                                border: hasAssignees
+                                                  ? "1px solid hsl(var(--border))"
+                                                  : "1px dashed hsl(var(--border))",
+                                                borderRadius: "999px",
+                                                padding: hasAssignees
+                                                  ? "2px 10px 2px 3px"
+                                                  : "3px 10px",
+                                                fontSize: "12px",
+                                                cursor: "pointer",
+                                                transition:
+                                                  "color 150ms, border-color 150ms",
+                                              }}
+                                              onMouseEnter={(e) => {
+                                                const el = e.currentTarget;
+                                                el.style.color =
+                                                  "hsl(var(--foreground))";
+                                                el.style.borderColor =
+                                                  "hsl(var(--muted-foreground))";
+                                              }}
+                                              onMouseLeave={(e) => {
+                                                const el = e.currentTarget;
+                                                el.style.color = hasAssignees
+                                                  ? "hsl(var(--foreground))"
+                                                  : "hsl(var(--muted-foreground))";
+                                                el.style.borderColor =
+                                                  "hsl(var(--border))";
+                                              }}
+                                            >
+                                              {hasAssignees ? (
+                                                <>
+                                                  <span className="flex items-center -space-x-1.5 flex-shrink-0">
+                                                    {assignees
+                                                      .slice(0, MAX_AVATARS)
+                                                      .map((m) => (
+                                                        <span
+                                                          key={m.user_id}
+                                                          className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-semibold text-white ring-2 ring-card"
+                                                          style={{
+                                                            background:
+                                                              stringToHslColor(
+                                                                m.name ||
+                                                                  m.user_id,
+                                                              ),
+                                                          }}
+                                                        >
+                                                          {getInitials(
+                                                            m.name ?? "",
+                                                          )}
+                                                        </span>
+                                                      ))}
+                                                  </span>
+                                                  <span className="truncate">
+                                                    {assignees.length === 1
+                                                      ? assignees[0].name
+                                                      : assignees.length >
+                                                          MAX_AVATARS
+                                                        ? `+${assignees.length - MAX_AVATARS}`
+                                                        : `${assignees.length} people`}
+                                                  </span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <UserPlus
+                                                    style={{
+                                                      width: 12,
+                                                      height: 12,
+                                                    }}
+                                                  />
+                                                  assign
+                                                </>
+                                              )}
+                                            </button>
+                                          </PopoverTrigger>
+                                          <PopoverContent
+                                            align="end"
+                                            className="w-60 p-2 bg-card border border-border shadow-lg rounded-lg"
+                                            onWheel={(e) => e.stopPropagation()}
+                                          >
+                                            <div
+                                              style={{ position: "relative" }}
+                                            >
+                                              <Search
+                                                style={{
+                                                  position: "absolute",
+                                                  left: 10,
+                                                  top: "50%",
+                                                  transform: "translateY(-50%)",
+                                                  width: 14,
+                                                  height: 14,
+                                                  color:
+                                                    "hsl(var(--muted-foreground))",
+                                                }}
+                                              />
+                                              <Input
+                                                autoFocus
+                                                value={assignSearchQuery}
+                                                onChange={(e) =>
+                                                  setAssignSearchQuery(
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                onKeyDown={(e) => {
+                                                  if (
+                                                    e.key === "Enter" &&
+                                                    filteredMembers[0]
+                                                  ) {
+                                                    toggleTaskAssignee(
+                                                      project.id,
+                                                      task,
+                                                      String(
+                                                        filteredMembers[0]
+                                                          .user_id,
+                                                      ),
+                                                    );
+                                                    setAssignSearchQuery("");
+                                                  }
+                                                }}
+                                                placeholder="Search team..."
+                                                className="h-8 pl-8 text-sm focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
+                                              />
+                                            </div>
+                                            <div className="mt-2 max-h-60 overflow-y-auto space-y-0.5">
+                                              {hasAssignees && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    setTaskAssignees(
+                                                      project.id,
+                                                      task.id,
+                                                      [],
+                                                    )
+                                                  }
+                                                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                                                >
+                                                  <X className="w-3.5 h-3.5 flex-shrink-0" />
+                                                  Clear all ({assignees.length})
+                                                </button>
+                                              )}
+                                              {filteredMembers.length === 0 ? (
+                                                <div className="py-4 text-center text-sm text-muted-foreground">
+                                                  No team members found
+                                                </div>
+                                              ) : (
+                                                filteredMembers.map((m) => {
+                                                  const isSelected =
+                                                    assigneeIds.includes(
+                                                      String(m.user_id),
+                                                    );
+                                                  return (
+                                                    <button
+                                                      key={m.user_id}
+                                                      type="button"
+                                                      onClick={() =>
+                                                        toggleTaskAssignee(
+                                                          project.id,
+                                                          task,
+                                                          String(m.user_id),
+                                                        )
+                                                      }
+                                                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left text-foreground transition-colors hover:bg-secondary ${
+                                                        isSelected
+                                                          ? "bg-secondary"
+                                                          : ""
+                                                      }`}
+                                                    >
+                                                      <span
+                                                        className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold text-white"
+                                                        style={{
+                                                          background:
+                                                            stringToHslColor(
+                                                              m.name ||
+                                                                m.user_id,
+                                                            ),
+                                                        }}
+                                                      >
+                                                        {getInitials(
+                                                          m.name ?? "",
+                                                        )}
+                                                      </span>
+                                                      <span className="truncate flex-1">
+                                                        {m.name}
+                                                      </span>
+                                                      {isSelected && (
+                                                        <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-primary" />
+                                                      )}
+                                                    </button>
+                                                  );
+                                                })
+                                              )}
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
+                                      );
+                                    })()}
 
                                     <div className="flex items-center gap-1 border-l border-white/5 pl-2 ml-1">
                                       <button
