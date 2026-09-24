@@ -11,19 +11,28 @@ import {
   X,
   CheckCircle2,
   ClipboardList,
-  FolderOpen,
   ExternalLink,
   UserPlus,
   ChevronRight,
+  Save,
+  List,
+  LayoutGrid,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import { Calendar as DatePickerCalendar } from "@/shared/ui/calendar";
 import { useAppSelector } from "@/hooks";
 import { tasksApi } from "@/features/tasks/api/tasksApi";
 import type { TaskResponse } from "@/features/tasks/types/types";
 import type { Member } from "@/features/cms/types/types";
 import { stringToHslColor } from "@/features/workload/utils";
+import { useBeforeUnload } from "@/features/workload/hooks/useBeforeUnload";
+import {
+  DevBoardDailyTeamBoard,
+  getInitials,
+} from "@/features/workload/components/DevBoardDailyTeamBoard";
 
 interface DevBoardDailyViewProps {
   boardId: string | number;
@@ -39,16 +48,6 @@ interface Task {
   assigneeIds?: string[];
 }
 
-const getInitials = (name: string) =>
-  name
-    .trim()
-    .split(/\s+/)
-    .map((n) => n[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
 interface Project {
   id: string;
   name: string;
@@ -56,6 +55,46 @@ interface Project {
   tasks: Task[];
   expanded: boolean;
 }
+
+export type DailyTask = Task;
+export type DailyProject = Project;
+
+type DateMap = Record<string, Project[]>;
+
+/* ─── localStorage persistence (no API yet) ─── */
+const getStorageKey = (boardId: string | number) =>
+  `devboard-daily:${boardId}`;
+
+const loadSavedDateMap = (boardId: string | number): DateMap => {
+  try {
+    const raw = localStorage.getItem(getStorageKey(boardId));
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.dateMap && typeof parsed.dateMap === "object"
+      ? parsed.dateMap
+      : {};
+  } catch {
+    return {};
+  }
+};
+
+// Compare plans ignoring UI-only state (expanded/collapsed projects)
+const serializeDateMap = (map: DateMap) =>
+  JSON.stringify(map, (key, value) =>
+    key === "expanded" ? undefined : value,
+  );
+
+const toDayKey = (dateStr: string) => format(new Date(dateStr), "yyyy-MM-dd");
+
+// Today's entry if saved, otherwise the most recent date
+const pickInitialDate = (map: DateMap): string | null => {
+  const dates = Object.keys(map);
+  const todayKey = format(new Date(), "yyyy-MM-dd");
+  return (
+    dates.find((d) => toDayKey(d) === todayKey) ??
+    dates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ??
+    null
+  );
+};
 
 /* ─── tiny CSS-in-JS for keyframe animation ─── */
 const collapseStyle = `
@@ -70,10 +109,17 @@ export function DevBoardDailyView({
   boardId,
   members = [],
 }: DevBoardDailyViewProps) {
-  const [activeDateStr, setActiveDateStr] = useState<string | null>(null);
-  const [dateMap, setDateMap] = useState<Record<string, Project[]>>({});
+  const [savedDateMap, setSavedDateMap] = useState<DateMap>(() =>
+    loadSavedDateMap(boardId),
+  );
+  const [dateMap, setDateMap] = useState<DateMap>(savedDateMap);
+  const [activeDateStr, setActiveDateStr] = useState<string | null>(() =>
+    pickInitialDate(savedDateMap),
+  );
+  const [viewMode, setViewMode] = useState<"plan" | "board">(() =>
+    Object.keys(savedDateMap).length > 0 ? "board" : "plan",
+  );
   const [isAddingDate, setIsAddingDate] = useState(false);
-  const [newDateValue, setNewDateValue] = useState("");
   const [filter, setFilter] = useState<"All" | "Pending" | "Completed">("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
@@ -382,6 +428,48 @@ export function DevBoardDailyView({
     "Completed",
   ];
 
+  const hasUnsavedChanges =
+    serializeDateMap(dateMap) !== serializeDateMap(savedDateMap);
+
+  useBeforeUnload(hasUnsavedChanges, {
+    message: "Your daily plan has unsaved changes.",
+  });
+
+  const savedProjects =
+    activeDateStr && savedDateMap[activeDateStr]
+      ? savedDateMap[activeDateStr]
+      : [];
+
+  const boardColors = Object.fromEntries(
+    boards.map((b) => [String(b.id), b.icon_color]),
+  );
+
+  // Open a date for planning, reusing an existing entry for the same day
+  const openDate = (date: Date) => {
+    const dayKey = format(date, "yyyy-MM-dd");
+    const existing = Object.keys(dateMap).find((d) => toDayKey(d) === dayKey);
+    const dateStr = existing ?? date.toISOString();
+    if (!existing) setDateMap((prev) => ({ ...prev, [dateStr]: [] }));
+    setActiveDateStr(dateStr);
+    setViewMode("plan");
+  };
+
+  const handleSave = () => {
+    try {
+      localStorage.setItem(
+        getStorageKey(boardId),
+        JSON.stringify({ dateMap, savedAt: new Date().toISOString() }),
+      );
+      setSavedDateMap(dateMap);
+      setViewMode("board");
+      toast.success("Daily plan saved");
+    } catch {
+      toast.error("Could not save", {
+        description: "Browser storage is unavailable or full.",
+      });
+    }
+  };
+
   return (
     <>
       <style>{collapseStyle}</style>
@@ -454,14 +542,105 @@ export function DevBoardDailyView({
             </div>
 
             {/* Right: action buttons */}
-            <div className="flex items-center gap-2">
-              {!activeDateStr && !isAddingDate && (
-                <button
-                  onClick={() => {
-                    const todayStr = new Date().toISOString();
-                    setDateMap((prev) => ({ ...prev, [todayStr]: [] }));
-                    setActiveDateStr(todayStr);
+            <div className="flex items-center gap-2 flex-wrap">
+              {activeDateStr && (
+                <div
+                  style={{
+                    display: "flex",
+                    background: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "12px",
+                    padding: "3px",
+                    gap: "2px",
+                    height: "40px",
                   }}
+                >
+                  {(
+                    [
+                      { mode: "plan", label: "Plan", Icon: List },
+                      { mode: "board", label: "Team Board", Icon: LayoutGrid },
+                    ] as const
+                  ).map(({ mode, label, Icon }) => (
+                    <button
+                      key={mode}
+                      onClick={() => setViewMode(mode)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "0 14px",
+                        borderRadius: "9px",
+                        border: "none",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        fontSize: "12px",
+                        whiteSpace: "nowrap",
+                        transition: "background 150ms, color 150ms",
+                        background:
+                          viewMode === mode
+                            ? "hsl(var(--primary))"
+                            : "transparent",
+                        color:
+                          viewMode === mode
+                            ? "hsl(var(--background))"
+                            : "hsl(var(--muted-foreground))",
+                      }}
+                    >
+                      <Icon style={{ width: 13, height: 13 }} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {activeDateStr && (
+                <button
+                  onClick={handleSave}
+                  disabled={!hasUnsavedChanges}
+                  title={
+                    hasUnsavedChanges
+                      ? "Save to this browser"
+                      : "All changes saved"
+                  }
+                  style={{
+                    position: "relative",
+                    background: hasUnsavedChanges
+                      ? "hsl(var(--primary))"
+                      : "hsl(var(--card))",
+                    color: hasUnsavedChanges
+                      ? "hsl(var(--background))"
+                      : "hsl(var(--muted-foreground))",
+                    border: hasUnsavedChanges
+                      ? "none"
+                      : "1px solid hsl(var(--border))",
+                    borderRadius: "12px",
+                    height: "40px",
+                    padding: "0 18px",
+                    fontWeight: 600,
+                    fontSize: "13px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: hasUnsavedChanges ? "pointer" : "default",
+                    boxShadow: hasUnsavedChanges
+                      ? "0 2px 12px hsl(var(--primary) / 0.25)"
+                      : "none",
+                  }}
+                >
+                  <Save style={{ width: 15, height: 15 }} />
+                  {hasUnsavedChanges ? "Save" : "Saved"}
+                  {hasUnsavedChanges && (
+                    <span
+                      className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-background"
+                      aria-label="Unsaved changes"
+                    />
+                  )}
+                </button>
+              )}
+
+              {!activeDateStr && (
+                <button
+                  onClick={() => openDate(new Date())}
                   style={{
                     background: "hsl(var(--primary))",
                     color: "hsl(var(--background))",
@@ -495,104 +674,85 @@ export function DevBoardDailyView({
                 </button>
               )}
 
-              {isAddingDate ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="date"
-                    value={newDateValue}
-                    onChange={(e) => setNewDateValue(e.target.value)}
-                    className="h-[40px] w-[150px] [color-scheme:dark]"
+              <Popover open={isAddingDate} onOpenChange={setIsAddingDate}>
+                <PopoverTrigger asChild>
+                  <button
                     style={{
                       background: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "12px",
-                      color: "hsl(var(--foreground))",
-                      fontSize: "13px",
-                    }}
-                  />
-                  <button
-                    onClick={() => {
-                      if (newDateValue) {
-                        const [y, m, d] = newDateValue.split("-");
-                        const newDateObj = new Date(
-                          Number(y),
-                          Number(m) - 1,
-                          Number(d),
-                        );
-                        const isoStr = newDateObj.toISOString();
-                        if (!dateMap[isoStr])
-                          setDateMap((prev) => ({ ...prev, [isoStr]: [] }));
-                        setActiveDateStr(isoStr);
-                        setIsAddingDate(false);
-                        setNewDateValue("");
-                      }
-                    }}
-                    style={{
-                      background: "hsl(var(--primary))",
-                      color: "hsl(var(--background))",
-                      border: "none",
-                      borderRadius: "12px",
+                      color: "hsl(var(--muted-foreground))",
                       height: "40px",
                       padding: "0 16px",
-                      fontWeight: 600,
+                      fontWeight: 500,
                       fontSize: "13px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Add
-                  </button>
-                  <button
-                    onClick={() => setIsAddingDate(false)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "hsl(var(--muted-foreground))",
-                      cursor: "pointer",
-                      padding: "0 4px",
-                      display: "flex",
+                      display: "inline-flex",
                       alignItems: "center",
+                      gap: "6px",
+                      cursor: "pointer",
+                      transition:
+                        "background 150ms, color 150ms, transform 150ms, box-shadow 150ms",
+                    }}
+                    onMouseEnter={(e) => {
+                      const el = e.currentTarget as HTMLButtonElement;
+                      el.style.background = "hsl(var(--accent))";
+                      el.style.color = "hsl(var(--foreground))";
+                      el.style.transform = "translateY(-1px)";
+                      el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
+                    }}
+                    onMouseLeave={(e) => {
+                      const el = e.currentTarget as HTMLButtonElement;
+                      el.style.background = "hsl(var(--card))";
+                      el.style.color = "hsl(var(--muted-foreground))";
+                      el.style.transform = "translateY(0)";
+                      el.style.boxShadow = "none";
                     }}
                   >
-                    <X style={{ width: 16, height: 16 }} />
+                    <Plus style={{ width: 15, height: 15 }} /> New Date
                   </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setIsAddingDate(true)}
-                  style={{
-                    background: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "12px",
-                    color: "hsl(var(--muted-foreground))",
-                    height: "40px",
-                    padding: "0 16px",
-                    fontWeight: 500,
-                    fontSize: "13px",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    cursor: "pointer",
-                    transition:
-                      "background 150ms, color 150ms, transform 150ms, box-shadow 150ms",
-                  }}
-                  onMouseEnter={(e) => {
-                    const el = e.currentTarget as HTMLButtonElement;
-                    el.style.background = "hsl(var(--accent))";
-                    el.style.color = "hsl(var(--foreground))";
-                    el.style.transform = "translateY(-1px)";
-                    el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
-                  }}
-                  onMouseLeave={(e) => {
-                    const el = e.currentTarget as HTMLButtonElement;
-                    el.style.background = "hsl(var(--card))";
-                    el.style.color = "hsl(var(--muted-foreground))";
-                    el.style.transform = "translateY(0)";
-                    el.style.boxShadow = "none";
-                  }}
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="w-auto p-0 bg-card border border-border rounded-xl shadow-lg"
                 >
-                  <Plus style={{ width: 15, height: 15 }} /> New Date
-                </button>
-              )}
+                  <DatePickerCalendar
+                    mode="single"
+                    selected={
+                      activeDateStr ? new Date(activeDateStr) : undefined
+                    }
+                    defaultMonth={
+                      activeDateStr ? new Date(activeDateStr) : new Date()
+                    }
+                    onSelect={(date) => {
+                      if (!date) return;
+                      openDate(date);
+                      setIsAddingDate(false);
+                    }}
+                    modifiers={{
+                      hasPlan: Object.keys(dateMap).map((d) => new Date(d)),
+                    }}
+                    modifiersClassNames={{
+                      hasPlan: "font-bold text-primary",
+                    }}
+                  />
+                  <div className="flex items-center justify-between gap-3 border-t border-border px-3 py-2">
+                    <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <span className="font-bold text-primary">12</span>
+                      has a plan
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openDate(new Date());
+                        setIsAddingDate(false);
+                      }}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >
+                      Today
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -614,6 +774,8 @@ export function DevBoardDailyView({
               <Search
                 style={{
                   position: "absolute",
+                  zIndex: 1,
+                  pointerEvents: "none",
                   left: "12px",
                   top: "50%",
                   transform: "translateY(-50%)",
@@ -679,8 +841,16 @@ export function DevBoardDailyView({
             </div>
           </div>
 
-          {/* ── DATE CARD ── */}
-          {activeDateStr ? (
+          {/* ── TEAM BOARD (saved data) / DATE CARD ── */}
+          {activeDateStr && viewMode === "board" ? (
+            <DevBoardDailyTeamBoard
+              projects={savedProjects}
+              members={members}
+              boardColors={boardColors}
+              searchQuery={searchQuery}
+              filter={filter}
+            />
+          ) : activeDateStr ? (
             <div
               style={{
                 background: "hsl(var(--card))",
@@ -920,14 +1090,17 @@ export function DevBoardDailyView({
                             >
                               <ChevronDown style={{ width: 15, height: 15 }} />
                             </span>
-                            <FolderOpen
+                            <span
+                              className="h-5 w-5 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0"
                               style={{
-                                width: 14,
-                                height: 14,
-                                color: "hsl(var(--primary))",
-                                flexShrink: 0,
+                                backgroundColor:
+                                  (project.boardId &&
+                                    boardColors[project.boardId]) ||
+                                  "hsl(221, 83%, 53%)",
                               }}
-                            />
+                            >
+                              {project.name.charAt(0).toUpperCase()}
+                            </span>
                             <span style={{ fontWeight: 600, fontSize: "13px" }}>
                               {project.name}
                             </span>
@@ -1498,6 +1671,8 @@ export function DevBoardDailyView({
                                               <Search
                                                 style={{
                                                   position: "absolute",
+                                                  zIndex: 1,
+                                                  pointerEvents: "none",
                                                   left: 10,
                                                   top: "50%",
                                                   transform: "translateY(-50%)",
@@ -1777,6 +1952,8 @@ export function DevBoardDailyView({
                                     <Search
                                       style={{
                                         position: "absolute",
+                                        zIndex: 1,
+                                        pointerEvents: "none",
                                         left: 10,
                                         top: "50%",
                                         transform: "translateY(-50%)",
@@ -2051,6 +2228,8 @@ export function DevBoardDailyView({
                             <Search
                               style={{
                                 position: "absolute",
+                                zIndex: 1,
+                                pointerEvents: "none",
                                 left: 10,
                                 top: "50%",
                                 transform: "translateY(-50%)",
@@ -2098,7 +2277,7 @@ export function DevBoardDailyView({
                                     style={{
                                       background:
                                         board.icon_color ||
-                                        "hsl(var(--primary))",
+                                        "hsl(221, 83%, 53%)",
                                     }}
                                   >
                                     {board.name.charAt(0).toUpperCase()}
@@ -2229,11 +2408,7 @@ export function DevBoardDailyView({
               >
                 No entries yet.{" "}
                 <button
-                  onClick={() => {
-                    const todayStr = new Date().toISOString();
-                    setDateMap((prev) => ({ ...prev, [todayStr]: [] }));
-                    setActiveDateStr(todayStr);
-                  }}
+                  onClick={() => openDate(new Date())}
                   style={{
                     background: "none",
                     border: "none",
