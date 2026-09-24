@@ -16,6 +16,7 @@ import {
   Save,
   List,
   LayoutGrid,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/shared/ui/input";
@@ -26,6 +27,8 @@ import { Checkbox } from "@/shared/ui/checkbox";
 import { useAppSelector } from "@/hooks";
 import { tasksApi } from "@/features/tasks/api/tasksApi";
 import type { TaskResponse } from "@/features/tasks/types/types";
+import { groupsApi } from "@/features/groups/api/groupsApi";
+import type { Group } from "@/features/groups/types/types";
 import type { Member } from "@/features/cms/types/types";
 import { stringToHslColor } from "@/features/workload/utils";
 import { useBeforeUnload } from "@/features/workload/hooks/useBeforeUnload";
@@ -52,6 +55,8 @@ interface Project {
   id: string;
   name: string;
   boardId?: string;
+  groupId?: string;
+  color?: string;
   tasks: Task[];
   expanded: boolean;
 }
@@ -135,8 +140,17 @@ export function DevBoardDailyView({
   const [newProjectBoardId, setNewProjectBoardId] = useState<string | null>(
     null,
   );
+  const [newProjectGroup, setNewProjectGroup] = useState<{
+    id: string;
+    color?: string;
+  } | null>(null);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
+  // Groups of the current project (board) for the "Add project" dropdown
+  const [groupOptions, setGroupOptions] = useState<{
+    loading: boolean;
+    groups: Group[];
+  } | null>(null);
   const [assigningTaskId, setAssigningTaskId] = useState<string | null>(null);
   const [assignSearchQuery, setAssignSearchQuery] = useState("");
   const [isTaskDropdownOpen, setIsTaskDropdownOpen] = useState(false);
@@ -153,24 +167,49 @@ export function DevBoardDailyView({
   const projects =
     activeDateStr && dateMap[activeDateStr] ? dateMap[activeDateStr] : [];
 
-  // Organization projects (boards) for the "Add project" dropdown,
-  // excluding ones already added to the active date
+  // The "Add project" dropdown lists only the current project's (board's)
+  // groups; groups already added to the active date are hidden
   const boards = useAppSelector((state) => state.boards.boards);
   const organizationId = useAppSelector(
     (state) => state.auth.user?.organization_id,
   );
-  const addedProjectNames = new Set(
-    projects.map((p) => p.name.toLowerCase()),
+  const currentBoard = boards.find((b) => String(b.id) === String(boardId));
+  const addedGroupIds = new Set(
+    projects.map((p) => p.groupId).filter(Boolean),
   );
-  const projectOptions = boards.filter(
-    (b) =>
-      !addedProjectNames.has(b.name.toLowerCase()) &&
-      b.name.toLowerCase().includes(projectSearchQuery.trim().toLowerCase()),
+  const availableGroups = (groupOptions?.groups ?? []).filter(
+    (g) => !addedGroupIds.has(String(g.id)),
   );
+  const visibleGroups = availableGroups.filter((g) =>
+    (g.name || "")
+      .toLowerCase()
+      .includes(projectSearchQuery.trim().toLowerCase()),
+  );
+
+  const loadGroupOptions = async () => {
+    if (groupOptions) return;
+    setGroupOptions({ loading: true, groups: [] });
+    try {
+      const groups = await groupsApi.getGroupsByBoard(Number(boardId));
+      setGroupOptions({
+        loading: false,
+        groups: [...groups].sort((a, b) =>
+          (a.name || "").localeCompare(b.name || "", undefined, {
+            sensitivity: "base",
+          }),
+        ),
+      });
+    } catch {
+      toast.error("Failed to load groups");
+      // Clear so opening the dropdown again retries
+      setGroupOptions(null);
+    }
+  };
 
   const startAddingProject = () => {
     setIsAddingProject(true);
     setIsProjectDropdownOpen(true);
+    loadGroupOptions();
   };
 
   const cancelAddingProject = () => {
@@ -178,12 +217,14 @@ export function DevBoardDailyView({
     setIsProjectDropdownOpen(false);
     setNewProjectName("");
     setNewProjectBoardId(null);
+    setNewProjectGroup(null);
     setProjectSearchQuery("");
   };
 
-  const selectProjectOption = (board: { id: string; name: string }) => {
-    setNewProjectName(board.name);
-    setNewProjectBoardId(String(board.id));
+  const selectGroupOption = (group: Group) => {
+    setNewProjectName(group.name);
+    setNewProjectBoardId(String(boardId));
+    setNewProjectGroup({ id: String(group.id), color: group.color });
     setProjectSearchQuery("");
     setIsProjectDropdownOpen(false);
   };
@@ -226,6 +267,7 @@ export function DevBoardDailyView({
       .filter(
         (t) =>
           !t.parent_id &&
+          (!project.groupId || String(t.group_id) === project.groupId) &&
           !addedTitles.has(t.name.toLowerCase()) &&
           t.name.toLowerCase().includes(query),
       );
@@ -299,6 +341,8 @@ export function DevBoardDailyView({
         id: `p${Date.now()}`,
         name: newProjectName.trim(),
         boardId: newProjectBoardId ?? undefined,
+        groupId: newProjectGroup?.id,
+        color: newProjectGroup?.color,
         tasks: [],
         expanded: true,
       },
@@ -1094,6 +1138,7 @@ export function DevBoardDailyView({
                               className="h-5 w-5 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0"
                               style={{
                                 backgroundColor:
+                                  project.color ||
                                   (project.boardId &&
                                     boardColors[project.boardId]) ||
                                   "hsl(221, 83%, 53%)",
@@ -1104,6 +1149,17 @@ export function DevBoardDailyView({
                             <span style={{ fontWeight: 600, fontSize: "13px" }}>
                               {project.name}
                             </span>
+                            {project.groupId &&
+                              project.boardId &&
+                              project.boardId !== String(boardId) && (
+                              <span className="text-[11px] text-muted-foreground truncate max-w-[160px]">
+                                {
+                                  boards.find(
+                                    (b) => String(b.id) === project.boardId,
+                                  )?.name
+                                }
+                              </span>
+                            )}
                             <span
                               style={{
                                 background: "hsl(var(--primary) / 0.12)",
@@ -2159,16 +2215,18 @@ export function DevBoardDailyView({
                         open={isProjectDropdownOpen}
                         onOpenChange={(open) => {
                           setIsProjectDropdownOpen(open);
-                          if (!open) setProjectSearchQuery("");
+                          if (open) loadGroupOptions();
+                          else setProjectSearchQuery("");
                         }}
                       >
                         <PopoverTrigger asChild>
                           <button
                             type="button"
+                            title={newProjectName || undefined}
                             className="focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#34d399]"
                             style={{
                               height: "36px",
-                              width: "220px",
+                              width: "240px",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "space-between",
@@ -2184,14 +2242,19 @@ export function DevBoardDailyView({
                               cursor: "pointer",
                             }}
                           >
-                            <span
-                              style={{
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {newProjectName || "Select project..."}
+                            <span className="flex items-center gap-2 min-w-0">
+                              {newProjectGroup && (
+                                <span
+                                  className="h-2 w-2 rounded-full shrink-0"
+                                  style={{
+                                    backgroundColor:
+                                      newProjectGroup.color || "#3b82f6",
+                                  }}
+                                />
+                              )}
+                              <span className="truncate">
+                                {newProjectName || "Select project..."}
+                              </span>
                             </span>
                             <ChevronDown
                               style={{ width: 14, height: 14, flexShrink: 0 }}
@@ -2200,9 +2263,26 @@ export function DevBoardDailyView({
                         </PopoverTrigger>
                         <PopoverContent
                           align="start"
-                          className="w-64 p-2 bg-card border border-border shadow-lg rounded-lg"
+                          className="w-72 p-2 bg-card border border-border shadow-lg rounded-lg"
                           onWheel={(e) => e.stopPropagation()}
                         >
+                          {currentBoard && (
+                            <div className="flex items-center gap-2 px-1 pb-2 mb-2 border-b border-border">
+                              <span
+                                className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                                style={{
+                                  background:
+                                    currentBoard.icon_color ||
+                                    "hsl(221, 83%, 53%)",
+                                }}
+                              >
+                                {currentBoard.name.charAt(0).toUpperCase()}
+                              </span>
+                              <span className="text-sm font-semibold text-foreground truncate">
+                                {currentBoard.name}
+                              </span>
+                            </div>
+                          )}
                           <div style={{ position: "relative" }}>
                             <Search
                               style={{
@@ -2224,48 +2304,60 @@ export function DevBoardDailyView({
                                 setProjectSearchQuery(e.target.value)
                               }
                               onKeyDown={(e) => {
-                                if (e.key === "Enter" && projectOptions[0]) {
-                                  selectProjectOption(projectOptions[0]);
+                                if (e.key === "Enter" && visibleGroups[0]) {
+                                  selectGroupOption(visibleGroups[0]);
                                 }
                               }}
-                              placeholder="Search projects..."
+                              placeholder="Search groups..."
                               className="h-8 pl-8 text-sm focus-visible:ring-1 focus-visible:ring-[#34d399] focus-visible:ring-offset-0"
                             />
                           </div>
-                          <div
-                            className="mt-2 max-h-60 overflow-y-auto space-y-0.5"
-                          >
-                            {projectOptions.length === 0 ? (
+                          <div className="mt-2 max-h-72 overflow-y-auto space-y-0.5 pr-0.5">
+                            {!groupOptions || groupOptions.loading ? (
+                              <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Loading groups...
+                              </div>
+                            ) : groupOptions.groups.length === 0 ? (
                               <div className="py-4 text-center text-sm text-muted-foreground">
-                                No projects found
+                                No groups in this project
+                              </div>
+                            ) : visibleGroups.length === 0 ? (
+                              <div className="py-4 text-center text-sm text-muted-foreground">
+                                {availableGroups.length === 0
+                                  ? "All groups already added"
+                                  : "No matching groups"}
                               </div>
                             ) : (
-                              projectOptions.map((board) => (
-                                <button
-                                  key={board.id}
-                                  type="button"
-                                  onClick={() => selectProjectOption(board)}
-                                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors hover:bg-secondary ${
-                                    board.name === newProjectName
-                                      ? "bg-secondary text-foreground"
-                                      : "text-foreground"
-                                  }`}
-                                >
-                                  <span
-                                    className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white"
-                                    style={{
-                                      background:
-                                        board.icon_color ||
-                                        "hsl(221, 83%, 53%)",
-                                    }}
+                              visibleGroups.map((group) => {
+                                const isSelected =
+                                  newProjectGroup?.id === String(group.id);
+                                return (
+                                  <button
+                                    key={group.id}
+                                    type="button"
+                                    onClick={() => selectGroupOption(group)}
+                                    title={group.name}
+                                    className={`w-full h-8 flex items-center gap-2 px-2 rounded-md text-sm text-left text-foreground transition-colors hover:bg-secondary ${
+                                      isSelected ? "bg-secondary" : ""
+                                    }`}
                                   >
-                                    {board.name.charAt(0).toUpperCase()}
-                                  </span>
-                                  <span className="truncate">
-                                    {board.name}
-                                  </span>
-                                </button>
-                              ))
+                                    <span
+                                      className="h-2 w-2 rounded-full shrink-0"
+                                      style={{
+                                        backgroundColor:
+                                          group.color || "#3b82f6",
+                                      }}
+                                    />
+                                    <span className="truncate flex-1">
+                                      {group.name}
+                                    </span>
+                                    {isSelected && (
+                                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                    )}
+                                  </button>
+                                );
+                              })
                             )}
                           </div>
                         </PopoverContent>

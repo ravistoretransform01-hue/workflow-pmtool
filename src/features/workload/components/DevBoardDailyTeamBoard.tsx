@@ -134,6 +134,7 @@ export function DevBoardDailyTeamBoard({
                   const visibleAssignees = assigneeNames.slice(0, 3);
                   const extraAssignees = assigneeNames.length - 3;
                   const projectColor =
+                    project.color ||
                     (project.boardId && boardColors[project.boardId]) ||
                     "hsl(var(--primary))";
                   const isCompleted = task.status === "completed";
