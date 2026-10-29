@@ -350,16 +350,20 @@ export default function BoardDashboardPage() {
         };
       });
 
-      const transformedMembers = cmsMembers.map((member: any) => ({
-        id: member.user_id,
+            const transformedMembers = cmsMembers.map((member: any) => ({
+        id: member.user_id ? String(member.user_id) : (member.invitation_id ? `invite_${member.invitation_id}` : member.email),
+        user_id: member.user_id,
+        invitation_id: member.invitation_id,
         name: member.name,
         email: member.email || `${member.username || "user"}@example.com`,
         role: member.board_role_label || "Project Member",
         role_id: member.board_role_id
           ? String(member.board_role_id)
           : undefined,
-        avatarColor: `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`, // Generate color from user_id
-        group_ids: member.group_ids || [],
+        avatarColor: member.user_id
+          ? `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`
+          : `hsl(${Math.abs((member.email || "user").split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) * 137) % 360}, 70%, 50%)`,
+        group_ids: member.group_ids ? member.group_ids.map(String) : [],
         invitation_status: member.invitation_status,
         expire_date: member.expire_date,
         board_role_active: member.board_role_active,
@@ -377,6 +381,8 @@ export default function BoardDashboardPage() {
           const currentUser = JSON.parse(userData);
           transformedMembers.unshift({
             id: String(userId),
+            user_id: userId,
+            invitation_id: undefined,
             name:
               currentUser.display_name || currentUser.name || "Current User",
             email: currentUser.email || "current@user.com",
@@ -463,14 +469,18 @@ export default function BoardDashboardPage() {
 
       // Transform CMS members to dashboard member format
       const transformedMembers = cmsMembers.map((member: any) => ({
-        id: member.user_id,
+        id: member.user_id ? String(member.user_id) : (member.invitation_id ? `invite_${member.invitation_id}` : member.email),
+        user_id: member.user_id,
+        invitation_id: member.invitation_id,
         name: member.name,
         email: member.email || `${member.username || "user"}@example.com`,
         role: member.board_role_label || "Project Member",
         role_id: member.board_role_id
           ? String(member.board_role_id)
           : undefined,
-        avatarColor: `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`, // Generate color from user_id
+        avatarColor: member.user_id
+          ? `hsl(${(parseInt(member.user_id) * 137) % 360}, 70%, 50%)`
+          : `hsl(${Math.abs((member.email || "user").split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) * 137) % 360}, 70%, 50%)`,
         group_ids: member.group_ids ? member.group_ids.map(String) : [],
         invitation_status: member.invitation_status,
         expire_date: member.expire_date,
@@ -489,6 +499,8 @@ export default function BoardDashboardPage() {
           const currentUser = JSON.parse(userData);
           transformedMembers.unshift({
             id: String(userId),
+            user_id: userId,
+            invitation_id: undefined,
             name:
               currentUser.display_name || currentUser.name || "Current User",
             email: currentUser.email || "current@user.com",
@@ -579,17 +591,48 @@ export default function BoardDashboardPage() {
     }
   };
 
-  const handleRemoveMember = async (memberUserId: string) => {
-    setRemovingUserId(memberUserId);
+    const handleRemoveMember = async (member: any) => {
+    const memberKey = typeof member === "object" && member !== null ? member.id : member;
+    setRemovingUserId(memberKey);
     try {
       const organizationId = getOrganizationId() || 2;
+      const boardIdNum = parseInt(boardId!);
 
-      const response = await boardsApi.removeMembers({
-        board_id: parseInt(boardId!),
-        user_ids: [parseInt(memberUserId)],
-        role_id: 2, // Default role_id (required by API)
-        organization_id: organizationId,
-      });
+      let payload: {
+        board_id: number;
+        user_ids: number[];
+        role_id: number;
+        organization_id: number;
+        invitation_ids?: number[];
+      };
+
+      if (typeof member === "object" && member !== null) {
+        if (member.invitation_id && !member.user_id) {
+          payload = {
+            board_id: boardIdNum,
+            user_ids: [],
+            invitation_ids: [Number(member.invitation_id)],
+            role_id: 2,
+            organization_id: organizationId,
+          };
+        } else {
+          payload = {
+            board_id: boardIdNum,
+            user_ids: [parseInt(member.user_id || member.id)],
+            role_id: 2,
+            organization_id: organizationId,
+          };
+        }
+      } else {
+        payload = {
+          board_id: boardIdNum,
+          user_ids: [parseInt(member)],
+          role_id: 2,
+          organization_id: organizationId,
+        };
+      }
+
+      const response = await boardsApi.removeMembers(payload);
 
       if (response.status === "success") {
         toast({
@@ -709,25 +752,51 @@ export default function BoardDashboardPage() {
     }
   };
 
-  const handleResendInvitation = async (userId: string) => {
+    const handleResendInvitation = async (target: any) => {
     try {
       if (!boardId) return;
 
-      await boardsApi.resendInvitation({
+      const organizationId = getOrganizationId() || 27;
+
+      const payload: {
+        board_id: number;
+        organization_id?: number;
+        user_id?: number;
+        email?: string;
+        invitation_id?: number;
+      } = {
         board_id: Number(boardId),
-        user_id: Number(userId),
-      });
+        organization_id: Number(organizationId),
+      };
+
+      if (typeof target === "object" && target !== null) {
+        if (target.email) payload.email = target.email;
+        if (target.invitation_id) payload.invitation_id = Number(target.invitation_id);
+        if (target.user_id) payload.user_id = Number(target.user_id);
+        else if (target.id && !isNaN(Number(target.id))) payload.user_id = Number(target.id);
+      } else if (target) {
+        if (isNaN(Number(target))) {
+          payload.email = String(target);
+        } else {
+          payload.user_id = Number(target);
+        }
+      }
+
+      await boardsApi.resendInvitation(payload);
       toast({
         title: "Success",
         description: "Invitation resent successfully",
       });
       // Refresh members
       loadMembers(Number(boardId));
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("Failed to resend invitation:", error);
       toast({
         title: "Error",
-        description: "Failed to resend invitation",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to resend invitation",
         variant: "destructive",
       });
     }
@@ -1074,7 +1143,7 @@ export default function BoardDashboardPage() {
                           member.board_role_active ? "Accepted" : "Pending"
                         }
                         expiry={member.expire_date}
-                        onResend={() => handleResendInvitation(member.id)}
+                        onResend={() => handleResendInvitation(member)}
                       />
 
                       {/* Group Selector Column */}
@@ -1226,7 +1295,7 @@ export default function BoardDashboardPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleRemoveMember(member.id)}
+                          onClick={() => handleRemoveMember(member)}
                           disabled={
                             isCurrentUserClient || removingUserId === member.id
                           }

@@ -257,11 +257,17 @@ export const boardsApi = {
     user_ids: number[];
     role_id: number;
     organization_id: number;
+    invitation_ids?: number[];
   }): Promise<{
     code: number;
     status: string;
     message: string;
-    data?: any;
+    data: {
+      board_id: number;
+      removed: (number | string)[];
+      not_found: number[];
+      failed: number[];
+    };
   }> => {
     try {
       const response = await api.delete("/boards/assign-members", {
@@ -279,7 +285,11 @@ export const boardsApi = {
    */
   resendInvitation: async (payload: {
     board_id: number | string;
-    user_id: number | string;
+    organization_id?: number | string;
+    user_id?: number | string;
+    email?: string;
+    invitation_id?: number | string;
+    role_id?: number | string;
   }): Promise<any> => {
     try {
       const response = await api.post("/invites/resend", payload);
